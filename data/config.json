@@ -1,7 +1,8 @@
 {
   "about": "Настройки формы Crosspect («Слово веры», Познань). Описание полей — в README.md.",
-  "version": "2026-11-06.1",
+  "version": "2026-11-06.2",
   "bibleBase": "https://raw.githubusercontent.com/Beblia/Holy-Bible-XML-Format/master/",
+  "scriptureFooter": "* {name}",
   "groups": [
     [
       "ru",
@@ -27,6 +28,7 @@
       "abbr": "СП",
       "label": "Синодальный",
       "tr": "Синодальный",
+      "slide": "Синодальный перевод",
       "file": "RussianSynodalBible.xml",
       "books": "ru",
       "alias": "синод rst"
@@ -37,6 +39,7 @@
       "abbr": "НРП",
       "label": "Новый русский перевод",
       "tr": "Новый русский перевод",
+      "slide": "Новый русский перевод",
       "file": "RussianNRTBible.xml",
       "books": "ru",
       "alias": "biblica"
@@ -47,6 +50,7 @@
       "abbr": "BTI",
       "label": "Под ред. Кулакова (Заокский)",
       "tr": "Перевод под ред. Кулакова",
+      "slide": "Перевод под ред. М. П. Кулакова",
       "file": "RussianBTI2015Bible.xml",
       "books": "ru",
       "alias": "кулаков заокский"
@@ -57,6 +61,7 @@
       "abbr": "СРП",
       "label": "Современный русский перевод (РБО)",
       "tr": "Современный русский перевод (РБО)",
+      "slide": "Современный русский перевод (РБО)",
       "file": "Russian2012Bible.xml",
       "books": "ru",
       "note": "Новый Завет",
@@ -68,6 +73,7 @@
       "abbr": "Десн",
       "label": "Переводы Десницкого",
       "tr": "Перевод А. Десницкого",
+      "slide": "Перевод А. Десницкого",
       "url": "bibles/RussianDesnitskyBible.xml",
       "books": "ru",
       "note": "отдельные книги",
@@ -79,6 +85,7 @@
       "abbr": "RSP",
       "label": "Современный перевод (Библ. лига)",
       "tr": "Современный перевод",
+      "slide": "Современный перевод",
       "file": "RussianRSPBible.xml",
       "books": "ru",
       "alias": "библейская лига"
@@ -89,19 +96,11 @@
       "abbr": "Касс",
       "label": "Под ред. еп. Кассиана",
       "tr": "Перевод под ред. еп. Кассиана",
+      "slide": "Перевод под ред. еп. Кассиана",
       "file": "RussianCASBible.xml",
       "books": "ru",
       "note": "Новый Завет",
       "alias": "кассиан"
-    },
-    {
-      "id": "own",
-      "group": "ru",
-      "label": "Свой перевод",
-      "src": "ru",
-      "books": "ru",
-      "note": "текст вставляется вручную",
-      "alias": "другой свой"
     },
     {
       "id": "uk",
@@ -109,6 +108,7 @@
       "abbr": "УБО",
       "label": "Огієнко",
       "tr": "Огієнко",
+      "slide": "Переклад І. Огієнка",
       "file": "UkrainianBible.xml",
       "books": "uk",
       "alias": "огиенко"
@@ -119,6 +119,7 @@
       "abbr": "УТТ",
       "label": "Турконяк (2011)",
       "tr": "Переклад Р. Турконяка",
+      "slide": "Переклад Р. Турконяка",
       "file": "Ukrainian2011Bible.xml",
       "books": "uk",
       "alias": "турконяк"
@@ -129,6 +130,7 @@
       "abbr": "Хом",
       "label": "Хоменко",
       "tr": "Переклад І. Хоменка",
+      "slide": "Переклад І. Хоменка",
       "file": "UkrainianHOMBible.xml",
       "books": "uk",
       "alias": "хоменко"
@@ -139,6 +141,7 @@
       "abbr": "UMT",
       "label": "Сучасною мовою",
       "tr": "Сучасною мовою",
+      "slide": "Сучасною мовою",
       "file": "UkrainianUMTBible.xml",
       "books": "uk",
       "alias": "сучасною"
@@ -149,6 +152,7 @@
       "abbr": "НПУ",
       "label": "Новий переклад українською",
       "tr": "Новий переклад українською",
+      "slide": "Новий переклад українською",
       "file": "Ukrainian2022Bible.xml",
       "books": "uk",
       "note": "Новий Завіт",
@@ -160,6 +164,7 @@
       "abbr": "BW",
       "label": "Biblia Warszawska",
       "tr": "Biblia Warszawska",
+      "slide": "Biblia Warszawska",
       "file": "PolishBible.xml",
       "books": "pl",
       "alias": "warszawska"
@@ -170,6 +175,7 @@
       "abbr": "UBG",
       "label": "Uwspółcześniona Biblia Gdańska",
       "tr": "Uwspółcześniona Biblia Gdańska",
+      "slide": "Uwspółcześniona Biblia Gdańska",
       "file": "PolishGdansk2017Bible.xml",
       "books": "pl",
       "alias": "gdanska gdańska"
@@ -180,6 +186,7 @@
       "abbr": "BG",
       "label": "Biblia Gdańska",
       "tr": "Biblia Gdańska",
+      "slide": "Biblia Gdańska",
       "file": "PolishGdanskBible.xml",
       "books": "pl",
       "alias": "gdanska gdańska 1632 1881"
@@ -190,6 +197,7 @@
       "abbr": "NBG",
       "label": "Nowa Biblia Gdańska",
       "tr": "Nowa Biblia Gdańska",
+      "slide": "Nowa Biblia Gdańska",
       "file": "PolishNBGBible.xml",
       "books": "pl",
       "alias": "gdanska gdańska"
@@ -200,6 +208,7 @@
       "abbr": "EIB",
       "label": "Biblia EIB (2018)",
       "tr": "Biblia EIB",
+      "slide": "Biblia EIB",
       "file": "Polish2018Bible.xml",
       "books": "pl"
     },
@@ -209,6 +218,7 @@
       "abbr": "SŻ",
       "label": "Słowo Życia",
       "tr": "Słowo Życia",
+      "slide": "Słowo Życia",
       "file": "Polish2016Bible.xml",
       "books": "pl",
       "note": "Nowy Testament",
@@ -220,6 +230,7 @@
       "abbr": "NPD",
       "label": "Nowy Przekład Dynamiczny",
       "tr": "Nowy Przekład Dynamiczny",
+      "slide": "Nowy Przekład Dynamiczny",
       "file": "PolishNPDBible.xml",
       "books": "pl",
       "note": "Nowy Testament"
@@ -230,6 +241,7 @@
       "abbr": "NIV",
       "label": "New International Version",
       "tr": "NIV",
+      "slide": "NIV",
       "file": "EnglishNIVBible.xml",
       "books": "en"
     },
@@ -239,6 +251,7 @@
       "abbr": "KJV",
       "label": "King James Version",
       "tr": "KJV",
+      "slide": "KJV",
       "file": "EnglishKJBible.xml",
       "books": "en",
       "alias": "king james"
@@ -249,6 +262,7 @@
       "abbr": "NKJV",
       "label": "New King James Version",
       "tr": "NKJV",
+      "slide": "NKJV",
       "file": "EnglishNKJBible.xml",
       "books": "en",
       "alias": "king james"
@@ -259,6 +273,7 @@
       "abbr": "ESV",
       "label": "English Standard Version",
       "tr": "ESV",
+      "slide": "ESV",
       "file": "EnglishESVBible.xml",
       "books": "en"
     }
