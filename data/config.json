@@ -1,0 +1,288 @@
+{
+  "about": "Настройки формы Crosspect («Слово веры», Познань). Описание полей — в README.md.",
+  "version": "2026-11-06.1",
+  "bibleBase": "https://raw.githubusercontent.com/Beblia/Holy-Bible-XML-Format/master/",
+  "groups": [
+    [
+      "ru",
+      "Русский"
+    ],
+    [
+      "uk",
+      "Українська"
+    ],
+    [
+      "pl",
+      "Polski"
+    ],
+    [
+      "en",
+      "English"
+    ]
+  ],
+  "translations": [
+    {
+      "id": "ru",
+      "group": "ru",
+      "abbr": "СП",
+      "label": "Синодальный",
+      "tr": "Синодальный",
+      "file": "RussianSynodalBible.xml",
+      "books": "ru",
+      "alias": "синод rst"
+    },
+    {
+      "id": "nrt",
+      "group": "ru",
+      "abbr": "НРП",
+      "label": "Новый русский перевод",
+      "tr": "Новый русский перевод",
+      "file": "RussianNRTBible.xml",
+      "books": "ru",
+      "alias": "biblica"
+    },
+    {
+      "id": "bti",
+      "group": "ru",
+      "abbr": "BTI",
+      "label": "Под ред. Кулакова (Заокский)",
+      "tr": "Перевод под ред. Кулакова",
+      "file": "RussianBTI2015Bible.xml",
+      "books": "ru",
+      "alias": "кулаков заокский"
+    },
+    {
+      "id": "srp",
+      "group": "ru",
+      "abbr": "СРП",
+      "label": "Современный русский перевод (РБО)",
+      "tr": "Современный русский перевод (РБО)",
+      "file": "Russian2012Bible.xml",
+      "books": "ru",
+      "note": "Новый Завет",
+      "alias": "рбо радостная весть"
+    },
+    {
+      "id": "des",
+      "group": "ru",
+      "abbr": "Десн",
+      "label": "Переводы Десницкого",
+      "tr": "Перевод А. Десницкого",
+      "url": "bibles/RussianDesnitskyBible.xml",
+      "books": "ru",
+      "note": "отдельные книги",
+      "alias": "десницкий"
+    },
+    {
+      "id": "rsp",
+      "group": "ru",
+      "abbr": "RSP",
+      "label": "Современный перевод (Библ. лига)",
+      "tr": "Современный перевод",
+      "file": "RussianRSPBible.xml",
+      "books": "ru",
+      "alias": "библейская лига"
+    },
+    {
+      "id": "cas",
+      "group": "ru",
+      "abbr": "Касс",
+      "label": "Под ред. еп. Кассиана",
+      "tr": "Перевод под ред. еп. Кассиана",
+      "file": "RussianCASBible.xml",
+      "books": "ru",
+      "note": "Новый Завет",
+      "alias": "кассиан"
+    },
+    {
+      "id": "own",
+      "group": "ru",
+      "label": "Свой перевод",
+      "src": "ru",
+      "books": "ru",
+      "note": "текст вставляется вручную",
+      "alias": "другой свой"
+    },
+    {
+      "id": "uk",
+      "group": "uk",
+      "abbr": "УБО",
+      "label": "Огієнко",
+      "tr": "Огієнко",
+      "file": "UkrainianBible.xml",
+      "books": "uk",
+      "alias": "огиенко"
+    },
+    {
+      "id": "ukt",
+      "group": "uk",
+      "abbr": "УТТ",
+      "label": "Турконяк (2011)",
+      "tr": "Переклад Р. Турконяка",
+      "file": "Ukrainian2011Bible.xml",
+      "books": "uk",
+      "alias": "турконяк"
+    },
+    {
+      "id": "ukh",
+      "group": "uk",
+      "abbr": "Хом",
+      "label": "Хоменко",
+      "tr": "Переклад І. Хоменка",
+      "file": "UkrainianHOMBible.xml",
+      "books": "uk",
+      "alias": "хоменко"
+    },
+    {
+      "id": "uku",
+      "group": "uk",
+      "abbr": "UMT",
+      "label": "Сучасною мовою",
+      "tr": "Сучасною мовою",
+      "file": "UkrainianUMTBible.xml",
+      "books": "uk",
+      "alias": "сучасною"
+    },
+    {
+      "id": "ukn",
+      "group": "uk",
+      "abbr": "НПУ",
+      "label": "Новий переклад українською",
+      "tr": "Новий переклад українською",
+      "file": "Ukrainian2022Bible.xml",
+      "books": "uk",
+      "note": "Новий Завіт",
+      "alias": "biblica"
+    },
+    {
+      "id": "pl",
+      "group": "pl",
+      "abbr": "BW",
+      "label": "Biblia Warszawska",
+      "tr": "Biblia Warszawska",
+      "file": "PolishBible.xml",
+      "books": "pl",
+      "alias": "warszawska"
+    },
+    {
+      "id": "plu",
+      "group": "pl",
+      "abbr": "UBG",
+      "label": "Uwspółcześniona Biblia Gdańska",
+      "tr": "Uwspółcześniona Biblia Gdańska",
+      "file": "PolishGdansk2017Bible.xml",
+      "books": "pl",
+      "alias": "gdanska gdańska"
+    },
+    {
+      "id": "plg",
+      "group": "pl",
+      "abbr": "BG",
+      "label": "Biblia Gdańska",
+      "tr": "Biblia Gdańska",
+      "file": "PolishGdanskBible.xml",
+      "books": "pl",
+      "alias": "gdanska gdańska 1632 1881"
+    },
+    {
+      "id": "pln",
+      "group": "pl",
+      "abbr": "NBG",
+      "label": "Nowa Biblia Gdańska",
+      "tr": "Nowa Biblia Gdańska",
+      "file": "PolishNBGBible.xml",
+      "books": "pl",
+      "alias": "gdanska gdańska"
+    },
+    {
+      "id": "ple",
+      "group": "pl",
+      "abbr": "EIB",
+      "label": "Biblia EIB (2018)",
+      "tr": "Biblia EIB",
+      "file": "Polish2018Bible.xml",
+      "books": "pl"
+    },
+    {
+      "id": "pls",
+      "group": "pl",
+      "abbr": "SŻ",
+      "label": "Słowo Życia",
+      "tr": "Słowo Życia",
+      "file": "Polish2016Bible.xml",
+      "books": "pl",
+      "note": "Nowy Testament",
+      "alias": "slowo zycia"
+    },
+    {
+      "id": "plp",
+      "group": "pl",
+      "abbr": "NPD",
+      "label": "Nowy Przekład Dynamiczny",
+      "tr": "Nowy Przekład Dynamiczny",
+      "file": "PolishNPDBible.xml",
+      "books": "pl",
+      "note": "Nowy Testament"
+    },
+    {
+      "id": "en",
+      "group": "en",
+      "abbr": "NIV",
+      "label": "New International Version",
+      "tr": "NIV",
+      "file": "EnglishNIVBible.xml",
+      "books": "en"
+    },
+    {
+      "id": "enk",
+      "group": "en",
+      "abbr": "KJV",
+      "label": "King James Version",
+      "tr": "KJV",
+      "file": "EnglishKJBible.xml",
+      "books": "en",
+      "alias": "king james"
+    },
+    {
+      "id": "enn",
+      "group": "en",
+      "abbr": "NKJV",
+      "label": "New King James Version",
+      "tr": "NKJV",
+      "file": "EnglishNKJBible.xml",
+      "books": "en",
+      "alias": "king james"
+    },
+    {
+      "id": "ene",
+      "group": "en",
+      "abbr": "ESV",
+      "label": "English Standard Version",
+      "tr": "ESV",
+      "file": "EnglishESVBible.xml",
+      "books": "en"
+    }
+  ],
+  "preachers": [
+    "Астафьев Валерий",
+    "Бисюков Виталий",
+    "Зеленкин Евгений",
+    "Лесюк Владимир",
+    "Матвиенко Андрей",
+    "Назарьев Руслан",
+    "Сивец Эд",
+    "Тахман Сергей",
+    "Фетисов Иван",
+    "Чони Александр",
+    "Шаповал Кирилл",
+    "Шода Евгений",
+    "Шух Валентин",
+    "Якубович Владимир",
+    "Lilleorg Allan"
+  ],
+  "limits": {
+    "minScale": 80,
+    "limitThesis": 220,
+    "limitQuote": 300
+  }
+}
