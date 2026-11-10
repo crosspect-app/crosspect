@@ -1,0 +1,3080 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Проповедь · Слово веры</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@200..900&family=Inter:wght@400;500;700&family=Noto+Sans+Hebrew:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0a0c11; --surface:#12151d; --surface-2:#191d27;
+  --line:rgba(251,247,240,.08); --line-2:rgba(251,247,240,.15);
+  --text:#fbf7f0; --muted:rgba(251,247,240,.6); --faint:rgba(251,247,240,.36);
+  --accent:#e7ae89; --accent-1:#f1cfb3; --accent-2:#c9805e; --on-accent:#1b100a;
+  --warn:#ffcf4a; --warn-bg:rgba(255,207,74,.12); --danger:#ff8b7b; --ok:#86e0a0;
+  --topbar:rgba(10,12,17,.8); --mark:rgba(231,174,137,.34); --shadow:0 18px 50px rgba(0,0,0,.45);
+  --c-scripture:#f1cfb3; --c-scripture2:#dc9f7a; --c-thesis:#b8a8ff; --c-quote:#8ddcc7;
+  --c-image:#ff9fc2; --c-video:#ff9472; --c-free:#a3abbd; --c-text:rgba(251,247,240,.28); --c-note:#ffcf4a;
+  --r:20px;
+  /* Поля слайда в пикселях кадра 1920×1080: панель отступает от края на 44, поля считаются от края панели (по умолчанию 60) */
+  --sl-x:104px; --sl-t:104px; --sl-b:104px;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    color-scheme:light;
+    --bg:#f4efe7; --surface:#fffcf7; --surface-2:#f6f1e9;
+    --line:rgba(40,28,18,.09); --line-2:rgba(40,28,18,.17);
+    --text:#1e1711; --muted:rgba(30,23,17,.62); --faint:rgba(30,23,17,.4);
+    --accent:#b0653d; --accent-1:#e2a47e; --accent-2:#b0653d; --on-accent:#fff;
+    --warn:#9a6a00; --warn-bg:rgba(230,170,20,.14); --danger:#c2412f; --ok:#2e9a55;
+    --topbar:rgba(244,239,231,.84); --mark:rgba(226,164,126,.42); --shadow:0 18px 50px rgba(60,40,20,.15);
+    --c-scripture:#c27a52; --c-scripture2:#a65a34; --c-thesis:#6b56d8; --c-quote:#1f8d73;
+    --c-image:#c44579; --c-video:#c9532f; --c-free:#6c7486; --c-text:rgba(30,23,17,.25); --c-note:#b07a00;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+  font-family:'Unbounded','Inter','Segoe UI',Arial,sans-serif; font-weight:300; font-size:14px;
+  line-height:1.6; letter-spacing:-0.01em; -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:-1;
+  background:
+    radial-gradient(900px 520px at -5% -10%, rgba(201,128,94,.17), transparent 60%),
+    radial-gradient(700px 460px at 105% 0%, rgba(130,140,255,.07), transparent 60%);
+}
+body::after{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:-1; opacity:.28; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.45' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='1 1 1 0 -1.05 1 1 1 0 -1.05 1 1 1 0 -1.05 0 0 0 0 1'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size:256px 256px;
+}
+button,input,textarea,select{font:inherit;color:inherit;letter-spacing:inherit}
+button{cursor:pointer}
+.ic{display:inline-flex;width:18px;height:18px;flex:none}
+.ic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- Верхняя панель ---------- */
+.topbar{
+  position:sticky; top:0; z-index:30; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px;
+  padding:12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+  background:var(--topbar); backdrop-filter:blur(18px) saturate(1.2); -webkit-backdrop-filter:blur(18px) saturate(1.2);
+  border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.brand-bar{width:5px;height:30px;border-radius:99px;background:linear-gradient(180deg,var(--accent-1),var(--accent-2));flex:none}
+.brand-kicker{font-size:9px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.brand-title{font-size:15px;font-weight:600;letter-spacing:-0.02em;white-space:nowrap}
+.seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:3px}
+.seg button{border:0;background:transparent;padding:7px 15px;border-radius:99px;font-size:12px;font-weight:500;color:var(--muted);transition:.15s}
+.seg button.on{background:var(--surface-2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-2)}
+.actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;position:relative}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-2);background:transparent;
+  border-radius:99px;padding:8px 14px;font-size:12px;font-weight:500;white-space:nowrap;transition:.15s;
+}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{border:0;background:linear-gradient(135deg,var(--accent-1),var(--accent-2));color:var(--on-accent);padding:9px 16px}
+.btn.primary:hover{filter:brightness(1.06)}
+.icon-btn{
+  display:inline-grid;place-items:center;width:34px;height:34px;border-radius:11px;border:1px solid transparent;
+  background:transparent;color:var(--muted);transition:.15s;padding:0;
+}
+.icon-btn:hover{background:var(--surface-2);color:var(--text);border-color:var(--line)}
+.icon-btn.danger:hover{color:var(--danger)}
+.icon-btn.mark.on{color:var(--ok);background:color-mix(in srgb, var(--ok) 15%, transparent);border-color:color-mix(in srgb, var(--ok) 35%, transparent)}
+.menu{
+  position:absolute;right:0;top:calc(100% + 8px);min-width:230px;background:var(--surface);border:1px solid var(--line-2);
+  border-radius:16px;padding:6px;box-shadow:var(--shadow);display:none;z-index:40;
+}
+.menu.open{display:block}
+.menu button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:10px 12px;border-radius:11px;font-size:12px;font-weight:400}
+.menu button:hover{background:var(--surface-2)}
+.menu button:disabled{opacity:.35;cursor:default;background:transparent}
+.menu-note{padding:4px 12px 6px;font-size:10px;color:var(--faint)}
+.menu-sep{height:1px;background:var(--line);margin:4px 6px}
+
+.statusbar{
+  display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;max-width:1200px;margin:14px auto 0;padding:0 16px;
+  font-size:10.5px;color:var(--faint);letter-spacing:.02em;
+}
+.statusbar .warn{color:var(--warn)}
+.statusbar .ok{color:var(--muted)}
+.banner{
+  max-width:1200px;margin:12px auto 0;padding:0 16px;
+}
+.banner > div{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:14px 16px;border-radius:16px;
+  background:var(--warn-bg);border:1px solid rgba(255,207,74,.35);font-size:12px;
+}
+.banner .grow{flex:1;min-width:200px}
+
+/* ---------- Основная колонка ---------- */
+.wrap{max-width:1200px;margin:0 auto;padding:16px 16px 140px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.meta{padding:20px 20px 18px;position:relative;overflow:hidden}
+.meta::after{
+  content:"";position:absolute;right:-60px;top:-80px;width:260px;height:260px;border-radius:50%;
+  background:radial-gradient(circle,rgba(201,128,94,.22),transparent 65%);pointer-events:none;
+}
+.kicker{font-size:10px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.title-input{
+  width:100%;border:0;background:transparent;outline:none;padding:6px 0 14px;margin:0;
+  font-size:24px;font-weight:600;letter-spacing:-0.03em;line-height:1.25;color:var(--text);
+}
+.title-input::placeholder{color:var(--faint)}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;position:relative;z-index:1}
+.field{display:block;min-width:0}
+.lbl{display:block;font-size:9.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 7px 2px}
+.lbl-row{display:flex;justify-content:space-between;align-items:center}
+.lbl-row .lbl{margin-bottom:7px}
+.input,.rich{
+  display:block;width:100%;font-size:14px;font-weight:300;color:var(--text);background:var(--surface-2);
+  border:1px solid var(--line);border-radius:13px;padding:11px 13px;outline:none;line-height:1.55;
+  transition:border-color .15s, box-shadow .15s;
+}
+.input::placeholder{color:var(--faint)}
+.input:focus,.rich:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(231,174,137,.12)}
+input[type=date].input{min-height:46px}
+textarea.input{resize:none;overflow:hidden;min-height:46px}
+.rich{min-height:46px;white-space:pre-wrap;word-break:break-word}
+.rich:empty::before{content:attr(data-ph);color:var(--faint);pointer-events:none}
+.rich b,.vs-body b{font-weight:600}
+.rich i,.vs-body i{font-style:italic}
+.rich u,.vs-body u{text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
+mark{background:var(--mark);color:inherit;border-radius:5px;padding:0 3px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.up{text-transform:uppercase}   /* «Все прописные» для выделенного текста */
+
+/* ---------- Блоки ---------- */
+.blocks{margin-top:4px}
+.block{
+  position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 16px 16px 22px;transition:border-color .2s, box-shadow .2s, background-color .2s;
+}
+.block::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:4px;border-radius:0 99px 99px 0;background:var(--tc)}
+.block.t-text{background:transparent;border-style:dashed;border-color:var(--line-2)}
+.block.t-note{background:color-mix(in srgb, var(--c-note) 7%, var(--surface));border-color:color-mix(in srgb, var(--c-note) 38%, transparent)}
+.block.t-note textarea.input{text-transform:uppercase;font-weight:600}
+.block.done{background:color-mix(in srgb, var(--ok) 9%, var(--surface));border-color:color-mix(in srgb, var(--ok) 40%, transparent)}
+.block.done .bsub{color:var(--ok)}
+.block.over{border-color:rgba(255,207,74,.55);box-shadow:0 0 0 3px var(--warn-bg)}
+.block.missing{border-color:color-mix(in srgb, var(--danger) 70%, transparent);box-shadow:0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent)}
+/* Название слайда: номер [N] зашит слева, его не стереть */
+.namebox{display:flex;align-items:stretch;min-width:0}
+.name-pre{display:grid;place-items:center;padding:0 12px;border:1px solid var(--line);border-right:0;border-radius:13px 0 0 13px;
+  background:color-mix(in srgb, var(--tc) 14%, var(--surface-2));color:var(--tc);font-weight:600;white-space:nowrap}
+.namebox .input{border-radius:0 13px 13px 0;min-width:0}
+.namebox.missing .input{border-color:var(--danger)}
+.name-err{font-size:10.5px;color:var(--danger);margin:6px 0 0 2px}
+.block.flash{animation:flash 1.1s ease}
+@keyframes flash{0%{box-shadow:0 0 0 0 rgba(231,174,137,.0)}25%{box-shadow:0 0 0 4px rgba(231,174,137,.35)}100%{box-shadow:0 0 0 0 rgba(231,174,137,0)}}
+.bhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.btag{display:flex;align-items:center;gap:12px;min-width:0;cursor:pointer;user-select:none}
+.bnum{
+  display:grid;place-items:center;min-width:40px;height:40px;border-radius:13px;padding:0 8px;
+  background:color-mix(in srgb, var(--tc) 14%, transparent);color:var(--tc);font-size:14px;font-weight:600;letter-spacing:-0.02em;
+}
+.bnum.off{background:transparent;border:1px dashed var(--line-2);color:var(--faint)}
+.block.t-note .bnum.off{border-color:color-mix(in srgb, var(--c-note) 50%, transparent);color:var(--c-note)}
+.btype{font-size:13px;font-weight:500;letter-spacing:-0.01em;line-height:1.3}
+.bsub{font-size:10px;color:var(--faint);letter-spacing:.02em}
+.btools{display:flex;gap:2px;flex:none}
+.bbody{display:grid;gap:14px}
+.block.collapsed{padding-top:10px;padding-bottom:10px}
+.block.collapsed::before{top:12px;bottom:12px}
+.block.collapsed .bhead{margin-bottom:0}
+.block.collapsed .bnum{height:34px;min-width:34px;border-radius:11px;font-size:13px}
+.bsum{display:block;margin-top:2px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bsum.empty{color:var(--faint)}
+.grid-2{display:grid;grid-template-columns:1.3fr 1fr;gap:10px}
+.verses{display:grid;gap:8px}
+.verse{display:grid;grid-template-columns:56px 1fr 30px;gap:8px;align-items:start}
+.vnum{text-align:center;padding:11px 4px;font-weight:600;color:var(--accent)}
+.vdel{width:30px;height:46px;border-radius:10px}
+.vdel .ic{width:15px;height:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);background:transparent;border-radius:99px;
+  padding:7px 13px 7px 10px;font-size:11px;font-weight:500;color:var(--muted);transition:.15s;
+}
+.chip .ic{width:15px;height:15px}
+.chip:hover{color:var(--text);background:var(--surface-2)}
+.chip.accent{color:var(--accent);border-color:color-mix(in srgb, var(--accent) 45%, transparent)}
+.link{border:0;background:transparent;color:var(--faint);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:0 2px 7px}
+.link:hover{color:var(--danger)}
+.hint{margin:0;font-size:11px;line-height:1.6;color:var(--faint)}
+.hint b{color:var(--muted);font-weight:500}
+.half{display:grid;gap:12px}
+.half-tag{display:flex;align-items:center;gap:10px;font-size:9.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--tc)}
+.half-tag::after{content:"";flex:1;height:1px;background:var(--line-2)}
+.divider{display:flex;align-items:center;gap:10px;color:var(--faint);font-size:10px;letter-spacing:.06em}
+/* Части сложного слайда Писания — отдельные карточки */
+.block.t-scripture .bbody > .item,.block.t-thesis .bbody > .item{padding:12px 14px 14px;border:1px solid var(--line-2);border-radius:16px;background:color-mix(in srgb, var(--surface-2) 45%, transparent)}
+.block.t-scripture .bbody > .divider,.block.t-thesis .bbody > .divider{margin:-6px 0}
+.item.k-line{padding-top:8px;padding-bottom:10px}
+.line-demo{height:2px;margin:6px 4px 2px;border-radius:2px;background:currentColor;opacity:.45;color:var(--text)}
+/* Греческий и иврит — шрифтом Inter (иврит — Noto Sans Hebrew), чтобы не терялись буквы и знаки */
+.xl{font-family:'Inter','Noto Sans Hebrew',sans-serif;font-weight:700;letter-spacing:0;text-transform:none}   /* греческий не переводим в заглавные: пропали бы ударения */
+.sl .xl{font-family:'Inter','Noto Sans Hebrew',sans-serif;font-weight:700;letter-spacing:0;text-transform:none}   /* то же в слайде и JPEG */
+.divider::before,.divider::after{content:"";flex:1;border-top:1px dashed var(--line-2)}
+.toggle{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:3px;width:max-content;max-width:100%}
+.toggle button{border:0;background:transparent;border-radius:99px;padding:8px 15px;font-size:11.5px;font-weight:500;color:var(--muted);transition:.15s}
+.toggle button.on{background:var(--tc, var(--accent));color:var(--on-accent)}
+.callout{
+  display:flex;gap:12px;align-items:flex-start;padding:13px 15px;border-radius:14px;font-size:12px;line-height:1.6;
+  background:color-mix(in srgb, var(--tc) 9%, transparent);border:1px solid color-mix(in srgb, var(--tc) 25%, transparent);
+}
+.callout .ic{color:var(--tc);margin-top:1px}
+.callout b{font-weight:600}
+.switch{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--muted);cursor:pointer;width:max-content;max-width:100%}
+.switch input{position:absolute;opacity:0;pointer-events:none}
+.sw{position:relative;width:40px;height:24px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line-2);flex:none;transition:.2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--faint);transition:.2s}
+.switch input:checked + .sw{background:linear-gradient(135deg,var(--accent-1),var(--accent-2));border-color:transparent}
+.switch input:checked + .sw::after{left:19px;background:var(--on-accent)}
+.switch input:focus-visible + .sw{box-shadow:0 0 0 3px rgba(231,174,137,.25)}
+.opt-row{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap}
+.count{font-size:10.5px;color:var(--faint);letter-spacing:.02em}
+.step{display:inline-flex;align-items:center;gap:2px;margin:0 0 5px;border:1px solid var(--line-2);border-radius:99px;padding:2px}
+.step button{display:grid;place-items:center;width:26px;height:24px;border:0;border-radius:99px;background:transparent;color:var(--muted);font-size:14px;font-weight:500;padding:0}
+.step button:hover:not(:disabled){background:var(--surface-2);color:var(--text)}
+.step button:disabled{opacity:.3;cursor:default}
+.step span{min-width:48px;text-align:center;font-size:11px;font-weight:500;color:var(--text)}
+.count.warn{color:var(--warn);font-weight:400}
+
+.insert{position:relative;display:flex;justify-content:center;align-items:center;height:30px}
+.insert button{
+  position:relative;z-index:1;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;padding:0;
+  border:1px solid var(--line-2);background:var(--bg);color:var(--faint);opacity:.55;transition:.15s;
+}
+.insert button .ic{width:14px;height:14px}
+.insert:hover button,.insert button:focus-visible{opacity:1;color:var(--accent);border-color:var(--accent)}
+.add-big{
+  display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:18px;padding:18px;border-radius:var(--r);
+  border:1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent);background:color-mix(in srgb, var(--accent) 5%, transparent);
+  color:var(--accent);font-size:13px;font-weight:500;transition:.15s;
+}
+.add-big:hover{background:color-mix(in srgb, var(--accent) 10%, transparent)}
+.empty{margin-top:18px;padding:22px 22px 8px;border-radius:var(--r);border:1px solid var(--line);background:color-mix(in srgb, var(--surface) 60%, transparent)}
+.empty-title{font-size:15px;font-weight:500;letter-spacing:-0.02em;margin-bottom:6px}
+.empty ol{margin:0 0 12px;padding-left:20px;color:var(--muted);font-size:12px;line-height:1.8}
+
+
+/* ---------- Блок со слайдом: форма + предпросмотр ---------- */
+.bsplit{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,440px);gap:20px;align-items:start}
+.bprev{position:sticky;top:78px;display:grid;gap:8px}
+.bprev-cap{display:flex;justify-content:space-between;gap:10px;font-size:9.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.bprev-cap span:last-child{letter-spacing:.02em;text-transform:none;font-weight:400;color:var(--faint);text-align:right}
+.block.over .bprev-cap span:last-child{color:var(--warn)}
+@media (max-width:1000px){.bsplit{grid-template-columns:1fr}.bprev{position:static}}
+
+/* ---------- Слайд (тема Ember). Размеры заданы в пикселях кадра 1920×1080 ---------- */
+.sl{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;border-radius:6px;--s:.23}
+.sl-stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;transform:scale(var(--s));
+  --u:1;font-family:'Unbounded','Inter',sans-serif;color:#ecdfcf;letter-spacing:-0.035em;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;
+  box-shadow:0 10px 30px rgba(0,0,0,.25);contain:layout paint}
+.sl-frame{position:absolute;inset:calc(var(--u) * 14px);border-radius:calc(var(--u) * 34px);background:#ecdfcf;overflow:hidden}
+.sl-frame::after{content:"";position:absolute;inset:0;background-image:var(--noise);background-size:128px 128px;mix-blend-mode:multiply;opacity:.22}
+.sl-panel{position:absolute;inset:calc(var(--u) * 44px);border-radius:calc(var(--u) * 8px);overflow:hidden;background:#151612;isolation:isolate}
+.sl-glow{position:absolute;inset:-12%;filter:blur(calc(var(--u) * 60px));background:
+  radial-gradient(circle at 100% 6%, #c9702a 0, transparent 34%),
+  radial-gradient(circle at 102% 40%, #8a8a38 0, transparent 20%),
+  radial-gradient(circle at -2% 96%, #ff4a12 0, transparent 30%),
+  radial-gradient(circle at 4% 48%, #5a2a16 0, transparent 26%)}
+.sl-grain{position:absolute;inset:0;background-image:var(--noise);background-size:128px 128px;mix-blend-mode:overlay;opacity:.6}
+.sl-vig{position:absolute;inset:0;background:radial-gradient(ellipse 75% 70% at 45% 45%, transparent 40%, rgba(0,0,0,.35) 100%)}
+.sl-content{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);text-align:center;display:flex;flex-direction:column;gap:.85em}
+.sl-ref{font-weight:700;font-size:1.2083em;line-height:1.1;text-transform:uppercase;letter-spacing:-0.035em;margin:0}
+.sl-ref.ph{opacity:.3}
+.sl-verse{margin:0;font-weight:400;line-height:1.25;text-wrap:wrap;overflow-wrap:normal}
+.sl-verse sup{font-weight:700;font-size:.6em;vertical-align:.95em;line-height:0;letter-spacing:0;margin-right:.18em}
+.sl b{font-weight:700}
+.sl u{text-decoration-thickness:.07em;text-underline-offset:.16em;text-decoration-color:currentColor}
+.sl mark{background:none;color:#ffde59;padding:0;border-radius:0}
+.sl .up{text-transform:uppercase}
+.sl-text{margin:0;font-weight:400;line-height:1.25}
+.sl-text.caps{text-transform:uppercase}
+/* ВРЕМЕННО, для теста: «шрифт как в Canva» — тоньше, буквы плотнее, строки ближе. Режим ставится классом на .sl-stage */
+.sl-stage.cv-verses .sl-verse,
+.sl-stage.cv-all .sl-verse, .sl-stage.cv-all .sl-text, .sl-stage.cv-all .sl-inner{font-weight:325;letter-spacing:-0.04em;line-height:1.05}
+.sl-stage.cv-all .sl-mk{height:1.05em}
+.sl-stage.cv-all .sl-mk.num{height:auto}
+.sl-stage.cv-all .sl-author{font-weight:325}
+.sl-hr{height:3px;border-radius:2px;background:#ecdfcf;opacity:.6;margin:.1em 0}   /* линия во всю ширину текста между полями */
+.sl-tp{margin:0}
+.sl-empty{opacity:.3}
+.sl-tr{position:absolute;left:var(--sl-x);right:var(--sl-x);bottom:var(--sl-b);display:none;text-align:center;font-size:43.2px;font-weight:400;line-height:1.1}   /* 90% от размера стихов; точный размер ставится из настроек слайдов */
+.sl-tr.on{display:block}
+/* Тезис и цитата: текст в своей области, область задана отступами в кадре */
+.sl-box{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);bottom:var(--sl-b);display:flex;flex-direction:column;justify-content:center}
+.sl-box-quote{bottom:calc(var(--sl-b) + 150px)}   /* снизу место под автора */
+.sl-inner{font-weight:400;line-height:1.25;text-align:center;overflow-wrap:normal}
+.sl-inner.caps{text-transform:uppercase}
+/* Списки в тезисе: маркер или номер слева, перенос строки встаёт под текст пункта */
+.sl-list{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:.38em;width:fit-content;max-width:100%;margin-left:auto;margin-right:auto;padding-left:.9em;text-align:left}   /* отступ пунктов от края текста */
+.sl-list:not(:first-child){margin-top:.5em}   /* расстояние от обычной строки до списка */
+.sl-list:not(:last-child){margin-bottom:.5em}  /* и от списка до обычной строки */
+.sl-part[data-align=left] .sl-list{margin-left:0}
+.sl-part[data-align=right] .sl-list{margin-left:auto;margin-right:0}
+/* Тезис из нескольких частей: текстовые блоки (у каждого своё выравнивание и размер) и линии */
+.sl-inner.parts{display:flex;flex-direction:column;gap:.5em}
+.sl-part.caps{text-transform:uppercase}
+.sl-li{display:contents}
+.sl-mk{display:flex;align-items:center;justify-content:flex-end;min-width:.62em;height:1.25em}   /* высота строки: маркер по центру первой строки */
+.sl-mk.num{align-items:baseline;height:auto}
+.sl-dot{display:block;width:.22em;height:.22em;border-radius:50%;background:currentColor;transform:translateY(.03em);margin-right:.2em}
+.sl i{font-style:italic}
+.sl-guide{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);bottom:var(--sl-b);border:5px dashed #ffde59;border-radius:6px;
+  background:repeating-linear-gradient(135deg, rgba(255,222,89,.13) 0 14px, transparent 14px 30px);display:grid;place-items:center;
+  color:#ffde59;font-size:46px;font-weight:500;letter-spacing:-.02em}
+.sl-author{position:absolute;right:var(--sl-x);bottom:var(--sl-b);max-width:1500px;text-align:right;font-size:52px;line-height:1.05;font-weight:400;text-transform:uppercase;letter-spacing:-0.03em}
+.sl-author b{font-weight:700}
+.sl-author .src{display:block;margin-top:.45em;font-size:.62em;text-transform:none;opacity:.75}
+
+
+/* ---------- Выбор места Писания ---------- */
+select.input{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:36px;min-height:46px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 12px center;background-size:16px}
+select.input:disabled{opacity:.5;cursor:default}
+.grid-3{display:grid;grid-template-columns:1.3fr 1.5fr .7fr;gap:10px}
+.item{display:grid;gap:12px}
+.item-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.item-head .half-tag{flex:1}
+.itools{display:flex;gap:2px;flex:none}
+.itools .icon-btn{width:28px;height:28px;border-radius:9px}
+.itools .icon-btn .ic{width:15px;height:15px}
+.itools .icon-btn.on{color:var(--accent);background:var(--surface-2);border-color:var(--line)}
+.vpick{display:grid;gap:8px}
+.vgrid{display:flex;flex-wrap:wrap;gap:6px}
+.vchip{min-width:38px;height:34px;padding:0 6px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface-2);font-size:12px;font-weight:500;color:var(--muted);transition:.12s}
+.vchip:hover{color:var(--text);border-color:var(--accent)}
+.vchip.on{background:linear-gradient(135deg,var(--accent-1),var(--accent-2));color:var(--on-accent);border-color:transparent}
+.vrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.vrow .input{flex:1;min-width:140px}
+.vlabel{display:grid;place-items:center;height:46px;font-weight:600;color:var(--accent);border-radius:13px;background:color-mix(in srgb, var(--accent) 10%, transparent)}
+.loadnote{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);padding:10px 13px;border-radius:12px;background:var(--surface-2)}
+.loadnote.err{color:var(--danger)}
+.trp{position:relative}
+.trp-btn{display:flex;align-items:center;gap:8px;text-align:left;min-height:46px;cursor:pointer;padding-right:36px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 12px center;background-size:16px}
+.trp-cur{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trp-note{font-size:10px;color:var(--faint);white-space:nowrap}
+.trp-panel{position:absolute;left:0;top:calc(100% + 6px);z-index:45;width:min(400px,calc(100vw - 40px));display:grid;gap:6px;padding:8px;
+  background:var(--surface);border:1px solid var(--line-2);border-radius:16px;box-shadow:var(--shadow)}
+.trp-list{max-height:340px;overflow:auto;display:grid;gap:2px}
+.trp-lang{display:grid;grid-template-columns:auto 1fr 16px;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:10px;border-radius:10px;font-size:12.5px;font-weight:500}
+.trp-lang:hover{background:var(--surface-2)}
+.trp-lang .trp-note{text-align:right;overflow:hidden;text-overflow:ellipsis}
+.trp-lang.cur .trp-lname{color:var(--accent)}
+.trp-chev{display:grid;place-items:center;color:var(--faint)}
+.trp-chev svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+.trp-lang.open .trp-chev svg{transform:rotate(90deg)}
+.trp-it.sub{padding-left:24px}
+.trp-sep{height:1px;background:var(--line);margin:4px 6px}
+.trp-it{display:flex;justify-content:space-between;align-items:baseline;gap:10px;text-align:left;border:0;background:transparent;padding:9px 10px;border-radius:10px;font-size:12px}
+.trp-it:hover{background:var(--surface-2)}
+.trp-it.on{background:var(--surface-2);color:var(--accent);font-weight:500}
+.trp-abbr{display:inline-block;margin-right:7px;padding:1px 6px;border-radius:6px;font-size:9.5px;font-weight:600;letter-spacing:.04em;color:var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);white-space:nowrap}
+.trp-name{min-width:0}
+.trp-lang-code{flex:none;font-size:9.5px;font-weight:600;letter-spacing:.06em;color:var(--faint)}
+.cfg-status{display:grid;gap:4px;padding:11px 13px;border-radius:12px;background:var(--surface-2);font-size:11.5px;color:var(--muted)}
+.cfg-status .err{color:var(--danger)}
+.trp-empty{padding:10px;font-size:11px;line-height:1.5;color:var(--faint)}
+.tr-name{font-size:10px;color:var(--faint);letter-spacing:.02em;margin:-4px 0 0 2px}
+
+/* ---------- Выбор типа блока ---------- */
+.overlay{position:fixed;inset:0;z-index:60;background:rgba(5,7,12,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.sheet{width:100%;max-width:620px;max-height:calc(100vh - 32px);overflow:auto;background:var(--surface);border:1px solid var(--line-2);border-radius:24px;padding:20px;box-shadow:var(--shadow)}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.sheet-title{font-size:16px;font-weight:600;letter-spacing:-0.02em}
+.types{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.types-top{grid-template-columns:1.8fr 1fr;margin-bottom:10px}
+.type{
+  display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:center;text-align:left;padding:13px;border-radius:16px;
+  border:1px solid var(--line);background:var(--surface-2);transition:.15s;
+}
+.type:hover{border-color:var(--tc);transform:translateY(-1px)}
+.type-ic{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb, var(--tc) 15%, transparent);color:var(--tc)}
+.type-name{font-size:12.5px;font-weight:500;line-height:1.3}
+.type-desc{font-size:10.5px;color:var(--faint);line-height:1.45;margin-top:3px}
+.type.t-text{border-style:dashed;background:transparent}
+.type.t-note{border-color:color-mix(in srgb, var(--c-note) 50%, transparent);background:color-mix(in srgb, var(--c-note) 10%, var(--surface-2))}
+.type.t-note .type-name{font-weight:600}
+.set-grid{display:grid;gap:12px;margin:6px 0 16px}
+.set-row{display:grid;grid-template-columns:1fr 110px;gap:12px;align-items:center;font-size:12px}
+.sheet-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* ---------- Панель оформления текста ---------- */
+.fmtbar{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(12px);z-index:50;display:flex;gap:4px;padding:5px;
+  background:var(--surface);border:1px solid var(--line-2);border-radius:99px;box-shadow:var(--shadow);
+  opacity:0;pointer-events:none;transition:opacity .15s, transform .15s;
+}
+.fmtbar.show{opacity:1;pointer-events:auto;transform:translateX(-50%)}
+.fbtn{display:grid;place-items:center;min-width:42px;height:38px;padding:0 10px;border-radius:99px;border:0;background:transparent;font-size:14px;color:var(--text)}
+.fbtn:hover,.fbtn:active{background:var(--surface-2)}
+.fbtn.b{font-weight:700}
+.fbtn.i{font-style:italic}
+.fbtn.on{background:color-mix(in srgb, var(--accent) 22%, transparent);color:var(--accent)}
+.fbtn.u{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--accent);text-decoration-thickness:2px}
+.fbtn .ic{width:17px;height:17px}
+.fsep{width:1px;background:var(--line-2);margin:6px 2px}
+.fbtn.lst,.fsep.lst{display:none}
+.fmtbar.lists .fbtn.lst{display:grid}
+.fmtbar.lists .fsep.lst{display:block}
+.fbtn.lst{font-size:13px;font-weight:600}
+.fbtn.up-btn{font-size:11px;font-weight:600;letter-spacing:.02em}
+.mock{display:grid;gap:12px;margin:6px 0 14px}
+.mock-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mock-grid .field .input{text-align:center}
+.cfg-note{padding:11px 13px;border-radius:12px;background:var(--surface-2);font-size:11px;line-height:1.6;color:var(--muted)}
+.cfg-note.local{background:var(--warn-bg);color:var(--text)}
+.tmp-set{border:1px dashed var(--line-2);border-radius:14px;padding:0 14px}
+.tmp-set summary{cursor:pointer;padding:12px 0;font-size:12px;color:var(--muted);list-style:none}
+.tmp-set summary::-webkit-details-marker{display:none}
+.tmp-set summary::before{content:'▸ ';color:var(--faint)}
+.tmp-set[open] summary::before{content:'▾ '}
+.tmp-set .radios{display:grid;gap:8px;padding:0 0 14px}
+.tmp-set label{display:flex;align-items:center;gap:10px;font-size:12px;cursor:pointer}
+.tmp-set input{accent-color:var(--accent)}
+
+.toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);z-index:70;display:flex;align-items:center;gap:14px;
+  padding:11px 12px 11px 18px;border-radius:99px;background:var(--text);color:var(--bg);font-size:12px;font-weight:400;
+  opacity:0;pointer-events:none;transition:.2s;box-shadow:var(--shadow);max-width:calc(100vw - 32px)
+}
+.toast.show{opacity:1;pointer-events:auto;transform:translateX(-50%)}
+.toast button{border:0;background:transparent;color:inherit;font-weight:600;font-size:12px;padding:4px 8px;border-radius:99px;text-decoration:underline;text-underline-offset:3px}
+.toast.lift{bottom:84px}
+
+/* ---------- Просмотр для оператора ---------- */
+.view{--vs:1;max-width:860px;margin:0 auto}
+.vhead{padding:8px 4px 6px}
+.vkicker{font-size:10px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.vtitle{margin:0;font-size:calc(26px * var(--vs));font-weight:600;letter-spacing:-0.035em;line-height:1.2}
+.vmeta{margin-top:8px;font-size:12px;color:var(--muted)}
+.vref{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:7px 13px 7px 10px;border-radius:99px;border:1px solid var(--line-2);font-size:12px;color:var(--accent)}
+.vref .ic{width:15px;height:15px}
+.vctrl{position:sticky;top:61px;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0;margin:10px 0 6px;background:linear-gradient(var(--bg) 70%, transparent)}
+.size{display:flex;gap:4px}
+.size button{width:38px;height:34px;border-radius:11px;border:1px solid var(--line-2);background:var(--surface);font-size:11px;font-weight:600}
+.vlist{display:grid;gap:12px}
+.vslide{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px 18px 22px}
+.vslide::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:4px;border-radius:0 99px 99px 0;background:var(--tc)}
+.vs-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.vs-num{font-size:calc(20px * var(--vs));font-weight:700;letter-spacing:-0.04em;color:var(--tc);line-height:1}
+.vs-type{flex:1;font-size:9.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.vs-body{display:grid;gap:12px;font-size:calc(15px * var(--vs));line-height:1.6}
+.vs-ref{font-size:calc(13px * var(--vs));font-weight:600;color:var(--accent);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.vs-tr{font-size:calc(10.5px * var(--vs));font-weight:400;color:var(--faint);letter-spacing:.02em}
+.vs-verses sup{font-size:.62em;font-weight:600;color:var(--accent);margin-right:3px;vertical-align:.5em}
+.vs-note{padding:10px 13px;border-radius:12px;background:var(--surface-2);font-size:calc(13px * var(--vs));color:var(--muted)}
+.vs-thesis{font-size:calc(17px * var(--vs));font-weight:500;letter-spacing:-0.02em;line-height:1.45}
+.vs-quote{margin:0;font-size:calc(16px * var(--vs));font-weight:400;line-height:1.55}
+.vs-author{font-size:calc(12px * var(--vs));color:var(--muted)}
+.vs-name{font-size:calc(16px * var(--vs));font-weight:600;letter-spacing:-0.02em;line-height:1.35}
+.vs-name.empty-v{font-weight:400}
+.vs-name + .vs-media .vs-mtitle{font-weight:400;color:var(--muted)}
+.vs-media{display:flex;gap:12px;align-items:flex-start}
+.vs-media > .ic{color:var(--tc);width:22px;height:22px;margin-top:2px}
+.vs-mtitle{font-weight:500;font-size:calc(13px * var(--vs))}
+.vs-mdesc{color:var(--muted);font-size:calc(13px * var(--vs));white-space:pre-wrap;margin-top:4px}
+.vs-mdesc a{color:var(--accent);word-break:break-all}
+.vs-hr{border-top:1px dashed var(--line-2)}
+.empty-v{color:var(--faint);font-style:normal}
+.vtx{padding:4px 6px 4px 22px;position:relative}
+.vtx::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;border-radius:2px;background:var(--line-2)}
+.vtx-body{white-space:pre-wrap;color:var(--muted);font-size:calc(13.5px * var(--vs));line-height:1.75}
+.vsplash{
+  display:inline-flex;align-items:center;gap:7px;margin-bottom:8px;padding:5px 11px 5px 8px;border-radius:99px;
+  background:color-mix(in srgb, var(--accent) 14%, transparent);color:var(--accent);font-size:10.5px;font-weight:500;letter-spacing:.04em
+}
+.vsplash .ic{width:14px;height:14px}
+.vnote{padding:12px 16px 14px;border-radius:16px;background:color-mix(in srgb, var(--c-note) 16%, transparent);border:1.5px solid color-mix(in srgb, var(--c-note) 55%, transparent)}
+.vnote-tag{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--c-note)}
+.vnote-tag .ic{width:15px;height:15px}
+.vnote-body{white-space:pre-wrap;text-transform:uppercase;font-weight:700;font-size:calc(14px * var(--vs));line-height:1.5;letter-spacing:.01em;color:var(--text)}
+
+@media (max-width:640px){
+  body{font-size:13.5px}
+  .topbar{grid-template-columns:auto 1fr auto;gap:8px}
+  .brand-kicker,.brand-title{display:none}
+  .seg{justify-self:center}
+  .seg button{padding:7px 11px;font-size:11px}
+  .hide-sm{display:none}
+  .btn{padding:8px 11px}
+  .topbar{padding-left:max(10px, env(safe-area-inset-left));padding-right:max(10px, env(safe-area-inset-right))}
+  .actions{gap:4px}
+  .actions .icon-btn{width:30px}   /* чтобы «⋯» не уезжала за край на узком телефоне */
+  .input,.rich{font-size:16px}
+  .title-input{font-size:20px}
+  .meta{padding:18px 16px 16px}
+  .meta-grid,.grid-2,.types{grid-template-columns:1fr}
+  .grid-3{grid-template-columns:1fr 1fr}
+  .grid-3 > :nth-child(2){grid-column:1 / -1;grid-row:1}
+  .block{padding:12px 12px 14px 18px}
+  .verse{grid-template-columns:46px 1fr 26px;gap:6px}
+  .vdel{width:26px}
+  .btools .icon-btn{width:30px;height:32px}
+  .btools{gap:0}
+  .bhead{flex-wrap:wrap;row-gap:6px}
+  .btag{flex:1 1 100%}
+  .btools{flex-wrap:wrap;justify-content:flex-end;margin-left:auto;max-width:100%}   /* на телефоне кнопки блока — второй строкой */
+  .vctrl{top:59px}
+  .set-row{grid-template-columns:1fr 90px}
+}
+@media print{.topbar,.statusbar,.vctrl,.fmtbar,.vs-copy{display:none!important}}
+
+/* ---------- PDF для оператора: узкие страницы под экран телефона, только то, что нужно на служении ---------- */
+#print-op{display:none}
+@page op{ size:80mm 170mm; margin:6mm 5mm 7mm }
+@media print{
+  body.op-print > *:not(#print-op){display:none!important}
+  body.op-print{background:#fff!important;min-height:0}
+  body.op-print::before,body.op-print::after{display:none!important}
+  body.op-print #print-op{display:block;page:op}
+}
+#print-op{font-family:'Unbounded','Inter',sans-serif;color:#15120f;font-size:9.5pt;line-height:1.45;letter-spacing:-0.01em;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+#print-op .op-head{margin:0 0 3.5mm;padding-bottom:3mm;border-bottom:.35mm solid #ddd6cc}
+#print-op .op-kick{font-size:6pt;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#a6542c;margin-bottom:1.2mm}
+#print-op .op-title{margin:0;font-size:14pt;font-weight:600;line-height:1.2;letter-spacing:-0.03em}
+#print-op .op-meta{margin-top:1.4mm;font-size:7pt;color:#7a736b}
+#print-op .op-text{margin:2.5mm 0;padding-left:2.6mm;border-left:.5mm solid #e3ddd4;white-space:pre-wrap;font-weight:300;font-size:8.3pt;line-height:1.6;color:#6e6760}
+#print-op .op-splash{display:inline-block;margin:1mm 0 1.6mm;padding:.5mm 2.2mm;border:.3mm solid #a6542c;border-radius:9pt;color:#a6542c;font-size:6.5pt;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+#print-op .op-note{margin:3mm 0;padding:2.4mm 3mm 2.6mm;border-radius:2mm;background:#ffe066;border:.35mm solid #e0b300;break-inside:avoid}
+#print-op .op-note-tag{font-size:6pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7a5a00;margin-bottom:1mm}
+#print-op .op-note-body{white-space:pre-wrap;text-transform:uppercase;font-weight:700;font-size:9.5pt;line-height:1.35}
+#print-op .op-slide{margin:3mm 0;padding:2.4mm 3mm 2.8mm;border:.35mm solid #dcd5cb;border-left:1.6mm solid var(--tc);border-radius:2mm;break-inside:avoid}
+#print-op .op-row{display:flex;align-items:baseline;gap:2.4mm;margin-bottom:1.4mm}
+#print-op .op-num{font-size:17pt;font-weight:700;line-height:1;letter-spacing:-0.04em;color:var(--tc)}
+#print-op .op-type{font-size:6pt;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:#8f877e}
+#print-op .op-p + .op-p{margin-top:2mm;padding-top:2mm;border-top:.3mm dashed #ddd6cc}
+#print-op .op-ref{font-size:8.5pt;font-weight:600;color:#a6542c}
+#print-op .op-tr{font-size:6.5pt;font-weight:400;color:#9a9188;margin-left:1.5mm}
+#print-op .op-verses{font-size:9pt}
+#print-op .op-verses sup{font-size:.6em;font-weight:700;color:#a6542c;vertical-align:.45em}
+#print-op .op-thesis{font-size:10pt;font-weight:600;line-height:1.35;white-space:pre-wrap}
+#print-op .op-author{margin-top:1mm;font-size:7.5pt;color:#7a736b}
+#print-op .op-name{font-size:10.5pt;font-weight:600;line-height:1.3}
+#print-op .op-play{margin-top:1mm;font-size:7.5pt;color:#5d5650}
+#print-op b{font-weight:700}
+#print-op mark{background:#ffe58a;color:inherit;padding:0 .6mm;border-radius:1mm}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input type="file" id="fileInput" accept=".html,.htm,.json,text/html" hidden>
+<script id="sermon-data" type="application/json">null</script>
+<script>
+(function(){
+'use strict';
+
+/* Снимок исходного файла — из него собирается сохранённая копия */
+const TEMPLATE = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+/* ========= Настройки по умолчанию (можно править здесь) ========= */
+const DEFAULT_SETTINGS = { minScale: 80, limitThesis: 220, limitQuote: 300 };
+/* Файл настроек в репозитории crosspect-data: переводы, проповедники, лимиты.
+   Если он недоступен, форма работает на встроенных списках ниже. Ссылку можно сменить в меню «⋯» → «Источник настроек». */
+const CONFIG_URL_DEFAULT = 'https://raw.githubusercontent.com/crosspect-app/crosspect/main/data/config.json';
+/* Общие настройки слайдов. Берутся из config.json (раздел "slides"); в окне «Поля и названия слайдов»
+   их можно временно поменять в своём браузере и скопировать строку для config.json.
+   margins — поля от края цветной панели в пикселях кадра 1920×1080; names — названия слайдов для файлов */
+const SLIDES_DEFAULT = { margins:{ side:60, top:60, bottom:60 }, names:{ required:true, maxLength:35 }, font:{ canva:'off' },   // font.canva — временный тест: off / verses / all
+  sizes:{ scripture:{ size:100 }, thesis:{ min:70, max:130 }, quote:{ min:70, max:110 } } };   // scripture.size — общий размер стихов, 100% = 48 px   // насколько можно уменьшить и увеличить текст, % от базового
+const PANEL_INSET = 44;   // панель отступает от края кадра на 44 px
+
+const ICONS = {
+  book:'<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19"/><path d="M9 7.5h6"/>',
+  split:'<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 12h17"/>',
+  thesis:'<path d="M5 7V5h14v2"/><path d="M12 5v14"/><path d="M9 19h6"/>',
+  quote:'<path d="M10 7H6.5A1.5 1.5 0 0 0 5 8.5V12h5z"/><path d="M10 12c0 3-1.5 5-4.5 5.5"/><path d="M19 7h-3.5A1.5 1.5 0 0 0 14 8.5V12h5z"/><path d="M19 12c0 3-1.5 5-4.5 5.5"/>',
+  image:'<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m20.5 15.5-4.5-4.5-8.5 8.5"/>',
+  video:'<rect x="3.5" y="5.5" width="17" height="13" rx="3"/><path d="m10.5 9.5 4 2.5-4 2.5z"/>',
+  free:'<rect x="3.5" y="3.5" width="17" height="17" rx="3" stroke-dasharray="3 3.2"/><path d="M12 8.5v7M8.5 12h7"/>',
+  text:'<path d="M4.5 6.5h15M4.5 10.5h15M4.5 14.5h11M4.5 18.5h7"/>',
+  note:'<path d="M12 3.8 21 19.5H3z"/><path d="M12 10v4.5"/><path d="M12 17.3v.2"/>',
+  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  tag:'<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3-8.7 8.7z"/><circle cx="8" cy="8" r="1.4"/>',
+  jpg:'<rect x="3.5" y="4.5" width="17" height="13" rx="2.5"/><path d="m3.5 14 4.5-4 4 3.5 2.5-2 6 4.5"/><path d="M12 17.5v4M9.5 19.5 12 22l2.5-2.5"/>',
+  zip:'<path d="M5.5 3.5h9l4 4v13h-13z"/><path d="M10.5 3.5v2h1.5v2h-1.5v2h1.5v2h-1.5v2"/><rect x="9.5" y="14.5" width="3" height="3" rx=".8"/>',
+  phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M10.5 18.5h3"/>',
+  frame:'<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><rect x="7" y="9" width="10" height="6" rx="1" stroke-dasharray="2 1.6"/>',
+  up:'<path d="m6 14 6-6 6 6"/>',
+  top:'<path d="M6 4.5h12"/><path d="m7 15 5-5 5 5"/><path d="M12 10v10"/>',
+  bottom:'<path d="M6 19.5h12"/><path d="m7 9 5 5 5-5"/><path d="M12 14V4"/>',
+  down:'<path d="m6 10 6 6 6-6"/>',
+  fold:'<path d="m7 4 5 5 5-5"/><path d="m7 20 5-5 5 5"/>',
+  unfold:'<path d="m7 9 5-5 5 5"/><path d="m7 15 5 5 5-5"/>',
+  dup:'<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
+  trash:'<path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  save:'<path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 19.5h14"/>',
+  open:'<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  more:'<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>',
+  close:'<path d="M6 6l12 12M18 6 6 18"/>',
+  marker:'<path d="m14.5 4.5 5 5-8 8H6.5v-5z"/><path d="M4 20.5h8"/>',
+  clear:'<path d="M5 6h11"/><path d="M10.5 6 8 18"/><path d="m15 14 5 5M20 14l-5 5"/>',
+  arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+  settings:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  newdoc:'<path d="M14 3.5H7A2.5 2.5 0 0 0 4.5 6v12A2.5 2.5 0 0 0 7 20.5h10a2.5 2.5 0 0 0 2.5-2.5V9z"/><path d="M14 3.5V9h5.5"/><path d="M12 12v5M9.5 14.5h5"/>',
+  splash:'<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>',
+  link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  alignl:'<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>',
+  vtop:'<path d="M4 4.5h16"/><path d="M8 9h8M8 13h8M10 17h4"/>',
+  vmid:'<path d="M4 4.5h16M4 19.5h16"/><path d="M8 10h8M9 14h6"/>',
+  vbot:'<path d="M4 19.5h16"/><path d="M10 7h4M8 11h8M8 15h8"/>',
+  alignc:'<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
+  alignr:'<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
+  reset:'<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>'
+};
+
+/* Порядок здесь = порядок в окне «Что добавить?»: первые два — верхняя строка (широкий текст и узкая заметка), дальше парами */
+const TYPES = {
+  text:      { label:'Текст проповеди', icon:'text', slide:false, desc:'На экран не идёт: подсказка оператору, где вы сейчас' },
+  note:      { label:'Заметка оператору', icon:'note', slide:false, desc:'Что сделать: запустить видео, включить музыку…' },
+  scripture: { label:'Место Писания', icon:'book', slide:true, desc:'Одно или несколько мест, с предпросмотром слайда' },
+  free:      { label:'Свободный слайд', icon:'free', slide:true, desc:'Всё нестандартное: опишите словами' },
+  thesis:    { label:'Тезис', icon:'thesis', slide:true, desc:'Мысль, пункт плана, пояснение слова' },
+  quote:     { label:'Цитата', icon:'quote', slide:true, desc:'Текст и автор' },
+  image:     { label:'Картинка', icon:'image', slide:true, desc:'Найти по описанию или прислать файл' },
+  video:     { label:'Видео', icon:'video', slide:true, desc:'Ссылка или файл отдельно' }
+};
+/* Типы, у которых в редакторе есть предпросмотр слайда */
+const PREVIEW = { scripture:true, thesis:true, quote:true };
+
+/* ========= Утилиты ========= */
+const $ = (s, r) => (r || document).querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const pad = n => (n < 10 ? '0' : '') + n;
+
+function h(tag, props){
+  const el = document.createElement(tag);
+  if (props) for (const k in props){
+    const v = props[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
+    else if (k === 'text') el.textContent = v;
+    else if (k === 'value') el.value = v;
+    else if (k === 'checked') el.checked = !!v;
+    else if (k.slice(0,2) === 'on' && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (let i = 2; i < arguments.length; i++) append(el, arguments[i]);
+  return el;
+}
+function append(el, c){
+  if (c == null || c === false) return;
+  if (Array.isArray(c)) { c.forEach(x => append(el, x)); return; }
+  el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+}
+function ic(name){ return h('span', { class:'ic', html:'<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || '') + '</svg>' }); }
+function iconBtn(name, title, fn, cls){ return h('button', { type:'button', class:'icon-btn ' + (cls || ''), title:title, 'aria-label':title, onclick:fn }, ic(name)); }
+function chip(name, label, fn, cls){ return h('button', { type:'button', class:'chip ' + (cls || ''), onclick:fn }, ic(name), label); }
+
+const LS = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+};
+
+function nextSunday(){
+  const d = new Date(); d.setDate(d.getDate() + (7 - d.getDay()) % 7);
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+function fmtDate(s){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+  if (!m) return '';
+  return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+}
+function fmtTime(ts){ return ts ? new Date(ts).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) : ''; }
+function nextNum(n){ n = String(n || '').trim(); return /^\d+$/.test(n) ? String(+n + 1) : ''; }
+
+/* ========= Форматированный текст: только Ж, Ч и выделение ========= */
+function cleanHTML(node){
+  let out = '';
+  node.childNodes.forEach(n => {
+    if (n.nodeType === 3) { out += esc(n.nodeValue.replace(/\u00a0/g, ' ').replace(/\u00ad/g, '')).replace(/\r?\n/g, '<br>'); return; }   // перенос внутри текста (Enter в pre-wrap) = новая строка
+    if (n.nodeType !== 1) return;
+    const tag = n.tagName.toLowerCase();
+    if (tag === 'br') { out += '<br>'; return; }
+    const inner = cleanHTML(n);
+    if (tag === 'b' || tag === 'strong') { if (inner) out += '<b>' + inner + '</b>'; return; }
+    if (tag === 'u') { if (inner) out += '<u>' + inner + '</u>'; return; }
+    if (tag === 'i' || tag === 'em') { if (inner) out += '<i>' + inner + '</i>'; return; }
+    if (tag === 'mark') { if (inner) out += '<mark>' + inner + '</mark>'; return; }
+    if (tag === 'div' || tag === 'p') { if (out && !/<br>$/.test(out)) out += '<br>'; out += inner; return; }
+    if (tag === 'span' && n.classList.contains('up')) { if (inner) out += '<span class="up">' + inner + '</span>'; return; }
+    if (tag === 'span' || tag === 'font') {
+      const st = (n.getAttribute('style') || '').toLowerCase();
+      let r = inner;
+      if (r && /font-weight:\s*(bold|[6-9]00)/.test(st)) r = '<b>' + r + '</b>';
+      if (r && /italic/.test(st)) r = '<i>' + r + '</i>';
+      if (r && /underline/.test(st)) r = '<u>' + r + '</u>';
+      out += r; return;
+    }
+    if (tag === 'script' || tag === 'style') return;
+    out += inner;
+  });
+  return out;
+}
+function plain(html){
+  if (!html) return '';
+  const t = document.createElement('template');
+  t.innerHTML = String(html).replace(/<br\s*\/?>/gi, '\n');
+  return t.content.textContent;
+}
+function finalize(html){
+  html = html.replace(/(<br>)+$/, '');
+  return plain(html).trim() ? html : '';
+}
+function sanitize(html){
+  if (!html) return '';
+  const t = document.createElement('template');
+  t.innerHTML = String(html);
+  return finalize(cleanHTML(t.content));
+}
+const ltrimH = s => (s || '').replace(/^(\s|&nbsp;|<br>)+/, '');
+const rtrimH = s => (s || '').replace(/(\s|&nbsp;|<br>)+$/, '');
+
+
+/* ========= Справочники ========= */
+const PREACHERS = [
+  ['Чони','Александр'], ['Матвиенко','Андрей'], ['Шух','Валентин'], ['Астафьев','Валерий'], ['Бисюков','Виталий'],
+  ['Лесюк','Владимир'], ['Якубович','Владимир'], ['Зеленкин','Евгений'], ['Шода','Евгений'], ['Фетисов','Иван'],
+  ['Шаповал','Кирилл'], ['Назарьев','Руслан'], ['Тахман','Сергей'], ['Сивец','Эд'], ['Lilleorg','Allan']
+].map(([l, f]) => l + ' ' + f).sort((a, b) => a.localeCompare(b, 'ru'));
+
+/* Переводы. group — язык в списке выбора; books — на каком языке названия книг; src — чей файл даёт главы и стихи
+   (для «Своего перевода» — Синодальный); note — пометка в списке; alias — дополнительные слова для поиска */
+const NT = 'Новый Завет';
+const LANGS = {
+  ru:    { group:'ru', label:'Синодальный',                     tr:'Синодальный',                         file:'RussianSynodalBible.xml', books:'ru', alias:'синод rst' },
+  nrt:   { group:'ru', label:'Новый русский перевод (НРП)',      tr:'Новый русский перевод',               file:'RussianNRTBible.xml',     books:'ru', alias:'нрп nrt biblica' },
+  bti:   { group:'ru', label:'Под ред. Кулакова (Заокский)',     tr:'Перевод под ред. Кулакова',           file:'RussianBTI2015Bible.xml', books:'ru', alias:'кулаков заокский bti' },
+  srp:   { group:'ru', label:'Современный русский перевод (РБО)', tr:'Современный русский перевод (РБО)',  file:'Russian2012Bible.xml',    books:'ru', note:NT, alias:'срп рбо радостная весть' },
+  rsp:   { group:'ru', label:'Современный перевод (Библ. лига)', tr:'Современный перевод',                 file:'RussianRSPBible.xml',     books:'ru', alias:'rsp библейская лига' },
+  cas:   { group:'ru', label:'Под ред. еп. Кассиана',            tr:'Перевод под ред. еп. Кассиана',       file:'RussianCASBible.xml',     books:'ru', note:NT, alias:'кассиан' },
+  uk:    { group:'uk', label:'Огієнко',                          tr:'Огієнко',                             file:'UkrainianBible.xml',      books:'uk', alias:'огиенко' },
+  ukt:   { group:'uk', label:'Турконяк (2011)',                  tr:'Переклад Р. Турконяка',               file:'Ukrainian2011Bible.xml',  books:'uk', alias:'турконяк' },
+  ukh:   { group:'uk', label:'Хоменко',                          tr:'Переклад І. Хоменка',                 file:'UkrainianHOMBible.xml',   books:'uk', alias:'хоменко' },
+  uku:   { group:'uk', label:'Сучасною мовою',                   tr:'Сучасною мовою',                      file:'UkrainianUMTBible.xml',   books:'uk', alias:'сучасною umt' },
+  ukn:   { group:'uk', label:'Новий переклад українською (НПУ)', tr:'Новий переклад українською',          file:'Ukrainian2022Bible.xml',  books:'uk', note:'Новий Завіт', alias:'нпу biblica' },
+  pl:    { group:'pl', label:'Biblia Warszawska',                tr:'Biblia Warszawska',                   file:'PolishBible.xml',         books:'pl', alias:'bw warszawska' },
+  plu:   { group:'pl', label:'Uwspółcześniona Biblia Gdańska',   tr:'Uwspółcześniona Biblia Gdańska',      file:'PolishGdansk2017Bible.xml', books:'pl', alias:'ubg gdanska gdańska' },
+  plg:   { group:'pl', label:'Biblia Gdańska',                   tr:'Biblia Gdańska',                      file:'PolishGdanskBible.xml',   books:'pl', alias:'gdanska gdańska 1632 1881' },
+  pln:   { group:'pl', label:'Nowa Biblia Gdańska',              tr:'Nowa Biblia Gdańska',                 file:'PolishNBGBible.xml',      books:'pl', alias:'nbg gdanska gdańska' },
+  ple:   { group:'pl', label:'Biblia EIB (2018)',                tr:'Biblia EIB',                          file:'Polish2018Bible.xml',     books:'pl', alias:'eib' },
+  pls:   { group:'pl', label:'Słowo Życia',                      tr:'Słowo Życia',                         file:'Polish2016Bible.xml',     books:'pl', note:'Nowy Testament', alias:'slowo zycia' },
+  plp:   { group:'pl', label:'Nowy Przekład Dynamiczny (NPD)',   tr:'Nowy Przekład Dynamiczny',            file:'PolishNPDBible.xml',      books:'pl', note:'Nowy Testament', alias:'npd' },
+  en:    { group:'en', label:'NIV',                              tr:'NIV',                                 file:'EnglishNIVBible.xml',     books:'en' },
+  enk:   { group:'en', label:'King James Version (KJV)',         tr:'KJV',                                 file:'EnglishKJBible.xml',      books:'en', alias:'kjv king james' },
+  enn:   { group:'en', label:'New King James Version (NKJV)',    tr:'NKJV',                                file:'EnglishNKJBible.xml',     books:'en', alias:'nkjv king james' },
+  ene:   { group:'en', label:'English Standard Version (ESV)',   tr:'ESV',                                 file:'EnglishESVBible.xml',     books:'en', alias:'esv' }
+};
+const TR_GROUPS = [['ru', 'Русский'], ['uk', 'Українська'], ['pl', 'Polski'], ['en', 'English']];   // первый перевод в группе — по умолчанию
+/* Как перевод подписан на слайде. В настройках — поле slide у перевода и шаблон scriptureFooter */
+const SLIDE_NAMES = { ru:'Синодальный перевод', nrt:'Новый русский перевод', bti:'Перевод под ред. М. П. Кулакова', srp:'Современный русский перевод (РБО)',
+  rsp:'Современный перевод', cas:'Перевод под ред. еп. Кассиана', uk:'Переклад І. Огієнка', ukt:'Переклад Р. Турконяка', ukh:'Переклад І. Хоменка' };
+Object.keys(SLIDE_NAMES).forEach(k => { if (LANGS[k]) LANGS[k].slide = SLIDE_NAMES[k]; });
+let TR_FOOTER = '* {name}';
+const OWN = '__own';   // «Свой перевод»: всё вводится вручную
+const srcKey = l => (LANGS[l] && LANGS[l].src) || l;      // какой файл грузить
+const bkLang = l => (LANGS[l] && LANGS[l].books) || l;    // на каком языке названия книг
+const trOf = it => it.lang === 'own' ? ((it.trName || '').trim() || 'Свой перевод') : (LANGS[it.lang] ? LANGS[it.lang].tr : '');
+/* Порядок книг — синодальный: соборные послания сразу после Деяний */
+const BOOK_ORDER_OT = Array.from({ length:39 }, (_, i) => i + 1);
+const BOOK_ORDER_NT = [40, 41, 42, 43, 44, 59, 60, 61, 62, 63, 64, 65, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 66];
+const BOOKS = {
+  ru:'Бытие|Исход|Левит|Числа|Второзаконие|Иисус Навин|Судьи|Руфь|1 Царств|2 Царств|3 Царств|4 Царств|1 Паралипоменон|2 Паралипоменон|Ездра|Неемия|Есфирь|Иов|Псалтирь|Притчи|Екклесиаст|Песня Песней|Исаия|Иеремия|Плач Иеремии|Иезекииль|Даниил|Осия|Иоиль|Амос|Авдий|Иона|Михей|Наум|Аввакум|Софония|Аггей|Захария|Малахия|От Матфея|От Марка|От Луки|От Иоанна|Деяния|Римлянам|1 Коринфянам|2 Коринфянам|Галатам|Ефесянам|Филиппийцам|Колоссянам|1 Фессалоникийцам|2 Фессалоникийцам|1 Тимофею|2 Тимофею|Титу|Филимону|Евреям|Иакова|1 Петра|2 Петра|1 Иоанна|2 Иоанна|3 Иоанна|Иуды|Откровение',
+  uk:'Буття|Вихід|Левит|Числа|Повторення Закону|Ісус Навин|Судді|Рут|1 Самуїлова|2 Самуїлова|1 Царів|2 Царів|1 Хроніки|2 Хроніки|Ездра|Неемія|Естер|Йов|Псалми|Приповісті|Екклезіяст|Пісня над піснями|Ісая|Єремія|Плач Єремії|Єзекіїль|Даниїл|Осія|Йоіл|Амос|Овдій|Йона|Михей|Наум|Авакум|Софонія|Огій|Захарій|Малахії|Від Матвія|Від Марка|Від Луки|Від Івана|Дії|Римлян|1 Коринтян|2 Коринтян|Галатів|Ефесян|Филип’ян|Колоссян|1 Солунян|2 Солунян|1 Тимофію|2 Тимофію|Титу|Филимону|Євреїв|Якова|1 Петра|2 Петра|1 Івана|2 Івана|3 Івана|Юди|Об’явлення',
+  pl:'1 Mojżeszowa|2 Mojżeszowa|3 Mojżeszowa|4 Mojżeszowa|5 Mojżeszowa|Jozuego|Sędziów|Rut|1 Samuela|2 Samuela|1 Królewska|2 Królewska|1 Kronik|2 Kronik|Ezdrasza|Nehemiasza|Estery|Joba|Psalmy|Przypowieści|Kaznodziei|Pieśń nad pieśniami|Izajasza|Jeremiasza|Treny|Ezechiela|Daniela|Ozeasza|Joela|Amosa|Abdiasza|Jonasza|Micheasza|Nahuma|Habakuka|Sofoniasza|Aggeusza|Zachariasza|Malachiasza|Mateusza|Marka|Łukasza|Jana|Dzieje Apostolskie|Rzymian|1 Koryntian|2 Koryntian|Galacjan|Efezjan|Filipian|Kolosan|1 Tesaloniczan|2 Tesaloniczan|1 Tymoteusza|2 Tymoteusza|Tytusa|Filemona|Hebrajczyków|Jakuba|1 Piotra|2 Piotra|1 Jana|2 Jana|3 Jana|Judy|Objawienie',
+  en:'Genesis|Exodus|Leviticus|Numbers|Deuteronomy|Joshua|Judges|Ruth|1 Samuel|2 Samuel|1 Kings|2 Kings|1 Chronicles|2 Chronicles|Ezra|Nehemiah|Esther|Job|Psalms|Proverbs|Ecclesiastes|Song of Songs|Isaiah|Jeremiah|Lamentations|Ezekiel|Daniel|Hosea|Joel|Amos|Obadiah|Jonah|Micah|Nahum|Habakkuk|Zephaniah|Haggai|Zechariah|Malachi|Matthew|Mark|Luke|John|Acts|Romans|1 Corinthians|2 Corinthians|Galatians|Ephesians|Philippians|Colossians|1 Thessalonians|2 Thessalonians|1 Timothy|2 Timothy|Titus|Philemon|Hebrews|James|1 Peter|2 Peter|1 John|2 John|3 John|Jude|Revelation'
+};
+Object.keys(BOOKS).forEach(k => { BOOKS[k] = BOOKS[k].split('|'); });
+const PSALM_REF = { ru:'Псалом', uk:'Псалом', pl:'Psalm', en:'Psalm' };
+const bookName = (lang, n) => (BOOKS[bkLang(lang)] || BOOKS.ru)[n - 1] || '';
+const bookRefName = (lang, n) => n === 19 ? (PSALM_REF[bkLang(lang)] || PSALM_REF.ru) : bookName(lang, n);
+/* Синодальные сокращения книг — для названий файлов слайдов (всегда по-русски, в любом переводе) */
+const ABBR = 'Быт.|Исх.|Лев.|Чис.|Втор.|Нав.|Суд.|Руф.|1 Цар.|2 Цар.|3 Цар.|4 Цар.|1 Пар.|2 Пар.|Езд.|Неем.|Есф.|Иов.|Пс.|Притч.|Еккл.|Песн.|Ис.|Иер.|Плач.|Иез.|Дан.|Ос.|Иоил.|Ам.|Авд.|Ион.|Мих.|Наум.|Авв.|Соф.|Агг.|Зах.|Мал.|Мф.|Мк.|Лк.|Ин.|Деян.|Рим.|1 Кор.|2 Кор.|Гал.|Еф.|Флп.|Кол.|1 Фес.|2 Фес.|1 Тим.|2 Тим.|Тит.|Флм.|Евр.|Иак.|1 Пет.|2 Пет.|1 Ин.|2 Ин.|3 Ин.|Иуд.|Откр.'.split('|');
+
+/* ========= Названия слайдов (имена файлов) =========
+   Писание: «[3] 1 КОР. 12_7-9,12» · цитата: «[4] цитата Оливер КАН» · тезис, картинка, видео, свободный: «[5] своё название» */
+const BAD_CHARS = /[\\/:*?"<>|]/g;          // символы, которые нельзя в именах файлов Windows
+const NAMED = { thesis:true, image:true, video:true, free:true };   // у этих слайдов название пишут вручную
+const cleanName = s => String(s || '').replace(BAD_CHARS, '').replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().replace(/[ .]+$/, '');
+const versesForName = s => String(s || '').replace(/[–—]/g, '-').replace(/\s+/g, '');
+function scriptureNamePart(b){
+  const it = b.items.find(x => x.kind === 'scripture' && (x.manual ? (x.mBook || '').trim() : x.book));
+  if (!it) return '';
+  let abbr, ch, vs;
+  if (it.manual){
+    const bk = findBook(it.mBook);
+    abbr = bk ? ABBR[bk - 1] : it.mBook.trim();
+    ch = String(it.mChapter || '').trim(); vs = versesForName(it.mVerses);
+  } else {
+    abbr = ABBR[it.book - 1] || ''; ch = it.chapter ? String(it.chapter) : ''; vs = versesForName(formatSel(it.sel || []));
+  }
+  return (abbr.toUpperCase() + (ch ? ' ' + ch + (vs ? '_' + vs : '') : '')).trim();
+}
+function quoteNamePart(b){
+  const a = String(b.author || '').split(',')[0].trim();
+  if (!a) return 'цитата';
+  const w = a.split(/\s+/), last = w.pop();
+  return 'цитата ' + (w.length ? w.join(' ') + ' ' : '') + last.toUpperCase();
+}
+function slideName(b, n){
+  let part = '';
+  if (b.type === 'scripture') part = scriptureNamePart(b);
+  else if (b.type === 'quote') part = quoteNamePart(b);
+  else if (NAMED[b.type]) part = b.name || '';
+  return cleanName('[' + n + '] ' + cleanName(part));
+}
+
+/* 1, 2, 4 → «1–2, 4» */
+function formatSel(sel){
+  const a = Array.from(new Set(sel)).sort((x, y) => x - y), out = [];
+  for (let i = 0; i < a.length; i++){
+    let j = i; while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++;
+    out.push(j > i ? a[i] + '–' + a[j] : String(a[i])); i = j;
+  }
+  return out.join(', ');
+}
+function parseSel(str, max){
+  const out = [];
+  String(str || '').split(/[,;]+/).forEach(part => {
+    const m = /^\s*(\d+)\s*(?:[-–—]\s*(\d+))?\s*$/.exec(part); if (!m) return;
+    let a = +m[1], b = m[2] ? +m[2] : a; if (a > b) [a, b] = [b, a];
+    for (let v = a; v <= b; v++) if (!max || v <= max) out.push(v);
+  });
+  return Array.from(new Set(out)).sort((x, y) => x - y);
+}
+
+/* ========= Тексты Библии: XML (формат Holyrics / Beblia), грузятся по требованию ========= */
+const BIBLE_SRC = ['https://raw.githubusercontent.com/Beblia/Holy-Bible-XML-Format/master/', 'https://cdn.jsdelivr.net/gh/Beblia/Holy-Bible-XML-Format@master/'];
+const bibles = {};
+/* Чистка стиха: сноски [60] и метки [1-6а], ударения, мягкие переносы, скобки разметки, пропущенный пробел после знака («Давида.Господь»), «***» у объединённых стихов */
+const cleanVerse = t => String(t || '').replace(/[\u00ad\u0301]/g, '').replace(/\[\d[^\]]*\]/g, '').replace(/[\[\]{}|]/g, '')
+  .replace(/^\s*\*{3}\s*$/, '').replace(/([.,;:!?»])(?=[А-ЯЁA-Z])/g, '$1 ').replace(/([,;:])(?=[а-яё])/g, '$1 ')
+  .replace(/\s+/g, ' ').replace(/ [–-] /g, ' — ').trim();
+/* Текст стиха без сносок и примечаний внутри (формат Zefania: <f>, <NOTE>) */
+function verseText(el){
+  let out = '';
+  el.childNodes.forEach(n => {
+    if (n.nodeType === 3) out += n.nodeValue;
+    else if (n.nodeType === 1 && !/^(f|note|NOTE|DIV)$/.test(n.tagName)) out += verseText(n);
+  });
+  return out;
+}
+function loadBible(lang){
+  lang = srcKey(lang);
+  if (!LANGS[lang]) return Promise.resolve(null);
+  if (bibles[lang] && bibles[lang].status !== 'error') return bibles[lang].safe;
+  const rec = bibles[lang] = { status:'loading' };
+  rec.promise = (async () => {
+    let txt = null, err = null;
+    for (const base of BIBLE_SRC){
+      try { const r = await fetch(LANGS[lang].url || base + LANGS[lang].file); if (!r.ok) throw new Error('HTTP ' + r.status); txt = await r.text(); break; }
+      catch(e){ err = e; }
+    }
+    if (!txt) throw err || new Error('load');
+    const doc = new DOMParser().parseFromString(txt, 'application/xml');
+    const data = {};
+    // два формата: Beblia (book/chapter/verse, number) и Zefania (BIBLEBOOK/CHAPTER/VERS, bnumber/cnumber/vnumber)
+    const zef = doc.getElementsByTagName('BIBLEBOOK').length > 0;
+    const T = zef ? ['BIBLEBOOK', 'CHAPTER', 'VERS', 'bnumber', 'cnumber', 'vnumber'] : ['book', 'chapter', 'verse', 'number', 'number', 'number'];
+    const books = doc.getElementsByTagName(T[0]);
+    for (let i = 0; i < books.length; i++){
+      const bk = books[i], chs = data[+bk.getAttribute(T[3])] = {};
+      const chapters = bk.getElementsByTagName(T[1]);
+      for (let j = 0; j < chapters.length; j++){
+        const ch = chapters[j], vs = chs[+ch.getAttribute(T[4])] = {};
+        const verses = ch.getElementsByTagName(T[2]);
+        for (let k = 0; k < verses.length; k++) vs[+verses[k].getAttribute(T[5])] = cleanVerse(verseText(verses[k]));
+      }
+    }
+    if (!Object.keys(data).length) throw new Error('empty');
+    rec.data = data; rec.status = 'ready';
+    return data;
+  })();
+  rec.safe = rec.promise.then(d => d, e => { rec.status = 'error'; rec.error = e; return null; });
+  rec.safe.then(() => refreshLang(lang));
+  return rec.safe;
+}
+function refreshLang(lang){
+  if (!state || mode !== 'edit') return;
+  state.blocks.forEach(b => {
+    if (b.type !== 'scripture' || !b.items.some(it => it.kind === 'scripture' && !it.manual && srcKey(it.lang) === lang)) return;
+    b.items.forEach(it => { if (it.kind === 'scripture' && !it.manual && srcKey(it.lang) === lang) syncVerses(it); });
+    if (!document.querySelector('.block[data-id="' + b.id + '"]')) return;
+    const a = document.activeElement, keep = a && a.closest && a.closest('.block[data-id="' + b.id + '"]') && a.classList.contains('rich');
+    if (!keep) rerender(b);
+  });
+}
+const bibleData = lang => { const k = srcKey(lang); return bibles[k] && bibles[k].status === 'ready' ? bibles[k].data : null; };
+function chapterVerses(it){
+  const d = bibleData(it.lang); if (!d || !it.book || !it.chapter) return null;
+  return (d[it.book] || {})[it.chapter] || null;
+}
+function refString(it){
+  if (it.manual) return it.ref || '';
+  if (!it.book) return '';
+  const name = bookRefName(it.lang, it.book);
+  if (!it.chapter) return name;
+  return name + ' ' + it.chapter + (it.sel.length ? ':' + formatSel(it.sel) : '');
+}
+/* Строки стихов = выбранные номера; правки текста у оставшихся стихов сохраняются */
+function syncVerses(it){
+  if (it.manual) return;
+  const d = bibleData(it.lang);
+  if (d && it.book && !d[it.book]){ it.book = 0; it.chapter = 0; it.sel = []; }   // в этом переводе нет такой книги
+  const cv = chapterVerses(it);
+  const old = {}; (it.verses || []).forEach(v => { old[v.num] = v; });
+  it.verses = it.sel.map(n => {
+    const o = old[String(n)], orig = it.lang === 'own' ? '' : (cv && cv[n] != null ? cv[n] : (o ? o.orig : ''));
+    if (o && o.text && o.text !== esc(o.orig || '')) return { num:String(n), text:o.text, orig:orig };   // правки и оформление сохраняются
+    return { num:String(n), text:esc(orig), orig:orig };
+  });
+  it.translation = trOf(it);
+  it.ref = refString(it);
+}
+
+/* ========= Модель данных ========= */
+function newPart(){ return { kind:'scripture', manual:true, mBook:'', mChapter:'', mVerses:'', ref:'', translation:'', verses:[{ num:'', text:'' }] }; }
+/* «Свой перевод»: книга, глава и стихи вводятся вручную, ссылка собирается из них */
+const manualRef = it => { const b = (it.mBook || '').trim(), c = String(it.mChapter || '').trim(), v = String(it.mVerses || '').trim(); return b + (c ? ' ' + c + (v ? ':' + v : '') : ''); };
+function splitManualRef(it){   // старые файлы: было одно поле «Место»
+  const m = /^(.*?)\s*(\d+)\s*(?::\s*(.+))?$/.exec((it.ref || '').trim());
+  if (m && m[1]){ it.mBook = m[1].trim(); it.mChapter = m[2]; it.mVerses = (m[3] || '').trim(); }
+  else { it.mBook = (it.ref || '').trim(); it.mChapter = ''; it.mVerses = ''; }
+}
+function findBook(name){
+  const n = String(name || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim(); if (!n) return 0;
+  for (const lg of Object.keys(BOOKS)){ const i = BOOKS[lg].findIndex(x => x.toLowerCase().replace(/ё/g, 'е') === n); if (i >= 0) return i + 1; }
+  return 0;
+}
+/* Перенос в ручной ввод с сохранением книги, главы и текста — когда перевод не загрузился */
+function toManual(it){
+  Object.assign(it, { manual:true, mBook:it.book ? bookName(it.lang, it.book) : '', mChapter:it.chapter ? String(it.chapter) : '', mVerses:it.sel && it.sel.length ? formatSel(it.sel) : '', translation:'' });
+  it.verses = (it.verses && it.verses.length ? it.verses : [{ num:'', text:'' }]).map(v => ({ num:String(v.num || ''), text:v.text || '' }));
+  it.ref = manualRef(it);
+}
+/* Выбран «Свой перевод»: все поля пустые, проповедник вводит всё сам */
+function resetToOwn(it){
+  Object.keys(it).forEach(k => delete it[k]);
+  Object.assign(it, newPart());
+}
+function fromManual(it, lang){
+  const bk = findBook(it.mBook), ch = +it.mChapter || 0, sel = parseSel(it.mVerses);
+  Object.keys(it).forEach(k => delete it[k]);
+  Object.assign(it, newScripture(lang), { book:bk, chapter:bk ? ch : 0, sel:bk && ch ? sel : [] });
+}
+function syncManualVerses(it){   // строки стихов по полю «Стихи»; набранный текст сохраняется
+  const nums = parseSel(it.mVerses); if (!nums.length) return;
+  const old = {}; (it.verses || []).forEach(v => { old[v.num] = v; });
+  const loose = (it.verses || []).find(v => !v.num && plain(v.text).trim());
+  it.verses = nums.map((n, i) => old[String(n)] || { num:String(n), text:i === 0 && loose ? loose.text : '' });
+}
+function curLang(){ return (state && state.settings && LANGS[state.settings.lang]) ? state.settings.lang : 'ru'; }
+function newScripture(lang){ lang = LANGS[lang] ? lang : curLang(); const it = { kind:'scripture', manual:false, lang, book:0, chapter:0, sel:[], verses:[], ref:'', trName:'' }; it.translation = trOf(it); return it; }
+function newTextItem(){ return { kind:'text', html:'', align:'center', caps:true }; }
+function newLineItem(){ return { kind:'line' }; }
+function newThesisPart(){ return { kind:'text', html:'', align:'center', scale:100, caps:true }; }
+/* Текст всех частей тезиса одной строкой с переносами — для названия, счётчика, просмотра и PDF */
+function syncThesisText(b){ b.text = b.parts.filter(p => p.kind === 'text' && plain(p.html).trim()).map(p => p.html).join('<br>'); }
+function newBlock(type){
+  const id = uid();
+  switch (type){
+    case 'scripture':  return { id, type, items:[newScripture()] };
+    case 'thesis':     return { id, type, name:'', nameAuto:true, text:'', valign:'center', scale:100, parts:[newThesisPart()] };
+    case 'quote':      return { id, type, text:'', author:'', scale:100, caps:false };
+    case 'image':      return { id, type, name:'', mode:'find', desc:'' };
+    case 'video':      return { id, type, name:'', mode:'link', url:'', from:'', to:'', desc:'' };
+    case 'free':       return { id, type, name:'', desc:'' };
+    case 'text':       return { id, type, text:'', splash:false };
+    case 'note':       return { id, type, text:'' };
+  }
+}
+function blank(){
+  return { app:'swp-sermon', v:1, id:uid(), createdAt:Date.now(), updatedAt:Date.now(), savedAt:0,
+    meta:{ title:'', date:nextSunday(), preacher:'' },
+    settings:Object.assign({}, DEFAULT_SETTINGS), blocks:[] };
+}
+function normItem(it){
+  if (!it) return null;
+  if (it.kind === 'line') return { kind:'line' };
+  if (it.kind === 'text') return { kind:'text', caps:it.caps === true, html:sanitize(it.html), align:['left', 'center', 'right'].includes(it.align) ? it.align : 'center' };
+  if (it.manual || it.kind !== 'scripture'){
+    const r = Object.assign(newPart(), it, { kind:'scripture', manual:true });
+    r.verses = (Array.isArray(r.verses) && r.verses.length ? r.verses : [{ num:'', text:'' }])
+      .map(v => ({ num:String((v && v.num) || ''), text:sanitize(v && v.text) }));
+    if (it.mBook == null) splitManualRef(r);
+    return r;
+  }
+  if (!LANGS[it.lang]){   // такого перевода больше нет в списке — сохраняем текст как ручной ввод
+    const r = Object.assign(newPart(), { ref:it.ref || '', translation:it.translation || it.trName || '' });
+    r.verses = (Array.isArray(it.verses) && it.verses.length ? it.verses : [{ num:'', text:'' }]).map(v => ({ num:String(v.num || ''), text:sanitize(v.text) }));
+    splitManualRef(r);
+    return r;
+  }
+  const r = Object.assign(newScripture(it.lang), it, { kind:'scripture', manual:false });
+  r.book = +r.book || 0; r.chapter = +r.chapter || 0;
+  r.sel = (Array.isArray(r.sel) ? r.sel : []).map(Number).filter(n => n > 0);
+  r.verses = (Array.isArray(r.verses) ? r.verses : []).map(v => ({ num:String(v.num || ''), text:sanitize(v.text), orig:String(v.orig || '') }));
+  return r;
+}
+function normalize(d){
+  const s = blank();
+  s.id = d.id || s.id;
+  s.createdAt = d.createdAt || s.createdAt;
+  s.updatedAt = d.updatedAt || s.updatedAt;
+  s.savedAt = d.savedAt || 0;
+  s.meta = Object.assign({ title:'', date:'', preacher:'' }, d.meta || {});
+  s.settings = Object.assign({}, DEFAULT_SETTINGS, d.settings || {});
+  (d.blocks || []).forEach(b => {
+    if (!b) return;
+    if (b.type === 'scripture2') b = Object.assign({}, b, { type:'scripture' });
+    if (!TYPES[b.type]) return;
+    const nb = Object.assign(newBlock(b.type), b);
+    if (!nb.id) nb.id = uid();
+    nb.collapsed = !!b.collapsed;
+    nb.done = !!b.done && TYPES[b.type].slide;
+    if (b.type === 'scripture'){
+      let items = b.items;
+      if (!Array.isArray(items)){   // старые файлы: parts / одно место + «пояснение»
+        const parts = Array.isArray(b.parts) ? b.parts : [{ ref:b.ref, translation:b.translation, verses:b.verses, autoFirst:b.autoFirst }];
+        items = parts.map(p => Object.assign({ kind:'scripture', manual:true }, p));
+        if (b.showNote && b.note) items.push({ kind:'text', html:b.note, align:'center' });
+      }
+      nb.items = items.map(normItem).filter(Boolean);
+      if (!nb.items.length) nb.items = [newScripture('ru')];
+      ['parts', 'note', 'showNote', 'ref', 'translation', 'verses', 'autoFirst'].forEach(k => delete nb[k]);
+    }
+    if (b.type === 'thesis' || b.type === 'quote') nb.text = sanitize(nb.text);
+    if (b.type === 'thesis'){
+      // старые тезисы: один текстовый блок с прежними настройками
+      if (!Array.isArray(b.parts) || !b.parts.length)
+        nb.parts = [{ kind:'text', html:nb.text || '', align:['left', 'center', 'right'].includes(b.align) ? b.align : 'center', scale:+b.scale || 100, caps:b.caps !== false }];
+      nb.parts = nb.parts.map(p => p && p.kind === 'line' ? { kind:'line' }
+        : { kind:'text', html:sanitize(p && p.html), align:['left', 'center', 'right'].includes(p && p.align) ? p.align : 'center', scale:+(p && p.scale) || 100, caps:!!(p && p.caps) });
+      nb.scale = 100;
+      syncThesisText(nb);
+    }
+    if (NAMED[b.type]) nb.name = cleanName(nb.name);
+    if (b.type === 'thesis'){ if (nb.nameAuto == null) nb.nameAuto = !nb.name; if (nb.nameAuto) nb.name = autoName(nb.text); }
+    s.blocks.push(nb);
+  });
+  return s;
+}
+
+/* ========= Общие настройки слайдов: поля и названия ========= */
+let SLIDES_BASE = JSON.parse(JSON.stringify(SLIDES_DEFAULT));   // из config.json (или встроенные)
+const clampN = (v, a, b, d) => { v = Number(v); return isFinite(v) ? Math.min(b, Math.max(a, Math.round(v))) : d; };
+function mergeSlides(base, over){
+  const r = JSON.parse(JSON.stringify(base));
+  if (over && typeof over === 'object'){
+    ['margins', 'names', 'font'].forEach(k => { if (over[k] && typeof over[k] === 'object') Object.assign(r[k], over[k]); });
+    if (over.sizes && typeof over.sizes === 'object') ['scripture', 'thesis', 'quote'].forEach(k => { if (over.sizes[k] && typeof over.sizes[k] === 'object') Object.assign(r.sizes[k], over.sizes[k]); });
+  }
+  r.margins.side = clampN(r.margins.side, 0, 400, 60); r.margins.top = clampN(r.margins.top, 0, 400, 60); r.margins.bottom = clampN(r.margins.bottom, 0, 400, 60);
+  r.names.required = r.names.required !== false; r.names.maxLength = clampN(r.names.maxLength, 5, 120, 35);
+  ['thesis', 'quote'].forEach(k => { const z = r.sizes[k]; z.min = clampN(z.min, 30, 100, 70); z.max = clampN(z.max, 100, 200, 110); });
+  r.sizes.scripture = { size:clampN(r.sizes.scripture && r.sizes.scripture.size, 50, 200, 100) };
+  r.font = { canva:['verses', 'all'].includes(r.font && r.font.canva) ? r.font.canva : 'off' };
+  return r;
+}
+function slidesLocal(){ try { return JSON.parse(LS.get('swp-slides-local') || 'null'); } catch(e){ return null; } }
+function slidesCfg(){ return mergeSlides(SLIDES_BASE, slidesLocal()); }
+function marginVars(m){ return { '--sl-x':(PANEL_INSET + m.side) + 'px', '--sl-t':(PANEL_INSET + m.top) + 'px', '--sl-b':(PANEL_INSET + m.bottom) + 'px' }; }
+function applySlides(){
+  const v = marginVars(slidesCfg().margins);
+  Object.keys(v).forEach(k => document.documentElement.style.setProperty(k, v[k]));
+}
+/* Слайды, у которых обязательное название не заполнено */
+function missingNames(){
+  if (!slidesCfg().names.required) return [];
+  return state.blocks.filter(b => NAMED[b.type] && !cleanName(b.name));
+}
+let flagMissing = false;   // подсвечивать пустые названия красным — после первой неудачной попытки
+function checkNames(){
+  const miss = missingNames(); if (!miss.length) return true;
+  flagMissing = true;
+  const nums = slideNums();
+  if (mode !== 'edit'){ mode = 'edit'; LS.set('swp-mode', 'edit'); }
+  miss.forEach(b => { b.collapsed = false; });
+  renderMain();
+  const card = document.querySelector('.block[data-id="' + miss[0].id + '"]');
+  if (card){ card.scrollIntoView({ block:'center', behavior:'smooth' }); const f = card.querySelector('.namebox input'); if (f) f.focus({ preventScroll:true }); }
+  toast('Напишите названия слайдов: ' + miss.map(b => nums[b.id]).join(', '));
+  return false;
+}
+
+/* ========= Состояние ========= */
+let state, restoreOffer = null, sheetAt = 0, toastTimer = null, draftTimer = null;
+let mode = LS.get('swp-mode') === 'view' ? 'view' : 'edit';
+let viewOpts = { showText:true, size:1 };
+try { Object.assign(viewOpts, JSON.parse(LS.get('swp-view') || '{}')); } catch(e){}
+
+function readEmbedded(){
+  const s = document.getElementById('sermon-data');
+  try { const d = JSON.parse(s.textContent); return d && Array.isArray(d.blocks) ? d : null; } catch(e){ return null; }
+}
+function readDraft(id){
+  const key = id || LS.get('swp-sermon:last');
+  if (!key) return null;
+  try { const d = JSON.parse(LS.get('swp-sermon:' + key) || 'null'); return d && Array.isArray(d.blocks) ? d : null; } catch(e){ return null; }
+}
+function persistDraft(){
+  clearTimeout(draftTimer);
+  LS.set('swp-sermon:' + state.id, JSON.stringify(state));
+  LS.set('swp-sermon:last', state.id);
+  updateStatus();
+}
+function change(){
+  state.updatedAt = Date.now();
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(persistDraft, 400);
+  updateStatus();
+}
+const isDirty = () => state.updatedAt > (state.savedAt || 0) && (state.blocks.length > 0 || !!state.meta.title);
+
+function slideNums(){
+  const m = {}; let n = 0;
+  state.blocks.forEach(b => { if (TYPES[b.type].slide) m[b.id] = ++n; });
+  m._total = n;
+  return m;
+}
+function partChars(p){ return p.verses.reduce((s, v) => s + plain(v.text).trim().length, 0); }
+function limitFor(b){
+  const st = state.settings;
+  return { scripture:st.minScale, thesis:st.limitThesis, quote:st.limitQuote }[b.type] || 0;
+}
+function charCount(b){
+  switch (b.type){
+    case 'scripture':  return b.items.reduce((s, it) => s + (it.kind === 'text' ? plain(it.html).trim().length : it.kind === 'line' ? 0 : partChars(it)), 0);
+    case 'thesis':     return plain(b.text).trim().length;
+    case 'quote':      return plain(b.text).trim().length + (b.author || '').trim().length;
+  }
+  return 0;
+}
+/* Одна строка о содержимом блока — видна, когда блок свёрнут */
+function blockSummary(b){
+  let t = '';
+  switch (b.type){
+    case 'scripture':
+      t = b.items.map(it => it.kind === 'text' ? plain(it.html) : (it.ref || refString(it))).map(x => String(x || '').trim()).filter(Boolean).join(' · ');
+      break;
+    case 'thesis': t = plain(b.text); break;
+    case 'quote':  t = plain(b.text).trim() ? '«' + plain(b.text).trim() + '»' + (b.author ? ' — ' + b.author : '') : ''; break;
+    case 'image':  t = b.desc || (b.mode === 'send' ? 'Файл пришлют отдельно' : ''); break;
+    case 'video':  t = b.url || b.desc || (b.mode === 'send' ? 'Видео пришлют отдельно' : ''); break;
+    case 'free':   t = b.desc; break;
+    case 'text':   t = b.text; break;
+    case 'note':   t = b.text; break;
+  }
+  t = String(t || '').replace(/\s+/g, ' ').trim();
+  return t.length > 120 ? t.slice(0, 120) + '…' : t;
+}
+
+/* ========= Каркас страницы ========= */
+const app = $('#app');
+const statusEl = h('div', { class:'statusbar', id:'status' });
+const bannerEl = h('div', { class:'banner' });
+const mainEl = h('main', { class:'wrap', id:'main' });
+/* Пункты сворачивания работают только в редакторе: в просмотре блоки не сворачиваются */
+const foldBtns = [];
+const menuItem = (icon, label, fn, fold) => {
+  const b = h('button', { type:'button', onclick:() => { closeMenu(); fn(); } }, ic(icon), label);
+  if (fold) foldBtns.push(b);
+  return b;
+};
+const isSlide = b => TYPES[b.type].slide;
+const menuEl = h('div', { class:'menu', id:'menu' },
+  menuItem('newdoc', 'Новая проповедь', () => newSermon()),
+  menuItem('open', 'Открыть файл', () => fileInput.click()),
+  h('div', { class:'menu-sep' }),
+  menuItem('fold', 'Свернуть все блоки', () => foldWhere(() => true, () => true, 'Все блоки свёрнуты'), true),
+  menuItem('unfold', 'Развернуть все блоки', () => foldWhere(() => true, () => false, 'Все блоки развёрнуты'), true),
+  menuItem('check', 'Свернуть готовые слайды', () => foldWhere(isSlide, b => !!b.done, 'Готовые свёрнуты, остальные слайды открыты'), true),
+  menuItem('fold', 'Свернуть неготовые слайды', () => foldWhere(isSlide, b => !b.done, 'Неготовые свёрнуты, готовые открыты'), true),
+  menuItem('text', 'Свернуть текст и заметки', () => foldWhere(b => !isSlide(b), () => true, 'Текст и заметки свёрнуты'), true),
+  h('div', { class:'menu-sep' }),
+  menuItem('zip', 'Скачать все слайды', () => exportMany(false)),
+  menuItem('zip', 'Скачать неотмеченные слайды', () => exportMany(true)),
+  menuItem('phone', 'PDF для оператора', () => operatorPDF()),
+  h('div', { class:'menu-sep' }),
+  menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()),
+  menuItem('settings', 'Лимиты', () => openSettings()),
+  menuItem('link', 'Источник настроек', () => openConfig())
+);
+const segEl = h('div', { class:'seg', role:'tablist' },
+  h('button', { type:'button', 'data-mode':'edit', onclick:() => setMode('edit') }, 'Редактор'),
+  h('button', { type:'button', 'data-mode':'view', onclick:() => setMode('view') }, 'Просмотр')
+);
+const topbar = h('header', { class:'topbar' },
+  h('div', { class:'brand' }, h('span', { class:'brand-bar' }),
+    h('div', null, h('div', { class:'brand-kicker', text:'Слово веры · Познань' }), h('div', { class:'brand-title', text:'Проповедь' }))),
+  segEl,
+  h('div', { class:'actions' },
+    h('button', { type:'button', class:'btn hide-sm', onclick:() => fileInput.click() }, ic('open'), 'Открыть'),
+    h('button', { type:'button', class:'btn primary', onclick:saveFile, title:'Ctrl+S' }, ic('save'), 'Сохранить'),
+    iconBtn('more', 'Ещё', e => { e.stopPropagation(); menuEl.classList.toggle('open'); }),
+    menuEl)
+);
+const fileInput = $('#fileInput');
+
+/* выбор типа блока: сверху «Текст проповеди» (шире) и «Заметка оператору», ниже остальные парами */
+const typesTop = h('div', { class:'types types-top' });
+const typesGrid = h('div', { class:'types' });
+Object.keys(TYPES).forEach(t => {
+  const T = TYPES[t];
+  (T.slide ? typesGrid : typesTop).append(h('button', { type:'button', class:'type t-' + t, style:'--tc:var(--c-' + t + ')', onclick:() => addBlock(t, sheetAt) },
+    h('span', { class:'type-ic' }, ic(T.icon)),
+    h('span', null, h('div', { class:'type-name', text:T.label }), h('div', { class:'type-desc', text:T.desc }))));
+});
+const sheetOverlay = h('div', { class:'overlay', onclick:e => { if (e.target === sheetOverlay) closeSheet(); } },
+  h('div', { class:'sheet', role:'dialog', 'aria-label':'Новый блок' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Что добавить?' }), iconBtn('close', 'Закрыть', closeSheet)),
+    typesTop, typesGrid));
+const settingsOverlay = h('div', { class:'overlay', onclick:e => { if (e.target === settingsOverlay) closeSettings(); } });
+
+/* панель оформления */
+function fbtn(content, title, act, cls){
+  const b = h('button', { type:'button', class:'fbtn ' + (cls || ''), title:title, 'aria-label':title }, content);
+  b.addEventListener('mousedown', e => e.preventDefault());
+  b.addEventListener('touchstart', e => { e.preventDefault(); act(); }, { passive:false });
+  b.addEventListener('click', act);
+  return b;
+}
+const fmtEl = h('div', { class:'fmtbar', id:'fmtbar' },
+  fbtn('Ж', 'Жирный', () => fmt('bold'), 'b'),
+  fbtn('К', 'Курсив', () => fmt('italic'), 'i'),
+  fbtn('Ч', 'Подчеркнуть', () => fmt('underline'), 'u'),
+  fbtn(ic('marker'), 'Выделить цветом', toggleMark),
+  fbtn('АА', 'Все прописные', toggleUp, 'up-btn'),
+  h('span', { class:'fsep lst' }),
+  fbtn('•', 'Список с точками', () => toggleList('•'), 'lst'),
+  fbtn('1.', 'Нумерованный список', () => toggleList('1'), 'lst'),
+  h('span', { class:'fsep' }),
+  fbtn(ic('clear'), 'Убрать оформление', clearFmt));
+const toastEl = h('div', { class:'toast', role:'status' });
+
+app.append(topbar, statusEl, bannerEl, mainEl);
+document.body.append(sheetOverlay, settingsOverlay, fmtEl, toastEl);
+try { document.execCommand('styleWithCSS', false, false); } catch(e){}
+
+/* ========= Отрисовка ========= */
+function renderAll(){ renderBanner(); renderMain(); updateStatus(); }
+function setMode(m){
+  if (m === 'view' && !checkNames()) return;
+  mode = m; LS.set('swp-mode', m); renderMain(); window.scrollTo(0, 0);
+}
+
+function renderMain(){
+  segEl.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  foldBtns.forEach(b => { b.disabled = mode !== 'edit'; b.title = mode !== 'edit' ? 'Сворачивать блоки можно в режиме «Редактор»' : ''; });
+  mainEl.innerHTML = '';
+  document.title = (state.meta.title || 'Проповедь') + ' · Слово веры';
+  if (mode === 'edit') renderEditor(); else renderView();
+}
+
+function updateStatus(){
+  const n = slideNums()._total, done = state.blocks.filter(b => b.done).length;
+  const left = h('span', null, 'Слайдов: ' + n + (done ? ' · готово: ' + done : '') + ' · черновик хранится в этом браузере');
+  let right;
+  if (isDirty()) right = h('span', { class:'warn' }, '● Не сохранено в файл');
+  else if (state.savedAt) right = h('span', { class:'ok' }, '✓ Файл сохранён в ' + fmtTime(state.savedAt));
+  else right = h('span');
+  statusEl.innerHTML = '';
+  statusEl.append(left, right);
+}
+
+function renderBanner(){
+  bannerEl.innerHTML = '';
+  if (!restoreOffer) return;
+  bannerEl.append(h('div', null,
+    h('span', { class:'grow' }, 'В этом браузере есть более свежий черновик этой проповеди (' + fmtTime(restoreOffer.updatedAt) + ').'),
+    h('button', { type:'button', class:'btn', onclick:() => { state = normalize(restoreOffer); restoreOffer = null; persistDraft(); renderAll(); toast('Черновик восстановлен'); } }, 'Восстановить черновик'),
+    h('button', { type:'button', class:'btn', onclick:() => { restoreOffer = null; renderBanner(); } }, 'Оставить как в файле')));
+}
+
+/* ----- Редактор ----- */
+function renderEditor(){
+  const m = state.meta;
+  const metaField = (key, label, ph, type) => h('label', { class:'field' },
+    h('span', { class:'lbl', text:label }),
+    h('input', { class:'input', type:type || 'text', placeholder:ph || '', value:m[key] || '', oninput:e => { m[key] = e.target.value; change(); } }));
+  mainEl.append(h('section', { class:'card meta' },
+    h('div', { class:'kicker', text:'Шапка проповеди' }),
+    h('input', { class:'title-input', placeholder:'Название проповеди', value:m.title, 'aria-label':'Название проповеди',
+      oninput:e => { m.title = e.target.value; document.title = (m.title || 'Проповедь') + ' · Слово веры'; change(); } }),
+    h('div', { class:'meta-grid' },
+      metaField('date', 'Дата', '', 'date'),
+      preacherField())));
+  if (state.blocks.some(b => b.type === 'scripture')) loadBible(curLang());
+
+  const list = h('div', { class:'blocks', id:'blocks' });
+  const nums = slideNums();
+  state.blocks.forEach((b, i) => {
+    list.append(insertLine(i));
+    list.append(renderBlock(b, nums[b.id]));
+  });
+  mainEl.append(list);
+  if (!state.blocks.length) mainEl.append(h('div', { class:'empty' },
+    h('div', { class:'empty-title', text:'Соберите проповедь из блоков' }),
+    h('ol', null,
+      h('li', null, 'Добавляйте блоки по ходу проповеди: места Писания, тезисы, цитаты, картинки.'),
+      h('li', null, '«Текст проповеди» и «Заметка оператору» на экран не выводятся: это подсказки оператору.'),
+      h('li', null, 'Готовые блоки можно свернуть, чтобы не мешали.'),
+      h('li', null, 'Готово? Нажмите «Сохранить» и отправьте получившийся файл.'))));
+  mainEl.append(h('button', { type:'button', class:'add-big', onclick:() => openSheet(state.blocks.length) }, ic('plus'), 'Добавить блок'));
+  state.blocks.forEach(updateCounter);
+  growAll(mainEl);
+}
+
+function preacherField(){
+  const m = state.meta, known = !m.preacher || PREACHERS.includes(m.preacher);
+  const wrap = h('label', { class:'field' }, h('span', { class:'lbl', text:'Проповедник' }));
+  const sel = h('select', { class:'input', onchange:e => {
+    if (e.target.value === '__other'){ m.preacher = ''; other.style.display = ''; other.focus(); }
+    else { m.preacher = e.target.value; other.style.display = 'none'; }
+    change();
+  } },
+    h('option', { value:'' }, 'Выберите…'),
+    PREACHERS.map(p => h('option', { value:p, selected:p === m.preacher }, p)),
+    h('option', { value:'__other', selected:!known }, 'Другой — ввести вручную'));
+  const other = h('input', { class:'input', placeholder:'Фамилия Имя', value:known ? '' : m.preacher, style:known ? 'display:none;margin-top:8px' : 'margin-top:8px',
+    oninput:e => { m.preacher = e.target.value; change(); } });
+  wrap.append(sel, other);
+  return wrap;
+}
+
+function insertLine(at){
+  return h('div', { class:'insert' }, h('button', { type:'button', title:'Вставить блок сюда', 'aria-label':'Вставить блок сюда', onclick:() => openSheet(at) }, ic('plus')));
+}
+
+function renderBlock(b, n){
+  const T = TYPES[b.type];
+  const miss = flagMissing && NAMED[b.type] && slidesCfg().names.required && !cleanName(b.name);
+  const card = h('article', { class:'block t-' + b.type + (b.collapsed ? ' collapsed' : '') + (b.done ? ' done' : '') + (miss ? ' missing' : ''), 'data-id':b.id, style:'--tc:var(--c-' + b.type + ')' });
+  let sub;
+  if (b.collapsed){
+    const s = blockSummary(b);
+    sub = h('div', { class:'bsum' + (s ? '' : ' empty'), text:s || 'Пока пусто' });
+  } else sub = h('div', { class:'bsub', text:T.slide ? 'Слайд ' + n + (b.done ? ' · готов' : '') : (b.type === 'note' ? 'Только для оператора' : 'На экран не выводится') });
+  card.append(h('div', { class:'bhead' },
+    h('div', { class:'btag', title:b.collapsed ? 'Развернуть' : 'Свернуть', onclick:() => toggleFold(b) },
+      T.slide ? h('span', { class:'bnum', text:pad(n) }) : h('span', { class:'bnum off' }, ic(T.icon)),
+      h('div', { style:'min-width:0' }, h('div', { class:'btype', text:T.label }), sub)),
+    h('div', { class:'btools' },
+      T.slide && iconBtn('tag', 'Скопировать название слайда', () => copyText(slideName(b, slideNums()[b.id]), 'Скопировано: ')),
+      PREVIEW[b.type] && iconBtn('jpg', 'Скачать слайд в JPEG', () => exportOne(b)),
+      T.slide && iconBtn('check', b.done ? 'Снять отметку «готово»' : 'Отметить как готовый', () => toggleDone(b), 'mark' + (b.done ? ' on' : '')),
+      iconBtn(b.collapsed ? 'unfold' : 'fold', b.collapsed ? 'Развернуть' : 'Свернуть', () => toggleFold(b)),
+      iconBtn('top', 'В самый верх', () => move(b, -Infinity)),
+      iconBtn('up', 'Выше', () => move(b, -1)),
+      iconBtn('down', 'Ниже', () => move(b, 1)),
+      iconBtn('bottom', 'В самый низ', () => move(b, Infinity)),
+      iconBtn('dup', 'Дублировать', () => duplicate(b)),
+      iconBtn('trash', 'Удалить', () => removeBlock(b), 'danger'))));
+  if (b.collapsed) return card;
+  const body = h('div', { class:'bbody' });
+  BODY[b.type](b, body, n);
+  if (PREVIEW[b.type]){
+    const sl = slideEl(b);
+    card.append(h('div', { class:'bsplit' },
+      h('div', { class:'bmain' }, body),
+      h('div', { class:'bprev' },
+        h('div', { class:'bprev-cap' }, h('span', null, 'Предпросмотр'), h('span', { class:'count' }, '')),
+        sl)));
+    if (previewRO) previewRO.observe(sl);
+    return card;
+  }
+  card.append(body);
+  return card;
+}
+
+function rerender(b, focusKey, offset){
+  const old = document.querySelector('.block[data-id="' + b.id + '"]');
+  const nb = renderBlock(b, slideNums()[b.id]);
+  if (old) old.replaceWith(nb);
+  if (PREVIEW[b.type] && !b.collapsed){ clearTimeout(previewTimers[b.id]); runPreview(b); }   // раскладываем сразу, без пустого кадра
+  else updateCounter(b);
+  growAll(nb);
+  if (focusKey) focusRich(focusKey, offset);
+}
+
+function updateCounter(b){
+  const card = document.querySelector('.block[data-id="' + b.id + '"]'); if (!card) return;
+  if (card.querySelector('.sl')){ schedulePreview(b); return; }
+  // свёрнутый блок: подсвечиваем только превышение лимита символов
+  if (b.type === 'thesis' || b.type === 'quote') card.classList.toggle('over', charCount(b) > limitFor(b));
+}
+
+function toggleFold(b){
+  b.collapsed = !b.collapsed;
+  change(); rerender(b);
+}
+/* Свернуть или развернуть блоки, подходящие под условие: fold(b) — свернуть ли этот блок */
+function foldWhere(pred, fold, msg){
+  if (mode !== 'edit') return;
+  state.blocks.forEach(b => { if (pred(b)) b.collapsed = !!fold(b); });
+  change(); renderMain();
+  toast(msg);
+}
+/* Отметка «готово»: слайд выгружен или сделан. Ставится вручную, а при выгрузке — сама, если её ещё нет */
+function toggleDone(b){
+  b.done = !b.done;
+  change(); rerender(b);
+}
+function markDone(b){ if (!b.done){ b.done = true; return true; } return false; }
+
+/* поля */
+function field(label, control){ return h('label', { class:'field' }, h('span', { class:'lbl', text:label }), control); }
+function grow(t){ t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }
+function growAll(root){ requestAnimationFrame(() => root.querySelectorAll('textarea.input').forEach(grow)); }
+function area(obj, key, ph, rows){
+  const t = h('textarea', { class:'input', placeholder:ph, rows:String(rows || 3), oninput:e => { obj[key] = e.target.value; grow(e.target); change(); } });
+  t.value = obj[key] || '';
+  return t;
+}
+function input(obj, key, ph, extra){
+  return h('input', Object.assign({ class:'input', placeholder:ph, value:obj[key] || '', oninput:e => { obj[key] = e.target.value; change(); } }, extra || {}));
+}
+function toggle(opts, cur, fn){
+  return h('div', { class:'toggle' }, opts.map(o => h('button', { type:'button', class:o[0] === cur ? 'on' : '', onclick:() => { if (o[0] !== cur) fn(o[0]); } }, o[1])));
+}
+
+function rich(value, o){
+  const el = h('div', { class:'rich ' + (o.cls || ''), contenteditable:'true', 'data-ph':o.ph || '', spellcheck:'true', role:'textbox' });
+  if (o.key) el.dataset.key = o.key;
+  if (o.lists) el.dataset.lists = '1';
+  el.innerHTML = sanitize(value);
+  el.addEventListener('input', e => {
+    if (o.lists && e.inputType === 'insertText' && e.data === ' ') autoList(el);
+    const v = finalize(cleanHTML(el));
+    if (!v && el.innerHTML !== '') el.innerHTML = '';
+    o.onInput(v);
+  });
+  el.addEventListener('paste', e => {
+    e.preventDefault();
+    let t = ((e.clipboardData && e.clipboardData.getData('text/plain')) || '').replace(/\u00ad/g, '');   // мягкие переносы с сайтов вроде azbyka.ru
+    t = t.replace(/\r\n?/g, '\n');
+    if (o.single) t = t.replace(/\s*\n\s*/g, ' ').replace(/[ \t\u00a0]+/g, ' ');
+    if (o.lists){   // по строкам: переносы — это <br>, а «- » в начале строки становится «• »
+      t.split('\n').forEach((ln, i) => {
+        if (i) document.execCommand('insertLineBreak');
+        if (ln) document.execCommand('insertText', false, ln.replace(/^\s*[-*•][ \t]+/, '• ').replace(/^\s*(\d{1,2})[.)][ \t]+/, '$1. '));
+      });
+    } else document.execCommand('insertText', false, t);
+    if (o.onPasted) o.onPasted(el);
+  });
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.isComposing){
+      if (o.onEnter){ e.preventDefault(); o.onEnter(el); }
+      else if (o.single) e.preventDefault();
+      return;
+    }
+    if (e.key === 'Backspace' && o.onBackStart && caretAtStart(el)) { if (o.onBackStart(el)) e.preventDefault(); }
+  });
+  el.addEventListener('beforeinput', e => {
+    if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak'){
+      if (o.onEnter){ e.preventDefault(); o.onEnter(el); }
+      else if (o.single) e.preventDefault();
+    }
+  });
+  return el;
+}
+function caretAtStart(el){
+  const s = getSelection(); if (!s.rangeCount) return false;
+  const r = s.getRangeAt(0);
+  if (!r.collapsed || !el.contains(r.startContainer)) return false;
+  const pre = document.createRange(); pre.selectNodeContents(el); pre.setEnd(r.startContainer, r.startOffset);
+  return pre.toString().length === 0;
+}
+function setCaret(el, off){
+  const s = getSelection(), r = document.createRange();
+  if (off == null || off === 'end'){ r.selectNodeContents(el); r.collapse(false); }
+  else {
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n, rem = off, placed = false;
+    while ((n = w.nextNode())){ if (rem <= n.nodeValue.length){ r.setStart(n, rem); r.collapse(true); placed = true; break; } rem -= n.nodeValue.length; }
+    if (!placed){ r.selectNodeContents(el); r.collapse(off === 0); }
+  }
+  s.removeAllRanges(); s.addRange(r);
+}
+function focusRich(key, off){
+  const el = document.querySelector('[data-key="' + key + '"]'); if (!el) return;
+  el.focus({ preventScroll:true }); setCaret(el, off);
+  const rect = el.getBoundingClientRect();
+  if (rect.top < 80 || rect.bottom > window.innerHeight - 90) el.scrollIntoView({ block:'center', behavior:'smooth' });
+}
+
+/* ----- Писание: «Свой перевод» — всё вручную, без подсказок ----- */
+function partEditor(block, part, pi){
+  const wrap = h('div', { class:'half' });
+  if (part.mBook == null) splitManualRef(part);
+  const upd = () => { part.ref = manualRef(part); change(); updateCounter(block); };
+  const picker = trPicker(part, v => { if (v === OWN) return; fromManual(part, v); loadBible(v); syncVerses(part); change(); rerender(block); });
+  const book = h('input', { class:'input', placeholder:'Например: Иакова', value:part.mBook || '', autocomplete:'off', 'aria-label':'Книга', oninput:e => { part.mBook = e.target.value; upd(); } });
+  const chap = h('input', { class:'input', placeholder:'№', inputmode:'numeric', autocomplete:'off', value:part.mChapter || '', 'aria-label':'Глава', oninput:e => { part.mChapter = e.target.value.trim(); upd(); } });
+  const vers = h('input', { class:'input', placeholder:'2-4, 8', autocomplete:'off', value:part.mVerses || '', 'aria-label':'Стихи',
+    oninput:e => { part.mVerses = e.target.value; upd(); }, onchange:() => { syncManualVerses(part); change(); rerender(block); } });
+  wrap.append(h('div', { class:'grid-3' }, h('div', { class:'field' }, h('span', { class:'lbl', text:'Перевод' }), picker), field('Книга', book), field('Глава', chap)));
+  wrap.append(h('div', { class:'grid-2' }, field('Стихи', vers),
+    field('Название перевода', input(part, 'translation', 'Например: перевод Десницкого', { autocomplete:'off', oninput:e => { part.translation = e.target.value; change(); updateCounter(block); } }))));
+  const vs = h('div', { class:'verses' });
+  part.verses.forEach((v, vi) => vs.append(verseRow(block, part, pi, vi)));
+  wrap.append(h('div', null, h('span', { class:'lbl', text:'Текст стихов' }), vs));
+  return wrap;
+}
+
+function verseRow(block, part, pi, vi){
+  const v = part.verses[vi];
+  if (!part.manual) return autoVerseRow(block, part, pi, vi);
+  const num = h('input', { class:'input vnum', value:v.num, placeholder:'№', inputmode:'numeric', 'aria-label':'Номер стиха',
+    oninput:e => { v.num = e.target.value.trim(); if (vi === 0) part.autoFirst = false; change(); updateCounter(block); } });
+  const only = part.verses.length === 1;
+  const txt = rich(v.text, {
+    key:block.id + ':' + pi + ':' + vi, single:true, cls:'vtext',
+    ph:only ? 'Вставьте текст. Enter перед номером стиха — новая строка' : 'Текст стиха',
+    onInput:val => { v.text = val; change(); updateCounter(block); },
+    onEnter:el => splitVerse(block, part, pi, vi, el),
+    onBackStart:() => { if (vi > 0){ mergeVerse(block, part, pi, vi); return true; } return false; },
+    onPasted:el => {
+      if (v.num) return;
+      const html = finalize(cleanHTML(el));
+      const m = /^(\d{1,3})(?:\s|&nbsp;|[.:)])+/.exec(html);
+      if (!m) return;
+      v.num = m[1]; v.text = html.slice(m[0].length); num.value = v.num;
+      if (vi === 0) part.autoFirst = false;
+      el.innerHTML = v.text; setCaret(el, 'end'); change(); updateCounter(block);
+    }
+  });
+  const del = only ? h('span') : iconBtn('close', 'Убрать стих', () => { part.verses.splice(vi, 1); change(); rerender(block); }, 'vdel');
+  return h('div', { class:'verse' }, num, txt, del);
+}
+
+function splitVerse(block, part, pi, vi, el){
+  const v = part.verses[vi];
+  let head = v.text, tail = '';
+  const s = getSelection();
+  if (s.rangeCount && el.contains(s.getRangeAt(0).startContainer)){
+    const r = s.getRangeAt(0); if (!r.collapsed) r.deleteContents();
+    const t = document.createRange(); t.setStart(r.startContainer, r.startOffset); t.setEnd(el, el.childNodes.length);
+    const tmp = document.createElement('div'); tmp.appendChild(t.extractContents());
+    tail = finalize(cleanHTML(tmp)); head = finalize(cleanHTML(el));
+  }
+  head = rtrimH(head); tail = ltrimH(tail);
+  let num = nextNum(v.num);
+  const m = /^(\d{1,3})(?:\s|&nbsp;|[.:)])+/.exec(tail);
+  if (m){ num = m[1]; tail = tail.slice(m[0].length); }
+  v.text = head;
+  part.verses.splice(vi + 1, 0, { num:num, text:tail });
+  change();
+  rerender(block, block.id + ':' + pi + ':' + (vi + 1), 0);
+}
+function mergeVerse(block, part, pi, vi){
+  const prev = part.verses[vi - 1], cur = part.verses[vi];
+  const a = rtrimH(prev.text), b = ltrimH(cur.text), sep = a && b ? ' ' : '';
+  const off = plain(a).length + sep.length;
+  prev.text = a + sep + b;
+  part.verses.splice(vi, 1);
+  change();
+  rerender(block, block.id + ':' + pi + ':' + (vi - 1), off);
+}
+function addVerse(block, part, pi){
+  const last = part.verses[part.verses.length - 1];
+  part.verses.push({ num:nextNum(last.num), text:'' });
+  change();
+  rerender(block, block.id + ':' + pi + ':' + (part.verses.length - 1), 0);
+}
+
+
+/* ----- Место Писания из Библии: язык → книга → глава → стихи ----- */
+const anchors = {};
+/* Выбор перевода: кнопка + панель с поиском и группами по языкам */
+let trPanel = null;
+function closeTrPanel(){ if (trPanel){ trPanel.remove(); trPanel = null; } }
+function trTitle(it){
+  if (it.manual) return 'Свой перевод';
+  const L = LANGS[it.lang]; return L ? L.label : (it.translation || 'Перевод');
+}
+function trPicker(it, onPick){
+  const L = !it.manual && LANGS[it.lang];
+  const btn = h('button', { type:'button', class:'input trp-btn', 'aria-label':'Перевод', 'aria-haspopup':'listbox' },
+    L ? h('span', { class:'trp-lang-code', text:L.group.toUpperCase() }) : null, h('span', { class:'trp-cur', text:trTitle(it) }));
+  const wrap = h('div', { class:'trp' }, btn);
+  btn.addEventListener('click', e => { e.stopPropagation(); openTrPanel(wrap, it, onPick); });
+  return wrap;
+}
+function openTrPanel(wrap, it, onPick){
+  if (trPanel && trPanel.parentNode === wrap){ closeTrPanel(); return; }
+  closeTrPanel();
+  const norm = x => String(x || '').toLowerCase().replace(/ё/g, 'е').replace(/ą/g, 'a').replace(/ć/g, 'c').replace(/ę/g, 'e').replace(/ł/g, 'l').replace(/ń/g, 'n').replace(/ó/g, 'o').replace(/ś/g, 's').replace(/[źż]/g, 'z');
+  const curG = it.manual ? null : (LANGS[it.lang] || {}).group;
+  const opened = new Set();   // сначала видны все языки и «Свой»; язык раскрывается по нажатию
+  const shown = k => LANGS[k].file || LANGS[k].url;
+  const q = h('input', { class:'input trp-q', type:'search', placeholder:'Поиск: язык или перевод (НРП, Турконяк, UBG…)', 'aria-label':'Поиск перевода' });
+  const list = h('div', { class:'trp-list', role:'listbox' });
+  const pick = k => { closeTrPanel(); if (k === OWN ? !it.manual : (it.manual || k !== it.lang)) onPick(k); };
+  const draw = () => {
+    const t = norm(q.value).trim(); list.innerHTML = '';
+    let any = false;
+    TR_GROUPS.forEach(([g, gl]) => {
+      const all = Object.keys(LANGS).filter(k => LANGS[k].group === g && shown(k));
+      if (!all.length) return;
+      const byLang = t && norm(gl + ' ' + g).includes(t);
+      const keys = !t || byLang ? all : all.filter(k => norm([LANGS[k].label, LANGS[k].abbr, LANGS[k].tr, LANGS[k].note, LANGS[k].alias].join(' ')).includes(t));
+      if (!keys.length) return;
+      any = true;
+      const open = t ? true : opened.has(g);
+      list.append(h('button', { type:'button', class:'trp-lang' + (open ? ' open' : '') + (g === curG ? ' cur' : ''), 'aria-expanded':String(open),
+        onclick:() => { if (t) return; opened.has(g) ? opened.delete(g) : opened.add(g); draw(); } },
+        h('span', { class:'trp-lname', text:gl }),
+        h('span', { class:'trp-note', text:g === curG ? LANGS[it.lang].label : LANGS[all[0]].label }),
+        h('span', { class:'trp-chev', html:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>' })));
+      if (open) keys.forEach(k => {
+        const L = LANGS[k], note = [k === all[0] ? 'по умолчанию' : '', L.note].filter(Boolean).join(' · ');
+        list.append(h('button', { type:'button', class:'trp-it sub' + (!it.manual && k === it.lang ? ' on' : ''), role:'option', onclick:() => pick(k) },
+          h('span', { class:'trp-name' }, L.abbr ? h('span', { class:'trp-abbr', text:L.abbr }) : null, L.label),
+          note ? h('span', { class:'trp-note', text:note }) : null));
+      });
+    });
+    if (!t || norm('свой перевод другой вручную').includes(t)){
+      any = true;
+      list.append(h('div', { class:'trp-sep' }), h('button', { type:'button', class:'trp-it trp-own' + (it.manual ? ' on' : ''), role:'option', onclick:() => pick(OWN) },
+        h('span', { class:'trp-name', text:'Свой перевод' }), h('span', { class:'trp-note', text:'книга, глава, стихи и текст — вручную' })));
+    }
+    if (!any) list.append(h('div', { class:'trp-empty', text:'Ничего не нашлось. Если нужного перевода нет, выберите «Свой перевод».' }));
+  };
+  q.addEventListener('input', draw);
+  q.addEventListener('keydown', e => {
+    if (e.key === 'Enter'){ const f = list.querySelector('.trp-it'); if (f){ e.preventDefault(); f.click(); } }
+    if (e.key === 'Escape'){ e.stopPropagation(); closeTrPanel(); }
+  });
+  trPanel = h('div', { class:'trp-panel', onclick:e => e.stopPropagation() }, q, list);
+  wrap.append(trPanel);
+  draw();
+  const on = list.querySelector('.trp-it.on'); if (on) on.scrollIntoView({ block:'nearest' });
+  if (window.matchMedia('(pointer:fine)').matches) q.focus();
+}
+document.addEventListener('click', closeTrPanel);
+function scriptureEditor(block, it, pi){
+  const wrap = h('div', { class:'half' });
+  const rec = bibles[srcKey(it.lang)], data = bibleData(it.lang);
+  if (!rec) loadBible(it.lang);
+  const relayout = () => { syncVerses(it); change(); rerender(block); };
+
+  const lang = trPicker(it, v => {
+    if (v === OWN){ resetToOwn(it); change(); rerender(block); return; }
+    it.lang = v; state.settings.lang = v;
+    const d = bibleData(v);
+    if (d && it.book && !d[it.book]) { it.book = 0; it.chapter = 0; it.sel = []; }   // этой книги в переводе нет
+    else if (d && it.book && !d[it.book][it.chapter]) { it.chapter = 0; it.sel = []; }
+    it.verses = [];
+    loadBible(v); relayout();
+  });
+  const book = h('select', { class:'input', 'aria-label':'Книга', onchange:e => {
+    it.book = +e.target.value; it.chapter = it.book ? 1 : 0; it.sel = []; it.verses = []; relayout();
+  } },
+    h('option', { value:'0' }, 'Книга…'),
+    // показываем только книги, которые есть в выбранном переводе
+    [['Ветхий Завет', BOOK_ORDER_OT], ['Новый Завет', BOOK_ORDER_NT]].map(([gl, order]) => {
+      const ns = order.filter(n => !data || data[n]);
+      return ns.length ? h('optgroup', { label:gl }, ns.map(n => h('option', { value:String(n), selected:n === it.book }, bookName(it.lang, n)))) : null;
+    }));
+  const chs = data && it.book ? Object.keys(data[it.book] || {}).map(Number).sort((a, b) => a - b) : [];
+  const chapter = h('select', { class:'input', 'aria-label':'Глава', disabled:!chs.length, onchange:e => {
+    it.chapter = +e.target.value; it.sel = []; it.verses = []; relayout();
+  } }, chs.length ? chs.map(c => h('option', { value:String(c), selected:c === it.chapter }, String(c))) : h('option', null, 'Глава'));
+  wrap.append(h('div', { class:'grid-3' }, h('div', { class:'field' }, h('span', { class:'lbl', text:'Перевод' }), lang), field('Книга', book), field('Глава', chapter)));
+  if (it.lang === 'own') wrap.append(field('Название перевода', h('input', { class:'input', placeholder:'Например: перевод Десницкого', value:it.trName || '', autocomplete:'off',
+    oninput:e => { it.trName = e.target.value; it.translation = trOf(it); change(); updateCounter(block); } })));
+
+  if (!data){
+    const sk = srcKey(it.lang), st = bibles[sk] ? bibles[sk].status : 'loading', nm = LANGS[sk].tr;
+    wrap.append(st === 'error'
+      ? h('div', { class:'loadnote err' }, 'Не удалось загрузить перевод «' + nm + '». Проверьте интернет.',
+          h('button', { type:'button', class:'chip', onclick:() => { loadBible(it.lang); rerender(block); } }, 'Повторить'),
+          h('button', { type:'button', class:'chip', onclick:() => { toManual(it); change(); rerender(block); } }, 'Ввести вручную'))
+      : h('div', { class:'loadnote' }, it.lang === 'own' ? 'Загружаю список глав и стихов…' : 'Загружаю перевод «' + nm + '»…'));
+    return wrap;
+  }
+  const cv = chapterVerses(it);
+  if (cv){
+    const nums = Object.keys(cv).map(Number).sort((a, b) => a - b), max = nums[nums.length - 1];
+    let anchor = anchors[block.id + ':' + pi] != null ? anchors[block.id + ':' + pi] : null;
+    const grid = h('div', { class:'vgrid' }, nums.map(n => h('button', { type:'button', class:'vchip' + (it.sel.includes(n) ? ' on' : ''), onclick:e => {
+      if (e.shiftKey && anchor != null){
+        const [a, b] = anchor < n ? [anchor, n] : [n, anchor];
+        for (let x = a; x <= b; x++) if (cv[x] != null && !it.sel.includes(x)) it.sel.push(x);
+      } else if (it.sel.includes(n)) it.sel = it.sel.filter(x => x !== n);
+      else it.sel.push(n);
+      it.sel.sort((a, b) => a - b); anchors[block.id + ':' + pi] = n;
+      relayout();
+    } }, String(n))));
+    const quick = h('input', { class:'input', placeholder:'или введите: 1-3, 5', value:formatSel(it.sel), inputmode:'numeric', onchange:e => { it.sel = parseSel(e.target.value, max).filter(n => cv[n] != null); relayout(); } });
+    wrap.append(h('div', { class:'vpick' },
+      h('span', { class:'lbl', text:'Стихи' }), grid,
+      h('div', { class:'vrow' }, quick,
+        h('button', { type:'button', class:'chip', onclick:() => { it.sel = nums.slice(); relayout(); } }, 'Вся глава'),
+        it.sel.length ? h('button', { type:'button', class:'chip', onclick:() => { it.sel = []; relayout(); } }, 'Сбросить') : null),
+      h('p', { class:'hint', html:it.lang === 'own'
+        ? 'Выберите номера стихов, а текст каждого стиха вставьте ниже. Shift + клик — выделить диапазон.'
+        : 'Нажимайте на номера стихов. Shift + клик — выделить диапазон. Текст можно поправить ниже: выделить слово, сделать жирным.' })));
+  }
+  if (it.verses.length){
+    const vs = h('div', { class:'verses' });
+    it.verses.forEach((v, vi) => vs.append(autoVerseRow(block, it, pi, vi)));
+    wrap.append(vs);
+  }
+  return wrap;
+}
+function autoVerseRow(block, it, pi, vi){
+  const v = it.verses[vi];
+  const own = it.lang === 'own';
+  const edited = () => !own && plain(v.text).trim() !== (v.orig || '').trim();
+  const resetBtn = iconBtn('reset', 'Вернуть текст из Библии', () => { v.text = esc(v.orig || ''); change(); rerender(block); }, 'vdel');
+  resetBtn.style.visibility = edited() ? 'visible' : 'hidden';
+  const txt = rich(v.text, { key:block.id + ':' + pi + ':' + vi, single:true, cls:'vtext', ph:own ? 'Вставьте текст стиха ' + v.num : (v.orig ? 'Текст стиха' : 'В этом переводе стих объединён с соседним'),
+    onInput:val => { v.text = val; resetBtn.style.visibility = edited() ? 'visible' : 'hidden'; change(); updateCounter(block); } });
+  return h('div', { class:'verse' }, h('div', { class:'vlabel', text:v.num }), txt, resetBtn);
+}
+function textItemEditor(block, it, pi){
+  return h('div', { class:'half' },
+    rich(it.html, { key:block.id + ':' + pi + ':t', ph:'Комментарий, пояснение слова, мысль — тем же шрифтом, что и стихи',
+      onInput:v => { it.html = v; change(); updateCounter(block); } }),
+    h('label', { class:'switch' },
+      h('input', { type:'checkbox', checked:!!it.caps, onchange:e => { it.caps = e.target.checked; change(); updateCounter(block); } }),
+      h('span', { class:'sw' }), 'Заглавными буквами'));
+}
+function itemHead(block, it, i){
+  const n = block.items.length;
+  const moveItem = d => { const j = i + d; if (j < 0 || j >= n) return; block.items.splice(i, 1); block.items.splice(j, 0, it); change(); rerender(block); };
+  const tools = h('div', { class:'itools' });
+  if (it.kind === 'text') [['left', 'alignl', 'По левому краю'], ['center', 'alignc', 'По центру'], ['right', 'alignr', 'По правому краю']].forEach(([a, icn, t]) =>
+    tools.append(iconBtn(icn, t, () => { it.align = a; change(); rerender(block); }, it.align === a ? 'on' : '')));
+  if (n > 1){
+    tools.append(iconBtn('up', 'Выше на слайде', () => moveItem(-1)), iconBtn('down', 'Ниже на слайде', () => moveItem(1)),
+      iconBtn('close', 'Убрать со слайда', () => { block.items.splice(i, 1); change(); rerender(block); }, 'danger'));
+  }
+  return h('div', { class:'item-head' }, h('span', { class:'half-tag', text:{ text:'Текст', line:'Линия' }[it.kind] || 'Место Писания' }), tools);
+}
+
+/* Размер текста: цитата — от 100% (= на 10% крупнее имени автора) до 85%, тезис — от 100% до 70%, шаг 1% */
+const scaleRange = t => { const z = slidesCfg().sizes; return z[t] || null; };   // диапазон из общих настроек слайдов
+const blkScale = b => { const R = scaleRange(b.type); return R ? Math.min(R.max, Math.max(R.min, Math.round(+b.scale || 100))) : 100; };
+function scaleStepper(b){
+  const R = scaleRange(b.type);
+  const val = h('span'), minus = h('button', { type:'button', title:'Мельче на 1%', 'aria-label':'Мельче на 1%' }, '−'),
+    plus = h('button', { type:'button', title:'Крупнее на 1%', 'aria-label':'Крупнее на 1%' }, '+');
+  const show = () => { const v = blkScale(b); val.textContent = v + '%'; minus.disabled = v <= R.min; plus.disabled = v >= R.max; };
+  const step = d => { b.scale = blkScale(b) + d; show(); change(); updateCounter(b); };
+  minus.addEventListener('click', e => { e.preventDefault(); step(-1); });
+  plus.addEventListener('click', e => { e.preventDefault(); step(1); });
+  show();
+  return h('div', { class:'step', title:'Размер текста' }, minus, val, plus);
+}
+function partStepper(b, p){
+  const R = scaleRange('thesis'), cur = () => Math.min(R.max, Math.max(R.min, Math.round(+p.scale || 100)));
+  const val = h('span'), minus = h('button', { type:'button', title:'Мельче на 1%', 'aria-label':'Мельче на 1%' }, '−'),
+    plus = h('button', { type:'button', title:'Крупнее на 1%', 'aria-label':'Крупнее на 1%' }, '+');
+  const show = () => { const v = cur(); val.textContent = v + '%'; minus.disabled = v <= R.min; plus.disabled = v >= R.max; };
+  const step = d => { p.scale = cur() + d; show(); change(); updateCounter(b); };
+  minus.addEventListener('click', e => { e.preventDefault(); step(-1); });
+  plus.addEventListener('click', e => { e.preventDefault(); step(1); });
+  show();
+  return h('div', { class:'step', style:'margin:0', title:'Размер этого текста' }, minus, val, plus);
+}
+const isCaps = b => b.type === 'thesis' ? b.caps !== false : !!b.caps;
+function capsSwitch(b){
+  return h('label', { class:'switch' },
+    h('input', { type:'checkbox', checked:isCaps(b), onchange:e => { b.caps = e.target.checked; change(); updateCounter(b); } }),
+    h('span', { class:'sw' }), 'Заглавными буквами');
+}
+function alignTools(b){
+  const cur = b.align || 'center';
+  return h('div', { class:'itools', title:'Выравнивание текста' },
+    [['left', 'alignl', 'По левому краю'], ['center', 'alignc', 'По центру'], ['right', 'alignr', 'По правому краю']].map(([a, icn, t]) =>
+      iconBtn(icn, t, () => { b.align = a; change(); rerender(b); }, cur === a ? 'on' : '')));
+}
+function valignTools(b){
+  const cur = b.valign || 'center';
+  return h('div', { class:'itools', title:'Выравнивание по вертикали' },
+    [['top', 'vtop', 'Прижать к верху'], ['center', 'vmid', 'По центру по вертикали'], ['bottom', 'vbot', 'Прижать к низу']].map(([a, icn, t]) =>
+      iconBtn(icn, t, () => { b.valign = a; change(); rerender(b); }, cur === a ? 'on' : '')));
+}
+/* Название тезиса по умолчанию: первые слова текста (до 5), сколько целиком влезет в лимит длины.
+   Пока название не правили руками, оно меняется вместе с текстом */
+function autoName(html){
+  const max = slidesCfg().names.maxLength;
+  const words = plain(html || '').split('\n').map(l => l.replace(LIST_RE, '')).join(' ')
+    .replace(BAD_CHARS, ' ').replace(/[«»"„“”]/g, '').split(/\s+/).filter(w => /[0-9A-Za-zА-Яа-яЁёІіЇїЄєҐґ]/.test(w));
+  let out = '';
+  const take = [];
+  for (const w of words.slice(0, 5)){ if ((take.concat(w)).join(' ').length > max) break; take.push(w); }
+  // не обрываем название на предлоге, союзе или частице: «…к Богу и» → «…к Богу»
+  const weak = /^(.{1,2}|для|без|при|про|что|как|или|над|под|ибо|если|чем|это|тот|где|когда|чтобы)$/i;
+  while (take.length > 1 && weak.test(take[take.length - 1].replace(/[^0-9A-Za-zА-Яа-яЁёІіЇїЄєҐґ]/g, ''))) take.pop();
+  out = take.join(' ');
+  out = out.replace(/[\s,.;:!?—–-]+$/, '');
+  return cleanName(out ? out.charAt(0).toUpperCase() + out.slice(1) : '');
+}
+function syncAutoName(b){
+  if (b.type !== 'thesis' || b.nameAuto === false) return;
+  b.name = autoName(b.text);
+  const inp = document.querySelector('.block[data-id="' + b.id + '"] .namebox input');
+  if (inp && document.activeElement !== inp){ inp.value = b.name; inp.dispatchEvent(new Event('sync')); }
+}
+
+/* Название слайда: номер [N] стоит слева и не стирается; недопустимые для файлов символы не вводятся */
+const NAME_PH = { thesis:'Сформируется само из первых слов текста', image:'Фото Десмонд Досс', video:'История Николаса Винтона', free:'Значения слова АГАПЕ' };
+function nameField(b, n){
+  const cfg = slidesCfg().names;
+  const cnt = h('span', { class:'count' }), err = h('div', { class:'name-err' }), box = h('div', { class:'namebox' });
+  const show = () => {
+    const len = (b.name || '').length;
+    cnt.textContent = len + ' / ' + cfg.maxLength;
+    cnt.classList.toggle('warn', len > cfg.maxLength);
+    const miss = cfg.required && !cleanName(b.name);
+    box.classList.toggle('missing', flagMissing && miss);
+    const card = box.closest('.block'); if (card) card.classList.toggle('missing', flagMissing && miss);
+  };
+  const inp = h('input', { class:'input', value:b.name || '', maxlength:String(cfg.maxLength), autocomplete:'off', spellcheck:'true',
+    'aria-label':'Название слайда', placeholder:NAME_PH[b.type] || '',
+    oninput:e => {
+      const raw = e.target.value, clean = raw.replace(BAD_CHARS, '');
+      if (clean !== raw){
+        const p = Math.max(0, (e.target.selectionStart || clean.length) - (raw.length - clean.length));
+        e.target.value = clean; e.target.setSelectionRange(p, p);
+        err.textContent = 'В названии нельзя использовать символы \\ / : * ? " < > |';
+      } else err.textContent = '';
+      b.name = clean; if (b.type === 'thesis') b.nameAuto = !clean.trim(); show(); change();
+    },
+    onblur:e => {
+      let c = cleanName(e.target.value);
+      if (!c && b.type === 'thesis'){ b.nameAuto = true; c = autoName(b.text); }   // стёрли название — снова берём первые слова текста
+      if (c !== e.target.value){ e.target.value = c; b.name = c; change(); }
+      show();
+    } });
+  inp.addEventListener('sync', show);
+  box.append(h('span', { class:'name-pre', text:'[' + n + ']', title:'Номер слайда ставится сам' }), inp);
+  requestAnimationFrame(show);
+  return h('div', null,
+    h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Название слайда' + (cfg.required ? '' : ' — по желанию') }), cnt),
+    box, err);
+}
+
+/* ----- Списки в тезисе: строки, начинающиеся с «• » или «1. » -----
+   Хранятся как обычный текст с переносами строк; на слайде такие строки становятся пунктами списка с висячим отступом */
+const LIST_RE = /^(•|\d{1,2}[.)])[ \u00a0]/;
+function richText(el){ return plain(cleanHTML(el)).replace(/\u00a0/g, ' '); }
+function caretOffset(el){
+  const s = getSelection(); if (!s.rangeCount || !el.contains(s.getRangeAt(0).startContainer)) return -1;
+  const r = s.getRangeAt(0), pre = document.createRange(); pre.selectNodeContents(el); pre.setEnd(r.startContainer, r.startOffset);
+  const tmp = document.createElement('div'); tmp.appendChild(pre.cloneContents());
+  return plain(cleanHTML(tmp)).length;
+}
+/* Точка в DOM по номеру символа (перенос строки = 1 символ) */
+function pointAt(el, off){
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT); let n, pos = 0;
+  while ((n = w.nextNode())){
+    if (n.nodeType === 3){ const L = n.nodeValue.replace(/\u00ad/g, '').length; if (off <= pos + L) return [n, off - pos]; pos += L; }
+    else if (n.tagName === 'BR'){ if (off <= pos) return [n.parentNode, Array.prototype.indexOf.call(n.parentNode.childNodes, n)]; pos += 1; }
+  }
+  return [el, el.childNodes.length];
+}
+function selectText(el, a, b){
+  const r = document.createRange(), p = pointAt(el, a), q = pointAt(el, b);
+  r.setStart(p[0], p[1]); r.setEnd(q[0], q[1]);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+function lineAt(el){
+  const t = richText(el), c = caretOffset(el); if (c < 0) return null;
+  const start = t.lastIndexOf('\n', c - 1) + 1, e = t.indexOf('\n', c), end = e < 0 ? t.length : e;
+  const prevStart = start > 0 ? t.lastIndexOf('\n', start - 2) + 1 : -1;
+  return { t, c, start, end, line:t.slice(start, end), prev:prevStart >= 0 ? t.slice(prevStart, start - 1) : '' };
+}
+function nextMarker(prevLine, kind){
+  if (kind === '•') return '• ';
+  const m = /^(\d{1,2})[.)][ \u00a0]/.exec(prevLine || '');
+  return (m ? +m[1] + 1 : 1) + '. ';
+}
+/* Кнопки «•» и «1.»: включить или выключить список на строке с курсором */
+function toggleList(kind){
+  const el = activeRich(); if (!el || !el.dataset.lists) return;
+  const L = lineAt(el); if (!L) return;
+  const m = LIST_RE.exec(L.line), same = m && ((kind === '•') === (m[1] === '•'));
+  if (m){ selectText(el, L.start, L.start + m[0].length); document.execCommand('delete'); }
+  if (same) return;
+  selectText(el, L.start, L.start);
+  document.execCommand('insertText', false, nextMarker(L.prev, kind));
+  const L2 = lineAt(el); if (L2) selectText(el, L2.end, L2.end);
+}
+/* Enter в списке продолжает его; Enter на пустом пункте — выход из списка */
+function listEnter(el){
+  const L = lineAt(el), m = L && LIST_RE.exec(L.line);
+  if (m && !L.line.slice(m[0].length).trim() && L.c >= L.end){ selectText(el, L.start, L.end); document.execCommand('delete'); return; }
+  document.execCommand('insertLineBreak');
+  if (m) document.execCommand('insertText', false, m[1] === '•' ? '• ' : nextMarker(L.line, '1'));
+}
+/* «- » или «* » в начале строки становятся «• »; «1. » остаётся нумерацией, Enter ставит следующий номер */
+function autoList(el){
+  const L = lineAt(el); if (!L) return;
+  const head = L.t.slice(L.start, L.c);
+  if (/^[-*][ \u00a0]$/.test(head)){ selectText(el, L.start, L.c); document.execCommand('insertText', false, '• '); }
+}
+
+const BODY = {
+  scripture(b, body){
+    b.items.forEach((it, i) => {
+      if (i) body.append(h('div', { class:'divider', text:'на этом же слайде' }));
+      const box = h('div', { class:'item k-' + it.kind }, itemHead(b, it, i));
+      if (it.kind === 'line') box.append(h('div', { class:'line-demo', title:'Тонкая линия во всю ширину текста' }));
+      else if (it.kind === 'text') box.append(textItemEditor(b, it, i));
+      else if (it.manual){
+        const part = partEditor(b, it, i);
+        part.append(h('div', { class:'chips' }, chip('plus', 'Стих', () => addVerse(b, it, i))));
+        box.append(part);
+      }
+      else box.append(scriptureEditor(b, it, i));
+      body.append(box);
+    });
+    const hasScr = b.items.some(it => it.kind === 'scripture');
+    body.append(h('div', { class:'chips' },
+      chip('plus', 'Место Писания', () => addItem(b, newScripture())),
+      chip('plus', 'Текст', () => addItem(b, newTextItem())),
+      chip('plus', 'Линия', () => addItem(b, newLineItem())),
+      hasScr && chip('arrow', 'Продолжить на новом слайде', () => continueScripture(b), 'accent')));
+    if (hasScr) body.append(h('label', { class:'switch' },
+      h('input', { type:'checkbox', checked:b.showTr !== false, onchange:e => { b.showTr = e.target.checked; change(); updateCounter(b); } }),
+      h('span', { class:'sw' }), 'Показывать перевод на слайде'));
+  },
+  thesis(b, body, n){
+    body.append(nameField(b, n));
+    const parts = b.parts, cnt = parts.length;
+    parts.forEach((p, i) => {
+      const moveP = d => { const j = i + d; if (j < 0 || j >= cnt) return; parts.splice(i, 1); parts.splice(j, 0, p); syncThesisText(b); syncAutoName(b); change(); rerender(b); };
+      const tools = h('div', { class:'itools' });
+      if (p.kind === 'text') [['left', 'alignl', 'По левому краю'], ['center', 'alignc', 'По центру'], ['right', 'alignr', 'По правому краю']].forEach(([a, icn, t]) =>
+        tools.append(iconBtn(icn, t, () => { p.align = a; change(); rerender(b); }, p.align === a ? 'on' : '')));
+      if (cnt > 1) tools.append(iconBtn('up', 'Выше', () => moveP(-1)), iconBtn('down', 'Ниже', () => moveP(1)),
+        iconBtn('close', 'Убрать', () => { parts.splice(i, 1); syncThesisText(b); syncAutoName(b); change(); rerender(b); }, 'danger'));
+      const box = h('div', { class:'item k-' + p.kind },
+        h('div', { class:'item-head' }, h('span', { class:'half-tag', text:p.kind === 'line' ? 'Линия' : 'Текст' }), tools));
+      if (p.kind === 'line') box.append(h('div', { class:'line-demo', title:'Тонкая линия во всю ширину текста' }));
+      else {
+        box.append(rich(p.html, { key:b.id + ':p' + i, lists:true, ph:i ? 'Ещё текст на этом слайде' : 'Мысль, пункт плана или пояснение слова. Enter — новая строка, «- » или «1. » в начале строки — список',
+          onInput:v => { p.html = v; syncThesisText(b); syncAutoName(b); change(); updateCounter(b); }, onEnter:listEnter }));
+        box.append(h('div', { class:'opt-row' }, partStepper(b, p),
+          h('label', { class:'switch' }, h('input', { type:'checkbox', checked:!!p.caps, onchange:e => { p.caps = e.target.checked; change(); updateCounter(b); } }),
+            h('span', { class:'sw' }), 'Заглавными буквами')));
+      }
+      if (i) body.append(h('div', { class:'divider', text:'на этом же слайде' }));
+      body.append(box);
+    });
+    body.append(h('div', { class:'chips' },
+      chip('plus', 'Текст', () => { parts.push(newThesisPart()); change(); rerender(b); focusRich(b.id + ':p' + (parts.length - 1), 0); }),
+      chip('plus', 'Линия', () => { parts.push(newLineItem()); change(); rerender(b); })));
+    body.append(h('div', { class:'opt-row' }, h('span', { class:'lbl', style:'margin:0' , text:'Весь текст по вертикали' }), valignTools(b)));
+  },
+  quote(b, body){
+    body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Цитата' }), scaleStepper(b)),
+      rich(b.text, { key:b.id + ':t', ph:'Текст цитаты, без кавычек. Enter — новая строка', onInput:v => { b.text = v; change(); updateCounter(b); } })));
+    body.append(capsSwitch(b));
+    body.append(field('Автор', input(b, 'author', 'Имя Фамилия, а через запятую, если нужно, источник', { oninput:e => { b.author = e.target.value; change(); updateCounter(b); } })));
+  },
+  image(b, body, n){
+    body.append(nameField(b, n));
+    body.append(toggle([['find', 'Найди сам'], ['send', 'Пришлю отдельно']], b.mode, v => { b.mode = v; change(); rerender(b); }));
+    if (b.mode === 'find') body.append(field('Что должно быть на картинке', area(b, 'desc', 'Опишите изображение: что на нём, настроение. Можно добавить пример или ссылку')));
+    else {
+      body.append(h('div', { class:'callout' }, ic('image'), h('div', { html:'Отправьте файл отдельно с подписью <b>«Слайд ' + n + '»</b>, так он не потеряется.' })));
+      body.append(field('Комментарий, если нужен', area(b, 'desc', 'Например: обрезать по центру, без текста', 2)));
+    }
+  },
+  video(b, body, n){
+    body.append(nameField(b, n));
+    body.append(toggle([['link', 'Ссылка'], ['send', 'Пришлю отдельно']], b.mode, v => { b.mode = v; change(); rerender(b); }));
+    if (b.mode === 'link') body.append(field('Ссылка на видео', input(b, 'url', 'https://…', { type:'url', inputmode:'url' })));
+    else body.append(h('div', { class:'callout' }, ic('video'), h('div', { html:'Отправьте видео отдельно с подписью <b>«Слайд ' + n + '»</b>.' })));
+    body.append(h('div', { class:'grid-2' }, field('Показать с', input(b, 'from', '0:00')), field('По', input(b, 'to', 'до конца'))));
+    body.append(field('Комментарий', area(b, 'desc', 'Со звуком или без, что сказать перед видео…', 2)));
+  },
+  free(b, body, n){
+    body.append(nameField(b, n));
+    body.append(field('Что должно быть на слайде', area(b, 'desc', 'Опишите словами: три перевода рядом, схема, особая вёрстка… Можно вставить тексты и ссылки', 4)));
+  },
+  text(b, body){
+    body.append(area(b, 'text', 'Вставьте кусок проповеди до следующего слайда. На экран не выводится, это подсказка оператору', 4));
+    body.append(h('label', { class:'switch' },
+      h('input', { type:'checkbox', checked:b.splash, onchange:e => { b.splash = e.target.checked; change(); } }),
+      h('span', { class:'sw' }), 'Здесь вывести заставку проповеди'));
+  },
+  note(b, body){
+    body.append(area(b, 'text', 'Например: после слов «…и Он сказал им» запустить видео', 2));
+    body.append(h('p', { class:'hint', text:'Оператор увидит заметку крупно и заглавными буквами, даже если скроет текст проповеди.' }));
+  }
+};
+
+/* ----- Действия с блоками ----- */
+function openSheet(at){ sheetAt = at; sheetOverlay.classList.add('open'); }
+function closeSheet(){ sheetOverlay.classList.remove('open'); }
+function addBlock(type, at){
+  const nb = newBlock(type);
+  state.blocks.splice(at, 0, nb);
+  closeSheet(); change(); renderMain(); updateStatus();
+  const card = document.querySelector('.block[data-id="' + nb.id + '"]');
+  if (card){
+    card.scrollIntoView({ block:'center', behavior:'smooth' });
+    flash(nb.id);
+    // тезис и цитата: курсор сразу в текст (название тезиса сформируется из него само)
+    const f = (type === 'thesis' || type === 'quote') ? card.querySelector('.bbody .rich') : card.querySelector('.bbody input, .bbody textarea, .bbody .rich');
+    if (f && window.matchMedia('(pointer:fine)').matches) f.focus({ preventScroll:true });
+  }
+}
+function addItem(b, it){
+  b.items.push(it);
+  change(); rerender(b);
+  const i = b.items.length - 1;
+  if (it.kind === 'text') focusRich(b.id + ':' + i + ':t', 0);
+  else if (it.kind === 'line') return;
+  else { if (!it.manual) loadBible(it.lang); const card = document.querySelector('.block[data-id="' + b.id + '"]'); const items = card && card.querySelectorAll('.item'); if (items && items[i]) items[i].scrollIntoView({ block:'center', behavior:'smooth' }); }
+}
+function continueScripture(b){
+  const scr = b.items.filter(it => it.kind === 'scripture'), lp = scr[scr.length - 1];
+  const nb = newBlock('scripture');
+  nb.showTr = b.showTr !== false;   // настройка «Показывать перевод» переходит на новый слайд
+  if (lp.manual){
+    const last = lp.verses[lp.verses.length - 1];
+    const nx = nextNum(last.num);
+    const it = Object.assign(newPart(), { mBook:lp.mBook || '', mChapter:lp.mChapter || '', mVerses:nx, translation:lp.translation, verses:[{ num:nx, text:'' }] });
+    it.ref = manualRef(it);
+    nb.items = [it];
+  } else {
+    const it = Object.assign(newScripture(lp.lang), { book:lp.book, chapter:lp.chapter, trName:lp.trName || '' });
+    const cv = chapterVerses(it), next = lp.sel.length ? lp.sel[lp.sel.length - 1] + 1 : 0;
+    if (cv && cv[next] != null) it.sel = [next];
+    syncVerses(it);
+    nb.items = [it];
+  }
+  state.blocks.splice(state.blocks.indexOf(b) + 1, 0, nb);
+  change(); renderMain();
+  const card = document.querySelector('.block[data-id="' + nb.id + '"]');
+  if (card) card.scrollIntoView({ block:'start', behavior:'smooth' });
+  flash(nb.id);
+  toast('Новый слайд с тем же местом');
+}
+function move(b, dir){
+  const i = state.blocks.indexOf(b), last = state.blocks.length - 1;
+  const j = dir === -Infinity ? 0 : dir === Infinity ? last : i + dir;   // ±Infinity — в самый верх или низ
+  if (j < 0 || j > last || j === i) return;
+  state.blocks.splice(i, 1); state.blocks.splice(j, 0, b);
+  change(); renderMain();
+  const card = document.querySelector('.block[data-id="' + b.id + '"]');
+  if (card) card.scrollIntoView({ block:'center', behavior:'smooth' });
+  flash(b.id);
+}
+function duplicate(b){
+  const c = JSON.parse(JSON.stringify(b)); c.id = uid(); c.done = false;
+  state.blocks.splice(state.blocks.indexOf(b) + 1, 0, c);
+  change(); renderMain(); flash(c.id); toast('Блок скопирован');
+}
+function removeBlock(b){
+  const i = state.blocks.indexOf(b);
+  state.blocks.splice(i, 1);
+  change(); renderMain();
+  toast('Блок удалён', 'Вернуть', () => {
+    state.blocks.splice(Math.min(i, state.blocks.length), 0, b);
+    change(); renderMain(); flash(b.id);
+  });
+}
+function flash(id){
+  const c = document.querySelector('.block[data-id="' + id + '"]'); if (!c) return;
+  c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+}
+
+/* ----- Оформление текста ----- */
+function activeRich(){ const a = document.activeElement; return a && a.classList && a.classList.contains('rich') ? a : null; }
+function fmt(cmd){ if (!activeRich()) return; document.execCommand(cmd, false, null); syncFmt(); }
+/* Кнопки Ж, К, Ч подсвечиваются, если оформление уже есть: Ж + К вместе = жирный курсив */
+function syncFmt(){
+  if (!activeRich()) return;
+  [['b', 'bold'], ['i', 'italic'], ['u', 'underline']].forEach(([c, cmd]) => {
+    const btn = fmtEl.querySelector('.fbtn.' + c); if (!btn) return;
+    let on = false; try { on = document.queryCommandState(cmd); } catch(e){}
+    btn.classList.toggle('on', on);
+  });
+  const s = getSelection(), ub = fmtEl.querySelector('.up-btn');
+  if (ub && s.rangeCount){ let a = s.getRangeAt(0).commonAncestorContainer; if (a.nodeType === 3) a = a.parentNode; ub.classList.toggle('on', !!(a.closest && a.closest('span.up'))); }
+}
+document.addEventListener('selectionchange', syncFmt);
+/* «Все прописные»: выделенный кусок показывается заглавными на слайде, в просмотре и PDF; повторное нажатие убирает */
+function toggleUp(){
+  const el = activeRich(); if (!el) return;
+  const s = getSelection(); if (!s.rangeCount) return;
+  const r = s.getRangeAt(0);
+  let anc = r.commonAncestorContainer; if (anc.nodeType === 3) anc = anc.parentNode;
+  const u = anc.closest ? anc.closest('span.up') : null;
+  if (u && el.contains(u)){
+    while (u.firstChild) u.parentNode.insertBefore(u.firstChild, u);
+    u.remove();
+  } else {
+    if (r.collapsed){ toast('Сначала выделите текст'); return; }
+    const sp = document.createElement('span'); sp.className = 'up';
+    sp.appendChild(r.extractContents());
+    sp.querySelectorAll('span.up').forEach(x => { while (x.firstChild) x.parentNode.insertBefore(x.firstChild, x); x.remove(); });
+    r.insertNode(sp);
+    const nr = document.createRange(); nr.selectNodeContents(sp); s.removeAllRanges(); s.addRange(nr);
+  }
+  el.dispatchEvent(new Event('input', { bubbles:true }));
+  syncFmt();
+}
+function toggleMark(){
+  const el = activeRich(); if (!el) return;
+  const s = getSelection(); if (!s.rangeCount) return;
+  const r = s.getRangeAt(0);
+  let anc = r.commonAncestorContainer; if (anc.nodeType === 3) anc = anc.parentNode;
+  const m = anc.closest ? anc.closest('mark') : null;
+  if (m && el.contains(m)){
+    while (m.firstChild) m.parentNode.insertBefore(m.firstChild, m);
+    m.remove();
+  } else {
+    if (r.collapsed){ toast('Сначала выделите слово'); return; }
+    const mk = document.createElement('mark');
+    mk.appendChild(r.extractContents());
+    mk.querySelectorAll('mark').forEach(x => { while (x.firstChild) x.parentNode.insertBefore(x.firstChild, x); x.remove(); });
+    r.insertNode(mk);
+    const nr = document.createRange(); nr.selectNodeContents(mk); s.removeAllRanges(); s.addRange(nr);
+  }
+  el.dispatchEvent(new Event('input', { bubbles:true }));
+}
+function clearFmt(){
+  const el = activeRich(); if (!el) return;
+  const s = getSelection();
+  if (!s.rangeCount || s.isCollapsed){ toast('Выделите текст, с которого убрать оформление'); return; }
+  const r = s.getRangeAt(0);
+  if (!el.contains(r.commonAncestorContainer)) return;
+  const tn = document.createTextNode(r.toString());
+  r.deleteContents(); r.insertNode(tn);
+  // выносим текст из всех оформляющих тегов: жирный, подчёркивание, маркер
+  let p = tn.parentNode;
+  while (p && p !== el && /^(B|STRONG|U|MARK|I|EM|SPAN|FONT)$/.test(p.tagName)){
+    const right = p.cloneNode(false);
+    while (tn.nextSibling) right.appendChild(tn.nextSibling);
+    p.after(tn); tn.after(right);
+    if (!right.textContent) right.remove();
+    if (!p.textContent) p.remove();
+    p = tn.parentNode;
+  }
+  el.querySelectorAll('b,strong,u,mark,i,em').forEach(x => { if (!x.textContent) x.remove(); });
+  const nr = document.createRange(); nr.selectNodeContents(tn); s.removeAllRanges(); s.addRange(nr);
+  el.dispatchEvent(new Event('input', { bubbles:true }));
+}
+function placeFmt(){
+  const vv = window.visualViewport;
+  if (!vv){ fmtEl.style.top = ''; fmtEl.style.bottom = ''; return; }
+  fmtEl.style.bottom = 'auto';
+  fmtEl.style.top = (vv.offsetTop + vv.height - fmtEl.offsetHeight - 14) + 'px';
+}
+document.addEventListener('focusin', e => {
+  if (e.target.classList && e.target.classList.contains('rich')){
+    fmtEl.classList.toggle('lists', !!e.target.dataset.lists);
+    fmtEl.classList.add('show'); toastEl.classList.add('lift'); placeFmt();
+  }
+});
+document.addEventListener('focusout', () => setTimeout(() => {
+  if (!activeRich()){ fmtEl.classList.remove('show'); toastEl.classList.remove('lift'); }
+}, 120));
+if (window.visualViewport){ visualViewport.addEventListener('resize', placeFmt); visualViewport.addEventListener('scroll', placeFmt); }
+
+/* ----- Просмотр для оператора ----- */
+function renderView(){
+  const m = state.meta, nums = slideNums();
+  const v = h('div', { class:'view', style:'--vs:' + viewOpts.size });
+  v.append(h('div', { class:'vhead' },
+    h('h1', { class:'vtitle', text:m.title || 'Без названия' }),
+    h('div', { class:'vmeta', text:[fmtDate(m.date), m.preacher].filter(Boolean).join(' · ') }),
+    null));
+  const setSize = d => { viewOpts.size = Math.max(0.8, Math.min(1.6, Math.round((viewOpts.size + d) * 10) / 10)); LS.set('swp-view', JSON.stringify(viewOpts)); renderMain(); };
+  v.append(h('div', { class:'vctrl' },
+    toggle([['all', 'Слайды + текст'], ['slides', 'Только слайды']], viewOpts.showText ? 'all' : 'slides', val => { viewOpts.showText = val === 'all'; LS.set('swp-view', JSON.stringify(viewOpts)); renderMain(); }),
+    h('div', { class:'size' },
+      h('button', { type:'button', title:'Мельче', onclick:() => setSize(-0.1) }, 'A−'),
+      h('button', { type:'button', title:'Крупнее', onclick:() => setSize(0.1) }, 'A+'))));
+  const list = h('div', { class:'vlist' });
+  state.blocks.forEach(b => {
+    if (b.type === 'text'){
+      const showBody = viewOpts.showText && b.text.trim();
+      if (!showBody && !b.splash) return;
+      list.append(h('div', { class:'vtx' },
+        b.splash && h('div', { class:'vsplash' }, ic('splash'), 'Заставка'),
+        showBody && h('div', { class:'vtx-body', text:b.text })));
+    } else if (b.type === 'note'){
+      // заметки оператору видны всегда, даже в режиме «Только слайды»
+      if (!(b.text || '').trim()) return;
+      list.append(h('div', { class:'vnote' },
+        h('div', { class:'vnote-tag' }, ic('note'), 'Оператору'),
+        h('div', { class:'vnote-body', text:b.text.trim() })));
+    } else list.append(viewSlide(b, nums[b.id]));
+  });
+  if (!state.blocks.length) list.append(h('p', { class:'hint', text:'Пока нет ни одного блока. Переключитесь в «Редактор» или откройте файл проповеди.' }));
+  v.append(list);
+  wrapScripts(v);
+  mainEl.append(v);
+}
+function viewPart(p){
+  const verses = p.verses.filter(x => plain(x.text).trim())
+    .map(x => '<span>' + (x.num ? '<sup>' + esc(x.num) + '</sup>' : '') + sanitize(x.text) + '</span>').join(' ');
+  return h('div', null,
+    h('div', { class:'vs-ref' }, p.ref || 'Место не указано', p.translation && h('span', { class:'vs-tr', text:p.translation })),
+    h('div', { class:'vs-verses', html:verses || '<span class="empty-v">Текст не вставлен</span>' }));
+}
+/* Картинка, видео, свободный слайд: сначала название, ниже подсказки для того, кто готовит слайды */
+function nameView(b){
+  const n = cleanName(b.name);
+  return h('div', { class:'vs-name' + (n ? '' : ' empty-v'), text:n || 'Без названия' });
+}
+function mediaView(icon, title, lines){
+  return h('div', { class:'vs-media' }, ic(icon), h('div', null, h('div', { class:'vs-mtitle', text:title }), lines));
+}
+function viewSlide(b, n){
+  const card = h('article', { class:'vslide', style:'--tc:var(--c-' + b.type + ')' });
+  card.append(h('div', { class:'vs-head' },
+    h('span', { class:'vs-num', text:pad(n) }),
+    h('span', { class:'vs-type', text:TYPES[b.type].label }),
+    iconBtn('dup', 'Скопировать текст слайда', () => copyText(slideText(b)), 'vs-copy')));
+  const c = h('div', { class:'vs-body' });
+  const desc = t => t && t.trim() ? h('div', { class:'vs-mdesc', text:t }) : null;
+  switch (b.type){
+    case 'scripture':
+      b.items.forEach((it, i) => {
+        if (i) c.append(h('div', { class:'vs-hr' }));
+        if (it.kind === 'line') return;
+        c.append(it.kind === 'text' ? h('div', { class:'vs-note', style:'text-align:' + it.align, html:sanitize(it.html) || '<span class="empty-v">Пусто</span>' }) : viewPart(it));
+      });
+      break;
+    case 'thesis':
+      c.append(h('div', { class:'vs-thesis', html:sanitize(b.text) || '<span class="empty-v">Пусто</span>' }));
+      break;
+    case 'quote':
+      c.append(h('blockquote', { class:'vs-quote', html:'«' + sanitize(b.text) + '»' }));
+      if (b.author) c.append(h('div', { class:'vs-author', text:'— ' + b.author }));
+      break;
+    case 'image':
+      c.append(nameView(b));
+      c.append(mediaView('image', b.mode === 'find' ? 'Найти картинку' : 'Файл пришлют отдельно («Слайд ' + n + '»)', desc(b.desc)));
+      break;
+    case 'video': {
+      const lines = [];
+      if (b.mode === 'link' && b.url) lines.push(h('div', { class:'vs-mdesc' }, h('a', { href:b.url, target:'_blank', rel:'noopener', text:b.url })));
+      if (b.from || b.to) lines.push(h('div', { class:'vs-mdesc', text:'Показать: ' + (b.from || '0:00') + ' – ' + (b.to || 'до конца') }));
+      lines.push(desc(b.desc));
+      c.append(nameView(b));
+      c.append(mediaView('video', b.mode === 'link' ? 'Видео по ссылке' : 'Видео пришлют отдельно («Слайд ' + n + '»)', lines));
+      break;
+    }
+    case 'free':
+      c.append(nameView(b));
+      c.append(mediaView('free', 'Свободный слайд', desc(b.desc) || h('div', { class:'vs-mdesc', text:'Описание не заполнено' })));
+      break;
+  }
+  card.append(c);
+  return card;
+}
+function slideText(b){
+  const P = p => {
+    const head = (p.ref || '') + (p.translation ? ' (' + p.translation + ')' : '');
+    const body = p.verses.filter(v => plain(v.text).trim()).map(v => (v.num ? v.num + ' ' : '') + plain(v.text).trim()).join(' ');
+    return [head, body].filter(Boolean).join('\n');
+  };
+  switch (b.type){
+    case 'scripture':  return b.items.filter(it => it.kind !== 'line').map(it => it.kind === 'text' ? plain(it.html).trim() : P(it)).filter(Boolean).join('\n\n');
+    case 'thesis':     return plain(b.text).trim();
+    case 'quote':      return '«' + plain(b.text).trim() + '»' + (b.author ? '\n— ' + b.author : '');
+    case 'video':      return [b.url, b.desc].filter(Boolean).join('\n');
+    default:           return b.desc || '';
+  }
+}
+function copyText(t, prefix){
+  const done = () => toast(prefix ? prefix + t : 'Скопировано');
+  const fallback = () => {
+    const ta = h('textarea', { style:'position:fixed;opacity:0;top:0' }); ta.value = t; document.body.append(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch(e){ toast('Не удалось скопировать'); }
+    ta.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, fallback); else fallback();
+}
+
+
+/* ========= Предпросмотр слайдов =========
+   Кадр 1920×1080, раскладывается в полном размере и только масштабируется.
+   Писание: место Писания стоит на фиксированной высоте; отступ от базовой линии нижней строки до низа фона
+   не меньше, чем от верха букв места Писания до верха фона, иначе всё содержимое пропорционально уменьшается.
+   Тезис и цитата: текст по центру своей области (тезис можно выровнять влево или вправо); если не помещается, уменьшается. */
+const SL = { W:1920, min:16, trGap:48 };
+let lastScale = 0;   // масштаб последнего предпросмотра в редакторе   // trGap — запас между текстом и подписью перевода
+/* Базовые размеры (100%): Писание 48, тезис 50,4 (было 72, −30%), цитата 51,48 (было 57,2, −10%; имя автора — 52) */
+const BASE = { scripture:48, thesis:50.4, quote:51.48 };   // Писание снова 48 (после проверки на проекторе); общий размер — в настройках слайдов
+const scrPx = () => BASE.scripture * slidesCfg().sizes.scripture.size / 100;   // размер стихов с учётом общей настройки
+const NBSP = '\u00a0';
+const SHORT_RE = /(?<=^|[\s(«"„])([А-Яа-яЁёA-Za-zІіЇїЄєҐґ]{1,2}|[БбДдНнПпЧчКкИиОо](?:ез|ля|ад|од|ри|ро|то|ак|ли|бо|зо|ем)) (?=\S|$)/g;
+function typoText(s){
+  return String(s).replace(/[\t\r\n]+/g, ' ')
+    .replace(/ {2,}/g, m => NBSP.repeat(m.length - 1) + ' ')   // несколько пробелов подряд остаются на слайде
+    .replace(/(\d)\s*[-–]\s*(\d)/g, '$1–$2')
+    .replace(/ - /g, ' — ').replace(/ —/g, NBSP + '—')
+    .replace(SHORT_RE, '$1' + NBSP)
+    .replace(/ (же|ли|ль|бы|б|ж)(?=[\s,.!?;:]|$)/gi, NBSP + '$1');
+}
+function typoDom(root){
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), ns = []; let n;
+  while ((n = w.nextNode())) ns.push(n);
+  ns.forEach(t => { t.nodeValue = typoText(t.nodeValue); });
+}
+/* Греческие и еврейские слова (с диакритикой) оборачиваются в <span class="xl"> — шрифт Inter / Noto Sans Hebrew */
+const XL_RE = /[\u0370-\u03FF\u1F00-\u1FFF\u0590-\u05FF\uFB1D-\uFB4F][\u0300-\u036F\u0370-\u03FF\u1F00-\u1FFF\u0590-\u05FF\uFB1D-\uFB4F]*/g;
+function wrapScripts(root){
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), ns = []; let n;
+  while ((n = w.nextNode())) if (!(n.parentNode && n.parentNode.classList && n.parentNode.classList.contains('xl'))) { XL_RE.lastIndex = 0; if (XL_RE.test(n.nodeValue)) ns.push(n); }
+  ns.forEach(t => {
+    const frag = document.createDocumentFragment(), v = t.nodeValue; let last = 0, m;
+    XL_RE.lastIndex = 0;
+    while ((m = XL_RE.exec(v))){
+      if (m.index > last) frag.append(v.slice(last, m.index));
+      const sp = document.createElement('span'); sp.className = 'xl'; sp.textContent = m[0]; frag.append(sp);
+      last = m.index + m[0].length;
+    }
+    if (last < v.length) frag.append(v.slice(last));
+    t.parentNode.replaceChild(frag, t);
+  });
+}
+/* Если на последней строке одно слово — переносим перед последней группой слов предпоследней строки */
+function fixOrphan(p){
+  const sps = [], tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT); let n;
+  while ((n = tw.nextNode())) for (let i = 0; i < n.nodeValue.length; i++) if (n.nodeValue[i] === ' ') sps.push({ n, i });
+  if (!sps.length) return;
+  const rectAt = (node, i) => { const r = document.createRange(); r.setStart(node, i); r.setEnd(node, i + 1); return r.getClientRects()[0]; };
+  const topAfter = sp => {
+    let node = sp.n, i = sp.i + 1;
+    if (i >= node.nodeValue.length){
+      const w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT); w.currentNode = node; node = w.nextNode();
+      while (node && !node.nodeValue.length) node = w.nextNode();
+      if (!node) return null; i = 0;
+    }
+    const rc = rectAt(node, i); return rc ? rc.top : null;
+  };
+  const fw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT); let fn = fw.nextNode();
+  while (fn && !fn.nodeValue.trim()) fn = fw.nextNode();
+  if (!fn) return;
+  const f = rectAt(fn, 0); let lastTop = f ? f.top : -Infinity;
+  const tol = (f ? f.height : 10) * 0.4;
+  const starts = [];
+  sps.forEach((sp, k) => { const t = topAfter(sp); if (t != null && t > lastTop + tol){ starts.push(k); lastTop = t; } });
+  if (!starts.length) return;
+  const ls = starts[starts.length - 1];
+  if (ls !== sps.length - 1) return;
+  const txt = p.textContent, tail = txt.slice(txt.lastIndexOf(' ') + 1);
+  if (tail.split(/[\s\u00a0]+/).filter(Boolean).length > 1) return;
+  const prev = starts.length > 1 ? starts[starts.length - 2] : -1, cand = ls - 1;
+  if (cand <= prev) return;
+  const sp = sps[cand], after = sp.n.splitText(sp.i);
+  after.nodeValue = after.nodeValue.slice(1);
+  sp.n.parentNode.insertBefore(document.createElement('br'), after);
+}
+
+const NOISE = (() => {
+  try {
+    const z = 128, c = document.createElement('canvas'); c.width = c.height = z;
+    const x = c.getContext('2d'), d = x.createImageData(z, z);
+    for (let i = 0; i < d.data.length; i += 4){
+      const v = Math.random() * 255;
+      d.data[i] = Math.min(255, v + (Math.random() - .5) * 40); d.data[i + 1] = v; d.data[i + 2] = Math.min(255, v + (Math.random() - .5) * 40); d.data[i + 3] = 255;
+    }
+    x.putImageData(d, 0, 0); return 'url(' + c.toDataURL('image/png') + ')';
+  } catch(e){ return 'none'; }
+})();
+document.documentElement.style.setProperty('--noise', NOISE);
+
+let FM = null;
+function fontMetrics(){
+  if (FM) return FM;
+  const c = document.createElement('canvas').getContext('2d');
+  const get = wt => {
+    c.font = wt + ' 100px Unbounded';
+    const m = c.measureText('НЕБ');
+    return { asc:(m.fontBoundingBoxAscent || 96) / 100, cap:(m.actualBoundingBoxAscent || 72) / 100 };
+  };
+  FM = { 700:get('700'), 400:get('400') };
+  return FM;
+}
+
+function slideEl(b){
+  // слайд всегда раскладывается в полном кадре 1920×1080 и только масштабируется — переносы как в итоговом JPEG
+  const kids = [h('div', { class:'sl-frame' }),
+    h('div', { class:'sl-panel' }, h('div', { class:'sl-glow' }), h('div', { class:'sl-grain' }), h('div', { class:'sl-vig' }))];
+  if (b.type === 'scripture') kids.push(h('div', { class:'sl-content' }), h('div', { class:'sl-tr' }));
+  else {
+    kids.push(h('div', { class:'sl-box sl-box-' + b.type }, h('div', { class:'sl-inner' })));
+    if (b.type === 'quote') kids.push(h('div', { class:'sl-author' }));
+  }
+  // масштаб берём от последнего разложенного слайда: иначе новый предпросмотр на миг рисуется мелким и сбоку виден чёрный фон
+  return h('div', { class:'sl', 'data-id':b.id, 'aria-label':'Предпросмотр слайда', style:lastScale ? '--s:' + lastScale : null }, h('div', { class:'sl-stage' + ({ verses:' cv-verses', all:' cv-all' }[slidesCfg().font.canva] || '') }, kids));
+}
+/* Убрать первые n букв текста из HTML (маркер списка), не трогая оформление */
+function dropChars(html, n){
+  const t = document.createElement('template'); t.innerHTML = html;
+  const w = document.createTreeWalker(t.content, NodeFilter.SHOW_TEXT); let node;
+  while (n > 0 && (node = w.nextNode())){ const k = Math.min(n, node.nodeValue.length); node.nodeValue = node.nodeValue.slice(k); n -= k; }
+  return t.innerHTML;
+}
+/* Строки текста → абзацы; с lists строки «• …» и «1. …» собираются в список */
+function paraHTML(html, lists){
+  let out = '', list = '';
+  const flush = () => { if (list){ out += '<div class="sl-list">' + list + '</div>'; list = ''; } };
+  html.split('<br>').forEach(x => {
+    const m = lists && LIST_RE.exec(plain(x).replace(/^\s+/, ''));
+    if (m){
+      const lead = plain(x).length - plain(x).replace(/^\s+/, '').length;
+      const mk = m[1] === '•' ? '<span class="sl-mk"><span class="sl-dot"></span></span>' : '<span class="sl-mk num">' + esc(m[1].replace(')', '.')) + '</span>';
+      list += '<p class="sl-tp sl-li">' + mk + '<span class="sl-lt">' + dropChars(x, lead + m[0].length) + '</span></p>';
+    } else { flush(); out += '<p class="sl-tp">' + (x || '<br>') + '</p>'; }
+  });
+  flush();
+  return out;
+}
+function slideHTML(b){
+  const out = [];
+  b.items.forEach(it => {
+    if (it.kind === 'text'){
+      const html = sanitize(it.html);
+      if (!plain(html).trim()) return;
+      out.push('<div class="sl-text' + (it.caps ? ' caps' : '') + '" style="text-align:' + it.align + '">' + paraHTML(html) + '</div>');
+      return;
+    }
+    if (it.kind === 'line'){ if (out.length) out.push('<div class="sl-hr"></div>'); return; }
+    const vs = it.verses.filter(v => plain(v.text).trim());
+    const ref = (it.ref || '').trim();
+    if (!ref && !vs.length && out.length) return;
+    out.push(ref ? '<div class="sl-ref">' + esc(typoText(ref)) + '</div>' : '<div class="sl-ref ph">Место Писания</div>');
+    vs.forEach(v => out.push('<p class="sl-verse">' + (v.num ? '<sup>' + esc(v.num) + '</sup>' + NBSP : '') + sanitize(v.text) + '</p>'));
+    if (!vs.length && out.length === 1) out.push('<p class="sl-verse sl-empty">Здесь появится текст стихов</p>');
+  });
+  if (!out.length) out.push('<div class="sl-ref ph">Место Писания</div>');
+  return out.join('');
+}
+function boxHTML(b){
+  if (b.type === 'thesis' && Array.isArray(b.parts)){
+    const R = scaleRange('thesis'), out = [];
+    b.parts.forEach(p => {
+      if (p.kind === 'line'){ out.push('<div class="sl-hr"></div>'); return; }
+      const html = sanitize(p.html); if (!plain(html).trim()) return;
+      const sc = Math.min(R.max, Math.max(R.min, Math.round(+p.scale || 100))) / 100;
+      out.push('<div class="sl-part' + (p.caps ? ' caps' : '') + '" data-align="' + p.align + '" style="text-align:' + p.align + ';font-size:' + sc + 'em">' + paraHTML(html, true) + '</div>');
+    });
+    while (out.length && out[0] === '<div class="sl-hr"></div>') out.shift();
+    while (out.length && out[out.length - 1] === '<div class="sl-hr"></div>') out.pop();
+    return out.length ? out.join('') : '<p class="sl-tp sl-empty">Текст тезиса</p>';
+  }
+  const html = sanitize(b.text);
+  if (plain(html).trim()) return paraHTML(html, b.type === 'thesis');
+  return '<p class="sl-tp sl-empty">' + (b.type === 'quote' ? 'Текст цитаты' : 'Текст тезиса') + '</p>';
+}
+/* «Жан Кальвин, Наставление» → ЖАН **КАЛЬВИН** + источник мелко второй строкой */
+function authorHTML(a){
+  a = String(a || '').trim(); if (!a) return '';
+  const i = a.indexOf(','), name = (i >= 0 ? a.slice(0, i) : a).trim(), src = i >= 0 ? a.slice(i + 1).trim() : '';
+  const w = name.split(/\s+/).filter(Boolean), last = w.pop() || '';
+  return (w.length ? esc(typoText(w.join(' '))) + ' ' : '') + '<b>' + esc(last) + '</b>' + (src ? '<span class="src">' + esc(typoText(src)) + '</span>' : '');
+}
+function firstTextRect(root){
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n;
+  while ((n = w.nextNode()) && !n.nodeValue.replace(/\s/g, ''));
+  if (!n) return null;
+  let i = 0; while (i < n.nodeValue.length - 1 && /\s/.test(n.nodeValue[i])) i++;
+  const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1);
+  const rc = r.getClientRects()[0], cs = getComputedStyle(n.parentNode);
+  return rc ? { top:rc.top, fs:parseFloat(cs.fontSize), wt:parseInt(cs.fontWeight, 10) >= 600 ? 700 : 400 } : null;
+}
+function lastTextRect(root){
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n, last = null;
+  while ((n = w.nextNode())) if (n.nodeValue.replace(/\s/g, '')) last = n;
+  if (!last) return null;
+  let i = last.nodeValue.length - 1; while (i > 0 && /\s/.test(last.nodeValue[i])) i--;
+  const r = document.createRange(); r.setStart(last, i); r.setEnd(last, i + 1);
+  const rc = r.getClientRects()[0], cs = getComputedStyle(last.parentNode);
+  return rc ? { top:rc.top, fs:parseFloat(cs.fontSize), wt:parseInt(cs.fontWeight, 10) >= 600 ? 700 : 400 } : null;
+}
+/* Подпись перевода внизу слайда: «* Синодальный перевод»; несколько разных переводов — через точку */
+function slideTrName(it){
+  if (it.manual) return (it.translation || '').trim();
+  const L = LANGS[it.lang]; return L ? (L.slide || L.tr || '') : (it.translation || '');
+}
+function trFooterText(b){
+  if (b.showTr === false) return '';
+  const names = [];
+  b.items.forEach(it => {
+    if (it.kind !== 'scripture' || !(it.verses || []).some(v => plain(v.text).trim())) return;
+    const n = slideTrName(it); if (n && !names.includes(n)) names.push(n);
+  });
+  return names.length ? TR_FOOTER.replace('{name}', names.join(' · ')) : '';
+}
+function layoutAt(sl, b, px){
+  const content = sl.querySelector('.sl-content');
+  content.style.fontSize = px + 'px';
+  content.innerHTML = slideHTML(b);
+  content.querySelectorAll('.sl-verse, .sl-tp').forEach(typoDom);
+  wrapScripts(content);
+  content.querySelectorAll('.sl-verse, .sl-tp').forEach(fixOrphan);
+  const fm = fontMetrics(), panel = sl.querySelector('.sl-panel').getBoundingClientRect();
+  const k = sl.getBoundingClientRect().width / SL.W;   // масштаб предпросмотра: размеры шрифта в кадре, прямоугольники — на экране
+  const ft = firstTextRect(content);
+  if (!ft) return true;
+  const topGap = ft.top + (fm[ft.wt].asc - fm[ft.wt].cap) * ft.fs * k - panel.top;   // верх заглавных букв первой строки → верх фона
+  const lt = lastTextRect(content);
+  if (!lt) return true;
+  const baseline = lt.top + fm[lt.wt].asc * lt.fs * k;
+  const foot = sl.querySelector('.sl-tr'), ftxt = trFooterText(b);
+  if (foot){ foot.textContent = ftxt ? typoText(ftxt) : ''; foot.classList.toggle('on', !!ftxt); foot.style.fontSize = (scrPx() * 0.9) + 'px'; }   // подпись перевода — 90% от размера стихов
+  if (foot && ftxt) return (foot.getBoundingClientRect().top - baseline) >= SL.trGap * k;   // текст не ближе запаса к подписи перевода
+  return (panel.bottom - baseline) >= topGap - 0.5 * k;
+}
+function layoutBox(sl, b, px){
+  const box = sl.querySelector('.sl-box'), inner = sl.querySelector('.sl-inner');
+  const au = sl.querySelector('.sl-author');
+  if (au) au.innerHTML = authorHTML(b.author);
+  inner.style.fontSize = px + 'px';
+  const align = b.type === 'thesis' ? (b.align || 'center') : 'center';
+  inner.style.textAlign = align; inner.dataset.align = align;
+  box.style.justifyContent = b.type === 'thesis' ? ({ top:'flex-start', bottom:'flex-end' }[b.valign] || 'center') : 'center';
+  inner.classList.toggle('caps', b.type !== 'thesis' && isCaps(b));
+  inner.classList.toggle('parts', b.type === 'thesis');
+  inner.innerHTML = boxHTML(b);
+  inner.querySelectorAll('.sl-tp').forEach(typoDom);
+  wrapScripts(inner);
+  inner.querySelectorAll('.sl-tp:not(.sl-li), .sl-lt').forEach(fixOrphan);
+  return inner.offsetHeight <= box.clientHeight;   // размеры в пикселях кадра: масштаб на них не влияет
+}
+function fitSlide(sl, b){
+  const w = sl.clientWidth; if (!w) return null;
+  sl.style.setProperty('--s', w / SL.W);
+  if (w < SL.W) lastScale = w / SL.W;
+  const fit = b.type === 'scripture' ? layoutAt : layoutBox;
+  const base = b.type === 'scripture' ? scrPx() : BASE[b.type] * blkScale(b) / 100;
+  if (fit(sl, b, base)) return 1;
+  let lo = SL.min, hi = base;
+  if (!fit(sl, b, lo)) return lo / base;
+  for (let k = 0; k < 10; k++){ const mid = (lo + hi) / 2; if (fit(sl, b, mid)) lo = mid; else hi = mid; }
+  fit(sl, b, lo);
+  return lo / base;
+}
+const previewTimers = {};
+function schedulePreview(b){
+  clearTimeout(previewTimers[b.id]);
+  previewTimers[b.id] = setTimeout(() => runPreview(b), 90);
+}
+function runPreview(b){
+  const card = document.querySelector('.block[data-id="' + b.id + '"]'); if (!card) return;
+  const sl = card.querySelector('.sl'); if (!sl) return;
+  const ratio = fitSlide(sl, b); if (ratio == null) return;
+  const pct = Math.round(ratio * 100);
+  let over, msg;
+  if (b.type === 'scripture'){
+    const min = state.settings.minScale || DEFAULT_SETTINGS.minScale;
+    over = pct < min;
+    msg = pct >= 100 ? 'текст 100%' : (over ? 'текст ' + pct + '% — лучше разбить на два слайда' : 'текст уменьшен до ' + pct + '%');
+  } else {
+    const lim = limitFor(b), c = charCount(b);
+    over = c > lim;
+    const real = Math.round(ratio * blkScale(b));
+    msg = c + ' / ' + lim + ' символов · текст ' + real + '%' + (pct < 100 ? ' (не поместился, уменьшен)' : '');
+    if (over) msg += ' — многовато, лучше разбить';
+  }
+  card.classList.toggle('over', over);
+  const cnt = card.querySelector('.bprev-cap .count');
+  if (cnt) cnt.textContent = msg;
+}
+const previewRO = window.ResizeObserver ? new ResizeObserver(es => es.forEach(e => {
+  const b = state && state.blocks.find(x => x.id === e.target.dataset.id); if (b) schedulePreview(b);
+})) : null;
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
+  FM = null;
+  if (state) state.blocks.forEach(b => { if (PREVIEW[b.type]) schedulePreview(b); });
+});
+
+/* ========= Файлы ========= */
+function fileName(){
+  const t = (state.meta.title || 'Проповедь').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  return (state.meta.date ? state.meta.date + ' ' : '') + t + '.html';
+}
+/* Сохранение: если у слайдов нет обязательных названий — спросить: дописать или сохранить файл без этих слайдов */
+function saveFile(){
+  const miss = missingNames();
+  if (!miss.length){ writeFile(state); return; }
+  const nums = slideNums(), list = miss.map(b => nums[b.id]).join(', ');
+  settingsOverlay.innerHTML = '';
+  settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Не у всех слайдов есть название' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Не у всех слайдов есть название' }), iconBtn('close', 'Закрыть', closeSettings)),
+    h('p', { class:'hint', style:'font-size:12px;margin-bottom:16px', text:'Без названия: ' + (miss.length > 1 ? 'слайды ' : 'слайд ') + list + '. Если сохранить сейчас, ' +
+      (miss.length > 1 ? 'этих слайдов' : 'этого слайда') + ' в файле не будет. В редакторе они останутся: можно дописать названия и сохранить ещё раз.' }),
+    h('div', { class:'sheet-foot' },
+      h('button', { type:'button', class:'btn', onclick:() => {
+        closeSettings();
+        writeFile(Object.assign({}, state, { blocks:state.blocks.filter(b => !miss.includes(b)) }));
+      } }, 'Сохранить без них'),
+      h('button', { type:'button', class:'btn primary', onclick:() => { closeSettings(); checkNames(); } }, 'Дописать названия'))));
+  settingsOverlay.classList.add('open');
+}
+function writeFile(data){
+  const now = Date.now();
+  state.updatedAt = Math.max(state.updatedAt, now); state.savedAt = state.updatedAt;
+  data = Object.assign({}, data, { updatedAt:state.updatedAt, savedAt:state.savedAt });
+  const json = JSON.stringify(data).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+  const html = TEMPLATE.replace(/(<script id="sermon-data" type="application\/json">)[\s\S]*?(<\/script>)/, (m, a, b) => a + json + b);
+  const blob = new Blob([html], { type:'text/html;charset=utf-8' });
+  const a = h('a', { href:URL.createObjectURL(blob), download:fileName() });
+  document.body.append(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  persistDraft();
+  toast('Файл сохранён: ' + fileName());
+}
+/* ========= Выгрузка слайдов в JPEG =========
+   Слайд раскладывается тем же кодом, что и предпросмотр, в полном кадре 1920×1080, затем вместе со стилями
+   и встроенными шрифтами рисуется браузером на холст (SVG foreignObject) и сохраняется в JPEG.
+   Один слайд — обычным файлом; несколько — ZIP-архивом с папкой «дата название». */
+const EXPORT_FONTS = 'https://fonts.googleapis.com/css2?family=Unbounded:wght@200..900&family=Inter:wght@400;700&family=Noto+Sans+Hebrew:wght@400;700&display=block';
+let fontCssP = null;
+function toBase64(buf){
+  const u8 = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+/* Шрифты для картинки: CSS Google Fonts, в котором ссылки на файлы заменены самими файлами */
+function exportFonts(){
+  if (fontCssP) return fontCssP;
+  fontCssP = (async () => {
+    const r = await fetch(EXPORT_FONTS); if (!r.ok) throw new Error('шрифты не загрузились');
+    const css = await r.text();
+    const urls = Array.from(new Set((css.match(/url\((https:[^)]+)\)/g) || []).map(u => u.slice(4, -1))));
+    const map = {};
+    await Promise.all(urls.map(async u => { const f = await fetch(u); if (!f.ok) throw new Error('шрифт не загрузился'); map[u] = 'data:font/woff2;base64,' + toBase64(await f.arrayBuffer()); }));
+    return css.replace(/url\((https:[^)]+)\)/g, (m, u) => 'url(' + map[u] + ')');
+  })();
+  fontCssP.catch(() => { fontCssP = null; });
+  return fontCssP;
+}
+/* Правила оформления слайда из этой страницы */
+let SLIDE_CSS = null;
+function slideCSS(){
+  if (SLIDE_CSS) return SLIDE_CSS;
+  let out = '';
+  Array.from(document.styleSheets).forEach(sh => {
+    let rules; try { rules = sh.cssRules; } catch(e){ return; }
+    Array.from(rules).forEach(r => { if (r.selectorText && /\.sl(\b|-)/.test(r.selectorText)) out += r.cssText + '\n'; });
+  });
+  return (SLIDE_CSS = out);
+}
+async function renderJPEG(b){
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  const fontCss = await exportFonts();
+  const host = h('div', { style:'position:fixed;left:-40000px;top:0;width:1920px;height:1080px;overflow:hidden;pointer-events:none', 'aria-hidden':'true' });
+  const sl = slideEl(b); sl.style.width = '1920px';
+  host.append(sl); document.body.append(host);
+  try {
+    if (fitSlide(sl, b) == null) throw new Error('не удалось разложить слайд');
+    const stage = sl.querySelector('.sl-stage').cloneNode(true);
+    const root = getComputedStyle(document.documentElement);
+    ['--sl-x', '--sl-t', '--sl-b', '--noise'].forEach(k => stage.style.setProperty(k, root.getPropertyValue(k).trim()));
+    stage.style.transform = 'none'; stage.style.boxShadow = 'none';
+    const wrap = document.createElement('div');
+    wrap.className = 'sl';
+    wrap.setAttribute('style', 'width:1920px;height:1080px;aspect-ratio:auto;border-radius:0;position:relative;overflow:hidden;background:#000');
+    const st = document.createElement('style'); st.textContent = fontCss + '\n' + slideCSS();
+    wrap.append(st, stage);
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><foreignObject x="0" y="0" width="1920" height="1080">' +
+      new XMLSerializer().serializeToString(wrap) + '</foreignObject></svg>';
+    const img = new Image();
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    await img.decode();
+    await new Promise(r => setTimeout(r, 60));   // шрифты внутри картинки успевают подключиться
+    const cv = document.createElement('canvas'); cv.width = 1920; cv.height = 1080;
+    const ctx = cv.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1920, 1080);
+    ctx.drawImage(img, 0, 0, 1920, 1080);
+    return await new Promise((res, rej) => cv.toBlob(x => x ? res(x) : rej(new Error('браузер не отдал картинку')), 'image/jpeg', 0.93));
+  } finally { host.remove(); }
+}
+function download(blob, name){
+  const a = h('a', { href:URL.createObjectURL(blob), download:name });
+  document.body.append(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+const folderName = () => cleanName((state.meta.date ? state.meta.date + ' ' : '') + (state.meta.title || 'Проповедь')).slice(0, 80) || 'Проповедь';
+/* ZIP без сжатия (JPEG и так сжат); имена в UTF-8, кириллица в Windows открывается нормально */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files){
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const d = new Date(), tm = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dt = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  files.forEach(f => {
+    const nm = enc.encode(f.name), data = f.data || new Uint8Array(0), crc = crc32(data), sz = data.length;
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, tm, true); lh.setUint16(12, dt, true); lh.setUint32(14, crc, true); lh.setUint32(18, sz, true); lh.setUint32(22, sz, true);
+    lh.setUint16(26, nm.length, true); lh.setUint16(28, 0, true);
+    parts.push(lh, nm, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, tm, true); ch.setUint16(14, dt, true); ch.setUint32(16, crc, true); ch.setUint32(20, sz, true); ch.setUint32(24, sz, true);
+    ch.setUint16(28, nm.length, true); ch.setUint32(38, f.dir ? 0x10 : 0, true); ch.setUint32(42, off, true);
+    central.push(ch, nm);
+    off += 30 + nm.length + sz;
+  });
+  const size = central.reduce((s, x) => s + x.byteLength, 0), end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, size, true); end.setUint32(16, off, true);
+  return new Blob(parts.concat(central, [end]), { type:'application/zip' });
+}
+const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
+let exporting = false;
+async function exportOne(b){
+  if (exporting) return;
+  if (NAMED[b.type] && slidesCfg().names.required && !cleanName(b.name)){
+    flagMissing = true; b.collapsed = false; rerender(b);
+    const f = document.querySelector('.block[data-id="' + b.id + '"] .namebox input'); if (f) f.focus();
+    toast('Сначала напишите название слайда'); return;
+  }
+  exporting = true; toast('Готовлю JPEG…');
+  try {
+    const name = slideName(b, slideNums()[b.id]) + '.jpg';
+    download(await renderJPEG(b), name);
+    if (markDone(b)){ change(); if (mode === 'edit') rerender(b); }
+    toast('Скачано: ' + name);
+  } catch(e){ toast('Не получилось собрать JPEG: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
+  finally { exporting = false; }
+}
+async function exportMany(onlyUnmarked){
+  if (exporting) return;
+  const list = state.blocks.filter(b => PREVIEW[b.type] && (!onlyUnmarked || !b.done));
+  if (!list.length){ toast(onlyUnmarked ? 'Все слайды уже отмечены как готовые' : 'В проповеди нет слайдов, которые форма собирает сама'); return; }
+  if (!checkNames()) return;
+  if (list.length === 1){ exportOne(list[0]); return; }
+  exporting = true;
+  const nums = slideNums(), folder = folderName(), files = [{ name:folder + '/', dir:true }], used = {};
+  try {
+    for (let i = 0; i < list.length; i++){
+      toast('Готовлю слайды: ' + (i + 1) + ' из ' + list.length + '…');
+      const b = list[i];
+      let name = slideName(b, nums[b.id]);
+      if (used[name]){ used[name]++; name += ' (' + used[name] + ')'; } else used[name] = 1;
+      files.push({ name:folder + '/' + name + '.jpg', data:new Uint8Array(await (await renderJPEG(b)).arrayBuffer()) });
+    }
+    download(makeZip(files), folder + '.zip');
+    let marked = 0; list.forEach(b => { if (markDone(b)) marked++; });
+    if (marked){ change(); if (mode === 'edit') renderMain(); }
+    const rest = state.blocks.filter(b => b.type === 'image' || b.type === 'video' || b.type === 'free').length;
+    toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео и свободные слайды делаются вручную' : ''));
+  } catch(e){ toast('Не получилось собрать слайды: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
+  finally { exporting = false; }
+}
+
+/* ========= PDF для оператора =========
+   Собирается отдельная страница только для печати и открывается окно печати Chrome: там нужно выбрать «Сохранить как PDF».
+   Подсказки для того, кто готовит слайды (найти, пришлют, описания, ссылки), сюда не попадают. */
+const printEl = h('div', { id:'print-op', 'aria-hidden':'true' });
+document.body.append(printEl);
+const OP_COLORS = { scripture:'#c27a52', thesis:'#6b56d8', quote:'#1f8d73', image:'#c44579', video:'#c9532f', free:'#6c7486' };
+function opSlide(b, n){
+  const card = h('div', { class:'op-slide', style:'--tc:' + OP_COLORS[b.type] },
+    h('div', { class:'op-row' }, h('span', { class:'op-num', text:pad(n) }), h('span', { class:'op-type', text:TYPES[b.type].label })));
+  switch (b.type){
+    case 'scripture':
+      b.items.forEach(it => {
+        if (it.kind === 'line') return;
+        if (it.kind === 'text'){ const x = sanitize(it.html); if (plain(x).trim()) card.append(h('div', { class:'op-p op-verses', html:x })); return; }
+        const vs = it.verses.filter(v => plain(v.text).trim()).map(v => (v.num ? '<sup>' + esc(v.num) + '</sup>' + NBSP : '') + sanitize(v.text)).join(' ');
+        card.append(h('div', { class:'op-p' },
+          h('div', { class:'op-ref' }, it.ref || 'Место не указано', it.translation ? h('span', { class:'op-tr', text:it.translation }) : null),
+          vs ? h('div', { class:'op-verses', html:vs }) : null));
+      });
+      break;
+    case 'thesis':
+      card.append(h('div', { class:'op-thesis', html:sanitize(b.text) }));
+      break;
+    case 'quote':
+      card.append(h('div', { class:'op-verses', html:'«' + sanitize(b.text) + '»' }));
+      if (b.author) card.append(h('div', { class:'op-author', text:'— ' + b.author }));
+      break;
+    case 'video':
+      card.append(h('div', { class:'op-name', text:cleanName(b.name) || 'Видео' }));
+      if (b.from || b.to) card.append(h('div', { class:'op-play', text:'▶ с ' + (b.from || '0:00') + ' до ' + (b.to || 'конца') }));
+      break;
+    default:   // картинка, свободный слайд
+      card.append(h('div', { class:'op-name', text:cleanName(b.name) || TYPES[b.type].label }));
+  }
+  return card;
+}
+function buildOperatorPrint(){
+  const m = state.meta, nums = slideNums();
+  printEl.innerHTML = '';
+  printEl.append(h('div', { class:'op-head' },
+    h('div', { class:'op-kick', text:'Для оператора' }),
+    h('h1', { class:'op-title', text:m.title || 'Без названия' }),
+    h('div', { class:'op-meta', text:[fmtDate(m.date), m.preacher, 'слайдов: ' + nums._total].filter(Boolean).join(' · ') })));
+  state.blocks.forEach(b => {
+    if (b.type === 'text'){
+      if (b.splash) printEl.append(h('div', { class:'op-splash', text:'Заставка' }));
+      if ((b.text || '').trim()) printEl.append(h('div', { class:'op-text', text:b.text.trim() }));
+    } else if (b.type === 'note'){
+      if ((b.text || '').trim()) printEl.append(h('div', { class:'op-note' }, h('div', { class:'op-note-tag', text:'⚠ Оператору' }), h('div', { class:'op-note-body', text:b.text.trim() })));
+    } else printEl.append(opSlide(b, nums[b.id]));
+  });
+  wrapScripts(printEl);
+}
+function operatorPDF(){
+  if (!state.blocks.length){ toast('В проповеди пока нет блоков'); return; }
+  if (!checkNames()) return;
+  buildOperatorPrint();
+  const title = document.title;
+  document.title = folderName() + ' — оператор';   // Chrome предлагает это имя для PDF
+  document.body.classList.add('op-print');
+  const done = () => { document.body.classList.remove('op-print'); document.title = title; printEl.innerHTML = ''; window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  toast('В окне печати выберите «Сохранить как PDF»');
+  const go = () => setTimeout(() => window.print(), 50);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(go); else go();
+}
+
+fileInput.addEventListener('change', async () => {
+  const f = fileInput.files[0]; fileInput.value = '';
+  if (!f) return;
+  let data = null;
+  try {
+    const txt = await f.text();
+    if (/\.json$/i.test(f.name)) data = JSON.parse(txt);
+    else {
+      const doc = new DOMParser().parseFromString(txt, 'text/html');
+      const s = doc.getElementById('sermon-data');
+      if (s) data = JSON.parse(s.textContent || 'null');
+    }
+  } catch(e){ data = null; }
+  if (!data || !Array.isArray(data.blocks)){ toast('В этом файле нет проповеди'); return; }
+  if (isDirty() && data.id !== state.id && !confirm('Текущая проповедь не сохранена в файл. Всё равно открыть другую?')) return;
+  state = normalize(data); restoreOffer = null;
+  persistDraft(); renderAll();
+  toast('Открыто: ' + (state.meta.title || f.name));
+});
+function newSermon(){
+  if (isDirty() && !confirm('Текущая проповедь не сохранена в файл. Начать новую?')) return;
+  state = blank(); restoreOffer = null; persistDraft();
+  mode = 'edit'; LS.set('swp-mode', 'edit');
+  renderAll(); window.scrollTo(0, 0);
+}
+
+/* ========= Лимиты ========= */
+function openSettings(){
+  const st = state.settings, tmp = Object.assign({}, st);
+  const row = (key, label, min, max, step) => h('label', { class:'set-row' }, h('span', null, label),
+    h('input', { class:'input', type:'number', min:String(min || 50), max:String(max || 3000), step:String(step || 10), value:String(tmp[key]), oninput:e => { tmp[key] = +e.target.value || DEFAULT_SETTINGS[key]; } }));
+  settingsOverlay.innerHTML = '';
+  settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Лимиты символов' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Лимиты' }), iconBtn('close', 'Закрыть', closeSettings)),
+    h('p', { class:'hint', text:'Если текст выходит за лимит, блок подсвечивается жёлтым. Это подсказка, а не запрет. Лимиты сохраняются вместе с проповедью.' }),
+    h('div', { class:'set-grid' },
+      row('minScale', 'Место Писания: текст можно уменьшать до, %', 40, 100, 5),
+      row('limitThesis', 'Тезис, символов'),
+      row('limitQuote', 'Цитата, символов')),
+    h('div', { class:'sheet-foot' },
+      h('button', { type:'button', class:'btn', onclick:() => { state.settings = Object.assign({}, DEFAULT_SETTINGS); change(); closeSettings(); renderMain(); toast('Лимиты сброшены'); } }, 'По умолчанию'),
+      h('button', { type:'button', class:'btn primary', onclick:() => { state.settings = tmp; change(); closeSettings(); renderMain(); toast('Лимиты сохранены'); } }, 'Сохранить'))));
+  settingsOverlay.classList.add('open');
+}
+function closeSettings(){ settingsOverlay.classList.remove('open'); }
+
+/* ========= Источник настроек (config.json в репозитории) ========= */
+const CONFIG = { url:'', version:'', loadedAt:0, error:'', source:'встроенные списки' };
+const configUrl = () => LS.get('swp-config-url') || CONFIG_URL_DEFAULT;
+function applyConfig(cfg, url){
+  if (!cfg || typeof cfg !== 'object' || (!Array.isArray(cfg.translations) && !Array.isArray(cfg.preachers))) return false;
+  const abs = u => { try { return new URL(u, url).href; } catch(e){ return u; } };
+  if (Array.isArray(cfg.translations) && cfg.translations.length){
+    const next = {};
+    cfg.translations.forEach(t => {
+      if (!t || !t.id || !t.label) return;
+      const e = { group:t.group || 'ru', label:t.label, abbr:t.abbr || '', tr:t.tr != null ? t.tr : t.label, slide:t.slide || '', books:t.books || t.group || 'ru', note:t.note || '', alias:t.alias || '' };
+      if (t.file) e.file = t.file;
+      if (t.url) e.url = abs(t.url);
+      if (t.src) e.src = t.src;
+      if (!e.file && !e.url) return;   // «Свой перевод» встроен в форму
+      next[t.id] = e;
+    });
+    if (!next.ru && LANGS.ru) next.ru = LANGS.ru;   // Синодальный нужен как основа для «Своего перевода»
+    Object.keys(LANGS).forEach(k => delete LANGS[k]);
+    Object.assign(LANGS, next);
+  }
+  if (Array.isArray(cfg.groups) && cfg.groups.length){ TR_GROUPS.length = 0; cfg.groups.forEach(g => TR_GROUPS.push(g)); }
+  if (cfg.bibleBase) BIBLE_SRC[0] = cfg.bibleBase;
+  if (typeof cfg.scriptureFooter === 'string' && cfg.scriptureFooter.includes('{name}')) TR_FOOTER = cfg.scriptureFooter;
+  if (Array.isArray(cfg.preachers) && cfg.preachers.length){
+    PREACHERS.length = 0;
+    cfg.preachers.map(String).sort((a, b) => a.localeCompare(b, 'ru')).forEach(x => PREACHERS.push(x));
+  }
+  if (cfg.limits && typeof cfg.limits === 'object') Object.assign(DEFAULT_SETTINGS, cfg.limits);
+  if (cfg.slides && typeof cfg.slides === 'object'){ SLIDES_BASE = mergeSlides(SLIDES_DEFAULT, cfg.slides); applySlides(); }
+  CONFIG.version = cfg.version || '';
+  return true;
+}
+function loadCachedConfig(){
+  try {
+    const c = JSON.parse(LS.get('swp-config-cache') || 'null');
+    if (c && c.url === configUrl() && applyConfig(c.data, c.url)){ CONFIG.url = c.url; CONFIG.loadedAt = c.at; CONFIG.source = 'сохранённая копия'; }
+  } catch(e){}
+}
+async function fetchConfig(url){
+  url = url || configUrl();
+  if (!url){ CONFIG.error = ''; return false; }
+  try {
+    const r = await fetch(url, { cache:'no-cache' });
+    if (!r.ok) throw new Error('сервер ответил ' + r.status);
+    const data = await r.json();
+    if (!applyConfig(data, url)) throw new Error('это не файл настроек Crosspect');
+    CONFIG.url = url; CONFIG.loadedAt = Date.now(); CONFIG.error = ''; CONFIG.source = 'репозиторий';
+    LS.set('swp-config-cache', JSON.stringify({ url, at:CONFIG.loadedAt, data }));
+    return true;
+  } catch(e){ CONFIG.error = e && e.message ? e.message : 'не удалось загрузить'; return false; }
+}
+function configStatus(){
+  const n = Object.keys(LANGS).length;
+  return h('div', { class:'cfg-status' },
+    h('div', null, CONFIG.version ? 'Загружена версия ' + CONFIG.version + ' (' + CONFIG.source + (CONFIG.loadedAt ? ', ' + fmtTime(CONFIG.loadedAt) : '') + ')' : 'Сейчас используются встроенные списки.'),
+    h('div', null, 'Переводов: ' + n + ' · проповедников: ' + PREACHERS.length),
+    CONFIG.error ? h('div', { class:'err', text:'Не получилось загрузить настройки: ' + CONFIG.error }) : null);
+}
+function openConfig(){
+  const url = h('input', { class:'input', type:'url', inputmode:'url', placeholder:CONFIG_URL_DEFAULT || 'https://raw.githubusercontent.com/…/config.json', value:LS.get('swp-config-url') || CONFIG_URL_DEFAULT });
+  const status = h('div', null, configStatus());
+  const redraw = () => { status.innerHTML = ''; status.append(configStatus()); };
+  settingsOverlay.innerHTML = '';
+  settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Источник настроек' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Источник настроек' }), iconBtn('close', 'Закрыть', closeSettings)),
+    h('p', { class:'hint', text:'Отсюда форма берёт списки переводов и проповедников. Проповедникам здесь ничего менять не нужно.' }),
+    h('div', { class:'set-grid' }, field('Ссылка на файл настроек', url), status),
+    h('div', { class:'sheet-foot' },
+      h('button', { type:'button', class:'btn', onclick:() => {
+        try { localStorage.removeItem('swp-config-url'); localStorage.removeItem('swp-config-cache'); } catch(e){}
+        location.reload();
+      } }, 'По умолчанию'),
+      h('button', { type:'button', class:'btn primary', onclick:async e => {
+        const b = e.currentTarget, u = url.value.trim();
+        b.disabled = true; b.textContent = 'Проверяю…';
+        const ok = await fetchConfig(u);
+        b.disabled = false; b.textContent = 'Проверить и применить';
+        if (ok){ if (u && u !== CONFIG_URL_DEFAULT) LS.set('swp-config-url', u); else try { localStorage.removeItem('swp-config-url'); } catch(err){} renderMain(); toast('Настройки загружены'); }
+        redraw();
+      } }, 'Проверить и применить'))));
+  settingsOverlay.classList.add('open');
+}
+
+/* ========= Поля и названия слайдов: макет с областью текста ========= */
+function openSlidesCfg(){
+  const base = mergeSlides(SLIDES_BASE, null), tmp = slidesCfg();
+  const stage = h('div', { class:'sl-stage' }, h('div', { class:'sl-frame' }),
+    h('div', { class:'sl-panel' }, h('div', { class:'sl-glow' }), h('div', { class:'sl-grain' }), h('div', { class:'sl-vig' })),
+    h('div', { class:'sl-guide', text:'Область текста' }));
+  const mock = h('div', { class:'sl', 'aria-label':'Макет слайда с полями' }, stage);
+  const paint = () => { const v = marginVars(tmp.margins); Object.keys(v).forEach(k => stage.style.setProperty(k, v[k])); };
+  const num = (obj, key, min, max) => h('input', { class:'input', type:'number', min:String(min), max:String(max), step:'2', value:String(obj[key]),
+    oninput:e => { obj[key] = clampN(e.target.value, min, max, obj[key]); paint(); } });
+  const sameAsBase = () => JSON.stringify(tmp) === JSON.stringify(base);
+  const note = h('div', { class:'cfg-note' });
+  const showNote = () => {
+    const local = !!slidesLocal();
+    note.className = 'cfg-note' + (local ? ' local' : '');
+    note.textContent = local
+      ? 'Сейчас действуют ваши значения, и только в этом браузере. Чтобы они стали общими для всех, нажмите «Скопировать для config.json» и замените в файле настроек раздел "slides".'
+      : 'Сейчас действуют общие значения из файла настроек. Поля считаются от края цветной панели, в пикселях кадра 1920×1080.';
+  };
+  settingsOverlay.innerHTML = '';
+  settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Настройки слайдов' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Настройки слайдов' }), iconBtn('close', 'Закрыть', closeSettings)),
+    h('div', { class:'mock' }, mock,
+      h('div', { class:'mock-grid' }, field('По бокам', num(tmp.margins, 'side', 0, 400)), field('Сверху', num(tmp.margins, 'top', 0, 400)), field('Снизу', num(tmp.margins, 'bottom', 0, 400)))),
+    h('div', { class:'set-grid' },
+      h('label', { class:'switch' }, h('input', { type:'checkbox', checked:tmp.names.required, onchange:e => { tmp.names.required = e.target.checked; } }),
+        h('span', { class:'sw' }), 'Название слайда обязательно (тезис, картинка, видео, свободный)'),
+      h('label', { class:'set-row' }, h('span', null, 'Длина названия, символов'),
+        h('input', { class:'input', type:'number', min:'5', max:'120', step:'1', value:String(tmp.names.maxLength), oninput:e => { tmp.names.maxLength = clampN(e.target.value, 5, 120, 35); } })),
+      
+      h('label', { class:'set-row' }, h('span', null, 'Место Писания: размер текста, % (100% = 48 px)'),
+        h('input', { class:'input', type:'number', min:'50', max:'200', step:'5', value:String(tmp.sizes.scripture.size), oninput:e => { tmp.sizes.scripture.size = clampN(e.target.value, 50, 200, 100); } })),
+      h('div', { class:'mock-grid', style:'grid-template-columns:repeat(4,1fr)' },
+        field('Тезис: мельче до, %', h('input', { class:'input', type:'number', min:'30', max:'100', step:'5', value:String(tmp.sizes.thesis.min), oninput:e => { tmp.sizes.thesis.min = clampN(e.target.value, 30, 100, 70); } })),
+        field('Тезис: крупнее до, %', h('input', { class:'input', type:'number', min:'100', max:'200', step:'5', value:String(tmp.sizes.thesis.max), oninput:e => { tmp.sizes.thesis.max = clampN(e.target.value, 100, 200, 130); } })),
+        field('Цитата: мельче до, %', h('input', { class:'input', type:'number', min:'30', max:'100', step:'5', value:String(tmp.sizes.quote.min), oninput:e => { tmp.sizes.quote.min = clampN(e.target.value, 30, 100, 70); } })),
+        field('Цитата: крупнее до, %', h('input', { class:'input', type:'number', min:'100', max:'200', step:'5', value:String(tmp.sizes.quote.max), oninput:e => { tmp.sizes.quote.max = clampN(e.target.value, 100, 200, 110); } }))),
+      h('details', { class:'tmp-set' },
+        h('summary', null, 'Шрифт как в Canva — временно, для теста'),
+        h('div', { class:'radios' },
+          [['off', 'Вариант 1: без изменений'], ['verses', 'Вариант 2: как в Canva, только стихи Писания'], ['all', 'Вариант 3: как в Canva, весь текст на слайдах']].map(([v, l]) =>
+            h('label', null, h('input', { type:'radio', name:'cv-font', value:v, checked:tmp.font.canva === v, onchange:() => { tmp.font.canva = v; } }), l)),
+          h('p', { class:'hint', text:'«Как в Canva»: тоньше (325 вместо 400), буквы плотнее, строки ближе (1,05 вместо 1,25). Размер не меняется: его задают проценты выше. Чтобы буквы были как в Canva, поставьте Месту Писания 110%.' }))),
+      note),
+    h('div', { class:'sheet-foot' },
+      h('div', { style:'display:flex;gap:8px;flex-wrap:wrap' },
+        h('button', { type:'button', class:'btn', onclick:() => {
+          try { localStorage.removeItem('swp-slides-local'); } catch(e){}
+          applySlides(); closeSettings(); renderMain(); toast('Вернулись общие настройки слайдов');
+        } }, 'Общие (по умолчанию)'),
+        h('button', { type:'button', class:'btn', onclick:() => copyText('"slides": ' + JSON.stringify(tmp)) }, 'Скопировать для config.json')),
+      h('button', { type:'button', class:'btn primary', onclick:() => {
+        if (sameAsBase()){ try { localStorage.removeItem('swp-slides-local'); } catch(e){} }
+        else LS.set('swp-slides-local', JSON.stringify(tmp));
+        applySlides(); closeSettings(); renderMain(); toast('Настройки слайдов применены');
+      } }, 'Применить'))));
+  settingsOverlay.classList.add('open');
+  paint(); showNote();
+  requestAnimationFrame(() => mock.style.setProperty('--s', mock.clientWidth / SL.W));
+}
+
+/* ========= Мелочи ========= */
+function toast(msg, actionLabel, action){
+  clearTimeout(toastTimer);
+  toastEl.innerHTML = '';
+  toastEl.append(h('span', { text:msg }));
+  if (actionLabel) toastEl.append(h('button', { type:'button', onclick:() => { toastEl.classList.remove('show'); action(); } }, actionLabel));
+  toastEl.classList.add('show');
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), actionLabel ? 6000 : 2400);
+}
+function closeMenu(){ menuEl.classList.remove('open'); }
+document.addEventListener('click', e => { if (!menuEl.contains(e.target)) closeMenu(); });
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){ e.preventDefault(); saveFile(); }
+  if (e.key === 'Escape'){ closeSheet(); closeSettings(); closeMenu(); closeTrPanel(); }
+});
+
+/* ========= Запуск ========= */
+loadCachedConfig();   // последняя загруженная копия настроек: форма сразу знает все переводы, даже без интернета
+applySlides();
+const emb = readEmbedded();
+if (emb){
+  state = normalize(emb);
+  const dr = readDraft(state.id);
+  if (dr && (dr.updatedAt || 0) > (state.updatedAt || 0) + 1000) restoreOffer = dr;
+} else {
+  const dr = readDraft();
+  state = dr ? normalize(dr) : blank();
+}
+renderAll();
+fetchConfig().then(ok => { if (ok && !activeRich()) renderMain(); });   // свежие настройки из репозитория
+})();
+</script>
+</body>
+</html>
