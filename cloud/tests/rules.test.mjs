@@ -123,7 +123,7 @@ async function setLock(s, id, who, beatMinutesAgo) {
 before(async () => {
   env = await initializeTestEnvironment({
     projectId: PROJECT,
-    firestore: { rules: readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8') },
+    firestore: { rules: readFileSync(process.env.RULES_FILE || new URL('../firestore.rules', import.meta.url), 'utf8') },
   });
 });
 after(async () => { await env?.cleanup(); });
