@@ -1,0 +1,52 @@
+# Ночная резервная копия базы Crosspect.
+# Лежит в приватном репозитории crosspect-app/crosspect-backup; копия — папка data/,
+# каждая ночь — коммит, если что-то изменилось. Старые копии — в истории git.
+# Шаблон и описание: cloud/private-repo/ в публичном репозитории crosspect-app/crosspect.
+name: Резервная копия
+
+on:
+  schedule:
+    - cron: '17 1 * * *'   # каждую ночь, около 2–3 часов по Варшаве
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: database
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Копия базы
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: crosspect-app/crosspect
+          path: app
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --omit=dev
+        working-directory: app/cloud
+      - name: Скопировать базу
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          test -n "$FIREBASE_SERVICE_ACCOUNT" || { echo "::error::Нет секрета FIREBASE_SERVICE_ACCOUNT"; exit 1; }
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/key.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json" node app/cloud/scripts/backup.mjs data
+          rm -f "$RUNNER_TEMP/key.json"
+      - name: Сохранить, если изменилось
+        run: |
+          git config user.name "crosspect-backup"
+          git config user.email "actions@github.com"
+          git add -A data
+          if git diff --cached --quiet; then
+            echo "Изменений нет"
+          else
+            git commit -q -m "Копия $(TZ=Europe/Warsaw date '+%Y-%m-%d %H:%M')"
+            git push
+          fi

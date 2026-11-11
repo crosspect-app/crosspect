@@ -1,0 +1,72 @@
+# Пространства и участники Crosspect — пока в форме нет своих настроек (этап 9)
+# и на случай, если в пространстве не осталось админа. Запускается вручную.
+name: Пространства
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Что сделать'
+        type: choice
+        options: [list, set-member, remove-member, create-space]
+        default: list
+      space:
+        description: 'id пространства (для set-member и remove-member; см. list)'
+        required: false
+      email:
+        description: 'Почта Google участника'
+        required: false
+      role:
+        description: 'Роль (для set-member)'
+        type: choice
+        options: [preacher, editor, admin]
+        default: preacher
+      first:
+        description: 'Имя (необязательно)'
+        required: false
+      last:
+        description: 'Фамилия (необязательно)'
+        required: false
+      name:
+        description: 'Название пространства (для create-space)'
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: crosspect-app/crosspect
+          path: app
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --omit=dev
+        working-directory: app/cloud
+      - name: Выполнить
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ACTION: ${{ inputs.action }}
+          SPACE: ${{ inputs.space }}
+          EMAIL: ${{ inputs.email }}
+          ROLE: ${{ inputs.role }}
+          FIRST: ${{ inputs.first }}
+          LAST: ${{ inputs.last }}
+          NAME: ${{ inputs.name }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          a=("$ACTION")
+          [ -n "$SPACE" ] && a+=(--space "$SPACE")
+          [ -n "$EMAIL" ] && a+=(--email "$EMAIL")
+          [ "$ACTION" = "set-member" ] && a+=(--role "$ROLE")
+          [ -n "$FIRST" ] && a+=(--first "$FIRST")
+          [ -n "$LAST" ] && a+=(--last "$LAST")
+          [ -n "$NAME" ] && a+=(--name "$NAME")
+          node app/cloud/scripts/admin.mjs "${a[@]}"
+          rm -f "$RUNNER_TEMP/key.json"

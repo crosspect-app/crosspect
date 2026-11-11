@@ -1,0 +1,60 @@
+# Восстановление базы Crosspect из резервной копии. Запускается только вручную.
+name: Восстановить из копии
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Какую копию: коммит из истории этого репозитория (пусто — последняя)'
+        required: false
+        default: ''
+      wipe:
+        description: 'Сначала очистить базу (станет ровно как в копии; всё новое после неё пропадёт)'
+        type: boolean
+        default: false
+      confirm:
+        description: 'Напишите ВОССТАНОВИТЬ'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    name: Восстановление
+    runs-on: ubuntu-latest
+    steps:
+      - name: Подтверждение
+        run: |
+          [ "${{ inputs.confirm }}" = "ВОССТАНОВИТЬ" ] || { echo "::error::Не подтверждено"; exit 1; }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/checkout@v4
+        with:
+          repository: crosspect-app/crosspect
+          path: app
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --omit=dev
+        working-directory: app/cloud
+      - name: Сначала свежая копия на всякий случай
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/key.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json" node app/cloud/scripts/backup.mjs "$RUNNER_TEMP/before-restore"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: before-restore
+          path: ${{ runner.temp }}/before-restore
+          retention-days: 30
+      - name: Восстановить
+        run: |
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json" node app/cloud/scripts/restore.mjs data ${{ inputs.wipe && '--wipe' || '' }}
+          rm -f "$RUNNER_TEMP/key.json"
