@@ -98,7 +98,7 @@ function renderTopbar(){
       h('span', { class:'hd-name' + (m.title ? '' : ' empty'), text:m.title || 'Без названия' }),
       h('span', { class:'hd-sub', text:[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') || 'Дата и спикер не указаны' })),
     h('span', { class:'stchip st-' + st.key, text:st.label }),
-    statusAction(),   // «Отметить «Готов»» — пока проповедь правится (editor.js)
+    statusAction() || '',   // «Отметить «Готов»» — пока проповедь правится (editor.js); null вывелся бы словом «null»
     h('div', { class:'grow' }),
     h('div', { class:'seg', role:'group', 'aria-label':'Вид проповеди' },
       h('button', { type:'button', class:view === 'slides' ? 'on' : '', onclick:() => setView('slides') }, 'Слайды'),

@@ -30,6 +30,7 @@ def test_speaker_marks_ready_and_edit_resets_it(browser, base_url):
     assert "В работе" in page.inner_text(".scard")
     open_sermon(page, "s1")
     assert not page.get_by_role("button", name="Отметить «Готов»").count()   # в просмотре кнопки нет
+    assert "null" not in page.inner_text(".topbar")
     start_edit(page)
     page.get_by_role("button", name="Отметить «Готов»").click()
     page.wait_for_function("fakeCloud.db().sermons.s1.status === 'submitted'", timeout=10000)   # ушло вместе с содержимым
