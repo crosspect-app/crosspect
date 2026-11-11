@@ -7,7 +7,7 @@ function preacherField(){
   const first = h('input', { class:'input', placeholder:'Имя', 'aria-label':'Имя', autocomplete:'off', value:known ? '' : m.firstName || '', oninput:e => { m.firstName = e.target.value; upd(); } });
   const last = h('input', { class:'input', placeholder:'Фамилия', 'aria-label':'Фамилия', autocomplete:'off', value:known ? '' : m.lastName || '', oninput:e => { m.lastName = e.target.value; upd(); } });
   const other = h('div', { class:'grid-2', style:known ? 'display:none;margin-top:8px' : 'margin-top:8px' }, first, last);
-  const sel = h('select', { class:'input', 'aria-label':'Проповедник', onchange:e => {
+  const sel = h('select', { class:'input', 'aria-label':'Спикер', onchange:e => {
     if (e.target.value === '__other'){ m.firstName = ''; m.lastName = ''; first.value = ''; last.value = ''; other.style.display = ''; first.focus(); }
     else { Object.assign(m, splitPreacher(e.target.value)); other.style.display = 'none'; }
     upd();
@@ -15,22 +15,12 @@ function preacherField(){
     h('option', { value:'' }, 'Выберите…'),
     PREACHERS.map(p => h('option', { value:p, selected:p === key }, p)),
     h('option', { value:'__other', selected:!known }, 'Другой — ввести вручную'));
-  return h('div', { class:'field' }, h('span', { class:'lbl', text:'Проповедник' }), sel, other);
+  return h('div', { class:'field' }, h('span', { class:'lbl', text:'Спикер' }), sel, other);
 }
 /* Шапка поменялась — заставки перерисовываются */
 function refreshSplash(){ state.blocks.forEach(b => { if (b.type === 'splash') schedulePreview(b); }); }
 
-/* Отметка «готово»: слайд выгружен или сделан. Ставится вручную, а при выгрузке — сама, если её ещё нет */
-function toggleDone(b){
-  b.done = !b.done;
-  change(); rerender(b);
-}
-/* Отметка «доработать»: слайд нужно сделать или поправить вручную. Картинка, видео и свободный слайд получают её сами */
-function toggleTodo(b){
-  b.todo = !b.todo;
-  change(); rerender(b);
-}
-function markDone(b){ if (readOnly()) return false; if (!b.done){ b.done = true; return true; } return false; }
+/* Отметка «доработать» (toggleTodo) — в editor.js */
 
 /* поля */
 function field(label, control){ return h('label', { class:'field' }, h('span', { class:'lbl', text:label }), control); }
@@ -572,9 +562,9 @@ const BODY = {
     body.append(
       row('Название для Holyrics', '[' + n + '] заставка'),
       row('Название на слайде', m.title, 'Без названия'),
-      row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Проповедник и дата не указаны'),
-      h('p', { class:'hint', text:'Это берётся из проповеди: название, проповедник и дата. Размер названия подбирается сам, от 110 до 200 px.' }),
-      h('button', { type:'button', class:'m-btn', onclick:() => openMeta() }, ic('settings'), 'Изменить название, дату, проповедника'));
+      row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Спикер и дата не указаны'),
+      h('p', { class:'hint', text:'Это берётся из проповеди: название, спикер и дата. Размер названия подбирается сам, от 110 до 200 px.' }),
+      h('button', { type:'button', class:'m-btn', onclick:() => openMeta() }, ic('settings'), 'Изменить название, дату, спикера'));
   },
   thesis(b, body, n){
     body.append(nameField(b, n));
@@ -698,7 +688,7 @@ function move(b, dir){
   flash(b.id);
 }
 function duplicate(b){
-  const c = JSON.parse(JSON.stringify(b)); c.id = uid(); c.done = false;
+  const c = JSON.parse(JSON.stringify(b)); c.id = uid();
   const had = TYPES[b.type].slide && plain(b.speech).trim();
   if (TYPES[b.type].slide) c.speech = '';   // текст к слайду не копируется: иначе он окажется в проповеди дважды
   state.blocks.splice(state.blocks.indexOf(b) + 1, 0, c);

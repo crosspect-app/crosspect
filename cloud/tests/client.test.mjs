@@ -293,7 +293,60 @@ describe('замок и автосохранение (этап 6)', () => {
   });
 });
 
+describe('работа редактора (этап 7)', () => {
+  test('статус: спикер ставит «Готов» и «В работе» своей записью, чужая запись статус не трогает', async () => {
+    const api = await client('ivan@x.pl');
+    const a = await api.save('sp1', sermon('st1', 'Статус'), me('ivan@x.pl'), { status: 'draft' });
+    assert.equal(a.cloudStatus, 'draft');
+    const b = await api.save('sp1', sermon('st1', 'Статус', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { status: 'submitted' });
+    assert.equal(b.cloudStatus, 'submitted');
+    const c = await api.save('sp1', sermon('st1', 'Статус 2', { cloudAt: b.cloudAt }), me('ivan@x.pl'), {});   // без status — прежний
+    assert.equal(c.cloudStatus, 'submitted');
+    const d = await api.save('sp1', sermon('st1', 'Статус 2', { cloudAt: c.cloudAt }), me('ivan@x.pl'), { status: 'draft' });
+    assert.equal(d.cloudStatus, 'draft');
+  });
+  test('спикер не ставит «в работе» / «готово» старых статусов; редактор может любой из допустимых', async () => {
+    const ivan = await client('ivan@x.pl');
+    const a = await ivan.save('sp1', sermon('st2', 'Статус'), me('ivan@x.pl'), {});
+    await assert.rejects(ivan.save('sp1', sermon('st2', 'Статус', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { status: 'done' }), (e) => /permission-denied/.test(e.code));
+    const admin = await client('admin@x.pl');
+    const b = await admin.save('sp1', sermon('st2', 'Статус', { cloudAt: a.cloudAt }), me('admin@x.pl'), { status: 'submitted' });
+    assert.equal(b.cloudStatus, 'submitted');
+  });
+  test('«доработать» и «готово» в документ проповеди не пишутся', async () => {
+    const api = await client('admin@x.pl');
+    const blocks = [{ id: 'b1', type: 'image', todo: true, done: false }, { id: 'b2', type: 'thesis', todo: false, done: true, text: 'x' }];
+    const r = await api.save('sp1', sermon('st3', 'Без отметок', { blocks }), me('admin@x.pl'), {});
+    const back = await api.get('sp1', 'st3');
+    assert.equal(back.blocks.length, 2);
+    assert.ok(back.blocks.every((b) => !('todo' in b) && !('done' in b)), JSON.stringify(back.blocks));
+    assert.equal(r.blocks[1].text, 'x');
+  });
+  test('отметки редактора: пишет и читает редактор; спикер читает пустое, писать ему база не даёт; удаление проповеди убирает отметки', async () => {
+    const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');
+    await admin.save('sp1', sermon('fl1', 'Отметки', { meta: { title: 'Отметки', firstName: 'Иван', lastName: 'Петров' } }), me('admin@x.pl'), {});
+    assert.deepEqual(await admin.getFlags('sp1', 'fl1'), {});   // документа ещё нет
+    const flags = { b1: { t: 1, s: 'abc' }, b2: { t: 0, s: 'xyz' } };
+    await admin.setFlags('sp1', 'fl1', me('admin@x.pl'), flags);
+    assert.deepEqual(await admin.getFlags('sp1', 'fl1'), flags);
+    await admin.setFlags('sp1', 'fl1', me('admin@x.pl'), { b2: { t: 1, s: 'q' } });   // записывается набор целиком
+    assert.deepEqual(await admin.getFlags('sp1', 'fl1'), { b2: { t: 1, s: 'q' } });
+    assert.deepEqual(await ivan.getFlags('sp1', 'fl1'), {}, 'спикер отметок не читает');
+    await assert.rejects(ivan.setFlags('sp1', 'fl1', me('ivan@x.pl'), { b1: { t: 1, s: 'z' } }), (e) => /permission-denied/.test(e.code));
+    await admin.remove('sp1', 'fl1');
+    assert.deepEqual(await admin.getFlags('sp1', 'fl1'), {});
+  });
+  test('отметки пишутся без замка, даже когда проповедь правит другой', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    const a = await ivan.save('sp1', sermon('fl2', 'Правит Иван'), me('ivan@x.pl'), { lock: { name: 'Иван', at: 0, minutes: 10 } });
+    assert.equal(a.lock.email, 'ivan@x.pl');
+    await admin.setFlags('sp1', 'fl2', me('admin@x.pl'), { b1: { t: 1, s: 's' } });
+    assert.deepEqual(await admin.getFlags('sp1', 'fl2'), { b1: { t: 1, s: 's' } });
+  });
+});
+
 test('explain: понятные тексты для людей', () => {
+  assert.match(explain({ code: 'resource-exhausted' }), /перегружено до 9:00/);
   assert.equal(explain({ code: 'conflict' }), 'conflict');
   assert.match(explain({ code: 'permission-denied' }), /Нет прав/);
   assert.match(explain({ code: 'unavailable' }), /Нет связи/);

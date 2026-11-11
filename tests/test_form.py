@@ -166,7 +166,7 @@ def test_export_single_jpeg(page, sermon):
 def test_export_all_slides_zip(page, sermon):
     open_sermon(page, sermon)
     with page.expect_download(timeout=120000) as dl:
-        page.evaluate("exportMany(false)")
+        page.evaluate("exportMany()")
     d = dl.value
     assert d.suggested_filename == "2026-11-15 Тест формы.zip"
     z = zipfile.ZipFile(io.BytesIO(open(d.path(), "rb").read()))

@@ -136,7 +136,6 @@ mark{background:var(--mark);color:inherit;border-radius:5px;padding:0 3px;-webki
 .btn.wide{width:100%;justify-content:center;height:42px}
 .btn.danger{color:var(--danger)}
 .btn.todo.on{border-color:var(--todo);color:var(--todo);background:color-mix(in srgb, var(--todo) 14%, transparent)}
-.btn.ok.on{border-color:var(--ok);color:var(--ok);background:color-mix(in srgb, var(--ok) 14%, transparent)}
 .icon-btn{
   display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;border:1px solid transparent;
   background:transparent;color:var(--muted);transition:.15s;padding:0;
@@ -229,11 +228,10 @@ body.ro .side .bbody,body.ro .speech .rich,body.ro .tv .prose{opacity:.8;cursor:
 .scard-title{font-size:18px;font-weight:700;line-height:1.25}
 .scard-title.empty{color:var(--muted);font-weight:500}
 .scard-by{font-size:13px;color:#cfc4b5}
-.prog{display:flex;gap:4px;margin-top:4px}
-.prog span{flex:1;height:4px;border-radius:999px;background:#333}
-.prog span.on{background:var(--ok)}
 .scard-foot{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted)}
 .film-todo{color:var(--todo);font-weight:600}
+button.film-todo{background:none;border:0;padding:0;font:inherit;font-weight:600;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+button.film-todo.on{text-decoration:none;border-bottom:1px solid var(--todo)}
 .cap-row{display:flex;align-items:center;gap:12px}
 .cap-row span{flex:1;height:1px;background:var(--line)}
 .ptable{border-radius:14px;border:1px solid var(--line);overflow:hidden}
@@ -264,9 +262,7 @@ a.prow:hover{background:var(--surface)}
 .st-n .ic{width:14px;height:14px}
 .st.on .st-n{color:var(--accent)}
 .st-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.st-ok{display:none;color:var(--ok)}
-.st.done .st-ok{display:inline}
-.st.over .st-cap::after{content:"!";color:var(--warn);font-weight:700}
+.st.done .st.over .st-cap::after{content:"!";color:var(--warn);font-weight:700}
 .st.missing .st-thumb{outline:2px solid var(--danger);outline-offset:-2px}
 .st.flash{animation:flash 1.1s ease}
 @keyframes flash{0%{box-shadow:0 0 0 0 rgba(255,222,89,0)}25%{box-shadow:0 0 0 4px rgba(255,222,89,.4)}100%{box-shadow:0 0 0 0 rgba(255,222,89,0)}}
@@ -336,7 +332,6 @@ a.prow:hover{background:var(--surface)}
 .gut .num{font:700 24px/1 'Unbounded',sans-serif}
 .tv-thumb{width:112px;border:0;padding:0;background:transparent;border-radius:6px;overflow:hidden;box-shadow:0 0 0 1px var(--line-2)}
 .tv-thumb.none{display:none}
-.tv-ok{color:var(--ok);font-size:12px;font-weight:600}
 .tv-todo{color:var(--todo);font-size:12px;font-weight:700}
 .cont{display:flex;flex-direction:column;gap:10px;min-width:0}
 .tv-card{display:grid;gap:10px;padding:14px 18px;border-radius:14px;background:var(--surface);border:1px solid var(--line);font-size:calc(16px * var(--vs));line-height:1.6}

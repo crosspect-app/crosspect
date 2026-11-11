@@ -96,16 +96,23 @@ def test_todo_toggle(page):
     assert page.locator(".film .st.todo").count() == 1
 
 
-def test_done_mark_shows_in_film_and_on_home_card(page):
+def test_no_done_mark_any_more(page):
+    """Этап 7: отметки «готово» у слайдов нет ни в ленте, ни на сцене, ни на карточке; старая «готово» только снимает «доработать»"""
     start_blank(page)
     page.evaluate("addBlock('thesis', 0); addBlock('thesis', 1)")
     page.locator(".film .st").first.click()
-    page.locator(".stage-bar .btn.ok").click()
-    assert page.evaluate("state.blocks[0].done") is True
-    assert page.locator(".film .st.done").count() == 1
+    assert not page.locator(".stage-bar .btn.ok").count()
+    assert not page.locator(".film .st-ok").count()
     page.locator("a.btn.ghost").click()
     page.wait_for_selector(".scard")
-    assert "Готово 1 из 2" in page.inner_text(".scard")
+    assert "Готово" not in page.inner_text(".scard") and not page.locator(".scard .prog").count()
+    assert "2 слайда" in page.inner_text(".scard")
+    assert not page.evaluate("state.blocks.some(b => 'done' in b)")
+    # старый файл: картинка с «готово» не просит доработки, а самой отметки в модели уже нет
+    r = page.evaluate("""(() => { const s = normalize({ app:'swp-sermon', v:2, id:'x', meta:{}, settings:{}, blocks:[
+      { id:'a', type:'image', done:true }, { id:'b', type:'image' }, { id:'c', type:'thesis', done:true }] });
+      return s.blocks.map(b => [b.todo, 'done' in b]); })()""")
+    assert r == [[False, False], [True, False], [False, False]]
 
 
 def test_delete_slide_keeps_its_speech(page, sermon):

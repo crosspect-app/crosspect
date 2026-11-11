@@ -63,7 +63,7 @@ def test_autosave_then_save_and_close_releases(browser, base_url):
     open_sermon(page, "s1")
     start_edit(page)
     page.evaluate("state.meta.title = 'Вера и дела'; change()")
-    assert "Сохранится через пару секунд" in status(page)
+    assert "Не сохранено: уйдёт в облако само" in status(page)
     page.wait_for_function("fakeCloud.db().sermons.s1.meta.title === 'Вера и дела'", timeout=10000)   # само, без кнопки
     page.wait_for_function("document.getElementById('hd-save').textContent.includes('Сохранено в облаке')")
     assert page.evaluate("fakeCloud.db().sermons.s1.lock.email") == "admin@x.pl"   # запись под замком его продлевает

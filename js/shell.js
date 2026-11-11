@@ -19,8 +19,7 @@ function fillMenu(){
   if (cloudOn() && screen === 'sermon') menuEl.append(menuItem('save', 'Скачать файл', () => saveFile()));
   if (screen === 'sermon') menuEl.append(
     h('div', { class:'menu-sep' }),
-    menuItem('zip', 'Скачать все слайды', () => exportMany(false)),
-    menuItem('zip', 'Скачать неотмеченные слайды', () => exportMany(true)),
+    menuItem('zip', 'Скачать все слайды', () => exportMany()),
     menuItem('phone', 'PDF для оператора', () => operatorPDF()));
   menuEl.append(
     h('div', { class:'menu-sep' }),

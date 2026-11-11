@@ -19,9 +19,10 @@
   function notify(){ listeners.forEach(f => f()); }
   window.fakeCloud = {   // для тестов: «другой человек» правит базу напрямую
     db: load, put(db){ store(db); notify(); },
-    calls: { save:0, lock:0, beat:0, release:0 },
+    calls: { save:0, lock:0, beat:0, release:0, flags:0 },
   };
   const calls = window.fakeCloud.calls;
+  window.CROSSPECT_AUTOSAVE_MS = 3000;   // в форме автосохранение раз в 30 секунд, тестам столько ждать незачем
   window.CROSSPECT_FAKE_API = {
     explain: e => (e && e.message) || String(e),
     onUser(f){ cb = f; setTimeout(() => f(me()), 0); return () => {}; },
@@ -40,9 +41,10 @@
     async get(space, id){ const db = load(), r = db.sermons[id]; return r ? view(db, r) : null; },
     async save(space, s, who, opts){
       calls.save++; offline();
+      if (localStorage.getItem('fake-quota') === '1') throw fail('resource-exhausted', 'Облако перегружено до 9:00');   // дневной запас базы исчерпан
       opts = opts || {};
       const db = load(), cur = db.sermons[s.id], L = opts.lock || null, my = who.email;
-      const body = JSON.parse(JSON.stringify({ v:s.v, meta:s.meta, settings:s.settings, blocks:s.blocks }));
+      const body = JSON.parse(JSON.stringify({ v:s.v, meta:s.meta, settings:s.settings, blocks:(s.blocks || []).map(b => { const c = Object.assign({}, b); delete c.todo; delete c.done; return c; }) }));   // как content() в cloud-api.mjs
       if (cur && (s.cloudAt || opts.force)){
         const l = cur.lock || null, held = !!(L && L.at && l && l.email === my && l.at === L.at);
         if (L && l && !held && live(db, l)) throw fail('lost-lock', 'Проповедь сейчас правит другой', { lock:l, remote:view(db, cur) });
@@ -50,12 +52,13 @@
         if (!opts.force && cur.updatedAt !== s.cloudAt && !ownLater) throw fail('conflict', 'В облаке проповедь успели изменить', { remote:view(db, cur) });
         const at = tick(db);
         Object.assign(cur, body, { updatedAt:at, updatedBy:my });
+        if (opts.status) cur.status = opts.status;
         if (L) cur.lock = L.release ? null : held ? Object.assign({}, l, { beat:at }) : { email:my, name:L.name || my, at, beat:at };
       } else if (cur){
         throw fail('conflict', 'В облаке уже есть такая проповедь', { remote:view(db, cur) });
       } else {
         const at = tick(db);
-        db.sermons[s.id] = Object.assign(body, { id:s.id, status:'draft', owner:opts.owner != null ? opts.owner : my, createdBy:my, createdAt:at, updatedAt:at, updatedBy:my,
+        db.sermons[s.id] = Object.assign(body, { id:s.id, status:opts.status || 'draft', owner:opts.owner != null ? opts.owner : my, createdBy:my, createdAt:at, updatedAt:at, updatedBy:my,
           lock:L && !L.release ? { email:my, name:L.name || my, at, beat:at } : null });
       }
       store(db); notify(); return view(db, db.sermons[s.id]);
@@ -86,6 +89,19 @@
       const db = load(), cur = db.sermons[id];
       if (cur && cur.lock && cur.lock.email === who.email && (!at || cur.lock.at === at)){ cur.lock = null; store(db); notify(); }
     },
-    async remove(space, id){ const db = load(); delete db.sermons[id]; store(db); notify(); },
+    /* Отметки редактора: только редактор и админ, как в правилах */
+    async getFlags(space, id){
+      const db = load(), u = me();
+      if (!u || !isEditor(db, u.email)) return {};
+      return JSON.parse(JSON.stringify((db.flags || {})[id] || {}));
+    },
+    async setFlags(space, id, who, flags){
+      calls.flags++; offline();
+      const db = load();
+      if (!isEditor(db, who.email)) throw fail('permission-denied', 'Missing or insufficient permissions');
+      db.flags = db.flags || {}; db.flags[id] = JSON.parse(JSON.stringify(flags || {}));
+      store(db);
+    },
+    async remove(space, id){ const db = load(); delete db.sermons[id]; if (db.flags) delete db.flags[id]; store(db); notify(); },
   };
 })();

@@ -7,7 +7,7 @@
    Замок, правка и автосохранение — в lock.js. */
 const BUILD_ID = (document.currentScript && /[?&]v=([^&]+)/.exec(document.currentScript.src || '') || [])[1] || 'dev';
 const FIREBASE_VERSION = '13.1.0';
-const ROLE_NAMES = { admin:'админ', editor:'редактор', preacher:'проповедник' };
+const ROLE_NAMES = { admin:'админ', editor:'редактор', preacher:'спикер' };
 
 /* mode: wait — подключаемся, out — не вошли, noaccess — почты нет в пространстве, error — не вышло, in — всё есть */
 const cloud = { mode:'wait', api:null, user:null, space:'', spaceName:'', role:'', member:null, settings:{}, list:null, fromCache:false,
@@ -127,7 +127,7 @@ function renderGate(){
 
 /* ----- Права ----- */
 const myEmail = () => (cloud.user ? cloud.user.email : '');
-/* Редактор и админ правят всё, проповедник — только свои (так же отвечает и база) */
+/* Редактор и админ правят всё, спикер — только свои (так же отвечает и база) */
 function canEditCloud(d){
   if (!cloudOn()) return true;
   if (cloud.role !== 'preacher') return true;
@@ -159,7 +159,7 @@ function conflictSheet(remote){
 }
 function takeRemote(remote){
   ed.conflict = null;
-  state = normalize(remote); state.savedAt = state.updatedAt; selId = null;
+  state = applyFlags(normalize(remote)); state.savedAt = state.updatedAt; selId = null;
   if (!ed.myAt) beginCloud(remote);   // замка у нас нет — дальше просмотр; если есть, правка продолжается с облачной версии
   persistDraft(); renderAll(); toast('Открыта версия из облака');
 }
@@ -223,7 +223,8 @@ async function openCloudSermon(id, local, seq){
   mainEl.innerHTML = '';
   mainEl.append(h('div', { class:'gate' }, h('p', { class:'gate-text', text:'Открываю проповедь…' })));
   let remote = null, failed = false;
-  try { remote = await cloud.api.get(cloud.space, id); } catch(e){ failed = !/permission-denied/.test((e && e.code) || ''); }   // «нет прав» — это «нет такой для вас», а не обрыв связи
+  try { remote = await cloud.api.get(cloud.space, id); } catch(e){ failed = !/permission-denied/.test((e && e.code) || ''); }
+  if (remote && canFlag()) await loadFlags(id);   // отметки «доработать» — только редактору   // «нет прав» — это «нет такой для вас», а не обрыв связи
   if (seq !== routeSeq) return null;   // пока грузили, человек ушёл на другой экран
   const unsaved = local && isUnsaved(local);
   let pick = null, note = '';
@@ -234,7 +235,7 @@ async function openCloudSermon(id, local, seq){
     else pick = confirm('В браузере остались несохранённые правки этой проповеди, а в облаке она уже новее. Оставить ваши правки? («Отмена» откроет облачную версию.)') ? local : remote;
   } else if (local){ pick = local; if (failed) note = 'Нет связи с облаком: открыта копия из браузера'; }
   if (!pick) return { missing:true, failed };
-  const s = normalize(pick);
+  const s = applyFlags(normalize(pick));
   if (pick === remote) s.savedAt = s.updatedAt;
   return { state:s, note, remote, local:pick === local, offline:failed };
 }

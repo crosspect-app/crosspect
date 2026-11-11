@@ -76,7 +76,7 @@ function configStatus(){
   const n = Object.keys(LANGS).length;
   return h('div', { class:'cfg-status' },
     h('div', null, CONFIG.version ? 'Загружена версия ' + CONFIG.version + ' (' + CONFIG.source + (CONFIG.loadedAt ? ', ' + fmtTime(CONFIG.loadedAt) : '') + ')' : 'Сейчас используются встроенные списки.'),
-    h('div', null, 'Переводов: ' + n + ' · проповедников: ' + PREACHERS.length),
+    h('div', null, 'Переводов: ' + n + ' · спикеров: ' + PREACHERS.length),
     CONFIG.error ? h('div', { class:'err', text:'Не получилось загрузить настройки: ' + CONFIG.error }) : null);
 }
 function openConfig(){
@@ -86,7 +86,7 @@ function openConfig(){
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Источник настроек' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Источник настроек' }), iconBtn('close', 'Закрыть', closeSettings)),
-    h('p', { class:'hint', text:'Отсюда форма берёт списки переводов и проповедников. Проповедникам здесь ничего менять не нужно.' }),
+    h('p', { class:'hint', text:'Отсюда форма берёт списки переводов и спикеров. Спикерам здесь ничего менять не нужно.' }),
     h('div', { class:'set-grid' }, field('Ссылка на файл настроек', url), status),
     h('div', { class:'sheet-foot' },
       h('button', { type:'button', class:'btn', onclick:() => {

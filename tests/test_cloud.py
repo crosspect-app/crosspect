@@ -88,7 +88,7 @@ def test_save_new_sermon_to_cloud(browser, base_url):
     page.fill("input[aria-label='Название проповеди']", "Благодать")
     page.evaluate("closeSettings()")
     page.evaluate("addBlock('splash', 0)")
-    assert "Сохранится через пару секунд" in page.inner_text("#hd-save")
+    assert "Не сохранено: уйдёт в облако само" in page.inner_text("#hd-save")
     page.wait_for_function("document.getElementById('hd-save').textContent.includes('Сохранено в облаке')", timeout=10000)   # само, без кнопки
     db = page.evaluate("fakeCloud.db()")
     assert len(db["sermons"]) == 1
@@ -97,7 +97,7 @@ def test_save_new_sermon_to_cloud(browser, base_url):
     assert r["lock"]["email"] == "admin@x.pl"   # новая проповедь сразу под замком автора
     # правка после сохранения снова помечается
     page.evaluate("state.meta.title = 'Благодать 2'; change()")
-    assert "Сохранится через пару секунд" in page.inner_text("#hd-save")
+    assert "Не сохранено: уйдёт в облако само" in page.inner_text("#hd-save")
     ctx.close()
 
 
@@ -205,12 +205,12 @@ def test_preacher_sees_all_but_edits_own(browser, base_url):
     assert page.locator(".scard").count() == 2
     page.evaluate("navigate(sermonHash('other'))")
     page.wait_for_function("state && state.id === 'other' && screen === 'sermon' && ed.id === 'other'")
-    assert "другого проповедника" in page.inner_text("#hd-save")
+    assert "другого спикера" in page.inner_text("#hd-save")
     assert not page.get_by_role("button", name="Редактировать").count()
     assert page.get_by_role("button", name="Сделать копию").is_visible()
     page.evaluate("state.meta.title = 'Правка'; change()")   # правка в просмотре не проходит
     assert page.evaluate("state.meta.title") == "Чужая"
-    assert "другого проповедника" in page.inner_text(".toast")
+    assert "другого спикера" in page.inner_text(".toast")
     page.wait_for_timeout(300)
     assert page.evaluate("fakeCloud.db().sermons.other.meta.title") == "Чужая"
     assert page.evaluate("fakeCloud.calls.save + fakeCloud.calls.lock") == 0
@@ -230,7 +230,7 @@ def test_new_sermon_defaults_to_me_and_can_be_changed(browser, base_url):
         page.wait_for_selector(".sheet[aria-label='О проповеди']")
         assert page.evaluate("[state.meta.firstName, state.meta.lastName]") == want
         # заменить на другого можно
-        page.select_option("select[aria-label='Проповедник']", "__other")
+        page.select_option("select[aria-label='Спикер']", "__other")
         page.fill("input[aria-label='Имя']", "Пётр")
         assert page.evaluate("state.meta.firstName") == "Пётр"
         ctx.close()

@@ -100,7 +100,7 @@ function renderHomeList(){
   if (past.length) box.append(h('section', { class:'home-sec' },
     h('div', { class:'cap-row' }, h('div', { class:'cap', text:'Прошедшие' }), h('span')),
     h('div', { class:'ptable' },
-      h('div', { class:'prow phead' }, h('span', { text:'Дата' }), h('span', { text:'Название' }), h('span', { text:'Проповедник' }), h('span', { text:'Слайдов' }), h('span', { text:'Статус' }), h('span')),
+      h('div', { class:'prow phead' }, h('span', { text:'Дата' }), h('span', { text:'Название' }), h('span', { text:'Спикер' }), h('span', { text:'Слайдов' }), h('span', { text:'Статус' }), h('span')),
       past.map(sermonRow))));
   if (on && ci.only.length){
     const only = ci.only.filter(d => !q || haystack(d).includes(q)).sort((a, b) => b.updatedAt - a.updatedAt);
@@ -133,9 +133,8 @@ function removeBtn(d, cls){
   return iconBtn('trash', remote ? 'Удалить из облака' : 'Убрать из браузера', e => { e.stopPropagation(); remote ? deleteCloudSermon(d).then(() => renderHomeList()) : deleteDraft(d); }, 'danger ' + cls);
 }
 function sermonCard(d){
-  const m = d.meta, st = sermonStatus(d), slides = d.blocks.filter(b => TYPES[b.type].slide), done = slides.filter(b => b.done).length;
-  const todo = slides.filter(b => b.todo).length;
-  const seg = slides.slice(0, 24).map(b => h('span', { class:b.done ? 'on' : '' }));
+  const m = d.meta, st = sermonStatus(d), slides = d.blocks.filter(b => TYPES[b.type].slide);
+  const todo = canFlag() && !cloudOn() ? slides.filter(b => b.todo).length : 0;   // в облаке отметки лежат отдельно и в списке не видны
   return h('div', { class:'card-wrap' },
     h('a', { class:'scard st-' + st.key, href:sermonHash(d.id) },
       h('div', { class:'mini' }, h('div', { class:'mini-fr' }, h('div', { class:'mini-pn' },
@@ -143,14 +142,11 @@ function sermonCard(d){
       h('div', { class:'scard-body' },
         h('div', { class:'scard-top' }, h('span', { text:fmtDay(m.date) || 'Дата не указана' }), h('span', { class:'stchip st-' + st.key, text:st.label })),
         h('div', { class:'scard-title' + (m.title ? '' : ' empty'), text:m.title || 'Без названия' }),
-        h('div', { class:'scard-by', text:preacherName(m) || 'Проповедник не указан' }),
+        h('div', { class:'scard-by', text:preacherName(m) || 'Спикер не указан' }),
         cloudMark(d), lockMark(d),
-        slides.length
-          ? [h('div', { class:'prog', 'aria-label':'Готово ' + done + ' из ' + slides.length }, seg),
-             h('div', { class:'scard-foot' },
-               h('span', { text:'Готово ' + done + ' из ' + slides.length }),
-               todo ? h('span', { class:'film-todo', text:todo + ' доработать' }) : h('span', { text:'изменено ' + fmtAgo(d.updatedAt) }))]
-          : h('div', { class:'scard-foot' }, h('span', { text:'Слайдов пока нет · изменено ' + fmtAgo(d.updatedAt) })))),
+        h('div', { class:'scard-foot' },
+          h('span', { text:slides.length ? slides.length + ' ' + plural(slides.length, 'слайд', 'слайда', 'слайдов') : 'Слайдов пока нет' }),
+          todo ? h('span', { class:'film-todo', text:todo + ' доработать' }) : h('span', { text:'изменено ' + fmtAgo(d.updatedAt) })))),
     cardAction(d),
     removeBtn(d, 'card-del'));
 }

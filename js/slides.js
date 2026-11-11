@@ -4,6 +4,7 @@
    Слева лента слайдов, в центре выбранный слайд и «Текст к слайду», справа настройки выбранного слайда.
    Поля настроек — те же `BODY[type]` из render.js. */
 let filmEl = null, stageEl = null, sideEl = null;
+let filmOnlyTodo = false;   // в ленте только слайды с отметкой «доработать» (для редактора)
 const curBlock = () => (state && state.blocks.find(b => b.id === selId)) || null;
 const inSlides = () => screen === 'sermon' && view === 'slides' && !!filmEl && filmEl.isConnected;
 
@@ -62,22 +63,24 @@ function thumbBody(b, n){
 function filmItem(b, n){
   const T = TYPES[b.type];
   return h('button', { type:'button', 'data-id':b.id, style:'--tc:var(--c-' + b.type + ')', onclick:() => selectBlock(b.id),
-    class:'st t-' + b.type + (b.id === selId ? ' on' : '') + (b.done ? ' done' : '') + (b.todo ? ' todo' : '') + (isMissing(b) ? ' missing' : '') },
+    class:'st t-' + b.type + (b.id === selId ? ' on' : '') + (todoOn(b) ? ' todo' : '') + (isMissing(b) ? ' missing' : '') },
     h('div', { class:'st-thumb' }, thumbBody(b, n), h('span', { class:'fl', text:'доработать' })),
     h('div', { class:'st-cap' },
       T.slide ? h('span', { class:'st-n', text:String(n) }) : h('span', { class:'st-n' }, ic('note')),
-      h('span', { class:'st-name', text:thumbName(b, n) }),
-      h('span', { class:'st-ok', 'aria-label':'готово', text:'✓' })));
+      h('span', { class:'st-name', text:thumbName(b, n) })));
 }
 function renderFilm(){
   filmEl.innerHTML = '';
   const nums = slideNums();
+  if (filmOnlyTodo && !state.blocks.some(todoOn)) filmOnlyTodo = false;   // отмеченных не осталось: показываем всё
   filmEl.append(h('div', { class:'film-head', id:'film-count' }));
-  state.blocks.forEach(b => filmEl.append(filmItem(b, nums[b.id])));
+  state.blocks.forEach(b => { if (!filmOnlyTodo || todoOn(b)) filmEl.append(filmItem(b, nums[b.id])); });
   if (!readOnly()) filmEl.append(h('button', { type:'button', class:'film-add', onclick:() => openSheet(addAt()) }, ic('plus'), 'Добавить'));
   state.blocks.forEach(b => { if (PREVIEW[b.type]) schedulePreview(b); });
   updateStatus();
 }
+/* Счётчик «N доработать» над лентой: щелчок оставляет в ленте только отмеченные слайды и возвращает все */
+function toggleOnlyTodo(){ filmOnlyTodo = !filmOnlyTodo; renderFilm(); }
 /* Новый слайд встаёт после выбранного */
 function addAt(){ const b = curBlock(); return b ? state.blocks.indexOf(b) + 1 : state.blocks.length; }
 
@@ -86,8 +89,7 @@ function refreshThumb(b){
   if (!inSlides()) return;
   const el = filmEl.querySelector('.st[data-id="' + b.id + '"]'); if (!el) return;
   const n = slideNums()[b.id];
-  el.classList.toggle('done', !!b.done);
-  el.classList.toggle('todo', !!b.todo);
+  el.classList.toggle('todo', todoOn(b));
   el.classList.toggle('missing', isMissing(b));
   const nm = el.querySelector('.st-name'); if (nm) nm.textContent = thumbName(b, n);
   const ph = el.querySelector('.ph-thumb span'); if (ph) ph.textContent = mediaInfo(b, n).short;
@@ -121,16 +123,14 @@ function renderStage(){
   if (PREVIEW[b.type]) schedulePreview(b);
 }
 function stageBar(b, n){
-  const T = TYPES[b.type], i = state.blocks.indexOf(b), total = state.blocks.length, ro = readOnly();
+  const T = TYPES[b.type], i = state.blocks.indexOf(b), total = state.blocks.length;
   return h('div', { class:'stage-bar' },
     h('span', { class:'cap strong', text:(T.slide ? n + ' · ' : '') + T.label }),
     h('div', { class:'grow' }),
     T.slide && h('button', { type:'button', class:'btn', title:'Скопировать название слайда для Holyrics', onclick:() => copyText(slideName(b, n), 'Скопировано: ') }, ic('tag'), 'Название'),
     PREVIEW[b.type] && h('button', { type:'button', class:'btn', title:'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
-    T.slide && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo), disabled:ro,
+    T.slide && canFlag() && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo),
       title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную', onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
-    T.slide && h('button', { type:'button', class:'btn ok' + (b.done ? ' on' : ''), 'aria-pressed':String(!!b.done), disabled:ro,
-      title:b.done ? 'Снять отметку «готово»' : 'Отметить как готовый', onclick:() => toggleDone(b) }, ic('check'), 'Готово'),
     h('div', { class:'stepper' },
       h('button', { type:'button', class:'icon-btn', 'aria-label':'Предыдущий слайд', title:'Предыдущий', disabled:i <= 0, onclick:() => stepSel(-1) }, ic('back')),
       h('span', { text:(i + 1) + ' / ' + total }),
@@ -175,11 +175,14 @@ function renderSide(){
   BODY[b.type](b, body, n);
   if (ro){ body.inert = true; sideEl.append(h('p', { class:'ro-note', text:'Только просмотр. Чтобы менять слайды, нажмите «Редактировать».' })); }
   sideEl.append(h('div', { class:'cap', text:'Настройки · ' + T.label.toLowerCase() }), body);
-  if (ro){ growAll(sideEl); return; }
-  if (T.slide) sideEl.append(h('div', { class:'editor-box' },
-    h('div', { class:'eb-head' }, h('b', { text:'Для редактора' }), h('span', { text:'сейчас отметку видят все, у кого открыт файл' })),
+  // отметка «доработать» не зависит от замка: редактор ставит её и в просмотре
+  if (T.slide && canFlag()) sideEl.append(h('div', { class:'editor-box' },
+    h('div', { class:'eb-head' }, h('b', { text:'Для редактора' }), h('span', { text:cloudOn() ? 'спикеры эту отметку не видят' : 'сейчас отметку видят все, у кого открыт файл' })),
     sw('Доработать', b.todo, () => toggleTodo(b)),
-    h('p', { class:'hint', text:'Картинки, видео и свободные слайды получают отметку сами при создании.' })));
+    h('p', { class:'hint', text:cloudOn()
+      ? 'Картинки, видео и свободные слайды получают отметку сами. Если спикер изменит слайд, с которого вы сняли отметку, она вернётся.'
+      : 'Картинки, видео и свободные слайды получают отметку сами при создании.' })));
+  if (ro){ growAll(sideEl); return; }
   const i = state.blocks.indexOf(b);
   sideEl.append(h('div', { class:'side-actions' },
     h('button', { type:'button', class:'btn', disabled:i === 0, onclick:() => move(b, -1) }, ic('up'), 'Выше'),

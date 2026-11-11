@@ -31,7 +31,7 @@ function tvBlock(b, n){
   if (sl && previewRO) previewRO.observe(sl);
   const open = () => { selId = b.id; navigate(sermonHash(state.id)); };
   const thumb = h('button', { type:'button', class:'tv-thumb' + (sl ? '' : ' none'), title:'Открыть в виде «Слайды»', onclick:open }, sl);
-  const mark = b.done ? h('span', { class:'tv-ok', text:'✓ готово' }) : b.todo ? h('span', { class:'tv-todo', text:'доработать' }) : null;
+  const mark = todoOn(b) ? h('span', { class:'tv-todo', text:'доработать' }) : null;
   const gut = h('div', { class:'gut' }, h('span', { class:'num', text:String(n) }), b.type === 'splash' ? h('span', { class:'cap', text:'Заставка' }) : null, thumb, mark);
   const cont = h('div', { class:'cont' });
   if (slideCard) cont.append(slideCard);
@@ -98,7 +98,7 @@ function sermonChecks(){
     if (b.type === 'video' && b.mode === 'send') out.push({ ok:false, text:'Слайд ' + k + ' — видео пришлют отдельно' });
     if (b.type === 'scripture' && !b.items.some(it => it.kind === 'scripture' && (it.verses || []).some(v => plain(v.text).trim()))) out.push({ ok:false, text:'Слайд ' + k + ' — не выбрано место Писания' });
   });
-  const todo = state.blocks.filter(b => b.todo).length;
+  const todo = state.blocks.filter(todoOn).length;
   if (todo) out.push({ ok:false, text:'Отмечено «доработать»: ' + todo });
   if (out.every(x => x.ok)) out.push({ ok:true, text:'Замечаний нет' });
   return out;

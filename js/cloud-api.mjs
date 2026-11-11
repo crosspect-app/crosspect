@@ -42,7 +42,8 @@ export function createCloudAPI(fb){
       v: s.v || 2,
       meta: { title: m.title || '', date: m.date || '', firstName: m.firstName || '', lastName: m.lastName || '' },
       settings: s.settings || {},
-      blocks: s.blocks || [],
+      // отметки «доработать» и «готово» в проповедь не пишем: «доработать» лежит в закрытом документе editor/state (этап 7)
+      blocks: (s.blocks || []).map(b => { const c = Object.assign({}, b); delete c.todo; delete c.done; return c; }),
     }));
   }
 
@@ -108,7 +109,7 @@ export function createCloudAPI(fb){
       const stamp = { updatedAt: ts, updatedBy: my };
       const newLock = () => ({ email: my, name: String(L.name || my).slice(0, 200), at: ts, beat: ts });
       const fresh = () => Object.assign({}, body, stamp, {
-        status: 'draft', owner: lower(opts.owner != null ? opts.owner : me.email),
+        status: opts.status || 'draft', owner: lower(opts.owner != null ? opts.owner : me.email),
         createdBy: my, createdAt: ts,
       }, L && !L.release ? { lock: newLock() } : {});
       if (s.cloudAt || opts.force){
@@ -122,6 +123,7 @@ export function createCloudAPI(fb){
           const ownLater = held && at >= l.at && d.updatedBy === my;   // версия новее моей, но записана мной же под моим замком
           if (!opts.force && at !== s.cloudAt && !ownLater) throw err('conflict', 'В облаке проповедь успели изменить', { remote: fromDoc(space, cur) });
           const upd = Object.assign({}, body, stamp);
+          if (opts.status) upd.status = opts.status;   // «В работе» (draft) / «Готов» (submitted): спикер и редактор, правила разрешают
           if (L){
             if (L.release) upd.lock = null;
             else if (held) upd['lock.beat'] = ts;
@@ -181,6 +183,19 @@ export function createCloudAPI(fb){
       });
     },
 
+    /* Отметки редактора («доработать»): документ editor/state, читает и пишет только редактор (и админ), замок не нужен.
+       flags = { <id слайда>: { t: 1 | 0, s: подпись } }. Нет документа или нет прав — пустой набор */
+    async getFlags(space, id){
+      try {
+        const snap = await F.getDoc(F.doc(db, 'spaces', space, 'sermons', id, 'editor', 'state'));
+        return snap.exists() ? (snap.data().flags || {}) : {};
+      } catch (e) { if (denied(e)) return {}; throw e; }
+    },
+    async setFlags(space, id, me, flags){
+      await F.setDoc(F.doc(db, 'spaces', space, 'sermons', id, 'editor', 'state'),
+        { flags: JSON.parse(JSON.stringify(flags || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
+    },
+
     /* Удалить проповедь (и отметки редактора, если они есть) */
     async remove(space, id){
       const b = F.writeBatch(db);
@@ -195,6 +210,7 @@ export function createCloudAPI(fb){
 export function explain(e){
   const c = (e && e.code) || '';
   if (c === 'conflict') return 'conflict';
+  if (/resource-exhausted/.test(c)) return 'Облако перегружено до 9:00: бесплатный дневной запас базы закончился. Правки лежат в этом браузере и уйдут в облако сами, когда запас обновится.';
   if (c === 'lost-lock' || c === 'locked') return 'Проповедь сейчас правит другой человек.';
   if (c === 'missing') return 'Этой проповеди уже нет в облаке.';
   if (c === 'too-big') return 'Проповедь слишком большая для облака (больше 900 КБ). Уберите лишнее или сохраните файл.';

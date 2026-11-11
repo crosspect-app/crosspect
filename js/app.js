@@ -78,7 +78,7 @@ function renderTopbar(){
   }
   if (screen === 'home'){
     topbar.className = 'topbar is-home';
-    const q = h('input', { type:'search', placeholder:'Название, проповедник, место Писания', 'aria-label':'Поиск', value:homeQuery,
+    const q = h('input', { type:'search', placeholder:'Название, спикер, место Писания', 'aria-label':'Поиск', value:homeQuery,
       oninput:e => { homeQuery = e.target.value; renderHomeList(); } });
     topbar.append(
       h('a', { class:'logo', href:'#', title:'Проповеди' }, 'Crosspect'),
@@ -94,10 +94,11 @@ function renderTopbar(){
   topbar.append(
     h('a', { class:'btn ghost', href:'#', title:'К списку проповедей' }, ic('back'), 'Проповеди'),
     h('span', { class:'vsep' }),
-    h('button', { type:'button', class:'hd-title', title:'Изменить название, дату, проповедника', onclick:() => openMeta() },
+    h('button', { type:'button', class:'hd-title', title:'Изменить название, дату, спикера', onclick:() => openMeta() },
       h('span', { class:'hd-name' + (m.title ? '' : ' empty'), text:m.title || 'Без названия' }),
-      h('span', { class:'hd-sub', text:[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') || 'Дата и проповедник не указаны' })),
+      h('span', { class:'hd-sub', text:[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') || 'Дата и спикер не указаны' })),
     h('span', { class:'stchip st-' + st.key, text:st.label }),
+    statusAction(),   // «Отметить «Готов»» — пока проповедь правится (editor.js)
     h('div', { class:'grow' }),
     h('div', { class:'seg', role:'group', 'aria-label':'Вид проповеди' },
       h('button', { type:'button', class:view === 'slides' ? 'on' : '', onclick:() => setView('slides') }, 'Слайды'),
@@ -124,16 +125,18 @@ function updateStatus(){
   }
   const fc = $('#film-count');
   if (fc){
-    const n = slideNums()._total, todo = state.blocks.filter(b => b.todo).length, done = state.blocks.filter(b => b.done).length;
+    const n = slideNums()._total, todo = state.blocks.filter(todoOn).length;
     const words = state.blocks.reduce((t, b) => t + (b.speech ? wordCount(b.speech) : 0), 0), min = words / WORDS_PER_MIN;
     fc.innerHTML = '';
-    fc.append(...[h('span', { text:n + ' ' + plural(n, 'слайд', 'слайда', 'слайдов') + (done ? ' · готово ' + done : '') }),
-      todo ? h('span', { class:'film-todo', text:todo + ' доработать' }) : null,
+    fc.append(...[h('span', { text:n + ' ' + plural(n, 'слайд', 'слайда', 'слайдов') }),
+      todo || filmOnlyTodo ? h('button', { type:'button', class:'film-todo' + (filmOnlyTodo ? ' on' : ''), 'aria-pressed':String(filmOnlyTodo),
+        title:filmOnlyTodo ? 'Показать все слайды' : 'Показать только слайды с отметкой «доработать»', onclick:() => toggleOnlyTodo(),
+        text:filmOnlyTodo ? 'только доработать · все' : todo + ' доработать' }) : null,
       words ? h('span', { class:'film-time', text:'текст ' + (min < 0.75 ? 'меньше минуты' : '≈ ' + Math.round(min) + ' мин') }) : null].filter(Boolean));   // append(null) вывел бы «null»
   }
 }
 
-/* ----- Окно «О проповеди»: название, дата, проповедник ----- */
+/* ----- Окно «О проповеди»: название, дата, спикер ----- */
 let metaOpen = false;
 function openMeta(){
   if (readOnly()){ roHint(); return; }
@@ -148,7 +151,7 @@ function openMeta(){
     h('div', { class:'set-grid' },
       field('Название', title),
       h('div', { class:'grid-2' }, field('Дата', date), preacherField())),
-    h('p', { class:'hint', style:'margin-bottom:16px', text:'Название, проповедник и дата попадают на заставку.' }),
+    h('p', { class:'hint', style:'margin-bottom:16px', text:'Название, спикер и дата попадают на заставку.' }),
     h('div', { class:'sheet-foot' }, h('span'), h('button', { type:'button', class:'btn primary', onclick:closeSettings }, 'Готово'))));
   metaOpen = true;
   settingsOverlay.classList.add('open');

@@ -22,6 +22,7 @@ function persistDraft(){
 }
 function change(){
   if (roBlock()) return;   // только просмотр: правка отменяется, подсказка про «Редактировать»
+  statusOnEdit();   // спикер изменил «Готов» — снова «В работе» (editor.js)
   state.updatedAt = Math.max(Date.now(), state.updatedAt + 1);   // только вперёд: иначе при отстающих часах правка выглядела бы сохранённой
   clearTimeout(draftTimer);
   draftTimer = setTimeout(persistDraft, 400);
@@ -69,13 +70,11 @@ function blockSummary(b){
 }
 
 
-/* Статус проповеди пока считается по отметкам «готово»: «подана» и ручные статусы появятся вместе с облаком (этап 7) */
+/* Статус проповеди — два: «В работе» (в облаке `draft`) и «Готов» (`submitted`; старое `done` тоже считается готовым).
+   Ставит его спикер или редактор; если спикер правит готовую проповедь, она снова «В работе» (editor.js) */
+const isReady = st => st === 'submitted' || st === 'done';
 function sermonStatus(d){
-  const sl = d.blocks.filter(b => TYPES[b.type] && TYPES[b.type].slide), done = sl.filter(b => b.done).length;
-  if (!sl.length) return { key:'draft', label:'Черновик' };
-  if (done === sl.length) return { key:'done', label:'Готово' };
-  if (done > 0) return { key:'work', label:'В работе' };
-  return { key:'draft', label:'Черновик' };
+  return isReady(d.cloudStatus) ? { key:'done', label:'Готов' } : { key:'work', label:'В работе' };
 }
 /* «Вс, 15 ноября» */
 function fmtDay(s){

@@ -133,10 +133,10 @@ function normalize(d){
     const nb = Object.assign(newBlock(b.type), b);
     if (!nb.id) nb.id = uid();
     nb.collapsed = !!b.collapsed;
-    nb.done = !!b.done && T.slide;
+    delete nb.done;   // отметки «готово» у слайдов больше нет (этап 7): у старых файлов она только решает, нужна ли «доработать»
     if (T.slide){
       nb.speech = sanitize(b.speech);
-      nb.todo = b.todo == null ? !!T.todo && !nb.done : !!b.todo;   // старые картинки, видео, свободные: «доработать», если ещё не готовы
+      nb.todo = b.todo == null ? !!T.todo && !b.done : !!b.todo;   // старые картинки, видео, свободные: «доработать», если ещё не готовы
     } else { delete nb.speech; delete nb.todo; }
     if (b.type === 'scripture'){
       let items = b.items;

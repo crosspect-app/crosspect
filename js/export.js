@@ -108,15 +108,14 @@ async function exportOne(b){
   try {
     const name = slideName(b, slideNums()[b.id]) + '.jpg';
     download(await renderJPEG(b), name);
-    if (markDone(b)){ change(); rerender(b); }
     toast('Скачано: ' + name);
   } catch(e){ toast('Не получилось собрать JPEG: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
   finally { exporting = false; }
 }
-async function exportMany(onlyUnmarked){
+async function exportMany(){
   if (exporting) return;
-  const list = state.blocks.filter(b => PREVIEW[b.type] && (!onlyUnmarked || !b.done));
-  if (!list.length){ toast(onlyUnmarked ? 'Все слайды уже отмечены как готовые' : 'В проповеди нет слайдов, которые форма собирает сама'); return; }
+  const list = state.blocks.filter(b => PREVIEW[b.type]);
+  if (!list.length){ toast('В проповеди нет слайдов, которые форма собирает сама'); return; }
   if (!checkNames()) return;
   if (list.length === 1){ exportOne(list[0]); return; }
   exporting = true;
@@ -130,8 +129,6 @@ async function exportMany(onlyUnmarked){
       files.push({ name:folder + '/' + name + '.jpg', data:new Uint8Array(await (await renderJPEG(b)).arrayBuffer()) });
     }
     download(makeZip(files), folder + '.zip');
-    let marked = 0; list.forEach(b => { if (markDone(b)) marked++; });
-    if (marked){ change(); renderMain(); }
     const rest = state.blocks.filter(b => b.type === 'image' || b.type === 'video' || b.type === 'free').length;
     toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео и свободные слайды делаются вручную' : ''));
   } catch(e){ toast('Не получилось собрать слайды: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
