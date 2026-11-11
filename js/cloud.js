@@ -226,7 +226,7 @@ async function openCloudSermon(id, local, seq){
   mainEl.innerHTML = '';
   mainEl.append(h('div', { class:'gate' }, h('p', { class:'gate-text', text:'Открываю проповедь…' })));
   let remote = null, failed = false;
-  try { remote = await cloud.api.get(cloud.space, id); } catch(e){ failed = true; }
+  try { remote = await cloud.api.get(cloud.space, id); } catch(e){ failed = !/permission-denied/.test((e && e.code) || ''); }   // «нет прав» — это «нет такой для вас», а не обрыв связи
   if (seq !== routeSeq) return null;   // пока грузили, человек ушёл на другой экран
   const unsaved = local && isUnsaved(local);
   let pick = null, note = '';

@@ -85,20 +85,29 @@ export function createCloudAPI(fb){
       const body = content(s);
       if (new TextEncoder().encode(JSON.stringify(body)).length * 1.1 > MAX_BYTES) throw err('too-big', 'Проповедь слишком большая для облака');
       const r = ref(space, s.id);
-      await F.runTransaction(db, async tx => {
-        const cur = await tx.get(r);
-        if (cur.exists()){
-          const at = ms(cur.data().updatedAt);
-          if (!opts.force && at !== (s.cloudAt || 0)) throw err('conflict', 'В облаке проповедь успели изменить', { remote: fromDoc(space, cur) });
-          tx.update(r, Object.assign(body, { updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) }));
-        } else {
-          tx.set(r, Object.assign(body, {
-            status: 'draft', owner: lower(opts.owner != null ? opts.owner : me.email),
-            createdBy: lower(me.email), createdAt: F.serverTimestamp(),
-            updatedAt: F.serverTimestamp(), updatedBy: lower(me.email),
-          }));
-        }
+      const stamp = { updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) };
+      const fresh = () => Object.assign({}, body, stamp, {
+        status: 'draft', owner: lower(opts.owner != null ? opts.owner : me.email),
+        createdBy: lower(me.email), createdAt: F.serverTimestamp(),
       });
+      if (s.cloudAt || opts.force){
+        // проповедь уже в облаке: обновляем, если с тех пор её никто не менял (или человек велел заменить)
+        await F.runTransaction(db, async tx => {
+          const cur = await tx.get(r);
+          if (!cur.exists()) { tx.set(r, fresh()); return; }
+          const at = ms(cur.data().updatedAt);
+          if (!opts.force && at !== s.cloudAt) throw err('conflict', 'В облаке проповедь успели изменить', { remote: fromDoc(space, cur) });
+          tx.update(r, Object.assign({}, body, stamp));
+        });
+      } else {
+        // новая или из файла: если такая уже есть — не затираем. Чтение несуществующей проповеди проповеднику в закрытом
+        // пространстве база отказывает (permission-denied) — это не ошибка: создаём, а чужую запись правила всё равно не пустят
+        let cur = null;
+        try { cur = await F.getDocFromServer(r); }
+        catch (e) { if (!/permission-denied/.test((e && e.code) || '')) throw e; }
+        if (cur && cur.exists()) throw err('conflict', 'В облаке уже есть такая проповедь', { remote: fromDoc(space, cur) });
+        await F.setDoc(r, fresh());
+      }
       const back = await F.getDocFromServer(r);   // время ставит сервер: читаем его обратно
       return fromDoc(space, back);
     },

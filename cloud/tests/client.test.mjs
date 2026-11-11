@@ -55,7 +55,7 @@ describe('вход', () => {
     const api = await client('Admin@X.pl');
     const u = await new Promise((res) => { const off = api.onUser((x) => { off(); res(x); }); });
     assert.equal(u.email, 'admin@x.pl');
-    assert.equal(u.name, 'admin');
+    assert.equal(u.name, 'Admin');   // имя берётся из учётки Google как есть
   });
   test('spacesOf находит пространства по почте, чужой почте — пусто', async () => {
     const api = await client('ivan@x.pl');
@@ -120,6 +120,14 @@ describe('сохранение', () => {
     const r = await admin.save('sp1', sermon('own1', 'Правка редактора', { cloudAt: a.cloudAt }), me('admin@x.pl'));
     assert.equal(r.cloudOwner, 'ivan@x.pl', 'владелец остаётся прежним');
     assert.equal(r.cloudBy, 'admin@x.pl');
+  });
+  test('проповедник в закрытом пространстве создаёт свою; файл поверх своей существующей — конфликт; поверх чужой — отказ базы', async () => {
+    const ivan = await client('ivan@x.pl'), petr = await client('petr@x.pl');
+    const a = await ivan.save('closed', sermon('cl1', 'Закрытая'), me('ivan@x.pl'));
+    assert.equal(a.cloudOwner, 'ivan@x.pl');
+    await assert.rejects(ivan.save('closed', sermon('cl1', 'Файл'), me('ivan@x.pl')), (e) => e.code === 'conflict');
+    await assert.rejects(petr.save('closed', sermon('cl1', 'Взлом'), me('petr@x.pl')), (e) => /permission-denied/.test(e.code));
+    assert.equal((await ivan.get('closed', 'cl1')).meta.title, 'Закрытая');
   });
   test('слишком большая проповедь не уходит', async () => {
     const api = await client('ivan@x.pl');
