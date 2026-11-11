@@ -24,9 +24,73 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: python -m pytest tests -v
 
+  rules:
+    name: Правила Firestore
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('cloud/package-lock.json') }}
+      - run: npm ci
+      - run: npm test
+
+  firestore:
+    name: Выкладка правил Firestore
+    needs: [test, rules]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - name: Есть ли ключ
+        id: key
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::notice::Ключа FIREBASE_SERVICE_ACCOUNT нет — правила не выкладываю (см. docs/FIREBASE.md)"
+            echo "ok=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=yes" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: .
+      - if: steps.key.outputs.ok == 'yes'
+        uses: actions/checkout@v4
+      - if: steps.key.outputs.ok == 'yes'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+      - if: steps.key.outputs.ok == 'yes'
+        run: npm ci
+      - name: Выложить правила и индексы
+        if: steps.key.outputs.ok == 'yes'
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          project=$(jq -r .project_id "$RUNNER_TEMP/key.json")
+          npx firebase deploy --only firestore --project "$project" --non-interactive
+          rm -f "$RUNNER_TEMP/key.json"
+
   build:
     name: Сборка сайта
-    needs: test
+    needs: [test, rules]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:

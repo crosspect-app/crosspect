@@ -1,0 +1,18 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "members",
+      "fieldPath": "email",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    { "collectionGroup": "sermons", "fieldPath": "blocks", "indexes": [] },
+    { "collectionGroup": "sermons", "fieldPath": "settings", "indexes": [] },
+    { "collectionGroup": "editor", "fieldPath": "flags", "indexes": [] },
+    { "collectionGroup": "shares", "fieldPath": "sermon", "indexes": [] }
+  ]
+}
