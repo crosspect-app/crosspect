@@ -1,0 +1,277 @@
+rules_version = '2';
+
+// Права Crosspect в Firestore. Проверяет сама база: что бы ни делал браузер,
+// чужого не прочитать и не изменить. Модель данных и роли — docs/PLAN.md,
+// раздел «Модель данных». Тесты — cloud/tests/rules.test.mjs (идут в CI).
+//
+// Коротко:
+//   spaces/{s}                       пространство (церковь). Создаёт и удаляет только
+//                                    служебный скрипт (cloud/scripts/admin.mjs), правит админ
+//   spaces/{s}/members/{email}       участник и роль: admin | editor | preacher
+//   spaces/{s}/sermons/{id}          проповедь. Редактор и админ видят и правят всё,
+//                                    проповедник правит свои, видит все (если пространство
+//                                    разрешает) или только свои
+//   spaces/{s}/sermons/{id}/editor/state   отметки редактора; проповедник их не видит
+//   shares/{key}                     снимок для оператора: читается по ключу без входа
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- кто спрашивает ----------
+
+    // Вход через Google: почта есть и подтверждена.
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+    function me() {
+      return request.auth.token.email.lower();
+    }
+
+    function spacePath(s) {
+      return /databases/$(database)/documents/spaces/$(s);
+    }
+    function memberPath(s) {
+      return /databases/$(database)/documents/spaces/$(s)/members/$(me());
+    }
+    function sermonPath(s, id) {
+      return /databases/$(database)/documents/spaces/$(s)/sermons/$(id);
+    }
+
+    function hasRole(s, roles) {
+      return signedIn() && exists(memberPath(s)) && get(memberPath(s)).data.role in roles;
+    }
+    function isMember(s)   { return hasRole(s, ['admin', 'editor', 'preacher']); }
+    function isEditor(s)   { return hasRole(s, ['admin', 'editor']); }  // админ — тоже редактор
+    function isAdmin(s)    { return hasRole(s, ['admin']); }
+    function isPreacher(s) { return hasRole(s, ['preacher']); }
+
+    function spaceSettings(s) {
+      return get(spacePath(s)).data.get('settings', {});
+    }
+    // Проповедники видят все проповеди пространства (по умолчанию да).
+    function seeAll(s) {
+      return spaceSettings(s).get('preachersSeeAll', true) == true;
+    }
+    // Сколько минут замок живёт после последнего сигнала «я здесь».
+    function lockMinutes(s) {
+      return spaceSettings(s).get('lockMinutes', 10);
+    }
+
+    // ---------- проверки полей ----------
+
+    function str(v, max) {
+      return v is string && v.size() <= max;
+    }
+    function optStr(m, k, max) {
+      return !(k in m) || str(m[k], max);
+    }
+    function isEmail(v) {
+      return str(v, 320) && v == v.lower() && v.matches('[^@/ ]+@[^@/ ]+');
+    }
+
+    // ---------- пространство ----------
+
+    function validSpace(d) {
+      return d.keys().hasAll(['name', 'settings'])
+        && d.keys().hasOnly(['name', 'settings', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && str(d.name, 100) && d.name.size() > 0
+        && d.settings is map
+        && (!('lockMinutes' in d.settings)
+            || (d.settings.lockMinutes is int && d.settings.lockMinutes >= 1 && d.settings.lockMinutes <= 120))
+        && (!('preachersSeeAll' in d.settings) || d.settings.preachersSeeAll is bool);
+    }
+
+    match /spaces/{s} {
+      allow get: if isMember(s);
+      // Список всех пространств не читает никто: свои находятся через участников (ниже).
+      allow update: if isAdmin(s)
+        && validSpace(request.resource.data)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == me();
+      // create, delete — только служебным скриптом (у него права в обход правил).
+
+      // ---------- участники ----------
+
+      function validMember(email, d) {
+        return d.keys().hasAll(['email', 'role'])
+          && d.keys().hasOnly(['email', 'role', 'firstName', 'lastName', 'addedBy', 'addedAt'])
+          && d.email == email && isEmail(email)
+          && d.role in ['admin', 'editor', 'preacher']
+          && optStr(d, 'firstName', 100) && optStr(d, 'lastName', 100);
+      }
+
+      match /members/{email} {
+        allow get: if isMember(s) || (signedIn() && email == me());
+        allow list: if isMember(s);
+        allow create: if isAdmin(s)
+          && validMember(email, request.resource.data)
+          && request.resource.data.addedBy == me()
+          && request.resource.data.addedAt == request.time;
+        // Админ правит других (себе роль не меняет — чтобы пространство не осталось без админа).
+        // Каждый может поправить своё имя и фамилию.
+        allow update: if validMember(email, request.resource.data)
+          && request.resource.data.get('addedBy', null) == resource.data.get('addedBy', null)
+          && request.resource.data.get('addedAt', null) == resource.data.get('addedAt', null)
+          && ((isAdmin(s))
+              || (isMember(s) && email == me()
+                  && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName'])));
+        allow delete: if isAdmin(s) && email != me();
+      }
+
+      // ---------- проповеди ----------
+
+      match /sermons/{id} {
+        function canRead(d) {
+          return isEditor(s) || (isPreacher(s) && (d.owner == me() || seeAll(s)));
+        }
+        function canEdit(d) {
+          return isEditor(s) || (isPreacher(s) && d.owner == me());
+        }
+        function changed() {
+          return request.resource.data.diff(resource.data).affectedKeys();
+        }
+
+        // Замок: { email, name, at — когда взят, beat — последний сигнал «я здесь» }.
+        // Время ставит сервер (serverTimestamp), подделать его нельзя.
+        function lockShape(l) {
+          return l == null
+            || (l is map
+                && l.keys().hasAll(['email', 'name', 'at', 'beat'])
+                && l.keys().hasOnly(['email', 'name', 'at', 'beat'])
+                && str(l.email, 320) && str(l.name, 200)
+                && l.at is timestamp && l.beat is timestamp);
+        }
+        function lockLive(l) {
+          return l != null && request.time < l.beat + duration.value(lockMinutes(s), 'm');
+        }
+        function lockMine(l) {
+          return l != null && l.email == me();
+        }
+        // before — замок до записи, after — после.
+        function lockOk(before, after, keys) {
+          return (
+              // замок свободен (нет или истёк) или он мой —
+              (!lockLive(before) || lockMine(before))
+              && (
+                // отпустить
+                after == null
+                // взять или продлить: на себя, со временем сервера
+                || (lockMine(after) && after.beat == request.time
+                    && (after.at == request.time || (lockMine(before) && after.at == before.at)))
+                // не трогать: только если замка нет или он мой
+                || (after == before && (before == null || lockMine(before)))
+              )
+            )
+            // редактор забирает чужой живой замок — отдельной записью, без правок
+            || (isEditor(s) && lockLive(before) && !lockMine(before)
+                && lockMine(after) && after.at == request.time && after.beat == request.time
+                && keys.hasOnly(['lock']));
+        }
+
+        function validSermon(d) {
+          return d.keys().hasAll(['v', 'meta', 'blocks', 'status', 'owner',
+                                  'createdBy', 'createdAt', 'updatedAt', 'updatedBy'])
+            && d.keys().hasOnly(['v', 'meta', 'settings', 'blocks', 'status', 'owner',
+                                 'createdBy', 'createdAt', 'updatedAt', 'updatedBy', 'lock', 'shareKey'])
+            && d.v is int
+            && d.meta is map
+            && optStr(d.meta, 'title', 300) && optStr(d.meta, 'date', 20)
+            && optStr(d.meta, 'firstName', 100) && optStr(d.meta, 'lastName', 100)
+            && (!('settings' in d) || d.settings is map)
+            && d.blocks is list && d.blocks.size() <= 500
+            && d.status in ['draft', 'submitted', 'work', 'done']
+            // owner — почта проповедника; пусто — гость без входа (такие заводит редактор)
+            && (d.owner == '' || isEmail(d.owner))
+            && lockShape(d.get('lock', null))
+            && (d.get('shareKey', null) == null
+                || (d.shareKey is string && d.shareKey.size() >= 20 && d.shareKey.size() <= 64));
+        }
+
+        allow get, list: if canRead(resource.data);
+
+        allow create: if validSermon(request.resource.data)
+          && request.resource.data.createdBy == me()
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.updatedBy == me()
+          && (isEditor(s)
+              || (isPreacher(s)
+                  && request.resource.data.owner == me()
+                  && request.resource.data.status in ['draft', 'submitted']))
+          && lockOk(null, request.resource.data.get('lock', null), request.resource.data.keys());
+
+        allow update: if canEdit(resource.data)
+          && validSermon(request.resource.data)
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.createdAt == resource.data.createdAt
+          // проповедник не отдаёт проповедь другому и не ставит «в работе» / «готово»
+          && (isEditor(s) || request.resource.data.owner == resource.data.owner)
+          && (isEditor(s)
+              || request.resource.data.status == resource.data.status
+              || request.resource.data.status in ['draft', 'submitted'])
+          // правка содержимого отмечает, кто и когда; сигнал замка — нет
+          && (changed().hasOnly(['lock'])
+              || (request.resource.data.updatedAt == request.time
+                  && request.resource.data.updatedBy == me()))
+          && lockOk(resource.data.get('lock', null), request.resource.data.get('lock', null), changed());
+
+        // Проповедник удаляет только свой черновик. Под чужим живым замком не удаляет никто.
+        allow delete: if (isEditor(s)
+              || (isPreacher(s) && resource.data.owner == me() && resource.data.status == 'draft'))
+          && (!lockLive(resource.data.get('lock', null)) || lockMine(resource.data.get('lock', null)));
+
+        // ---------- отметки редактора («доработать» и т. п.) ----------
+
+        match /editor/{doc} {
+          allow get, list: if isEditor(s);
+          allow create, update: if isEditor(s) && doc == 'state'
+            && request.resource.data.keys().hasOnly(['flags', 'updatedAt', 'updatedBy'])
+            && request.resource.data.get('flags', {}) is map
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.updatedBy == me();
+          // вместе с проповедью их может удалить и тот, кто удаляет проповедь
+          allow delete: if isEditor(s) || (isMember(s) && !existsAfter(sermonPath(s, id)));
+        }
+      }
+    }
+
+    // Свои пространства: запрос по всем «members» с условием email == моя почта.
+    match /{path=**}/members/{email} {
+      allow list: if signedIn() && resource.data.email == me();
+    }
+
+    // ---------- ссылка для оператора ----------
+
+    function canEditSermon(s, id) {
+      return isEditor(s) || (isPreacher(s) && get(sermonPath(s, id)).data.owner == me());
+    }
+    function validShare(d) {
+      return d.keys().hasAll(['spaceId', 'sermonId', 'sermon', 'createdBy', 'updatedAt'])
+        && d.keys().hasOnly(['spaceId', 'sermonId', 'sermon', 'createdBy', 'updatedAt'])
+        && str(d.spaceId, 100) && str(d.sermonId, 100)
+        && d.sermon is map
+        && d.updatedAt == request.time;
+    }
+
+    match /shares/{key} {
+      // по ключу читает кто угодно, даже без входа; перебрать все ссылки нельзя
+      allow get: if true;
+      allow create: if signedIn()
+        && key.size() >= 20 && key.size() <= 64
+        && validShare(request.resource.data)
+        && request.resource.data.createdBy == me()
+        && canEditSermon(request.resource.data.spaceId, request.resource.data.sermonId);
+      allow update: if signedIn()
+        && validShare(request.resource.data)
+        && request.resource.data.spaceId == resource.data.spaceId
+        && request.resource.data.sermonId == resource.data.sermonId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && canEditSermon(resource.data.spaceId, resource.data.sermonId);
+      allow delete: if signedIn() && canEditSermon(resource.data.spaceId, resource.data.sermonId);
+    }
+  }
+}
