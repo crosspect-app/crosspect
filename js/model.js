@@ -50,7 +50,7 @@ function newBlock(type){
   const slide = T && T.slide ? { speech:'', todo:!!T.todo } : {};
   switch (type){
     case 'splash':     return Object.assign({ id, type }, slide);
-    case 'scripture':  return Object.assign({ id, type, items:[newScripture()], caps:true, flow:'inline', frame:false, align:'center', valign:'top' }, slide);
+    case 'scripture':  return Object.assign({ id, type, items:[newScripture()] }, slide);   // вид стихов — общий для всех слайдов (настройки слайдов, verses)
     case 'thesis':     return Object.assign({ id, type, name:'', nameAuto:true, text:'', valign:'center', scale:100, parts:[newThesisPart()] }, slide);
     case 'quote':      return Object.assign({ id, type, text:'', author:'', caption:'', scale:100, caps:false }, slide);
     case 'image':      return Object.assign({ id, type, name:'', mode:'find', desc:'' }, slide);
@@ -69,7 +69,7 @@ const preacherKey = m => [m.lastName, m.firstName].map(x => String(x || '').trim
 function blank(){
   return { app:'swp-sermon', v:2, id:uid(), createdAt:Date.now(), updatedAt:Date.now(), savedAt:0,
     meta:{ title:'', date:nextSunday(), firstName:'', lastName:'' },
-    settings:Object.assign({}, DEFAULT_SETTINGS), blocks:[] };
+    settings:{}, blocks:[] };
 }
 function normItem(it){
   if (!it) return null;
@@ -115,7 +115,8 @@ function normalize(d){
   s.meta = { title:String(dm.title || ''), date:String(dm.date || '') };
   if (dm.firstName != null || dm.lastName != null) Object.assign(s.meta, { firstName:String(dm.firstName || '').trim(), lastName:String(dm.lastName || '').trim() });
   else Object.assign(s.meta, splitPreacher(dm.preacher));
-  s.settings = Object.assign({}, DEFAULT_SETTINGS, d.settings || {});
+  s.settings = {};   // лимиты и размер Писания теперь общие (настройки слайдов пространства); у проповеди остался только перевод
+  if (d.settings && typeof d.settings.lang === 'string') s.settings.lang = d.settings.lang;
   let cur = null;   // слайд, к которому относится идущий дальше текст
   (d.blocks || []).forEach(b => {
     if (!b) return;
@@ -147,12 +148,9 @@ function normalize(d){
       }
       nb.items = items.map(normItem).filter(Boolean);
       if (!nb.items.length) nb.items = [newScripture('ru')];
-      ['parts', 'note', 'showNote', 'ref', 'translation', 'verses', 'autoFirst'].forEach(k => delete nb[k]);
-      nb.caps = b.caps !== false;
-      nb.flow = oneOf(b.flow, ['inline', 'lines'], 'inline');
-      nb.frame = !!b.frame;
-      nb.align = oneOf(b.align, ['left', 'center'], 'center');
-      nb.valign = oneOf(b.valign, ['top', 'center', 'bottom'], 'top');
+      // вид стихов (в строку / с новой строки, рамка, заглавные, перевод, выравнивание) с 7.1 общий для всех слайдов:
+      // собственные значения старых слайдов не используются
+      ['parts', 'note', 'showNote', 'ref', 'translation', 'verses', 'autoFirst', 'caps', 'flow', 'frame', 'align', 'valign', 'showTr'].forEach(k => delete nb[k]);
     }
     if (b.type === 'thesis' || b.type === 'quote') nb.text = sanitize(nb.text);
     if (b.type === 'thesis'){
@@ -187,32 +185,65 @@ function speechInfo(words){
   return words + ' ' + plural(words, 'слово', 'слова', 'слов') + ' · ' + (m < 0.75 ? 'меньше минуты' : '≈ ' + Math.max(1, Math.round(m)) + ' мин');
 }
 
-/* ========= Общие настройки слайдов: поля и названия ========= */
-let SLIDES_BASE = JSON.parse(JSON.stringify(SLIDES_DEFAULT));   // из config.json (или встроенные)
+/* ========= Общие настройки слайдов (пространства) =========
+   Берутся из облака (cloud.js: watchSlides) и действуют на все проповеди сразу. Без входа — последняя копия
+   из облака в этом браузере или значения по умолчанию. Пока открыто окно «Настройки слайдов», его пример
+   слайда раскладывается с ещё не применёнными значениями (SLIDES_TRY). */
 const clampN = (v, a, b, d) => { v = Number(v); return isFinite(v) ? Math.min(b, Math.max(a, Math.round(v))) : d; };
+const clampF = (v, a, b, d, k) => { v = Number(v); if (!isFinite(v)) return d; const m = Math.pow(10, k || 2); return Math.round(Math.min(b, Math.max(a, v)) * m) / m; };
+let SLIDES_BASE = mergeSlides(SLIDES_DEFAULT, null);
+let SLIDES_TRY = null;
 function mergeSlides(base, over){
-  const r = JSON.parse(JSON.stringify(base));
-  if (over && typeof over === 'object'){
-    ['margins', 'names', 'font'].forEach(k => { if (over[k] && typeof over[k] === 'object') Object.assign(r[k], over[k]); });
-    if (over.sizes && typeof over.sizes === 'object') ['scripture', 'thesis', 'quote'].forEach(k => { if (over.sizes[k] && typeof over.sizes[k] === 'object') Object.assign(r.sizes[k], over.sizes[k]); });
-  }
-  r.margins.side = clampN(r.margins.side, 0, 400, 60); r.margins.top = clampN(r.margins.top, 0, 400, 60); r.margins.bottom = clampN(r.margins.bottom, 0, 400, 60);
-  r.names.required = r.names.required !== false; r.names.maxLength = clampN(r.names.maxLength, 5, 120, 35);
-  ['thesis', 'quote'].forEach(k => { const z = r.sizes[k]; z.min = clampN(z.min, 30, 100, 70); z.max = clampN(z.max, 100, 200, 110); });
-  r.sizes.scripture = { size:clampN(r.sizes.scripture && r.sizes.scripture.size, 50, 200, 110) };
-  r.font = { canva:['verses', 'all', 'off'].includes(r.font && r.font.canva) ? r.font.canva : 'all' };
+  const r = JSON.parse(JSON.stringify(base)), D = SLIDES_DEFAULT;
+  const o = over && typeof over === 'object' ? over : {};
+  const obj = x => x && typeof x === 'object' ? x : {};
+  ['margins', 'names', 'limits', 'fonts', 'verses'].forEach(k => Object.assign(r[k], obj(o[k])));
+  Object.keys(D.kinds).forEach(k => Object.assign(r.kinds[k], obj(obj(o.kinds)[k])));
+  ['side', 'top', 'bottom'].forEach(k => { r.margins[k] = clampN(r.margins[k], 0, 400, D.margins[k]); });
+  r.names = { maxLength:clampN(r.names.maxLength, 5, 120, D.names.maxLength) };
+  r.limits = { thesis:clampN(r.limits.thesis, 20, 3000, D.limits.thesis), quote:clampN(r.limits.quote, 20, 3000, D.limits.quote) };
+  Object.keys(SLIDE_FONTS).forEach(k => { if (!SLIDE_FONTS[k][r.fonts[k]]) r.fonts[k] = D.fonts[k]; });
+  r.fonts = { main:r.fonts.main, greek:r.fonts.greek, hebrew:r.fonts.hebrew };
+  Object.keys(D.kinds).forEach(k => {
+    const z = r.kinds[k], d = D.kinds[k], out = {};
+    out.size = clampF(z.size, 10, 400, d.size);
+    out.min = clampN(z.min, 20, 100, d.min);
+    if ('max' in d) out.max = clampN(z.max, 100, 200, d.max);
+    if ('track' in d) out.track = clampF(z.track, -0.2, 0.3, d.track, 3);
+    if ('lead' in d) out.lead = clampF(z.lead, 0.8, 2, d.lead);
+    if ('foot' in d) out.foot = clampF(z.foot, 10, 200, d.foot);
+    r.kinds[k] = out;
+  });
+  const v = r.verses;
+  r.verses = { flow:oneOf(v.flow, ['inline', 'lines'], 'inline'), frame:!!v.frame, caps:v.caps !== false, showTr:v.showTr !== false,
+    align:oneOf(v.align, ['left', 'center', 'right'], 'center'), valign:oneOf(v.valign, ['top', 'center', 'bottom'], 'top') };
   return r;
 }
-function slidesLocal(){ try { return JSON.parse(LS.get('swp-slides-local') || 'null'); } catch(e){ return null; } }
-function slidesCfg(){ return mergeSlides(SLIDES_BASE, slidesLocal()); }
+function slidesCfg(){ return SLIDES_TRY || SLIDES_BASE; }
+/* Новые настройки из облака (или из кеша): применить и перерисовать слайды */
+function setSlidesBase(over){
+  const next = mergeSlides(SLIDES_DEFAULT, over);
+  const same = JSON.stringify(next) === JSON.stringify(SLIDES_BASE);
+  SLIDES_BASE = next; applySlides();
+  return !same;
+}
+/* CSS-переменные слайда: поля, шрифты, расстояния между символами и строками по видам слайдов */
+function slideVars(c){
+  const m = c.margins, K = c.kinds, F = c.fonts;
+  return { '--sl-x':(PANEL_INSET + m.side) + 'px', '--sl-t':(PANEL_INSET + m.top) + 'px', '--sl-b':(PANEL_INSET + m.bottom) + 'px',
+    '--f-main':SLIDE_FONTS.main[F.main].css, '--f-greek':SLIDE_FONTS.greek[F.greek].css, '--f-hebrew':SLIDE_FONTS.hebrew[F.hebrew].css,
+    '--sc-track':K.scripture.track + 'em', '--sc-lead':String(K.scripture.lead),
+    '--th-track':K.thesis.track + 'em', '--th-lead':String(K.thesis.lead),
+    '--qt-track':K.quote.track + 'em', '--qt-lead':String(K.quote.lead),
+    '--sp-foot':K.splash.foot + 'px' };
+}
 function marginVars(m){ return { '--sl-x':(PANEL_INSET + m.side) + 'px', '--sl-t':(PANEL_INSET + m.top) + 'px', '--sl-b':(PANEL_INSET + m.bottom) + 'px' }; }
 function applySlides(){
-  const v = marginVars(slidesCfg().margins);
+  const v = slideVars(SLIDES_BASE);
   Object.keys(v).forEach(k => document.documentElement.style.setProperty(k, v[k]));
 }
 /* Слайды, у которых обязательное название не заполнено */
 function missingNames(){
-  if (!slidesCfg().names.required) return [];
   return state.blocks.filter(b => NAMED[b.type] && !cleanName(b.name));
 }
 let flagMissing = false;   // подсвечивать пустые названия красным — после первой неудачной попытки

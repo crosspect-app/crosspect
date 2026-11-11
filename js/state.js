@@ -38,9 +38,9 @@ function slideNums(){
   return m;
 }
 function partChars(p){ return p.verses.reduce((s, v) => s + plain(v.text).trim().length, 0); }
-function limitFor(b){
-  const st = state.settings;
-  return { scripture:st.minScale, thesis:st.limitThesis, quote:st.limitQuote }[b.type] || 0;
+function limitFor(b){   // лимиты символов — общие, в настройках слайдов
+  const c = slidesCfg();
+  return { scripture:c.kinds.scripture.min, thesis:c.limits.thesis, quote:c.limits.quote }[b.type] || 0;
 }
 function charCount(b){
   switch (b.type){

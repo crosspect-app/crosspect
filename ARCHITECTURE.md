@@ -6,7 +6,7 @@
 - К каждому файлу в `index.html` дописано `?v=__BUILD__`: при выпуске CI подставляет номер коммита, и браузер не смешивает старые и новые файлы.
 - Шрифты Google Fonts: Unbounded (переменная толщина 200–900), Inter, Noto Sans Hebrew.
 - Тексты Библии — XML (Beblia или Zefania), грузятся по требованию с GitHub.
-- Настройки — [`data/config.json`](data/config.json) из этого репозитория (`CONFIG_URL_DEFAULT`), последняя копия кешируется в localStorage; при недоступности — встроенные списки.
+- Настройки — [`data/config.json`](data/config.json) из этого репозитория (`CONFIG_URL_DEFAULT`): переводы и спикеры; последняя копия кешируется в localStorage; при недоступности — встроенные списки. **Настройки слайдов** (поля, шрифты, размеры, расстояния, лимиты, вид стихов) — общие для пространства, в облаке (`spaces/{s}/config/slides`), см. «Настройки слайдов» ниже.
 - Экраны: главная (`#`) и проповедь (`#s=<id>`, «Текст» — `#s=<id>&v=text`). «Назад» в браузере и перезагрузка возвращают туда же. Тёмные — главная и «Слайды», светлый — «Текст» (`body.light`).
 - Хранение: проповеди церкви — в облаке (Firestore); у каждой проповеди есть ещё черновик в localStorage; без входа — только он. Черновик в localStorage (`swp-sermon:<id>`, у каждой проповеди свой, `swp-sermon:last` — последняя); «Сохранить» скачивает файл `.json` с проповедью. «Открыть» понимает `.json` и старые HTML-файлы (проповедь лежит в `<script id="sermon-data">`).
 
@@ -14,19 +14,19 @@
 | Файл | Что внутри |
 |---|---|
 | `css/style.css` | токены цветов (`:root` тёмные, `body.light` — «Текст»), шапка, кнопки, главная (`.home`, `.scard`), «Слайды» (`.sv`, `.film`, `.st`, `.stage`, `.side`), «Текст» (`.tv`, `.blk`), слайд `.sl*` (кадр 1920×1080), печать `#print-op`. Классы интерфейса не должны начинаться с `.sl` / `.sl-`: `slideCSS()` копирует такие правила в JPEG |
-| `js/defaults.js` | `DEFAULT_SETTINGS` (лимиты), `CONFIG_URL_DEFAULT`, `SLIDES_DEFAULT` (поля, названия, размеры, `font.canva` — плотность шрифта, по умолчанию `all`), `ICONS`, `TYPES` (порядок = окно «Что добавить?»; `slide`, `top`, `todo`), `PREVIEW`, `WORDS_PER_MIN` |
+| `js/defaults.js` | `CONFIG_URL_DEFAULT`, `SLIDES_DEFAULT` (настройки слайдов по умолчанию: `margins`, `names`, `limits`, `fonts`, `kinds`, `verses` — подробно в комментарии), `SLIDE_FONTS` (шрифты для списков в окне), `ICONS`, `TYPES` (порядок = окно «Что добавить?»; `slide`, `top`, `todo`), `PREVIEW`, `WORDS_PER_MIN` |
 | `js/util.js` | утилиты (`h`, `$`, `LS`, `plural`…); форматированный текст: `cleanHTML` / `sanitize` — разрешены только `b i u mark br span.up` |
 | `js/refs.js` | справочники `PREACHERS`, `LANGS` (переводы), `BOOKS`, `ABBR` (синодальные сокращения); названия слайдов: `BAD_CHARS`, `NAMED`, `cleanName`, `slideName`, `scriptureNamePart`, `quoteNamePart` |
 | `js/bible.js` | тексты Библии: `loadBible` (Beblia/Zefania), `cleanVerse`, `syncVerses`, `refString` |
-| `js/model.js` | модель данных: `newBlock`, `newScripture`, `newPart` (свой перевод), `newTextItem`, `newLineItem`, `newThesisPart`, `splitPreacher` / `preacherName` / `preacherKey`, `normalize` / `normItem` (перевод старых форматов, в том числе v1 → v2), `wordCount` / `speechInfo`; общие настройки слайдов: `mergeSlides`, `slidesCfg` (config + localStorage `swp-slides-local`), `applySlides` (CSS-переменные полей), `missingNames`, `checkNames` |
+| `js/model.js` | модель данных: `newBlock`, `newScripture`, `newPart` (свой перевод), `newTextItem`, `newLineItem`, `newThesisPart`, `splitPreacher` / `preacherName` / `preacherKey`, `normalize` / `normItem` (перевод старых форматов, в том числе v1 → v2), `wordCount` / `speechInfo`; настройки слайдов: `mergeSlides` (проверка и пределы значений), `SLIDES_BASE` (действующие), `SLIDES_TRY` (пример в окне), `slidesCfg`, `setSlidesBase`, `slideVars` (CSS-переменные слайда), `applySlides`, `missingNames`, `checkNames` |
 | `js/state.js` | `state`, `change`, `persistDraft`, `slideNums`, `blockSummary`; экран и вид: `screen` (`home` / `sermon`), `view` (`slides` / `text`), `selId` (выбранный слайд), `speechOpen`; `sermonStatus`, `fmtDay` |
 | `js/shell.js` | каркас: контейнеры `topbar` и `mainEl`, меню «⋯» (`fillMenu`), окна, панель оформления |
-| `js/render.js` | `preacherField`, `refreshSplash`, `BODY[type]` (редакторы слайдов: показываются в правой панели «Слайдов»), `nameField`, `autoName`, `rich` (редактор с панелью оформления), списки (`toggleList`, `listEnter`, `autoList`), `toggleUp`, `toggleMark`, `toggleTodo`, `toggleDone`, `addBlock`, `move`, `duplicate`, `removeBlock` (текст удалённого слайда переходит соседу), `openSheet` |
+| `js/render.js` | `preacherField`, `refreshSplash`, `BODY[type]` (редакторы слайдов: показываются в правой панели «Слайдов»), `nameField`, `autoName`, `rich` (редактор с панелью оформления), списки (`toggleList`, `listEnter`, `autoList`), `toggleUp`, `toggleMark`, `addBlock`, `move` (Alt+↑/↓), `moveTo` (перетаскивание), `duplicate`, `removeBlock` (текст удалённого слайда переходит соседу), `openSheet` |
 | `js/app.js` | маршруты и каркас экранов: `route` (разбор `#s=<id>&v=text`), `navigate`, `sermonHash`, `renderAll` / `renderMain` (перерисовать текущий экран), `setView` (в «Текст» пускает только если у слайдов есть названия), `renderTopbar`, `updateStatus`, `openMeta` (окно «О проповеди») |
 | `js/home.js` | главная: `renderHome`, список черновиков из localStorage (`draftList`), поиск, карточки `sermonCard` и строки `sermonRow`, `deleteDraft`, `slideCount` |
-| `js/slides.js` | вид «Слайды»: `renderSlides`, лента `renderFilm` / `filmItem` / `refreshThumb`, `selectBlock`, `stepSel`, сцена `renderStage` (слайд, «Текст к слайду» — `speechBox`), правая панель `renderSide`, `rerender(b)` / `updateCounter(b)` обновляют только выбранный слайд |
+| `js/slides.js` | вид «Слайды»: `renderSlides`, лента `renderFilm` / `filmItem` / `filmGap` («+» между слайдами) / `refreshThumb`, перетаскивание `armDrag` / `startDrag` / `dropMark` (указатель: мышь сразу, палец — после удержания 380 мс; `canArrange` — правка и без фильтра), `selectBlock`, `stepSel`, сцена `renderStage` (слайд, «Текст к слайду» — `speechBox`), правая панель `renderSide`, `rerender(b)` / `updateCounter(b)` обновляют только выбранный слайд |
 | `js/textview.js` | вид «Текст» (светлый): `renderTextView`, `tvBlock`, `tvSlide`, `sermonChecks` (проверка перед отправкой), `tvSide` |
-| `js/preview.js` | предпросмотр слайдов: `typoText`, `fixOrphan`, `wrapScripts` (греческий/иврит → `span.xl`), `slideEl`, `slideHTML` (Писание: в строку / с новой строки), `boxHTML` / `paraHTML` (тезис, цитата, списки), `authorHTML`, `layoutSplash` (заставка), `layoutAt` (Писание, выравнивание по вертикали), `layoutBox`, `fitSlide` (бинарный поиск размера), `BASE`, `SPLASH`, `scrPx` |
+| `js/preview.js` | предпросмотр слайдов: `typoText`, `fixOrphan`, `wrapScripts` (греческий/иврит → `span.xl`), `slideEl`, `slideHTML` (Писание: в строку / с новой строки), `boxHTML` / `paraHTML` (тезис, цитата, списки), `authorHTML`, `layoutSplash` (заставка), `layoutAt` (Писание, выравнивание по вертикали), `layoutBox`, `fitSlide` (бинарный поиск размера), `basePx` / `scrPx` / `splashMax` / `splashMin3` (размеры из настроек слайдов), `versesCfg` |
 | `js/files.js` | `saveFile` (проверка названий) / `writeFile`, `parseSermonFile`, открытие файла, `newSermon` |
 | `js/cloud.js` | облако в форме: состояние `cloud` (`mode`: wait / out / noaccess / error / in; пользователь, пространство, роль, живой список `cloud.list`), `initCloud` (подключает SDK или подмену `window.CROSSPECT_FAKE_API`), `cloudUser`, `cloudGate` / `renderGate` (экран входа вместо главной и проповеди), `saveSermon` (облако — `saveNow`, без входа — файл), `conflictSheet`, `takeRemote`, `saveAsCopy`, `deleteCloudSermon` (не удаляет под чужим замком), `uploadToCloud` / `uploadOne`, `openCloudSermon` (выбор между облаком и черновиком), `canEditCloud`, `isUnsaved` |
 | `js/lock.js` | замок и автосохранение (этап 6): состояние `ed` (`mode` view / edit, `remote` — последняя версия из облака с замком, `myAt` — начало моего замка), `beginCloud` / `endCloud` (открыли / ушли), `startWatch` / `onRemote` (живое обновление и «замок забрали»), `startEdit` / `takeOver`, `onEdit` / `scheduleSave` / `autoSave` / `saveNow` / `forceSave`, `cloudWrite` (запись, ошибки: lost-lock, conflict, нет сети, нет прав), `tick` (сигнал раз в минуту, простой), `closeEdit`, `lostLock` / `rescueCopy`, `readOnly` / `roBlock` / `roHint` (просмотр), `headAction` / `cloudStatusLine` (шапка), `lockMark` (карточка главной) |
@@ -34,7 +34,7 @@
 | `js/cloud-api.mjs` | единственное место, где форма говорит с Firebase: `createCloudAPI({auth, db, A, F})` — `onUser`, `signIn`, `spacesOf`, `getSpace`, `listen`, `get`, `watch` (живая проповедь), `save` (транзакция с проверкой версии; `status` — «В работе» / «Готов»; с `lock` — запись под замком, `lost-lock`; `todo` и `done` в документ не пишутся), `getFlags` / `setFlags` (отметки редактора, документ `editor/state`), `lock` (взять / забрать, `locked`), `beat`, `release`, `remove`; `explain` — понятный текст ошибки. ES-модуль: грузится динамическим `import()`, проверяется в Node в эмуляторе |
 | `js/export.js` | выгрузка JPEG: `exportFonts` (CSS шрифтов с встроенными woff2), `slideCSS`, `renderJPEG` (SVG foreignObject → canvas), `makeZip` (ZIP без сжатия, UTF-8), `exportOne`, `exportMany`, `markDone` |
 | `js/print.js` | PDF для оператора: `#print-op`, `@page op` 80×170 мм, `buildOperatorPrint`, `operatorPDF` |
-| `js/settings.js` | окна настроек: `openSettings` (лимиты), `openConfig` (источник), `openSlidesCfg` (поля, названия, размеры, шрифт) |
+| `js/settings.js` | `openConfig` (источник `config.json`), `openSlidesCfg` — окно «Настройки слайдов» (пример слайда `CFG_SAMPLES`, общие, виды слайдов, стихи), `saveSlidesCfg`, `slidesFromCloud` (из облака: кеш `swp-slides-cache` + перерисовка), `loadSlidesCache`, `refreshSlides` (новые переменные на показанные слайды без перерисовки экрана), `canEditSlidesCfg` (админ и редактор) |
 | `js/misc.js` | `toast`, закрытие меню, горячие клавиши |
 | `js/main.js` | запуск: настройки из кеша, `route()` (по адресу открывает главную или проповедь), свежие настройки из репозитория |
 
@@ -42,15 +42,17 @@
 Файл проповеди (`.json`) — это сам `state`:
 ```
 state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
-  meta:{ title, date, firstName, lastName }, settings:{ minScale, limitThesis, limitQuote, lang }, blocks:[…] }
+  meta:{ title, date, firstName, lastName }, settings:{ lang }, blocks:[…] }
 ```
 Блоки — слайды по порядку и заметки оператору между ними. Общее: `id, type, collapsed`. У слайдов (`TYPES[type].slide`) ещё `todo` («доработать») и `speech` — «Текст к слайду», HTML (`sanitize`). Поля `done` («готово») больше нет: `normalize` его убирает. По типам:
 - `splash`: только общие поля; название, имя и дата берутся из `meta`
-- `scripture`: `showTr`, `caps` (стихи заглавными), `flow` ('inline' | 'lines'), `frame` (рамка пунктиром, только 'inline'), `align` ('left' | 'center'), `valign` ('top' | 'center' | 'bottom'), `items:[ {kind:'scripture', lang, book, chapter, sel, verses:[{num,text,orig}], ref, translation} | {kind:'scripture', manual:true, mBook, mChapter, mVerses, translation, verses:[{num,text}]} | {kind:'text', html, align, caps} | {kind:'line'} ]`
+- `scripture`: (вид стихов — общий, в настройках слайдов) `items:[ {kind:'scripture', lang, book, chapter, sel, verses:[{num,text,orig}], ref, translation} | {kind:'scripture', manual:true, mBook, mChapter, mVerses, translation, verses:[{num,text}]} | {kind:'text', html, align, caps} | {kind:'line'} ]`
 - `thesis`: `name, nameAuto, valign, parts:[ {kind:'text', html, align, scale, caps, frame} | {kind:'line'} ]`; `text` — склейка частей (для названия и старых версий)
 - `quote`: `text, author, caption, scale, caps`
 - `image`: `name, mode('find'|'send'), desc`; `video`: `name, mode('link'|'send'), url, from, to, desc`; `free`: `name, desc`
 - `note`: `text` (не слайд: без номера, `done`, `todo`, `speech`)
+
+Старые поля `settings` (`minScale`, `limitThesis`, `limitQuote`) и вид стихов у слайдов Писания `normalize` с этапа 7.1 убирает: это теперь общие настройки слайдов.
 
 Версия 1 (до 11 ноября 2026) переводится в `normalize`: блоки `text` (`text, splash`) становятся `speech` слайда перед ними, а если слайда перед ними нет или `splash:true` — новой заставкой; `meta.preacher` («Фамилия Имя») → `lastName` + `firstName`; `quote.author` «Имя Фамилия, источник» → `author` + `caption`; картинка, видео и свободный без `todo` получают `todo = !done`; новые поля Писания — значения по умолчанию.
 
@@ -58,7 +60,9 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 
 ## Слайд
 - Кадр раскладывается в полном размере 1920×1080 и только масштабируется (`--s`), поэтому переносы в предпросмотре и JPEG совпадают.
-- Поля — CSS-переменные `--sl-x/--sl-t/--sl-b` = 44 (отступ панели) + поле из настроек.
+- Поля — CSS-переменные `--sl-x/--sl-t/--sl-b` = 44 (отступ панели) + поле из настроек. Их и остальные переменные (`--f-main/--f-greek/--f-hebrew`, `--sc-track/--sc-lead` Писание, `--th-*` тезис, `--qt-*` цитата, `--sp-foot`) `slideEl` ставит прямо на `.sl-stage` из `slideVars(slidesCfg())`: так они попадают в JPEG и в пример окна настроек. В CSS вид слайда превращает их в `--track` / `--lead` (`.sl-content`, `.sl-box-thesis`, `.sl-box-quote`).
+- Вид стихов (`slidesCfg().verses`) общий: у блока `scripture` полей `caps/flow/frame/align/valign/showTr` больше нет (`normalize` их убирает). С новой строки: слева — сетка `.sl-vlist` (номера колонкой), по центру и справа — `.sl-vstack` (номер перед стихом); рамка — на всём списке.
+- «Линия» (`.sl-hr`) рисуется там, где стоит в слайде, и по краям тоже; у Писания она учитывается в свободном месте снизу.
 - `letter-spacing` в em на `.sl-stage` наследуется как абсолютное значение от 16 px — фактически почти ноль; трекинг задавать на самих текстовых элементах.
 - JPEG: слайд раскладывается в скрытом контейнере тем же кодом, клонируется вместе с CSS-правилами `.sl*` и шрифтами в SVG foreignObject и рисуется в canvas. Поэтому классы режимов вешаются на `.sl-stage`, а не на `.sl`.
 
@@ -70,6 +74,11 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 - «Только в браузере» на главной — черновики, которых нет в `cloud.list`; чистые копии облачных проповедей из браузера убираются сами (откроются из облака).
 - Режим «без входа» запоминается на вкладку (`sessionStorage swp-local`); после входа сбрасывается.
 - Документ в облаке: `v`, `meta`, `settings`, `blocks` из проповеди плюс `status`, `owner`, `createdBy/At`, `updatedBy/At` (поля — как в `cloud/firestore.rules`, новое поле — сначала правило и тест). Запись — `update` только полей содержимого и замка, поэтому `status`, `owner`, `shareKey` не трогаются.
+
+### Настройки слайдов (этап 7.1)
+- Документ `spaces/{s}/config/slides` = `{ slides, updatedAt, updatedBy }`. Читают все участники (`get`), пишут админ и редактор (`create`/`update`, только эти поля, время сервера, своя почта); список и удаление закрыты. Тесты — `cloud/tests/rules.test.mjs` («настройки слайдов»), `client.test.mjs`.
+- `cloud-api.mjs`: `watchSlides` (onSnapshot), `getSlides`, `setSlides`. `cloud.js` подписывается в `startListen` и отписывается в `stopListen`; пришло — `slidesFromCloud` → `setSlidesBase` → `refreshSlides`.
+- Новое поле настроек: значение по умолчанию в `SLIDES_DEFAULT`, пределы в `mergeSlides` (неизвестное и неправильное заменяется значением по умолчанию), поле в окне.
 
 ### Работа редактора (`js/editor.js`, этап 7)
 - **Статус.** В облаке `status`: `draft` = «В работе», `submitted` = «Готов» (`done` из старых данных тоже считается готовым, `isReady`). Форма держит его в `state.cloudStatus`, `cloudWrite` отправляет `status` вместе с содержимым (правила и так разрешают спикеру только `draft` / `submitted`). `change()` вызывает `statusOnEdit()`: роль `preacher` правит `submitted` → `cloudStatus = 'draft'`; кнопка статуса ставит `statusTouch`, чтобы собственная смена не считалась правкой.
@@ -94,6 +103,7 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 - `test_static.py`: `node --check` для каждого `js/*.js`; нет «сырых» U+00A0/U+00AD/U+2028/U+2029 (только экранированные); каждый модуль подключён в `index.html` один раз.
 - `test_lock.py`: просмотр по умолчанию и откат правок, «Редактировать» берёт замок, автосохранение, Ctrl+S, «Сохранить и закрыть», чужой замок (имя, неактивная кнопка, живое обновление, карточка «Правит …»), истёкший замок и `lockMinutes`, «Забрать правку», замок забрали (копия несохранённого и без неё), другая вкладка, простой, сигнал, без сети, уход с проповеди и выход отпускают замок, черновик с правками при свободном и занятом замке, черновик другой вкладки не трогается, удаление под чужим замком, новая проповедь сразу в правке, удалённая при просмотре, вид «Текст» в просмотре.
 - `test_cloud.py`: вход и экран входа, «Продолжить без входа», нет в списке, запомненный вход, сохранение новой проповеди, открытие и восстановление несохранённых правок, конфликт (копия, «Заменить облачную»), «В облако» для старых черновиков, пачка файлов, удаление, права проповедника (чужая — только чтение, закрытое пространство — только свои), выход, ссылка на проповедь до входа, файл без меток облака. Облако подменено (`tests/fixtures/fake_cloud.js`, база — в localStorage страницы); страница строится через `cloud_page` из `conftest.py`. Обычная фикстура `page` включает «без входа» (`sessionStorage swp-local`).
+- `test_ui71.py`: «Настройки слайдов» (только редактору, «Применить» пишет в облако и сразу действует, спикер получает настройки и не может их записать), перетаскивание в ленте и Alt+↓, «+» между слайдами и «Добавить в конец», боковая панель без «Выше / Ниже» и «Доработать», перевод над книгой, старые лимиты проповеди не действуют. В `test_model.py` — вид стихов (с новой строки по центру и справа, рамка), расстояния по видам слайдов, пределы настроек, линия сверху и снизу.
 - `test_editor.py`: статус (спикер ставит «Готов», его правка сбрасывает, правка редактора — нет, старое `done` — готов), «доработать» (спикер не видит; редактор ставит в просмотре, замок не берётся и проповедь не пишется; в документ проповеди не попадает; возвращается после правки спикера, но не после правки самого редактора; фильтр), автосохранение по умолчанию 30 с, исчерпанный запас базы, «спикер» вместо «проповедник».
 - `tests/fixtures/sermon.json` — проповедь в старом формате (v1) со всеми типами блоков, включая «Текст проповеди»: заодно проверяет перевод на новую модель.
 - Выгрузка JPEG берёт шрифты из интернета, поэтому тестам нужна сеть.
@@ -104,7 +114,7 @@ Firebase: Cloud Firestore + вход Google. Что строим и по как�
 
 | Файл | Что внутри |
 |---|---|
-| `cloud/firestore.rules` | права: пространства, участники, проповеди, замок, отметки редактора, ссылки для оператора. Функции наверху (`signedIn`, `me`, `hasRole`, `isEditor`…), затем `match` по коллекциям |
+| `cloud/firestore.rules` | права: пространства, участники, настройки слайдов (`config/slides`), проповеди, замок, отметки редактора, ссылки для оператора. Функции наверху (`signedIn`, `me`, `hasRole`, `isEditor`…), затем `match` по коллекциям |
 | `cloud/firestore.indexes.json` | индекс `members.email` для запроса по всем пространствам (collection group); тяжёлые поля (`blocks`, `settings`, `flags`, `sermon`) исключены из индексов |
 | `cloud/firebase.json` | пути к правилам и индексам, порт эмулятора |
 | `cloud/tests/rules.test.mjs` | тесты правил в эмуляторе (`node:test` + `@firebase/rules-unit-testing`): вход, пространство, участники, чтение / создание / правка / удаление проповедей, замок, отметки, ссылки. `RULES_FILE=путь` — прогнать на другом файле правил |

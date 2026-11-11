@@ -109,14 +109,15 @@ def test_editor_sets_todo_outside_lock(browser, base_url):
     page.wait_for_function("fakeCloud.db().flags && fakeCloud.db().flags.s1 && fakeCloud.db().flags.s1.b2")
     assert flags(page)["b2"]["t"] == 1
     assert page.evaluate("fakeCloud.calls.save") == 0   # проповедь не записывалась
-    # переоткрыть: отметки на месте и в ленте, и в «Для редактора»
+    # переоткрыть: отметки на месте и в ленте, и на кнопке над слайдом (в боковой панели отметки больше нет)
     page.evaluate("navigate('')")
     page.wait_for_selector(".scard")
     open_sermon(page, "s1")
     assert todo(page) == [False, True, True]
     assert page.locator(".film .st.todo").count() == 2
     page.locator(".film .st").nth(1).click()
-    assert page.locator(".editor-box").is_visible()
+    assert page.locator(".stage-bar .btn.todo.on").is_visible()
+    assert page.locator(".side .editor-box").count() == 0
     assert not page.errors, page.errors
     ctx.close()
 

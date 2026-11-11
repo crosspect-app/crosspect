@@ -90,7 +90,7 @@ mark{background:var(--mark);color:inherit;border-radius:5px;padding:0 3px;-webki
 .line-demo{height:2px;margin:6px 4px 2px;border-radius:2px;background:currentColor;opacity:.45;color:var(--text)}
 /* Греческий и иврит — шрифтом Inter (иврит — Noto Sans Hebrew), чтобы не терялись буквы и знаки */
 .xl{font-family:'Inter','Noto Sans Hebrew',sans-serif;font-weight:700;letter-spacing:0;text-transform:none}   /* греческий не переводим в заглавные: пропали бы ударения */
-.sl .xl{font-family:'Inter','Noto Sans Hebrew',sans-serif;font-weight:700;letter-spacing:0;text-transform:none}   /* то же в слайде и JPEG */
+.sl .xl{font-family:var(--f-greek,'Inter'),var(--f-hebrew,'Noto Sans Hebrew'),sans-serif;font-weight:700;letter-spacing:0;text-transform:none}   /* то же в слайде и JPEG */
 .divider::before,.divider::after{content:"";flex:1;border-top:1px dashed var(--line-2)}
 .toggle{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:3px;width:max-content;max-width:100%}
 .toggle button{border:0;background:transparent;border-radius:99px;padding:8px 15px;font-size:11.5px;font-weight:500;color:var(--muted);transition:.15s}
@@ -249,7 +249,7 @@ a.prow:hover{background:var(--surface)}
 .empty .chips{margin-top:14px}
 
 /* ---------- Вид «Слайды» ---------- */
-.sv{display:grid;grid-template-columns:214px minmax(0,1fr) 360px;height:calc(100vh - 57px);min-height:560px}
+.sv{display:grid;grid-template-columns:214px minmax(0,1fr) 400px;height:calc(100vh - 57px);min-height:560px}
 .film{overflow-y:auto;padding:14px 12px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:8px;min-width:0}
 .film-head{display:flex;flex-wrap:wrap;gap:4px 10px;padding:2px 6px 6px;font:600 11px/1.3 'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .film-head .film-time{width:100%;font-weight:500;letter-spacing:.02em;text-transform:none}
@@ -273,6 +273,24 @@ a.prow:hover{background:var(--surface)}
 .st.t-note{padding-top:2px;padding-bottom:2px}
 .mini-note{padding:7px 9px;border-radius:7px;background:#ffde59;color:#141414;font:800 10px/1.3 'Inter',sans-serif;text-transform:uppercase;max-height:58px;overflow:hidden}
 .film-add{display:flex;align-items:center;justify-content:center;gap:8px;height:36px;border-radius:999px;border:1px dashed #3a3a3a;background:transparent;color:var(--text);font:500 13px 'Inter',sans-serif;flex:none}
+/* Лента: «+» между слайдами и перетаскивание (slides.js) */
+.film.arrange{gap:0}
+.film.arrange > .film-head{margin-bottom:4px}
+.film.arrange > .film-add{margin-top:10px}
+.film.arrange .st{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+.film-gap{position:relative;height:12px;flex:none}
+.film-ins{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;padding:0;display:grid;place-items:center;
+  border:1px solid var(--line-2);background:var(--surface);color:var(--muted);opacity:0;transition:opacity .12s;z-index:2}
+.film-ins .ic{width:13px;height:13px}
+.film-gap:hover .film-ins,.film-ins:focus-visible{opacity:1}
+.film-ins:hover{color:var(--accent);border-color:var(--accent)}
+@media (hover:none){ .film-ins{opacity:.75} }
+.film.dragging .film-ins{opacity:0;pointer-events:none}
+.film-gap.drop::before,.film-add.drop::before{content:"";position:absolute;left:4px;right:4px;top:50%;height:3px;margin-top:-1.5px;border-radius:2px;background:var(--accent)}
+.film-add{position:relative}
+.film-add.drop::before{top:-6px}
+.st.dragging{opacity:.4}
+.film.dragging{cursor:grabbing}
 .film-add:hover{background:var(--surface-2)}
 .film-add .ic{width:16px;height:16px}
 
@@ -408,6 +426,9 @@ a.prow:hover{background:var(--surface)}
   .film-head{display:none}
   .st{width:150px}
   .film-add{width:110px;align-self:center}
+  .film-gap{height:auto;width:16px}
+  .film-gap.drop::before{left:50%;right:auto;top:8px;bottom:8px;width:3px;height:auto;margin:0 0 0 -1.5px}
+  .film.arrange > .film-add{margin:0 0 0 8px}
   .stage{padding:12px 14px 16px}
   .side{grid-column:1;padding:16px 14px 28px}
   .input,.rich{font-size:16px}
@@ -425,7 +446,7 @@ a.prow:hover{background:var(--surface)}
 /* ---------- Слайд (тема Ember). Размеры заданы в пикселях кадра 1920×1080 ---------- */
 .sl{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;border-radius:6px;--s:.23}
 .sl-stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;transform:scale(var(--s));
-  --u:1;font-family:'Unbounded','Inter',sans-serif;color:#ecdfcf;letter-spacing:-0.035em;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;
+  --u:1;font-family:var(--f-main,'Unbounded'),'Inter',sans-serif;color:#ecdfcf;letter-spacing:-0.035em;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;
   box-shadow:0 10px 30px rgba(0,0,0,.25);contain:layout paint}
 .sl-frame{position:absolute;inset:calc(var(--u) * 14px);border-radius:calc(var(--u) * 34px);background:#ecdfcf;overflow:hidden}
 .sl-frame::after{content:"";position:absolute;inset:0;background-image:var(--noise);background-size:128px 128px;mix-blend-mode:multiply;opacity:.22}
@@ -437,23 +458,19 @@ a.prow:hover{background:var(--surface)}
   radial-gradient(circle at 4% 48%, #5a2a16 0, transparent 26%)}
 .sl-grain{position:absolute;inset:0;background-image:var(--noise);background-size:128px 128px;mix-blend-mode:overlay;opacity:.6}
 .sl-vig{position:absolute;inset:0;background:radial-gradient(ellipse 75% 70% at 45% 45%, transparent 40%, rgba(0,0,0,.35) 100%)}
-.sl-content{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);text-align:center;display:flex;flex-direction:column;gap:.85em}
+.sl-content{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);text-align:center;display:flex;flex-direction:column;gap:.85em;--track:var(--sc-track,-0.04em);--lead:var(--sc-lead,1.05)}
 .sl-ref{font-weight:700;font-size:1.2083em;line-height:1.1;text-transform:uppercase;letter-spacing:-0.035em;margin:0}
 .sl-ref.ph{opacity:.3}
-.sl-verse{margin:0;font-weight:400;line-height:1.25;text-wrap:wrap;overflow-wrap:normal}
+.sl-verse{margin:0;font-weight:325;letter-spacing:var(--track);line-height:var(--lead);text-wrap:wrap;overflow-wrap:normal}
 .sl-verse sup{font-weight:700;font-size:.6em;vertical-align:.95em;line-height:0;letter-spacing:0;margin-right:.18em}
 .sl b{font-weight:700}
 .sl u{text-decoration-thickness:.07em;text-underline-offset:.16em;text-decoration-color:currentColor}
 .sl mark{background:none;color:#ffde59;padding:0;border-radius:0}
 .sl .up{text-transform:uppercase}
-.sl-text{margin:0;font-weight:400;line-height:1.25}
+.sl-text{margin:0;font-weight:325;letter-spacing:var(--track);line-height:var(--lead)}
 .sl-text.caps{text-transform:uppercase}
-/* ВРЕМЕННО, для теста: «шрифт как в Canva» — тоньше, буквы плотнее, строки ближе. Режим ставится классом на .sl-stage */
-.sl-stage.cv-verses .sl-verse,
-.sl-stage.cv-all .sl-verse, .sl-stage.cv-all .sl-text, .sl-stage.cv-all .sl-inner{font-weight:325;letter-spacing:-0.04em;line-height:1.05}
-.sl-stage.cv-all .sl-mk{height:1.05em}
-.sl-stage.cv-all .sl-mk.num{height:auto}
-.sl-stage.cv-all .sl-author{font-weight:325}
+/* Шрифт как в Canva — для всех слайдов: толщина 325; расстояния между символами (--track) и строками (--lead) —
+   из настроек слайдов, отдельно для Писания (--sc-*), тезиса (--th-*) и цитаты (--qt-*), см. slideVars() в model.js */
 .sl-hr{height:3px;border-radius:2px;background:#ecdfcf;opacity:.6;margin:.1em 0}   /* линия во всю ширину текста между полями */
 .sl-tp{margin:0}
 .sl-empty{opacity:.3}
@@ -462,7 +479,10 @@ a.prow:hover{background:var(--surface)}
 /* Тезис и цитата: текст в своей области, область задана отступами в кадре */
 .sl-box{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);bottom:var(--sl-b);display:flex;flex-direction:column;justify-content:center}
 .sl-box-quote{bottom:calc(var(--sl-b) + 150px)}   /* снизу место под автора */
-.sl-inner{font-weight:400;line-height:1.25;text-align:center;overflow-wrap:normal}
+.sl-box-thesis{--track:var(--th-track,-0.04em);--lead:var(--th-lead,1.05)}
+.sl-box-quote{--track:var(--qt-track,-0.04em);--lead:var(--qt-lead,1.05)}
+.sl-inner{font-weight:325;letter-spacing:var(--track);line-height:var(--lead);text-align:center;overflow-wrap:normal}
+.sl-inner .sl-tp{letter-spacing:var(--track)}   /* em — от размера своей части тезиса */
 .sl-inner.caps{text-transform:uppercase}
 /* Списки в тезисе: маркер или номер слева, перенос строки встаёт под текст пункта */
 .sl-list{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:.38em;width:fit-content;max-width:100%;margin-left:auto;margin-right:auto;padding-left:.9em;text-align:left}   /* отступ пунктов от края текста */
@@ -474,32 +494,31 @@ a.prow:hover{background:var(--surface)}
 .sl-inner.parts{display:flex;flex-direction:column;gap:.5em}
 .sl-part.caps{text-transform:uppercase}
 .sl-li{display:contents}
-.sl-mk{display:flex;align-items:center;justify-content:flex-end;min-width:.62em;height:1.25em}   /* высота строки: маркер по центру первой строки */
+.sl-mk{display:flex;align-items:center;justify-content:flex-end;min-width:.62em;height:calc(var(--lead,1.05) * 1em)}   /* высота строки: маркер по центру первой строки */
 .sl-mk.num{align-items:baseline;height:auto}
 .sl-dot{display:block;width:.22em;height:.22em;border-radius:50%;background:currentColor;transform:translateY(.03em);margin-right:.2em}
 .sl i{font-style:italic}
 .sl-guide{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);bottom:var(--sl-b);border:5px dashed #ffde59;border-radius:6px;
   background:repeating-linear-gradient(135deg, rgba(255,222,89,.13) 0 14px, transparent 14px 30px);display:grid;place-items:center;
   color:#ffde59;font-size:46px;font-weight:500;letter-spacing:-.02em}
-.sl-author{position:absolute;right:var(--sl-x);bottom:var(--sl-b);max-width:1500px;text-align:right;font-size:52px;line-height:1.05;font-weight:400;text-transform:uppercase;letter-spacing:-0.03em}
+.sl-author{position:absolute;right:var(--sl-x);bottom:var(--sl-b);max-width:1500px;text-align:right;font-size:52px;line-height:1.05;font-weight:325;text-transform:uppercase;letter-spacing:-0.03em}
 .sl-author b{font-weight:700}
 .sl-author .src{display:block;margin-top:.45em;font-size:.62em;text-transform:none;opacity:.75}
 /* Писание: заглавными (по умолчанию), «каждый стих с новой строки» — номера колонкой слева */
 .sl-content.caps .sl-verse{text-transform:uppercase}
 .sl-vlist{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:.45em;row-gap:.3em;align-items:first baseline;width:fit-content;max-width:100%;margin:0 auto;text-align:left}
 .sl-content.al-left .sl-vlist{margin-left:0}
+.sl-vstack{display:flex;flex-direction:column;gap:.3em}   /* с новой строки по центру или справа: номер перед стихом */
 .sl-vn{font-weight:700;font-size:.6em;line-height:1;text-align:right;letter-spacing:0;min-width:1.1em}
 /* Рамка пунктиром: вокруг стихов (в строку) и вокруг части тезиса. Толщину проверить на проекторе (ориентир 3 px на 1080) */
-.sl-verse.framed,.sl-part.framed{border:3px dashed rgba(236,223,207,.85);border-radius:12px;padding:.45em .7em}
+.sl-verse.framed,.sl-part.framed,.sl-vlist.framed,.sl-vstack.framed{border:3px dashed rgba(236,223,207,.85);border-radius:12px;padding:.45em .7em}   /* с новой строки — одна рамка на все стихи */
 /* Заставка: название посередине, внизу линия, «Имя ФАМИЛИЯ» слева и дата справа */
 .sl-sp-box{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);bottom:300px;display:flex;flex-direction:column;justify-content:center}
 .sl-sp-title{font-weight:900;text-transform:uppercase;text-align:center;line-height:1.1;letter-spacing:0;overflow-wrap:normal;word-break:keep-all;hyphens:manual;text-wrap:balance}
-.sl-sp-foot{position:absolute;left:var(--sl-x);right:var(--sl-x);bottom:var(--sl-b);font-size:44px;line-height:1.1;font-weight:400;letter-spacing:-0.03em}
+.sl-sp-foot{position:absolute;left:var(--sl-x);right:var(--sl-x);bottom:var(--sl-b);font-size:var(--sp-foot,44px);line-height:1.1;font-weight:325;letter-spacing:-0.03em}
 .sl-sp-foot .sl-hr{margin:0 0 .6em}
 .sl-sp-row{display:flex;justify-content:space-between;align-items:baseline;gap:1em;min-height:1.1em}
 .sl-sp-name b{font-weight:700;text-transform:uppercase}
-.sl-stage.cv-all .sl-sp-foot{font-weight:325}
-.sl-stage.cv-all .sl-sp-name b{font-weight:700}
 
 
 /* ---------- Выбор места Писания ---------- */
@@ -508,6 +527,7 @@ select.input{appearance:none;-webkit-appearance:none;cursor:pointer;padding-righ
   background-repeat:no-repeat;background-position:right 12px center;background-size:16px}
 select.input:disabled{opacity:.5;cursor:default}
 .grid-3{display:grid;grid-template-columns:1.3fr 1.5fr .7fr;gap:10px}
+.grid-bc{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:10px}   /* Писание: книга и глава под переводом */
 .item{display:grid;gap:12px}
 .item-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
 .item-head .half-tag{flex:1}
@@ -597,6 +617,32 @@ select.input:disabled{opacity:.5;cursor:default}
 .fmtbar.lists .fsep.lst{display:block}
 .fbtn.lst{font-size:13px;font-weight:600}
 .fbtn.up-btn{font-size:11px;font-weight:600;letter-spacing:.02em}
+/* Окно «Настройки слайдов» (settings.js): слева пример слайда, справа настройки */
+.sheet.wide{max-width:1140px}
+.scfg .lbl{text-transform:none;letter-spacing:0;font-size:11.5px;margin-bottom:6px}
+.scfg-body{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.3fr);gap:22px;align-items:start;margin-bottom:16px}
+.scfg-preview{position:sticky;top:0;display:grid;gap:10px;padding-bottom:6px;background:var(--surface)}
+.scfg-tabs{width:100%}
+.scfg-tabs button{flex:1;padding:8px 6px}
+.scfg-info{font-size:11px;color:var(--faint);text-align:center;min-height:16px}
+.scfg-form{display:grid;gap:16px;min-width:0}
+.scfg-sec{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:16px;min-width:0}
+.scfg-cap{font-size:10.5px;color:var(--faint);margin:-2px 0 0 2px}
+.scfg-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.scfg-kinds{display:grid;grid-template-columns:minmax(118px,1.25fr) repeat(5,minmax(70px,1fr));gap:6px;align-items:center;overflow-x:auto}
+.scfg-kinds .kh{font-size:10.5px;color:var(--muted);line-height:1.25;cursor:help;align-self:end;padding:0 2px 2px}
+.scfg-kinds .kl{font-size:12px;line-height:1.3}
+.scfg-kinds .input{padding:8px 28px 8px 6px;font-size:13px;min-height:38px;border-radius:9px}
+.scfg-na{color:var(--faint);text-align:center;font-size:13px;cursor:help}
+.unit{position:relative;min-width:0}
+.unit .input{padding-right:46px;text-align:right}
+.unit.nounit .input{padding-right:10px}
+.unit span{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--faint);pointer-events:none}
+.unit input::-webkit-inner-spin-button,.unit input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.unit input[type=number]{-moz-appearance:textfield}
+.scfg .err{color:var(--danger);font-size:12px;align-self:center}
+@media (max-width:900px){ .scfg-body{grid-template-columns:1fr} .scfg-preview{position:static} }
+@media (max-width:620px){ .scfg-g3{grid-template-columns:1fr} .scfg-kinds{grid-template-columns:100px repeat(5,92px)} }
 .mock{display:grid;gap:12px;margin:6px 0 14px}
 .mock-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .mock-grid .field .input{text-align:center}

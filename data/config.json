@@ -294,10 +294,5 @@
     "Шух Валентин",
     "Якубович Владимир",
     "Lilleorg Allan"
-  ],
-  "limits": {
-    "minScale": 80,
-    "limitThesis": 220,
-    "limitQuote": 300
-  }
+  ]
 }

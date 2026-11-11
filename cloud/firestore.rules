@@ -12,6 +12,7 @@ rules_version = '2';
 //                                    проповедник правит свои, видит все (если пространство
 //                                    разрешает) или только свои
 //   spaces/{s}/sermons/{id}/editor/state   отметки редактора; проповедник их не видит
+//   spaces/{s}/config/slides         настройки слайдов пространства: видят все, правят админ и редактор
 //   shares/{key}                     снимок для оператора: читается по ключу без входа
 
 service cloud.firestore {
@@ -120,6 +121,19 @@ service cloud.firestore {
               || (isMember(s) && email == me()
                   && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName'])));
         allow delete: if isAdmin(s) && email != me();
+      }
+
+      // ---------- настройки слайдов (этап 7.1) ----------
+      // config/slides — общие для всех проповедей пространства. Видят все участники (слайды рисует и спикер),
+      // меняют админ и редактор. Удалить из браузера нельзя: форма только перезаписывает.
+      match /config/{doc} {
+        allow get: if isMember(s);
+        allow create, update: if isEditor(s) && doc == 'slides'
+          && request.resource.data.keys().hasAll(['slides', 'updatedAt', 'updatedBy'])
+          && request.resource.data.keys().hasOnly(['slides', 'updatedAt', 'updatedBy'])
+          && request.resource.data.slides is map
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.updatedBy == me();
       }
 
       // ---------- проповеди ----------

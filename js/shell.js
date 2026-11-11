@@ -10,7 +10,7 @@ const fileInput = $('#fileInput');
 
 const menuItem = (icon, label, fn) => h('button', { type:'button', onclick:() => { closeMenu(); fn(); } }, ic(icon), label);
 const menuEl = h('div', { class:'menu', id:'menu' });
-/* Меню зависит от экрана: выгрузка и «Лимиты» — только внутри проповеди */
+/* Меню зависит от экрана: выгрузка — только внутри проповеди; «Настройки слайдов» — только админу и редактору */
 function fillMenu(){
   menuEl.innerHTML = '';
   menuEl.append(
@@ -21,10 +21,8 @@ function fillMenu(){
     h('div', { class:'menu-sep' }),
     menuItem('zip', 'Скачать все слайды', () => exportMany()),
     menuItem('phone', 'PDF для оператора', () => operatorPDF()));
-  menuEl.append(
-    h('div', { class:'menu-sep' }),
-    menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));
-  if (screen === 'sermon' && !readOnly()) menuEl.append(menuItem('settings', 'Лимиты', () => openSettings()));
+  menuEl.append(h('div', { class:'menu-sep' }));
+  if (canEditSlidesCfg()) menuEl.append(menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));   // общие для пространства: админ и редактор
   menuEl.append(menuItem('link', 'Источник настроек', () => openConfig()));
   if (cloudOn()) menuEl.append(h('div', { class:'menu-sep' }), h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
   else if (localMode()) menuEl.append(h('div', { class:'menu-sep' }), menuItem('check', 'Войти в облако', () => leaveLocalMode()));

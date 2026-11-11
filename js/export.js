@@ -46,7 +46,7 @@ async function renderJPEG(b){
     if (fitSlide(sl, b) == null) throw new Error('не удалось разложить слайд');
     const stage = sl.querySelector('.sl-stage').cloneNode(true);
     const root = getComputedStyle(document.documentElement);
-    ['--sl-x', '--sl-t', '--sl-b', '--noise'].forEach(k => stage.style.setProperty(k, root.getPropertyValue(k).trim()));
+    stage.style.setProperty('--noise', root.getPropertyValue('--noise').trim());   // поля и расстояния уже стоят на самом слайде (slideEl)
     stage.style.transform = 'none'; stage.style.boxShadow = 'none';
     const wrap = document.createElement('div');
     wrap.className = 'sl';
@@ -99,7 +99,7 @@ function makeZip(files){
 let exporting = false;
 async function exportOne(b){
   if (exporting) return;
-  if (NAMED[b.type] && slidesCfg().names.required && !cleanName(b.name)){
+  if (NAMED[b.type] && !cleanName(b.name)){
     flagMissing = true; selectBlock(b.id); rerender(b);
     const f = sideEl && sideEl.querySelector('.namebox input'); if (f) f.focus();
     toast('Сначала напишите название слайда'); return;

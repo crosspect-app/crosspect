@@ -434,6 +434,44 @@ describe('отметки редактора', () => {
   });
 });
 
+describe('настройки слайдов', () => {
+  const cfg = (db, s = 'sw', id = 'slides') => doc(db, 'spaces', s, 'config', id);
+  const body = (who, extra = {}) => ({ slides: { margins: { side: 60 } }, updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra });
+  test('редактор и админ записывают, все участники читают', async () => {
+    await assertSucceeds(setDoc(cfg(as('ed')), body('ed')));
+    await assertSucceeds(setDoc(cfg(as('admin')), body('admin')));
+    await assertSucceeds(getDoc(cfg(as('ivan'))));
+    await assertSucceeds(getDoc(cfg(as('ed'))));
+  });
+  test('спикер, посторонний и гость не записывают; посторонний и гость не читают', async () => {
+    await assertFails(setDoc(cfg(as('ivan')), body('ivan')));
+    await assertFails(setDoc(cfg(as('stranger')), body('stranger')));
+    await assertFails(setDoc(cfg(anon()), body('ed')));
+    await assertFails(getDoc(cfg(as('stranger'))));
+    await assertFails(getDoc(cfg(anon())));
+  });
+  test('время сервера, своя почта, только нужные поля', async () => {
+    const db = as('ed');
+    await assertFails(setDoc(cfg(db), body('ed', { updatedAt: minutesAgo(1) })));
+    await assertFails(setDoc(cfg(db), body('ed', { updatedBy: PEOPLE.admin })));
+    await assertFails(setDoc(cfg(db), body('ed', { extra: 1 })));
+    await assertFails(setDoc(cfg(db), body('ed', { slides: 'текст' })));
+    await assertFails(setDoc(cfg(db), { updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
+  });
+  test('другие документы рядом не заводятся, удалить нельзя, список закрыт', async () => {
+    const db = as('admin');
+    await assertSucceeds(setDoc(cfg(db), body('admin')));
+    await assertFails(setDoc(cfg(db, 'sw', 'other'), body('admin')));
+    await assertFails(deleteDoc(cfg(db)));
+    await assertFails(getDocs(collection(db, 'spaces', 'sw', 'config')));
+  });
+  test('чужое пространство закрыто', async () => {
+    await assertFails(setDoc(cfg(as('stranger'), 'sw'), body('stranger')));
+    await assertFails(setDoc(cfg(as('ed'), 'other'), body('ed')));
+    await assertFails(getDoc(cfg(as('ed'), 'other')));
+  });
+});
+
 describe('ссылка для оператора', () => {
   const KEY = 'k'.repeat(24);
   const share = (who, extra = {}) => ({
