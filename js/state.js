@@ -40,7 +40,7 @@ function charCount(b){
   switch (b.type){
     case 'scripture':  return b.items.reduce((s, it) => s + (it.kind === 'text' ? plain(it.html).trim().length : it.kind === 'line' ? 0 : partChars(it)), 0);
     case 'thesis':     return plain(b.text).trim().length;
-    case 'quote':      return plain(b.text).trim().length + (b.author || '').trim().length;
+    case 'quote':      return plain(b.text).trim().length + (b.author || '').trim().length + (b.caption || '').trim().length;
   }
   return 0;
 }
@@ -52,11 +52,11 @@ function blockSummary(b){
       t = b.items.map(it => it.kind === 'text' ? plain(it.html) : (it.ref || refString(it))).map(x => String(x || '').trim()).filter(Boolean).join(' · ');
       break;
     case 'thesis': t = plain(b.text); break;
+    case 'splash': t = state.meta.title ? 'Заставка «' + state.meta.title + '»' : 'Заставка'; break;
     case 'quote':  t = plain(b.text).trim() ? '«' + plain(b.text).trim() + '»' + (b.author ? ' — ' + b.author : '') : ''; break;
     case 'image':  t = b.desc || (b.mode === 'send' ? 'Файл пришлют отдельно' : ''); break;
     case 'video':  t = b.url || b.desc || (b.mode === 'send' ? 'Видео пришлют отдельно' : ''); break;
     case 'free':   t = b.desc; break;
-    case 'text':   t = b.text; break;
     case 'note':   t = b.text; break;
   }
   t = String(t || '').replace(/\s+/g, ' ').trim();

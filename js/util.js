@@ -46,6 +46,8 @@ function fmtDate(s){
   return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
 }
 function fmtTime(ts){ return ts ? new Date(ts).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }) : ''; }
+/* 1 слово, 2 слова, 5 слов */
+const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
 function nextNum(n){ n = String(n || '').trim(); return /^\d+$/.test(n) ? String(+n + 1) : ''; }
 
 /* ========= Форматированный текст: только Ж, Ч и выделение ========= */

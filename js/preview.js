@@ -5,7 +5,9 @@
    Писание: место Писания стоит на фиксированной высоте; отступ от базовой линии нижней строки до низа фона
    не меньше, чем от верха букв места Писания до верха фона, иначе всё содержимое пропорционально уменьшается.
    Тезис и цитата: текст по центру своей области (тезис можно выровнять влево или вправо); если не помещается, уменьшается. */
-const SL = { W:1920, min:16, trGap:48 };
+const SL = { W:1920, H:1080, min:16, trGap:48 };
+/* Заставка: название от 200 px (короткое) до 110 px (три строки), слова не переносятся; длиннее — мельче, лишь бы влезло */
+const SPLASH = { max:200, min3:110, lh:1.1, gap:56 };
 let lastScale = 0;   // масштаб последнего предпросмотра в редакторе   // trGap — запас между текстом и подписью перевода
 /* Базовые размеры (100%): Писание 48, тезис 50,4 (было 72, −30%), цитата 51,48 (было 57,2, −10%; имя автора — 52) */
 const BASE = { scripture:48, thesis:50.4, quote:51.48 };   // Писание снова 48 (после проверки на проекторе); общий размер — в настройках слайдов
@@ -107,6 +109,9 @@ function slideEl(b){
   const kids = [h('div', { class:'sl-frame' }),
     h('div', { class:'sl-panel' }, h('div', { class:'sl-glow' }), h('div', { class:'sl-grain' }), h('div', { class:'sl-vig' }))];
   if (b.type === 'scripture') kids.push(h('div', { class:'sl-content' }), h('div', { class:'sl-tr' }));
+  else if (b.type === 'splash') kids.push(
+    h('div', { class:'sl-sp-box' }, h('div', { class:'sl-sp-title' })),
+    h('div', { class:'sl-sp-foot' }, h('div', { class:'sl-hr' }), h('div', { class:'sl-sp-row' }, h('span', { class:'sl-sp-name' }), h('span', { class:'sl-sp-date' }))));
   else {
     kids.push(h('div', { class:'sl-box sl-box-' + b.type }, h('div', { class:'sl-inner' })));
     if (b.type === 'quote') kids.push(h('div', { class:'sl-author' }));
@@ -150,7 +155,10 @@ function slideHTML(b){
     const ref = (it.ref || '').trim();
     if (!ref && !vs.length && out.length) return;
     out.push(ref ? '<div class="sl-ref">' + esc(typoText(ref)) + '</div>' : '<div class="sl-ref ph">Место Писания</div>');
-    vs.forEach(v => out.push('<p class="sl-verse">' + (v.num ? '<sup>' + esc(v.num) + '</sup>' + NBSP : '') + sanitize(v.text) + '</p>'));
+    if (vs.length && b.flow === 'lines')   // каждый стих с новой строки, номера колонкой слева
+      out.push('<div class="sl-vlist">' + vs.map(v => '<span class="sl-vn">' + esc(v.num) + '</span><p class="sl-verse sl-vt">' + sanitize(v.text) + '</p>').join('') + '</div>');
+    else if (vs.length)                    // все стихи в строку, по желанию — в рамке пунктиром
+      out.push('<p class="sl-verse' + (b.frame ? ' framed' : '') + '">' + vs.map(v => (v.num ? '<sup>' + esc(v.num) + '</sup>' + NBSP : '') + sanitize(v.text)).join(' ') + '</p>');
     if (!vs.length && out.length === 1) out.push('<p class="sl-verse sl-empty">Здесь появится текст стихов</p>');
   });
   if (!out.length) out.push('<div class="sl-ref ph">Место Писания</div>');
@@ -163,7 +171,7 @@ function boxHTML(b){
       if (p.kind === 'line'){ out.push('<div class="sl-hr"></div>'); return; }
       const html = sanitize(p.html); if (!plain(html).trim()) return;
       const sc = Math.min(R.max, Math.max(R.min, Math.round(+p.scale || 100))) / 100;
-      out.push('<div class="sl-part' + (p.caps ? ' caps' : '') + '" data-align="' + p.align + '" style="text-align:' + p.align + ';font-size:' + sc + 'em">' + paraHTML(html, true) + '</div>');
+      out.push('<div class="sl-part' + (p.caps ? ' caps' : '') + (p.frame ? ' framed' : '') + '" data-align="' + p.align + '" style="text-align:' + p.align + ';font-size:' + sc + 'em">' + paraHTML(html, true) + '</div>');
     });
     while (out.length && out[0] === '<div class="sl-hr"></div>') out.shift();
     while (out.length && out[out.length - 1] === '<div class="sl-hr"></div>') out.pop();
@@ -173,12 +181,31 @@ function boxHTML(b){
   if (plain(html).trim()) return paraHTML(html, b.type === 'thesis');
   return '<p class="sl-tp sl-empty">' + (b.type === 'quote' ? 'Текст цитаты' : 'Текст тезиса') + '</p>';
 }
-/* «Жан Кальвин, Наставление» → ЖАН **КАЛЬВИН** + источник мелко второй строкой */
-function authorHTML(a){
-  a = String(a || '').trim(); if (!a) return '';
-  const i = a.indexOf(','), name = (i >= 0 ? a.slice(0, i) : a).trim(), src = i >= 0 ? a.slice(i + 1).trim() : '';
+/* Автор «Жан Кальвин» → ЖАН **КАЛЬВИН**; подпись («Наставление») — мелко второй строкой */
+function authorHTML(b){
+  const name = String(b.author || '').trim(), src = String(b.caption || '').trim();
   const w = name.split(/\s+/).filter(Boolean), last = w.pop() || '';
-  return (w.length ? esc(typoText(w.join(' '))) + ' ' : '') + '<b>' + esc(last) + '</b>' + (src ? '<span class="src">' + esc(typoText(src)) + '</span>' : '');
+  const nm = last ? (w.length ? esc(typoText(w.join(' '))) + ' ' : '') + '<b>' + esc(last) + '</b>' : '';
+  return nm + (src ? '<span class="src">' + esc(typoText(src)) + '</span>' : '');
+}
+/* Заставка: «Имя ФАМИЛИЯ» (фамилия жирным) и дата «дд/мм» */
+function splashNameHTML(m){
+  const f = String(m.firstName || '').trim(), l = String(m.lastName || '').trim();
+  return (f ? esc(typoText(f)) + (l ? ' ' : '') : '') + (l ? '<b>' + esc(l) + '</b>' : '');
+}
+function splashDate(s){ const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? m[3] + '/' + m[2] : ''; }
+function layoutSplash(sl, b, px){
+  const m = state.meta, box = sl.querySelector('.sl-sp-box'), t = sl.querySelector('.sl-sp-title'), foot = sl.querySelector('.sl-sp-foot');
+  sl.querySelector('.sl-sp-name').innerHTML = splashNameHTML(m);
+  sl.querySelector('.sl-sp-date').textContent = splashDate(m.date);
+  box.style.bottom = (SL.H - foot.offsetTop + SPLASH.gap) + 'px';   // название — посередине над линией с именем и датой
+  const title = String(m.title || '').trim();
+  t.classList.toggle('sl-empty', !title);
+  t.textContent = typoText(title || 'Название проповеди');
+  wrapScripts(t);
+  t.style.fontSize = px + 'px';
+  const lines = Math.round(t.offsetHeight / (px * SPLASH.lh));
+  return t.scrollWidth <= t.clientWidth + 1 && t.offsetHeight <= box.clientHeight && (lines <= 3 || px <= SPLASH.min3);
 }
 function firstTextRect(root){
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n;
@@ -215,6 +242,10 @@ function trFooterText(b){
 function layoutAt(sl, b, px){
   const content = sl.querySelector('.sl-content');
   content.style.fontSize = px + 'px';
+  content.style.transform = '';
+  content.style.textAlign = b.align === 'left' ? 'left' : 'center';
+  content.classList.toggle('al-left', b.align === 'left');
+  content.classList.toggle('caps', b.caps !== false);
   content.innerHTML = slideHTML(b);
   content.querySelectorAll('.sl-verse, .sl-tp').forEach(typoDom);
   wrapScripts(content);
@@ -226,16 +257,20 @@ function layoutAt(sl, b, px){
   const topGap = ft.top + (fm[ft.wt].asc - fm[ft.wt].cap) * ft.fs * k - panel.top;   // верх заглавных букв первой строки → верх фона
   const lt = lastTextRect(content);
   if (!lt) return true;
-  const baseline = lt.top + fm[lt.wt].asc * lt.fs * k;
+  let baseline = lt.top + fm[lt.wt].asc * lt.fs * k;
+  content.querySelectorAll('.framed').forEach(f => { baseline = Math.max(baseline, f.getBoundingClientRect().bottom); });   // рамка пунктиром ниже текста
   const foot = sl.querySelector('.sl-tr'), ftxt = trFooterText(b);
-  if (foot){ foot.textContent = ftxt ? typoText(ftxt) : ''; foot.classList.toggle('on', !!ftxt); foot.style.fontSize = (scrPx() * 0.9) + 'px'; }   // подпись перевода — 90% от размера стихов
-  if (foot && ftxt) return (foot.getBoundingClientRect().top - baseline) >= SL.trGap * k;   // текст не ближе запаса к подписи перевода
-  return (panel.bottom - baseline) >= topGap - 0.5 * k;
+  if (foot){ foot.textContent = ftxt ? typoText(ftxt) : ''; foot.classList.toggle('on', !!ftxt); foot.style.fontSize = (scrPx() * 0.9) + 'px'; foot.style.textAlign = content.style.textAlign; }   // подпись перевода — 90% от размера стихов
+  // свободное место снизу: до подписи перевода (с запасом) или столько же, сколько сверху
+  const free = foot && ftxt ? (foot.getBoundingClientRect().top - baseline) - SL.trGap * k : (panel.bottom - baseline) - (topGap - 0.5 * k);
+  if (free < 0) return false;
+  if (b.valign === 'center' || b.valign === 'bottom') content.style.transform = 'translateY(' + ((b.valign === 'bottom' ? free : free / 2) / k) + 'px)';
+  return true;
 }
 function layoutBox(sl, b, px){
   const box = sl.querySelector('.sl-box'), inner = sl.querySelector('.sl-inner');
   const au = sl.querySelector('.sl-author');
-  if (au) au.innerHTML = authorHTML(b.author);
+  if (au) au.innerHTML = authorHTML(b);
   inner.style.fontSize = px + 'px';
   const align = b.type === 'thesis' ? (b.align || 'center') : 'center';
   inner.style.textAlign = align; inner.dataset.align = align;
@@ -252,8 +287,8 @@ function fitSlide(sl, b){
   const w = sl.clientWidth; if (!w) return null;
   sl.style.setProperty('--s', w / SL.W);
   if (w < SL.W) lastScale = w / SL.W;
-  const fit = b.type === 'scripture' ? layoutAt : layoutBox;
-  const base = b.type === 'scripture' ? scrPx() : BASE[b.type] * blkScale(b) / 100;
+  const fit = b.type === 'scripture' ? layoutAt : b.type === 'splash' ? layoutSplash : layoutBox;
+  const base = b.type === 'scripture' ? scrPx() : b.type === 'splash' ? SPLASH.max : BASE[b.type] * blkScale(b) / 100;
   if (fit(sl, b, base)) return 1;
   let lo = SL.min, hi = base;
   if (!fit(sl, b, lo)) return lo / base;
@@ -272,7 +307,11 @@ function runPreview(b){
   const ratio = fitSlide(sl, b); if (ratio == null) return;
   const pct = Math.round(ratio * 100);
   let over, msg;
-  if (b.type === 'scripture'){
+  if (b.type === 'splash'){
+    const px = Math.round(ratio * SPLASH.max);
+    over = px < SPLASH.min3;
+    msg = 'название ' + px + ' px' + (over ? ' — длинное, лучше короче' : '');
+  } else if (b.type === 'scripture'){
     const min = state.settings.minScale || DEFAULT_SETTINGS.minScale;
     over = pct < min;
     msg = pct >= 100 ? 'текст 100%' : (over ? 'текст ' + pct + '% — лучше разбить на два слайда' : 'текст уменьшен до ' + pct + '%');

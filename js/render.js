@@ -16,8 +16,10 @@ function renderMain(){
 }
 
 function updateStatus(){
-  const n = slideNums()._total, done = state.blocks.filter(b => b.done).length;
-  const left = h('span', null, 'Слайдов: ' + n + (done ? ' · готово: ' + done : '') + ' · черновик хранится в этом браузере');
+  const n = slideNums()._total, done = state.blocks.filter(b => b.done).length, todo = state.blocks.filter(b => b.todo).length;
+  const words = state.blocks.reduce((s, b) => s + (b.speech ? wordCount(b.speech) : 0), 0), min = words / WORDS_PER_MIN;
+  const left = h('span', null, 'Слайдов: ' + n + (done ? ' · готово: ' + done : '') + (todo ? ' · доработать: ' + todo : '') +
+    (words ? ' · текст ' + (min < 0.75 ? 'меньше минуты' : '≈ ' + Math.round(min) + ' мин') : '') + ' · черновик хранится в этом браузере');
   let right;
   if (isDirty()) right = h('span', { class:'warn' }, '● Не сохранено в файл');
   else if (state.savedAt) right = h('span', { class:'ok' }, '✓ Файл сохранён в ' + fmtTime(state.savedAt));
@@ -31,11 +33,11 @@ function renderEditor(){
   const m = state.meta;
   const metaField = (key, label, ph, type) => h('label', { class:'field' },
     h('span', { class:'lbl', text:label }),
-    h('input', { class:'input', type:type || 'text', placeholder:ph || '', value:m[key] || '', oninput:e => { m[key] = e.target.value; change(); } }));
+    h('input', { class:'input', type:type || 'text', placeholder:ph || '', value:m[key] || '', oninput:e => { m[key] = e.target.value; change(); refreshSplash(); } }));
   mainEl.append(h('section', { class:'card meta' },
     h('div', { class:'kicker', text:'Шапка проповеди' }),
     h('input', { class:'title-input', placeholder:'Название проповеди', value:m.title, 'aria-label':'Название проповеди',
-      oninput:e => { m.title = e.target.value; document.title = (m.title || 'Проповедь') + ' · Слово веры'; change(); } }),
+      oninput:e => { m.title = e.target.value; document.title = (m.title || 'Проповедь') + ' · Слово веры'; change(); refreshSplash(); } }),
     h('div', { class:'meta-grid' },
       metaField('date', 'Дата', '', 'date'),
       preacherField())));
@@ -51,31 +53,35 @@ function renderEditor(){
   if (!state.blocks.length) mainEl.append(h('div', { class:'empty' },
     h('div', { class:'empty-title', text:'Соберите проповедь из блоков' }),
     h('ol', null,
-      h('li', null, 'Добавляйте блоки по ходу проповеди: места Писания, тезисы, цитаты, картинки.'),
-      h('li', null, '«Текст проповеди» и «Заметка оператору» на экран не выводятся: это подсказки оператору.'),
-      h('li', null, 'Готовые блоки можно свернуть, чтобы не мешали.'),
+      h('li', null, 'Добавляйте слайды по ходу проповеди: места Писания, тезисы, цитаты, картинки.'),
+      h('li', null, 'Под каждым слайдом есть «Текст к слайду»: что вы говорите, пока он на экране. На экран этот текст не выводится, его видит оператор.'),
+      h('li', null, 'Если какое-то время говорите без слайда, добавьте «Заставку»: на экране будет название проповеди.'),
+      h('li', null, '«Заметка оператору» — просьба к оператору: запустить видео, включить музыку.'),
       h('li', null, 'Готово? Нажмите «Сохранить» и отправьте получившийся файл.'))));
   mainEl.append(h('button', { type:'button', class:'add-big', onclick:() => openSheet(state.blocks.length) }, ic('plus'), 'Добавить блок'));
   state.blocks.forEach(updateCounter);
   growAll(mainEl);
 }
 
+/* Проповедник: из списка («Фамилия Имя») или вручную — имя и фамилия отдельно (на заставке «Имя ФАМИЛИЯ») */
 function preacherField(){
-  const m = state.meta, known = !m.preacher || PREACHERS.includes(m.preacher);
-  const wrap = h('label', { class:'field' }, h('span', { class:'lbl', text:'Проповедник' }));
-  const sel = h('select', { class:'input', onchange:e => {
-    if (e.target.value === '__other'){ m.preacher = ''; other.style.display = ''; other.focus(); }
-    else { m.preacher = e.target.value; other.style.display = 'none'; }
-    change();
+  const m = state.meta, key = preacherKey(m), known = !key || PREACHERS.includes(key);
+  const upd = () => { change(); refreshSplash(); };
+  const first = h('input', { class:'input', placeholder:'Имя', 'aria-label':'Имя', autocomplete:'off', value:known ? '' : m.firstName || '', oninput:e => { m.firstName = e.target.value; upd(); } });
+  const last = h('input', { class:'input', placeholder:'Фамилия', 'aria-label':'Фамилия', autocomplete:'off', value:known ? '' : m.lastName || '', oninput:e => { m.lastName = e.target.value; upd(); } });
+  const other = h('div', { class:'grid-2', style:known ? 'display:none;margin-top:8px' : 'margin-top:8px' }, first, last);
+  const sel = h('select', { class:'input', 'aria-label':'Проповедник', onchange:e => {
+    if (e.target.value === '__other'){ m.firstName = ''; m.lastName = ''; first.value = ''; last.value = ''; other.style.display = ''; first.focus(); }
+    else { Object.assign(m, splitPreacher(e.target.value)); other.style.display = 'none'; }
+    upd();
   } },
     h('option', { value:'' }, 'Выберите…'),
-    PREACHERS.map(p => h('option', { value:p, selected:p === m.preacher }, p)),
+    PREACHERS.map(p => h('option', { value:p, selected:p === key }, p)),
     h('option', { value:'__other', selected:!known }, 'Другой — ввести вручную'));
-  const other = h('input', { class:'input', placeholder:'Фамилия Имя', value:known ? '' : m.preacher, style:known ? 'display:none;margin-top:8px' : 'margin-top:8px',
-    oninput:e => { m.preacher = e.target.value; change(); } });
-  wrap.append(sel, other);
-  return wrap;
+  return h('div', { class:'field' }, h('span', { class:'lbl', text:'Проповедник' }), sel, other);
 }
+/* Шапка поменялась — заставки перерисовываются */
+function refreshSplash(){ state.blocks.forEach(b => { if (b.type === 'splash') schedulePreview(b); }); }
 
 function insertLine(at){
   return h('div', { class:'insert' }, h('button', { type:'button', title:'Вставить блок сюда', 'aria-label':'Вставить блок сюда', onclick:() => openSheet(at) }, ic('plus')));
@@ -84,12 +90,12 @@ function insertLine(at){
 function renderBlock(b, n){
   const T = TYPES[b.type];
   const miss = flagMissing && NAMED[b.type] && slidesCfg().names.required && !cleanName(b.name);
-  const card = h('article', { class:'block t-' + b.type + (b.collapsed ? ' collapsed' : '') + (b.done ? ' done' : '') + (miss ? ' missing' : ''), 'data-id':b.id, style:'--tc:var(--c-' + b.type + ')' });
+  const card = h('article', { class:'block t-' + b.type + (b.collapsed ? ' collapsed' : '') + (b.done ? ' done' : '') + (b.todo ? ' todo' : '') + (miss ? ' missing' : ''), 'data-id':b.id, style:'--tc:var(--c-' + b.type + ')' });
   let sub;
   if (b.collapsed){
-    const s = blockSummary(b);
-    sub = h('div', { class:'bsum' + (s ? '' : ' empty'), text:s || 'Пока пусто' });
-  } else sub = h('div', { class:'bsub', text:T.slide ? 'Слайд ' + n + (b.done ? ' · готов' : '') : (b.type === 'note' ? 'Только для оператора' : 'На экран не выводится') });
+    const s = blockSummary(b), w = T.slide ? wordCount(b.speech) : 0;
+    sub = h('div', { class:'bsum' + (s || w ? '' : ' empty'), text:[s, w ? 'текст: ' + speechInfo(w) : ''].filter(Boolean).join(' · ') || 'Пока пусто' });
+  } else sub = h('div', { class:'bsub' }, T.slide ? ['Слайд ' + n, b.done && ' · готов', b.todo && h('span', { class:'todo-tag', text:' · доработать' })] : 'Только для оператора');
   card.append(h('div', { class:'bhead' },
     h('div', { class:'btag', title:b.collapsed ? 'Развернуть' : 'Свернуть', onclick:() => toggleFold(b) },
       T.slide ? h('span', { class:'bnum', text:pad(n) }) : h('span', { class:'bnum off' }, ic(T.icon)),
@@ -97,6 +103,7 @@ function renderBlock(b, n){
     h('div', { class:'btools' },
       T.slide && iconBtn('tag', 'Скопировать название слайда', () => copyText(slideName(b, slideNums()[b.id]), 'Скопировано: ')),
       PREVIEW[b.type] && iconBtn('jpg', 'Скачать слайд в JPEG', () => exportOne(b)),
+      T.slide && iconBtn('flag', b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную', () => toggleTodo(b), 'todo' + (b.todo ? ' on' : '')),
       T.slide && iconBtn('check', b.done ? 'Снять отметку «готово»' : 'Отметить как готовый', () => toggleDone(b), 'mark' + (b.done ? ' on' : '')),
       iconBtn(b.collapsed ? 'unfold' : 'fold', b.collapsed ? 'Развернуть' : 'Свернуть', () => toggleFold(b)),
       iconBtn('top', 'В самый верх', () => move(b, -Infinity)),
@@ -116,10 +123,19 @@ function renderBlock(b, n){
         h('div', { class:'bprev-cap' }, h('span', null, 'Предпросмотр'), h('span', { class:'count' }, '')),
         sl)));
     if (previewRO) previewRO.observe(sl);
-    return card;
-  }
-  card.append(body);
+  } else card.append(body);
+  if (T.slide) card.append(speechBox(b));
   return card;
+}
+/* «Текст к слайду»: что проповедник говорит, пока слайд на экране. На экран не идёт; оператор видит его в просмотре и PDF */
+function speechBox(b){
+  const cnt = h('span', { class:'count' }), show = () => { cnt.textContent = speechInfo(wordCount(b.speech)); };
+  show();
+  return h('div', { class:'speech' },
+    h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Текст к слайду' }), cnt),
+    rich(b.speech, { key:b.id + ':speech', cls:'speech-text',
+      ph:b.type === 'splash' ? 'Что вы говорите, пока на экране заставка: вступление, история, переход к следующей мысли' : 'Что вы говорите, пока этот слайд на экране. Оператор увидит этот текст у себя',
+      onInput:v => { b.speech = v; show(); change(); } }));
 }
 
 function rerender(b, focusKey, offset){
@@ -155,6 +171,11 @@ function toggleDone(b){
   b.done = !b.done;
   change(); rerender(b);
 }
+/* Отметка «доработать»: слайд нужно сделать или поправить вручную. Картинка, видео и свободный слайд получают её сами */
+function toggleTodo(b){
+  b.todo = !b.todo;
+  change(); rerender(b);
+}
 function markDone(b){ if (!b.done){ b.done = true; return true; } return false; }
 
 /* поля */
@@ -168,6 +189,9 @@ function area(obj, key, ph, rows){
 }
 function input(obj, key, ph, extra){
   return h('input', Object.assign({ class:'input', placeholder:ph, value:obj[key] || '', oninput:e => { obj[key] = e.target.value; change(); } }, extra || {}));
+}
+function sw(label, checked, fn){
+  return h('label', { class:'switch' }, h('input', { type:'checkbox', checked:!!checked, onchange:e => fn(e.target.checked) }), h('span', { class:'sw' }), label);
 }
 function toggle(opts, cur, fn){
   return h('div', { class:'toggle' }, opts.map(o => h('button', { type:'button', class:o[0] === cur ? 'on' : '', onclick:() => { if (o[0] !== cur) fn(o[0]); } }, o[1])));
@@ -674,9 +698,22 @@ const BODY = {
       chip('plus', 'Текст', () => addItem(b, newTextItem())),
       chip('plus', 'Линия', () => addItem(b, newLineItem())),
       hasScr && chip('arrow', 'Продолжить на новом слайде', () => continueScripture(b), 'accent')));
-    if (hasScr) body.append(h('label', { class:'switch' },
-      h('input', { type:'checkbox', checked:b.showTr !== false, onchange:e => { b.showTr = e.target.checked; change(); updateCounter(b); } }),
-      h('span', { class:'sw' }), 'Показывать перевод на слайде'));
+    const upd = () => { change(); updateCounter(b); };
+    if (hasScr) body.append(
+      h('div', { class:'opt-row' }, h('span', { class:'lbl', style:'margin:0', text:'Стихи' }),
+        toggle([['inline', 'В строку'], ['lines', 'Каждый с новой строки']], b.flow === 'lines' ? 'lines' : 'inline', v => { b.flow = v; change(); rerender(b); }),
+        b.flow !== 'lines' && sw('Рамка пунктиром', b.frame, v => { b.frame = v; upd(); })),
+      h('div', { class:'opt-row' },
+        sw('Стихи заглавными буквами', b.caps !== false, v => { b.caps = v; upd(); }),
+        sw('Показывать перевод на слайде', b.showTr !== false, v => { b.showTr = v; upd(); })));
+    body.append(h('div', { class:'opt-row' }, h('span', { class:'lbl', style:'margin:0', text:'Выравнивание' }),
+      h('div', { class:'itools', title:'Выравнивание по горизонтали' },
+        [['left', 'alignl', 'По левому краю'], ['center', 'alignc', 'По центру']].map(([a, icn, t]) =>
+          iconBtn(icn, t, () => { b.align = a; change(); rerender(b); }, (b.align === 'left' ? 'left' : 'center') === a ? 'on' : ''))),
+      valignTools(b)));
+  },
+  splash(b, body){
+    body.append(h('p', { class:'hint', text:'На заставке — название проповеди, имя проповедника и дата из шапки. Поменять их можно наверху страницы.' }));
   },
   thesis(b, body, n){
     body.append(nameField(b, n));
@@ -695,8 +732,8 @@ const BODY = {
         box.append(rich(p.html, { key:b.id + ':p' + i, lists:true, ph:i ? 'Ещё текст на этом слайде' : 'Мысль, пункт плана или пояснение слова. Enter — новая строка, «- » или «1. » в начале строки — список',
           onInput:v => { p.html = v; syncThesisText(b); syncAutoName(b); change(); updateCounter(b); }, onEnter:listEnter }));
         box.append(h('div', { class:'opt-row' }, partStepper(b, p),
-          h('label', { class:'switch' }, h('input', { type:'checkbox', checked:!!p.caps, onchange:e => { p.caps = e.target.checked; change(); updateCounter(b); } }),
-            h('span', { class:'sw' }), 'Заглавными буквами')));
+          sw('Заглавными буквами', p.caps, v => { p.caps = v; change(); updateCounter(b); }),
+          sw('Рамка пунктиром', p.frame, v => { p.frame = v; change(); updateCounter(b); })));
       }
       if (i) body.append(h('div', { class:'divider', text:'на этом же слайде' }));
       body.append(box);
@@ -710,7 +747,9 @@ const BODY = {
     body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Цитата' }), scaleStepper(b)),
       rich(b.text, { key:b.id + ':t', ph:'Текст цитаты, без кавычек. Enter — новая строка', onInput:v => { b.text = v; change(); updateCounter(b); } })));
     body.append(capsSwitch(b));
-    body.append(field('Автор', input(b, 'author', 'Имя Фамилия, а через запятую, если нужно, источник', { oninput:e => { b.author = e.target.value; change(); updateCounter(b); } })));
+    body.append(h('div', { class:'grid-2' },
+      field('Автор', input(b, 'author', 'Имя Фамилия', { oninput:e => { b.author = e.target.value; change(); updateCounter(b); } })),
+      field('Подпись — мелко под автором', input(b, 'caption', 'Книга, год, откуда цитата', { oninput:e => { b.caption = e.target.value; change(); updateCounter(b); } }))));
   },
   image(b, body, n){
     body.append(nameField(b, n));
@@ -733,12 +772,6 @@ const BODY = {
     body.append(nameField(b, n));
     body.append(field('Что должно быть на слайде', area(b, 'desc', 'Опишите словами: три перевода рядом, схема, особая вёрстка… Можно вставить тексты и ссылки', 4)));
   },
-  text(b, body){
-    body.append(area(b, 'text', 'Вставьте кусок проповеди до следующего слайда. На экран не выводится, это подсказка оператору', 4));
-    body.append(h('label', { class:'switch' },
-      h('input', { type:'checkbox', checked:b.splash, onchange:e => { b.splash = e.target.checked; change(); } }),
-      h('span', { class:'sw' }), 'Здесь вывести заставку проповеди'));
-  },
   note(b, body){
     body.append(area(b, 'text', 'Например: после слов «…и Он сказал им» запустить видео', 2));
     body.append(h('p', { class:'hint', text:'Оператор увидит заметку крупно и заглавными буквами, даже если скроет текст проповеди.' }));
@@ -757,7 +790,7 @@ function addBlock(type, at){
     card.scrollIntoView({ block:'center', behavior:'smooth' });
     flash(nb.id);
     // тезис и цитата: курсор сразу в текст (название тезиса сформируется из него само)
-    const f = (type === 'thesis' || type === 'quote') ? card.querySelector('.bbody .rich') : card.querySelector('.bbody input, .bbody textarea, .bbody .rich');
+    const f = (type === 'thesis' || type === 'quote') ? card.querySelector('.bbody .rich') : type === 'splash' ? card.querySelector('.speech .rich') : card.querySelector('.bbody input, .bbody textarea, .bbody .rich');
     if (f && window.matchMedia('(pointer:fine)').matches) f.focus({ preventScroll:true });
   }
 }
@@ -772,7 +805,8 @@ function addItem(b, it){
 function continueScripture(b){
   const scr = b.items.filter(it => it.kind === 'scripture'), lp = scr[scr.length - 1];
   const nb = newBlock('scripture');
-  nb.showTr = b.showTr !== false;   // настройка «Показывать перевод» переходит на новый слайд
+  ['caps', 'flow', 'frame', 'align', 'valign'].forEach(k => { nb[k] = b[k]; });
+  nb.showTr = b.showTr !== false;   // вид слайда и «Показывать перевод» переходят на новый слайд
   if (lp.manual){
     const last = lp.verses[lp.verses.length - 1];
     const nx = nextNum(last.num);
@@ -805,14 +839,25 @@ function move(b, dir){
 }
 function duplicate(b){
   const c = JSON.parse(JSON.stringify(b)); c.id = uid(); c.done = false;
+  const had = TYPES[b.type].slide && plain(b.speech).trim();
+  if (TYPES[b.type].slide) c.speech = '';   // текст к слайду не копируется: иначе он окажется в проповеди дважды
   state.blocks.splice(state.blocks.indexOf(b) + 1, 0, c);
-  change(); renderMain(); flash(c.id); toast('Блок скопирован');
+  change(); renderMain(); flash(c.id); toast(had ? 'Слайд скопирован без текста к нему' : 'Блок скопирован');
 }
+/* Удаление слайда: его «Текст к слайду» не пропадает, а переходит к слайду перед ним (или после, если это первый) */
 function removeBlock(b){
   const i = state.blocks.indexOf(b);
+  let heir = null, heirOld = '';
+  if (TYPES[b.type].slide && plain(b.speech).trim()){
+    const prev = state.blocks.slice(0, i).reverse().find(x => TYPES[x.type].slide), next = state.blocks.slice(i + 1).find(x => TYPES[x.type].slide);
+    heir = prev || next || null;
+    if (heir){ heirOld = heir.speech; heir.speech = prev ? joinSpeech(heir.speech, b.speech) : joinSpeech(b.speech, heir.speech); }
+  }
   state.blocks.splice(i, 1);
   change(); renderMain();
-  toast('Блок удалён', 'Вернуть', () => {
+  const msg = heir ? 'Слайд удалён, текст к нему перенесён к слайду ' + slideNums()[heir.id] : TYPES[b.type].slide ? 'Слайд удалён' : 'Заметка удалена';
+  toast(msg, 'Вернуть', () => {
+    if (heir) heir.speech = heirOld;
     state.blocks.splice(Math.min(i, state.blocks.length), 0, b);
     change(); renderMain(); flash(b.id);
   });
@@ -922,7 +967,7 @@ function renderView(){
   const v = h('div', { class:'view', style:'--vs:' + viewOpts.size });
   v.append(h('div', { class:'vhead' },
     h('h1', { class:'vtitle', text:m.title || 'Без названия' }),
-    h('div', { class:'vmeta', text:[fmtDate(m.date), m.preacher].filter(Boolean).join(' · ') }),
+    h('div', { class:'vmeta', text:[fmtDate(m.date), preacherName(m)].filter(Boolean).join(' · ') }),
     null));
   const setSize = d => { viewOpts.size = Math.max(0.8, Math.min(1.6, Math.round((viewOpts.size + d) * 10) / 10)); LS.set('swp-view', JSON.stringify(viewOpts)); renderMain(); };
   v.append(h('div', { class:'vctrl' },
@@ -932,21 +977,18 @@ function renderView(){
       h('button', { type:'button', title:'Крупнее', onclick:() => setSize(0.1) }, 'A+'))));
   const list = h('div', { class:'vlist' });
   state.blocks.forEach(b => {
-    if (b.type === 'text'){
-      const showBody = viewOpts.showText && b.text.trim();
-      if (!showBody && !b.splash) return;
-      list.append(h('div', { class:'vtx' },
-        b.splash && h('div', { class:'vsplash' }, ic('splash'), 'Заставка'),
-        showBody && h('div', { class:'vtx-body', text:b.text })));
-    } else if (b.type === 'note'){
+    if (b.type === 'note'){
       // заметки оператору видны всегда, даже в режиме «Только слайды»
       if (!(b.text || '').trim()) return;
       list.append(h('div', { class:'vnote' },
         h('div', { class:'vnote-tag' }, ic('note'), 'Оператору'),
         h('div', { class:'vnote-body', text:b.text.trim() })));
-    } else list.append(viewSlide(b, nums[b.id]));
+    } else {
+      list.append(viewSlide(b, nums[b.id]));
+      if (viewOpts.showText && plain(b.speech).trim()) list.append(h('div', { class:'vtx' }, h('div', { class:'vtx-body', html:sanitize(b.speech) })));
+    }
   });
-  if (!state.blocks.length) list.append(h('p', { class:'hint', text:'Пока нет ни одного блока. Переключитесь в «Редактор» или откройте файл проповеди.' }));
+  if (!state.blocks.length) list.append(h('p', { class:'hint', text:'Пока нет ни одного слайда. Переключитесь в «Редактор» или откройте файл проповеди.' }));
   v.append(list);
   wrapScripts(v);
   mainEl.append(v);
@@ -975,6 +1017,9 @@ function viewSlide(b, n){
   const c = h('div', { class:'vs-body' });
   const desc = t => t && t.trim() ? h('div', { class:'vs-mdesc', text:t }) : null;
   switch (b.type){
+    case 'splash':
+      c.append(h('div', { class:'vs-name', text:state.meta.title || 'Без названия' }));
+      break;
     case 'scripture':
       b.items.forEach((it, i) => {
         if (i) c.append(h('div', { class:'vs-hr' }));
@@ -987,7 +1032,7 @@ function viewSlide(b, n){
       break;
     case 'quote':
       c.append(h('blockquote', { class:'vs-quote', html:'«' + sanitize(b.text) + '»' }));
-      if (b.author) c.append(h('div', { class:'vs-author', text:'— ' + b.author }));
+      if (b.author || b.caption) c.append(h('div', { class:'vs-author', text:'— ' + [b.author, b.caption].filter(Boolean).join(', ') }));
       break;
     case 'image':
       c.append(nameView(b));
@@ -1019,7 +1064,8 @@ function slideText(b){
   switch (b.type){
     case 'scripture':  return b.items.filter(it => it.kind !== 'line').map(it => it.kind === 'text' ? plain(it.html).trim() : P(it)).filter(Boolean).join('\n\n');
     case 'thesis':     return plain(b.text).trim();
-    case 'quote':      return '«' + plain(b.text).trim() + '»' + (b.author ? '\n— ' + b.author : '');
+    case 'quote':      return '«' + plain(b.text).trim() + '»' + (b.author || b.caption ? '\n— ' + [b.author, b.caption].filter(Boolean).join(', ') : '');
+    case 'splash':     return state.meta.title || '';
     case 'video':      return [b.url, b.desc].filter(Boolean).join('\n');
     default:           return b.desc || '';
   }

@@ -64,7 +64,8 @@ def test_save_writes_json_and_reopens(page, sermon):
     assert d.suggested_filename == "2026-11-15 Тест формы.json"
     saved = json.loads(open(d.path(), encoding="utf-8").read())
     assert saved["app"] == "swp-sermon"
-    assert [b["type"] for b in saved["blocks"]] == [b["type"] for b in sermon["blocks"]]
+    assert [b["type"] for b in saved["blocks"]] == page.evaluate("state.blocks.map(b => b.type)")
+    assert saved["v"] == 2
     assert saved["savedAt"] > 0
     # сохранённый файл открывается заново и даёт ту же проповедь
     page.evaluate("state = blank(); renderAll()")
@@ -117,7 +118,7 @@ def test_export_all_slides_zip(page, sermon):
     assert d.suggested_filename == "2026-11-15 Тест формы.zip"
     z = zipfile.ZipFile(io.BytesIO(open(d.path(), "rb").read()))
     jpgs = [n for n in z.namelist() if n.endswith(".jpg")]
-    assert len(jpgs) == 3   # Писание, тезис, цитата; картинка, видео и свободный слайд не собираются
+    assert len(jpgs) == 4   # заставка (из текста в начале старого файла), Писание, тезис, цитата; картинка, видео и свободный не собираются
     for n in jpgs:
         assert n.startswith("2026-11-15 Тест формы/")
         assert jpeg_size(z.read(n)) == (1920, 1080)

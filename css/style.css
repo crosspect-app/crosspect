@@ -7,7 +7,7 @@
   --warn:#ffcf4a; --warn-bg:rgba(255,207,74,.12); --danger:#ff8b7b; --ok:#86e0a0;
   --topbar:rgba(10,12,17,.8); --mark:rgba(231,174,137,.34); --shadow:0 18px 50px rgba(0,0,0,.45);
   --c-scripture:#f1cfb3; --c-scripture2:#dc9f7a; --c-thesis:#b8a8ff; --c-quote:#8ddcc7;
-  --c-image:#ff9fc2; --c-video:#ff9472; --c-free:#a3abbd; --c-text:rgba(251,247,240,.28); --c-note:#ffcf4a;
+  --c-image:#ff9fc2; --c-video:#ff9472; --c-free:#a3abbd; --c-splash:#ecdfcf; --c-note:#ffcf4a; --todo:#ff8a3d;
   --r:20px;
   /* Поля слайда в пикселях кадра 1920×1080: панель отступает от края на 44, поля считаются от края панели (по умолчанию 60) */
   --sl-x:104px; --sl-t:104px; --sl-b:104px;
@@ -22,7 +22,7 @@
     --warn:#9a6a00; --warn-bg:rgba(230,170,20,.14); --danger:#c2412f; --ok:#2e9a55;
     --topbar:rgba(244,239,231,.84); --mark:rgba(226,164,126,.42); --shadow:0 18px 50px rgba(60,40,20,.15);
     --c-scripture:#c27a52; --c-scripture2:#a65a34; --c-thesis:#6b56d8; --c-quote:#1f8d73;
-    --c-image:#c44579; --c-video:#c9532f; --c-free:#6c7486; --c-text:rgba(30,23,17,.25); --c-note:#b07a00;
+    --c-image:#c44579; --c-video:#c9532f; --c-free:#6c7486; --c-splash:#8a6d45; --c-note:#b07a00; --todo:#c2560f;
   }
 }
 *{box-sizing:border-box}
@@ -77,6 +77,7 @@ button{cursor:pointer}
 .icon-btn:hover{background:var(--surface-2);color:var(--text);border-color:var(--line)}
 .icon-btn.danger:hover{color:var(--danger)}
 .icon-btn.mark.on{color:var(--ok);background:color-mix(in srgb, var(--ok) 15%, transparent);border-color:color-mix(in srgb, var(--ok) 35%, transparent)}
+.icon-btn.todo.on{color:var(--todo);background:color-mix(in srgb, var(--todo) 15%, transparent);border-color:color-mix(in srgb, var(--todo) 40%, transparent)}
 .menu{
   position:absolute;right:0;top:calc(100% + 8px);min-width:230px;background:var(--surface);border:1px solid var(--line-2);
   border-radius:16px;padding:6px;box-shadow:var(--shadow);display:none;z-index:40;
@@ -171,6 +172,12 @@ mark{background:var(--mark);color:inherit;border-radius:5px;padding:0 3px;-webki
 .block.collapsed .bnum{height:34px;min-width:34px;border-radius:11px;font-size:13px}
 .bsum{display:block;margin-top:2px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .bsum.empty{color:var(--faint)}
+.todo-tag{color:var(--todo);font-weight:500}
+.block.todo::after{content:"";position:absolute;right:-1px;top:-1px;width:14px;height:14px;border-radius:0 var(--r) 0 10px;background:var(--todo)}   /* «доработать»: оранжевый уголок */
+/* Текст к слайду */
+.speech{margin-top:16px;padding-top:14px;border-top:1px dashed var(--line-2)}
+.speech .count{font-size:10.5px;color:var(--faint);margin-bottom:7px}
+.rich.speech-text{min-height:64px;font-size:13px;line-height:1.7}
 .grid-2{display:grid;grid-template-columns:1.3fr 1fr;gap:10px}
 .verses{display:grid;gap:8px}
 .verse{display:grid;grid-template-columns:56px 1fr 30px;gap:8px;align-items:start}
@@ -315,6 +322,22 @@ mark{background:var(--mark);color:inherit;border-radius:5px;padding:0 3px;-webki
 .sl-author{position:absolute;right:var(--sl-x);bottom:var(--sl-b);max-width:1500px;text-align:right;font-size:52px;line-height:1.05;font-weight:400;text-transform:uppercase;letter-spacing:-0.03em}
 .sl-author b{font-weight:700}
 .sl-author .src{display:block;margin-top:.45em;font-size:.62em;text-transform:none;opacity:.75}
+/* Писание: заглавными (по умолчанию), «каждый стих с новой строки» — номера колонкой слева */
+.sl-content.caps .sl-verse{text-transform:uppercase}
+.sl-vlist{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:.45em;row-gap:.3em;align-items:first baseline;width:fit-content;max-width:100%;margin:0 auto;text-align:left}
+.sl-content.al-left .sl-vlist{margin-left:0}
+.sl-vn{font-weight:700;font-size:.6em;line-height:1;text-align:right;letter-spacing:0;min-width:1.1em}
+/* Рамка пунктиром: вокруг стихов (в строку) и вокруг части тезиса. Толщину проверить на проекторе (ориентир 3 px на 1080) */
+.sl-verse.framed,.sl-part.framed{border:3px dashed rgba(236,223,207,.85);border-radius:12px;padding:.45em .7em}
+/* Заставка: название посередине, внизу линия, «Имя ФАМИЛИЯ» слева и дата справа */
+.sl-sp-box{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);bottom:300px;display:flex;flex-direction:column;justify-content:center}
+.sl-sp-title{font-weight:900;text-transform:uppercase;text-align:center;line-height:1.1;letter-spacing:0;overflow-wrap:normal;word-break:keep-all;hyphens:manual;text-wrap:balance}
+.sl-sp-foot{position:absolute;left:var(--sl-x);right:var(--sl-x);bottom:var(--sl-b);font-size:44px;line-height:1.1;font-weight:400;letter-spacing:-0.03em}
+.sl-sp-foot .sl-hr{margin:0 0 .6em}
+.sl-sp-row{display:flex;justify-content:space-between;align-items:baseline;gap:1em;min-height:1.1em}
+.sl-sp-name b{font-weight:700;text-transform:uppercase}
+.sl-stage.cv-all .sl-sp-foot{font-weight:325}
+.sl-stage.cv-all .sl-sp-name b{font-weight:700}
 
 
 /* ---------- Выбор места Писания ---------- */
@@ -534,6 +557,8 @@ select.input:disabled{opacity:.5;cursor:default}
 #print-op .op-note-tag{font-size:6pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7a5a00;margin-bottom:1mm}
 #print-op .op-note-body{white-space:pre-wrap;text-transform:uppercase;font-weight:700;font-size:9.5pt;line-height:1.35}
 #print-op .op-slide{margin:3mm 0;padding:2.4mm 3mm 2.8mm;border:.35mm solid #dcd5cb;border-left:1.6mm solid var(--tc);border-radius:2mm;break-inside:avoid}
+#print-op .op-slide.op-cover{padding-bottom:2mm}
+#print-op .op-cover .op-row{margin-bottom:0}
 #print-op .op-row{display:flex;align-items:baseline;gap:2.4mm;margin-bottom:1.4mm}
 #print-op .op-num{font-size:17pt;font-weight:700;line-height:1;letter-spacing:-0.04em;color:var(--tc)}
 #print-op .op-type{font-size:6pt;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:#8f877e}

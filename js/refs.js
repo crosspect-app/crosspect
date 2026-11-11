@@ -61,7 +61,7 @@ const bookRefName = (lang, n) => n === 19 ? (PSALM_REF[bkLang(lang)] || PSALM_RE
 const ABBR = 'Быт.|Исх.|Лев.|Чис.|Втор.|Нав.|Суд.|Руф.|1 Цар.|2 Цар.|3 Цар.|4 Цар.|1 Пар.|2 Пар.|Езд.|Неем.|Есф.|Иов.|Пс.|Притч.|Еккл.|Песн.|Ис.|Иер.|Плач.|Иез.|Дан.|Ос.|Иоил.|Ам.|Авд.|Ион.|Мих.|Наум.|Авв.|Соф.|Агг.|Зах.|Мал.|Мф.|Мк.|Лк.|Ин.|Деян.|Рим.|1 Кор.|2 Кор.|Гал.|Еф.|Флп.|Кол.|1 Фес.|2 Фес.|1 Тим.|2 Тим.|Тит.|Флм.|Евр.|Иак.|1 Пет.|2 Пет.|1 Ин.|2 Ин.|3 Ин.|Иуд.|Откр.'.split('|');
 
 /* ========= Названия слайдов (имена файлов) =========
-   Писание: «[3] 1 КОР. 12_7-9,12» · цитата: «[4] цитата Оливер КАН» · тезис, картинка, видео, свободный: «[5] своё название» */
+   Заставка: «[1] заставка» · Писание: «[3] 1 КОР. 12_7-9,12» · цитата: «[4] цитата Оливер КАН» · тезис, картинка, видео, свободный: «[5] своё название» */
 const BAD_CHARS = /[\\/:*?"<>|]/g;          // символы, которые нельзя в именах файлов Windows
 const NAMED = { thesis:true, image:true, video:true, free:true };   // у этих слайдов название пишут вручную
 const cleanName = s => String(s || '').replace(BAD_CHARS, '').replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().replace(/[ .]+$/, '');
@@ -87,7 +87,8 @@ function quoteNamePart(b){
 }
 function slideName(b, n){
   let part = '';
-  if (b.type === 'scripture') part = scriptureNamePart(b);
+  if (b.type === 'splash') part = 'заставка';
+  else if (b.type === 'scripture') part = scriptureNamePart(b);
   else if (b.type === 'quote') part = quoteNamePart(b);
   else if (NAMED[b.type]) part = b.name || '';
   return cleanName('[' + n + '] ' + cleanName(part));

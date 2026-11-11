@@ -96,7 +96,6 @@ function makeZip(files){
   end.setUint32(12, size, true); end.setUint32(16, off, true);
   return new Blob(parts.concat(central, [end]), { type:'application/zip' });
 }
-const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
 let exporting = false;
 async function exportOne(b){
   if (exporting) return;

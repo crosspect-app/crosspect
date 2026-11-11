@@ -13,15 +13,15 @@
 | Файл | Что внутри |
 |---|---|
 | `css/style.css` | токены цветов (тёмная/светлая тема), интерфейс, слайд `.sl*` (кадр 1920×1080), печать `#print-op` |
-| `js/defaults.js` | `DEFAULT_SETTINGS` (лимиты), `CONFIG_URL_DEFAULT`, `SLIDES_DEFAULT` (поля, названия, размеры, временный `font.canva`), `ICONS`, `TYPES` (порядок = окно «Что добавить?») |
-| `js/util.js` | утилиты (`h`, `$`, `LS`…); форматированный текст: `cleanHTML` / `sanitize` — разрешены только `b i u mark br span.up` |
+| `js/defaults.js` | `DEFAULT_SETTINGS` (лимиты), `CONFIG_URL_DEFAULT`, `SLIDES_DEFAULT` (поля, названия, размеры, `font.canva` — плотность шрифта, по умолчанию `all`), `ICONS`, `TYPES` (порядок = окно «Что добавить?»; `slide`, `top`, `todo`), `PREVIEW`, `WORDS_PER_MIN` |
+| `js/util.js` | утилиты (`h`, `$`, `LS`, `plural`…); форматированный текст: `cleanHTML` / `sanitize` — разрешены только `b i u mark br span.up` |
 | `js/refs.js` | справочники `PREACHERS`, `LANGS` (переводы), `BOOKS`, `ABBR` (синодальные сокращения); названия слайдов: `BAD_CHARS`, `NAMED`, `cleanName`, `slideName`, `scriptureNamePart`, `quoteNamePart` |
 | `js/bible.js` | тексты Библии: `loadBible` (Beblia/Zefania), `cleanVerse`, `syncVerses`, `refString` |
-| `js/model.js` | модель данных: `newBlock`, `newScripture`, `newPart` (свой перевод), `newTextItem`, `newLineItem`, `newThesisPart`, `normalize` / `normItem` (перевод старых форматов); общие настройки слайдов: `mergeSlides`, `slidesCfg` (config + localStorage `swp-slides-local`), `applySlides` (CSS-переменные полей), `missingNames`, `checkNames` |
+| `js/model.js` | модель данных: `newBlock`, `newScripture`, `newPart` (свой перевод), `newTextItem`, `newLineItem`, `newThesisPart`, `splitPreacher` / `preacherName` / `preacherKey`, `normalize` / `normItem` (перевод старых форматов, в том числе v1 → v2), `wordCount` / `speechInfo`; общие настройки слайдов: `mergeSlides`, `slidesCfg` (config + localStorage `swp-slides-local`), `applySlides` (CSS-переменные полей), `missingNames`, `checkNames` |
 | `js/state.js` | `state`, `change`, `persistDraft`, `slideNums`, `blockSummary` |
 | `js/shell.js` | каркас: верхняя панель, меню «⋯», окна, панель оформления |
-| `js/render.js` | `renderAll`, `renderEditor`, `renderBlock`, `rerender`, `BODY[type]` (редакторы блоков), `nameField`, `autoName`, списки (`toggleList`, `listEnter`, `autoList`), `toggleUp`, `toggleMark`; просмотр: `renderView`, `viewSlide`, `nameView` |
-| `js/preview.js` | предпросмотр слайдов: `typoText`, `fixOrphan`, `wrapScripts` (греческий/иврит → `span.xl`), `slideEl`, `slideHTML` (Писание), `boxHTML` / `paraHTML` (тезис, цитата, списки), `layoutAt`, `layoutBox`, `fitSlide` (бинарный поиск размера), `BASE`, `scrPx` |
+| `js/render.js` | `renderAll`, `renderEditor`, `preacherField`, `refreshSplash`, `renderBlock`, `speechBox` («Текст к слайду»), `rerender`, `BODY[type]` (редакторы блоков), `nameField`, `autoName`, списки (`toggleList`, `listEnter`, `autoList`), `toggleUp`, `toggleMark`, `toggleTodo`, `removeBlock` (текст удалённого слайда переходит соседу); просмотр: `renderView`, `viewSlide`, `nameView` |
+| `js/preview.js` | предпросмотр слайдов: `typoText`, `fixOrphan`, `wrapScripts` (греческий/иврит → `span.xl`), `slideEl`, `slideHTML` (Писание: в строку / с новой строки), `boxHTML` / `paraHTML` (тезис, цитата, списки), `authorHTML`, `layoutSplash` (заставка), `layoutAt` (Писание, выравнивание по вертикали), `layoutBox`, `fitSlide` (бинарный поиск размера), `BASE`, `SPLASH`, `scrPx` |
 | `js/files.js` | `saveFile` (проверка названий) / `writeFile`, `parseSermonFile`, открытие файла, `newSermon` |
 | `js/export.js` | выгрузка JPEG: `exportFonts` (CSS шрифтов с встроенными woff2), `slideCSS`, `renderJPEG` (SVG foreignObject → canvas), `makeZip` (ZIP без сжатия, UTF-8), `exportOne`, `exportMany`, `markDone` |
 | `js/print.js` | PDF для оператора: `#print-op`, `@page op` 80×170 мм, `buildOperatorPrint`, `operatorPDF` |
@@ -32,15 +32,18 @@
 ## Модель проповеди
 Файл проповеди (`.json`) — это сам `state`:
 ```
-state = { app:'swp-sermon', v:1, id, createdAt, updatedAt, savedAt,
-  meta:{ title, date, preacher }, settings:{ minScale, limitThesis, limitQuote, lang }, blocks:[…] }
+state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
+  meta:{ title, date, firstName, lastName }, settings:{ minScale, limitThesis, limitQuote, lang }, blocks:[…] }
 ```
-Общее у блоков: `id, type, collapsed, done`. По типам:
-- `scripture`: `showTr`, `items:[ {kind:'scripture', lang, book, chapter, sel, verses:[{num,text,orig}], ref, translation} | {kind:'scripture', manual:true, mBook, mChapter, mVerses, translation, verses:[{num,text}]} | {kind:'text', html, align, caps} | {kind:'line'} ]`
-- `thesis`: `name, nameAuto, valign, parts:[ {kind:'text', html, align, scale, caps} | {kind:'line'} ]`; `text` — склейка частей (для названия и старых версий)
-- `quote`: `text, author, scale, caps`
+Блоки — слайды по порядку и заметки оператору между ними. Общее: `id, type, collapsed`. У слайдов (`TYPES[type].slide`) ещё `done` («готово»), `todo` («доработать») и `speech` — «Текст к слайду», HTML (`sanitize`). По типам:
+- `splash`: только общие поля; название, имя и дата берутся из `meta`
+- `scripture`: `showTr`, `caps` (стихи заглавными), `flow` ('inline' | 'lines'), `frame` (рамка пунктиром, только 'inline'), `align` ('left' | 'center'), `valign` ('top' | 'center' | 'bottom'), `items:[ {kind:'scripture', lang, book, chapter, sel, verses:[{num,text,orig}], ref, translation} | {kind:'scripture', manual:true, mBook, mChapter, mVerses, translation, verses:[{num,text}]} | {kind:'text', html, align, caps} | {kind:'line'} ]`
+- `thesis`: `name, nameAuto, valign, parts:[ {kind:'text', html, align, scale, caps, frame} | {kind:'line'} ]`; `text` — склейка частей (для названия и старых версий)
+- `quote`: `text, author, caption, scale, caps`
 - `image`: `name, mode('find'|'send'), desc`; `video`: `name, mode('link'|'send'), url, from, to, desc`; `free`: `name, desc`
-- `text`: `text, splash`; `note`: `text`
+- `note`: `text` (не слайд: без номера, `done`, `todo`, `speech`)
+
+Версия 1 (до 11 ноября 2026) переводится в `normalize`: блоки `text` (`text, splash`) становятся `speech` слайда перед ними, а если слайда перед ними нет или `splash:true` — новой заставкой; `meta.preacher` («Фамилия Имя») → `lastName` + `firstName`; `quote.author` «Имя Фамилия, источник» → `author` + `caption`; картинка, видео и свободный без `todo` получают `todo = !done`; новые поля Писания — значения по умолчанию.
 
 `id` переводов в `config.json` не менять: по ним сохранённые проповеди помнят перевод.
 
@@ -53,8 +56,9 @@ state = { app:'swp-sermon', v:1, id, createdAt, updatedAt, savedAt,
 ## Проверка
 Тесты — `tests/`, Python + Playwright + pytest (Chromium есть в рабочей среде Claude). Запуск: `python3 -m pytest tests -q`. Тесты сами поднимают локальный сервер с репозиторием.
 - `test_form.py`: форма запускается без ошибок; «Открыть» читает `.json` и старый HTML; «Сохранить» и Ctrl+S пишут `.json`, который открывается снова; черновик переживает перезагрузку; просмотр; JPEG 1920×1080; ZIP со слайдами; PDF для оператора шириной 80 мм.
+- `test_model.py`: модель v2 — перевод старых файлов (текст → к слайду / заставка, имя и фамилия, подпись цитаты), сохранение и открытие новых полей, «доработать», «Текст к слайду» со счётчиком, удаление и копирование слайда с текстом, проповедник вручную, заставка (размер, имя, дата, название файла, JPEG), режимы Писания, рамки, подпись цитаты, текст в просмотре и PDF, шрифт как в Canva по умолчанию.
 - `test_static.py`: `node --check` для каждого `js/*.js`; нет «сырых» U+00A0/U+00AD/U+2028/U+2029 (только экранированные); каждый модуль подключён в `index.html` один раз.
-- `tests/fixtures/sermon.json` — проповедь со всеми типами блоков.
+- `tests/fixtures/sermon.json` — проповедь в старом формате (v1) со всеми типами блоков, включая «Текст проповеди»: заодно проверяет перевод на новую модель.
 - Выгрузка JPEG берёт шрифты из интернета, поэтому тестам нужна сеть.
 - Для проверки в консоли страницы: `state`, `newBlock`, `exportOne(...)` и остальное доступны как глобальные имена.
 

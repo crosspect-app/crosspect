@@ -8,8 +8,10 @@ const CONFIG_URL_DEFAULT = 'https://raw.githubusercontent.com/crosspect-app/cros
 /* Общие настройки слайдов. Берутся из config.json (раздел "slides"); в окне «Поля и названия слайдов»
    их можно временно поменять в своём браузере и скопировать строку для config.json.
    margins — поля от края цветной панели в пикселях кадра 1920×1080; names — названия слайдов для файлов */
-const SLIDES_DEFAULT = { margins:{ side:60, top:60, bottom:60 }, names:{ required:true, maxLength:35 }, font:{ canva:'off' },   // font.canva — временный тест: off / verses / all
-  sizes:{ scripture:{ size:100 }, thesis:{ min:70, max:130 }, quote:{ min:70, max:110 } } };   // scripture.size — общий размер стихов, 100% = 48 px   // насколько можно уменьшить и увеличить текст, % от базового
+/* font.canva — плотность шрифта: all — как в Canva, основной (толщина 325, буквы −0,04 em, строки 1,05); off — прежний (400, 1,25); verses — как в Canva только стихи.
+   Пока не проверено на проекторе, переключатель остаётся в «Настройках слайдов» */
+const SLIDES_DEFAULT = { margins:{ side:60, top:60, bottom:60 }, names:{ required:true, maxLength:35 }, font:{ canva:'all' },
+  sizes:{ scripture:{ size:110 }, thesis:{ min:70, max:130 }, quote:{ min:70, max:110 } } };   // scripture.size — общий размер стихов, 100% = 48 px (110% — как в Canva)   // thesis, quote — насколько можно уменьшить и увеличить текст, % от базового
 const PANEL_INSET = 44;   // панель отступает от края кадра на 44 px
 
 const ICONS = {
@@ -54,20 +56,26 @@ const ICONS = {
   vbot:'<path d="M4 19.5h16"/><path d="M10 7h4M8 11h8M8 15h8"/>',
   alignc:'<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
   alignr:'<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
-  reset:'<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>'
+  reset:'<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>',
+  cover:'<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M8 10h8M9.5 13h5"/><path d="M6.5 16.5h11" opacity=".55"/>',
+  flag:'<path d="M5.5 21V4"/><path d="M5.5 4.5h11l-2.5 4 2.5 4h-11"/>',
+  frameDash:'<rect x="4" y="6" width="16" height="12" rx="2" stroke-dasharray="2.6 2.2"/>'
 };
 
-/* Порядок здесь = порядок в окне «Что добавить?»: первые два — верхняя строка (широкий текст и узкая заметка), дальше парами */
+/* Порядок здесь = порядок в окне «Что добавить?»: top — верхняя строка (широкая заставка и узкая заметка), дальше парами.
+   slide — слайд с номером; todo — при создании сразу получает отметку «доработать» (такой слайд делают вручную) */
 const TYPES = {
-  text:      { label:'Текст проповеди', icon:'text', slide:false, desc:'На экран не идёт: подсказка оператору, где вы сейчас' },
-  note:      { label:'Заметка оператору', icon:'note', slide:false, desc:'Что сделать: запустить видео, включить музыку…' },
+  splash:    { label:'Заставка', icon:'cover', slide:true, top:true, desc:'Название проповеди на экране, пока вы говорите без слайда' },
+  note:      { label:'Заметка оператору', icon:'note', slide:false, top:true, desc:'Что сделать: запустить видео, включить музыку…' },
   scripture: { label:'Место Писания', icon:'book', slide:true, desc:'Одно или несколько мест, с предпросмотром слайда' },
-  free:      { label:'Свободный слайд', icon:'free', slide:true, desc:'Всё нестандартное: опишите словами' },
+  free:      { label:'Свободный слайд', icon:'free', slide:true, todo:true, desc:'Всё нестандартное: опишите словами' },
   thesis:    { label:'Тезис', icon:'thesis', slide:true, desc:'Мысль, пункт плана, пояснение слова' },
-  quote:     { label:'Цитата', icon:'quote', slide:true, desc:'Текст и автор' },
-  image:     { label:'Картинка', icon:'image', slide:true, desc:'Найти по описанию или прислать файл' },
-  video:     { label:'Видео', icon:'video', slide:true, desc:'Ссылка или файл отдельно' }
+  quote:     { label:'Цитата', icon:'quote', slide:true, desc:'Текст, автор и подпись' },
+  image:     { label:'Картинка', icon:'image', slide:true, todo:true, desc:'Найти по описанию или прислать файл' },
+  video:     { label:'Видео', icon:'video', slide:true, todo:true, desc:'Ссылка или файл отдельно' }
 };
-/* Типы, у которых в редакторе есть предпросмотр слайда */
-const PREVIEW = { scripture:true, thesis:true, quote:true };
+/* Типы, у которых в редакторе есть предпросмотр слайда и которые форма сама собирает в JPEG */
+const PREVIEW = { splash:true, scripture:true, thesis:true, quote:true };
+/* Сколько слов в минуту — для оценки времени по «Тексту к слайду» */
+const WORDS_PER_MIN = 130;
 

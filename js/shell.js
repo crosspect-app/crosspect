@@ -20,7 +20,7 @@ const menuEl = h('div', { class:'menu', id:'menu' },
   menuItem('unfold', 'Развернуть все блоки', () => foldWhere(() => true, () => false, 'Все блоки развёрнуты'), true),
   menuItem('check', 'Свернуть готовые слайды', () => foldWhere(isSlide, b => !!b.done, 'Готовые свёрнуты, остальные слайды открыты'), true),
   menuItem('fold', 'Свернуть неготовые слайды', () => foldWhere(isSlide, b => !b.done, 'Неготовые свёрнуты, готовые открыты'), true),
-  menuItem('text', 'Свернуть текст и заметки', () => foldWhere(b => !isSlide(b), () => true, 'Текст и заметки свёрнуты'), true),
+  menuItem('note', 'Свернуть заметки оператору', () => foldWhere(b => !isSlide(b), () => true, 'Заметки оператору свёрнуты'), true),
   h('div', { class:'menu-sep' }),
   menuItem('zip', 'Скачать все слайды', () => exportMany(false)),
   menuItem('zip', 'Скачать неотмеченные слайды', () => exportMany(true)),
@@ -46,12 +46,12 @@ const topbar = h('header', { class:'topbar' },
 );
 const fileInput = $('#fileInput');
 
-/* выбор типа блока: сверху «Текст проповеди» (шире) и «Заметка оператору», ниже остальные парами */
+/* выбор типа блока: сверху «Заставка» (шире) и «Заметка оператору», ниже остальные парами */
 const typesTop = h('div', { class:'types types-top' });
 const typesGrid = h('div', { class:'types' });
 Object.keys(TYPES).forEach(t => {
   const T = TYPES[t];
-  (T.slide ? typesGrid : typesTop).append(h('button', { type:'button', class:'type t-' + t, style:'--tc:var(--c-' + t + ')', onclick:() => addBlock(t, sheetAt) },
+  (T.top ? typesTop : typesGrid).append(h('button', { type:'button', class:'type t-' + t, style:'--tc:var(--c-' + t + ')', onclick:() => addBlock(t, sheetAt) },
     h('span', { class:'type-ic' }, ic(T.icon)),
     h('span', null, h('div', { class:'type-name', text:T.label }), h('div', { class:'type-desc', text:T.desc }))));
 });

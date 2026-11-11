@@ -135,18 +135,18 @@ function openSlidesCfg(){
         h('input', { class:'input', type:'number', min:'5', max:'120', step:'1', value:String(tmp.names.maxLength), oninput:e => { tmp.names.maxLength = clampN(e.target.value, 5, 120, 35); } })),
       
       h('label', { class:'set-row' }, h('span', null, 'Место Писания: размер текста, % (100% = 48 px)'),
-        h('input', { class:'input', type:'number', min:'50', max:'200', step:'5', value:String(tmp.sizes.scripture.size), oninput:e => { tmp.sizes.scripture.size = clampN(e.target.value, 50, 200, 100); } })),
+        h('input', { class:'input', type:'number', min:'50', max:'200', step:'5', value:String(tmp.sizes.scripture.size), oninput:e => { tmp.sizes.scripture.size = clampN(e.target.value, 50, 200, 110); } })),
       h('div', { class:'mock-grid', style:'grid-template-columns:repeat(4,1fr)' },
         field('Тезис: мельче до, %', h('input', { class:'input', type:'number', min:'30', max:'100', step:'5', value:String(tmp.sizes.thesis.min), oninput:e => { tmp.sizes.thesis.min = clampN(e.target.value, 30, 100, 70); } })),
         field('Тезис: крупнее до, %', h('input', { class:'input', type:'number', min:'100', max:'200', step:'5', value:String(tmp.sizes.thesis.max), oninput:e => { tmp.sizes.thesis.max = clampN(e.target.value, 100, 200, 130); } })),
         field('Цитата: мельче до, %', h('input', { class:'input', type:'number', min:'30', max:'100', step:'5', value:String(tmp.sizes.quote.min), oninput:e => { tmp.sizes.quote.min = clampN(e.target.value, 30, 100, 70); } })),
         field('Цитата: крупнее до, %', h('input', { class:'input', type:'number', min:'100', max:'200', step:'5', value:String(tmp.sizes.quote.max), oninput:e => { tmp.sizes.quote.max = clampN(e.target.value, 100, 200, 110); } }))),
       h('details', { class:'tmp-set' },
-        h('summary', null, 'Шрифт как в Canva — временно, для теста'),
+        h('summary', null, 'Плотность шрифта — до проверки на проекторе'),
         h('div', { class:'radios' },
-          [['off', 'Вариант 1: без изменений'], ['verses', 'Вариант 2: как в Canva, только стихи Писания'], ['all', 'Вариант 3: как в Canva, весь текст на слайдах']].map(([v, l]) =>
+          [['all', 'Как в Canva, весь текст на слайдах (основной)'], ['verses', 'Как в Canva только стихи Писания'], ['off', 'Прежний: толщина 400, строки 1,25']].map(([v, l]) =>
             h('label', null, h('input', { type:'radio', name:'cv-font', value:v, checked:tmp.font.canva === v, onchange:() => { tmp.font.canva = v; } }), l)),
-          h('p', { class:'hint', text:'«Как в Canva»: тоньше (325 вместо 400), буквы плотнее, строки ближе (1,05 вместо 1,25). Размер не меняется: его задают проценты выше. Чтобы буквы были как в Canva, поставьте Месту Писания 110%.' }))),
+          h('p', { class:'hint', text:'«Как в Canva»: тоньше (325 вместо 400), буквы плотнее, строки ближе (1,05 вместо 1,25). Размер не меняется: его задают проценты выше. С этим шрифтом Месту Писания нужно 110%, чтобы буквы были как в Canva (это значение по умолчанию).' }))),
       note),
     h('div', { class:'sheet-foot' },
       h('div', { style:'display:flex;gap:8px;flex-wrap:wrap' },
