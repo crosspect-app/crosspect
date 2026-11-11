@@ -14,6 +14,7 @@ import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 
 const PROJECT = 'demo-crosspect';
 const SCRIPTS = new URL('../scripts/', import.meta.url).pathname;
+process.env.METADATA_SERVER_DETECTION = 'none';   // эмулятор: не искать облачные ключи
 const run = (script, ...argv) => execFileSync('node', [join(SCRIPTS, script), ...argv], {
   encoding: 'utf8', env: { ...process.env, GCLOUD_PROJECT: PROJECT },
 });
@@ -109,7 +110,8 @@ describe('бэкап и восстановление', () => {
     run('backup.mjs', dir1);
     const first = tree(dir1);
     assert.ok(first['spaces/b1/sermons/s1.json'].includes('Вера «и» дела'));
-    assert.ok(first['spaces/b1.json'].includes('"$timestamp": "2023-11-14T22:13:20.123456789Z"'));
+    // Firestore хранит время до микросекунд
+    assert.ok(first['spaces/b1.json'].includes('"$timestamp": "2023-11-14T22:13:20.123456000Z"'));
     assert.ok(existsSync(join(dir1, 'spaces/ghost/members/g@example.com.json')));
     assert.ok(!existsSync(join(dir1, 'spaces/ghost.json')), 'пустой документ не сохраняется');
 

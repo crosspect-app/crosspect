@@ -9,6 +9,7 @@ import { getFirestore, Timestamp, GeoPoint, DocumentReference } from 'firebase-a
 export function connect() {
   if (process.env.FIRESTORE_EMULATOR_HOST) {
     const projectId = process.env.GCLOUD_PROJECT || 'demo-crosspect';
+    process.env.METADATA_SERVER_DETECTION ??= 'none';   // не искать облачные ключи
     return getFirestore(initializeApp({ projectId }));
   }
   const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
