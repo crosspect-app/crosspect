@@ -52,7 +52,7 @@ function thumbName(b, n){
   const nm = slideName(b, n).replace(/^\[\d+\]\s*/, '');
   return nm || TYPES[b.type].label;
 }
-const isMissing = b => !!(flagMissing && NAMED[b.type] && slidesCfg().names.required && !cleanName(b.name));
+const isMissing = b => !!(flagMissing && NAMED[b.type] && !cleanName(b.name));
 
 /* ----- Лента ----- */
 function thumbBody(b, n){
@@ -62,7 +62,8 @@ function thumbBody(b, n){
 }
 function filmItem(b, n){
   const T = TYPES[b.type];
-  return h('button', { type:'button', 'data-id':b.id, style:'--tc:var(--c-' + b.type + ')', onclick:() => selectBlock(b.id),
+  return h('button', { type:'button', 'data-id':b.id, style:'--tc:var(--c-' + b.type + ')', onclick:() => { if (!dragClick) selectBlock(b.id); },
+    onkeydown:e => { if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && canArrange()){ e.preventDefault(); move(b, e.key === 'ArrowUp' ? -1 : 1); } },   // Alt+↑/↓ — переставить с клавиатуры
     class:'st t-' + b.type + (b.id === selId ? ' on' : '') + (todoOn(b) ? ' todo' : '') + (isMissing(b) ? ' missing' : '') },
     h('div', { class:'st-thumb' }, thumbBody(b, n), h('span', { class:'fl', text:'доработать' })),
     h('div', { class:'st-cap' },
@@ -74,15 +75,88 @@ function renderFilm(){
   const nums = slideNums();
   if (filmOnlyTodo && !state.blocks.some(todoOn)) filmOnlyTodo = false;   // отмеченных не осталось: показываем всё
   filmEl.append(h('div', { class:'film-head', id:'film-count' }));
-  state.blocks.forEach(b => { if (!filmOnlyTodo || todoOn(b)) filmEl.append(filmItem(b, nums[b.id])); });
-  if (!readOnly()) filmEl.append(h('button', { type:'button', class:'film-add', onclick:() => openSheet(addAt()) }, ic('plus'), 'Добавить'));
+  const arrange = canArrange();
+  filmEl.classList.toggle('arrange', arrange);
+  state.blocks.forEach((b, i) => {
+    if (filmOnlyTodo && !todoOn(b)) return;
+    if (arrange) filmEl.append(filmGap(i));   // «+» между слайдами: вставить сюда
+    filmEl.append(filmItem(b, nums[b.id]));
+  });
+  if (!readOnly()) filmEl.append(h('button', { type:'button', class:'film-add', 'data-at':String(state.blocks.length), onclick:() => openSheet(state.blocks.length) }, ic('plus'), 'Добавить в конец'));
+  if (arrange) armDrag(filmEl);
   state.blocks.forEach(b => { if (PREVIEW[b.type]) schedulePreview(b); });
   updateStatus();
 }
+/* Переставлять и вставлять можно, когда проповедь правится и в ленте видны все слайды */
+const canArrange = () => !readOnly() && !filmOnlyTodo;
+function filmGap(at){
+  return h('div', { class:'film-gap', 'data-at':String(at) },
+    h('button', { type:'button', class:'film-ins', title:'Добавить слайд сюда', 'aria-label':'Добавить слайд сюда', onclick:() => openSheet(at) }, ic('plus')));
+}
+
+/* ----- Перетаскивание слайдов в ленте -----
+   Мышь: нажать и повести. Телефон: подержать палец на слайде, пока он не приподнимется, и вести. Отпустили — слайд встаёт
+   на отмеченное место; номера и названия [N] пересчитываются сами (они считаются по порядку) */
+let drag = null, dragClick = false;
+function armDrag(film){
+  if (film.dataset.armed) return;
+  film.dataset.armed = '1';
+  film.addEventListener('pointerdown', e => {
+    const it = e.target.closest('.st'); if (!it || e.button > 0 || !canArrange()) return;
+    const d = drag = { id:it.dataset.id, it, x0:e.clientX, y0:e.clientY, pid:e.pointerId, mouse:e.pointerType === 'mouse', on:false, at:-1, timer:0 };
+    if (!d.mouse) d.timer = setTimeout(() => { if (drag === d) startDrag(film, d, e.clientX, e.clientY); }, 380);
+  });
+  film.addEventListener('pointermove', e => {
+    const d = drag; if (!d || e.pointerId !== d.pid) return;
+    if (!d.on){
+      const dist = Math.hypot(e.clientX - d.x0, e.clientY - d.y0);
+      if (d.mouse && dist > 6) startDrag(film, d, e.clientX, e.clientY);
+      else if (!d.mouse && dist > 10){ clearTimeout(d.timer); drag = null; }   // палец повели сразу — это прокрутка ленты
+      if (!d.on) return;
+    }
+    e.preventDefault();
+    dropMark(film, d, e.clientX, e.clientY);
+  });
+  const end = e => {
+    const d = drag; if (!d || (e && e.pointerId !== d.pid)) return;
+    clearTimeout(d.timer); drag = null;
+    if (!d.on) return;
+    film.classList.remove('dragging'); d.it.classList.remove('dragging');
+    film.querySelectorAll('.drop').forEach(x => x.classList.remove('drop'));
+    dragClick = true; setTimeout(() => { dragClick = false; }, 0);   // отпускание после перетаскивания — не выбор слайда
+    if (e && e.type === 'pointerup' && d.at >= 0){ const b = state.blocks.find(x => x.id === d.id); if (b) moveTo(b, d.at); }
+  };
+  film.addEventListener('pointerup', end);
+  film.addEventListener('pointercancel', end);
+  film.addEventListener('touchmove', e => { if (drag && drag.on) e.preventDefault(); }, { passive:false });   // пока тянем — лента не прокручивается
+  film.addEventListener('contextmenu', e => { if (drag) e.preventDefault(); });
+}
+function startDrag(film, d, x, y){
+  d.on = true;
+  film.classList.add('dragging'); d.it.classList.add('dragging');
+  try { film.setPointerCapture(d.pid); } catch(err){}
+  if (!d.mouse && navigator.vibrate) try { navigator.vibrate(12); } catch(err){}
+  dropMark(film, d, x, y);
+}
+/* Куда встанет слайд: перед первым слайдом, середину которого ещё не прошли; отметка — на промежутке */
+function dropMark(film, d, x, y){
+  const row = getComputedStyle(film).flexDirection === 'row';
+  const fr = film.getBoundingClientRect(), edge = 36;
+  if (row){ if (x < fr.left + edge) film.scrollLeft -= 14; else if (x > fr.right - edge) film.scrollLeft += 14; }
+  else { if (y < fr.top + edge) film.scrollTop -= 14; else if (y > fr.bottom - edge) film.scrollTop += 14; }
+  let at = state.blocks.length;
+  for (const el of film.querySelectorAll('.st')){
+    if (el === d.it) continue;
+    const r = el.getBoundingClientRect();
+    if (row ? x < r.left + r.width / 2 : y < r.top + r.height / 2){ at = state.blocks.findIndex(b => b.id === el.dataset.id); break; }
+  }
+  const from = state.blocks.findIndex(b => b.id === d.id);
+  d.at = at === from || at === from + 1 ? -1 : at;   // на своё же место — ничего не меняется
+  film.querySelectorAll('.drop').forEach(x => x.classList.remove('drop'));
+  if (d.at >= 0){ const g = film.querySelector('[data-at="' + d.at + '"]'); if (g) g.classList.add('drop'); }
+}
 /* Счётчик «N доработать» над лентой: щелчок оставляет в ленте только отмеченные слайды и возвращает все */
 function toggleOnlyTodo(){ filmOnlyTodo = !filmOnlyTodo; renderFilm(); }
-/* Новый слайд встаёт после выбранного */
-function addAt(){ const b = curBlock(); return b ? state.blocks.indexOf(b) + 1 : state.blocks.length; }
 
 /* Обновить подпись и отметки одной миниатюры, не пересобирая ленту */
 function refreshThumb(b){
@@ -130,7 +204,7 @@ function stageBar(b, n){
     T.slide && h('button', { type:'button', class:'btn', title:'Скопировать название слайда для Holyrics', onclick:() => copyText(slideName(b, n), 'Скопировано: ') }, ic('tag'), 'Название'),
     PREVIEW[b.type] && h('button', { type:'button', class:'btn', title:'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
     T.slide && canFlag() && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo),
-      title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную', onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
+      title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную.' + (cloudOn() ? ' Спикеры эту отметку не видят.' : ''), onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
     h('div', { class:'stepper' },
       h('button', { type:'button', class:'icon-btn', 'aria-label':'Предыдущий слайд', title:'Предыдущий', disabled:i <= 0, onclick:() => stepSel(-1) }, ic('back')),
       h('span', { text:(i + 1) + ' / ' + total }),
@@ -175,18 +249,9 @@ function renderSide(){
   BODY[b.type](b, body, n);
   if (ro){ body.inert = true; sideEl.append(h('p', { class:'ro-note', text:'Только просмотр. Чтобы менять слайды, нажмите «Редактировать».' })); }
   sideEl.append(h('div', { class:'cap', text:'Настройки · ' + T.label.toLowerCase() }), body);
-  // отметка «доработать» не зависит от замка: редактор ставит её и в просмотре
-  if (T.slide && canFlag()) sideEl.append(h('div', { class:'editor-box' },
-    h('div', { class:'eb-head' }, h('b', { text:'Для редактора' }), h('span', { text:cloudOn() ? 'спикеры эту отметку не видят' : 'сейчас отметку видят все, у кого открыт файл' })),
-    sw('Доработать', b.todo, () => toggleTodo(b)),
-    h('p', { class:'hint', text:cloudOn()
-      ? 'Картинки, видео и свободные слайды получают отметку сами. Если спикер изменит слайд, с которого вы сняли отметку, она вернётся.'
-      : 'Картинки, видео и свободные слайды получают отметку сами при создании.' })));
+  // «доработать» — кнопкой над слайдом (stageBar); переставляют слайды в ленте слева
   if (ro){ growAll(sideEl); return; }
-  const i = state.blocks.indexOf(b);
   sideEl.append(h('div', { class:'side-actions' },
-    h('button', { type:'button', class:'btn', disabled:i === 0, onclick:() => move(b, -1) }, ic('up'), 'Выше'),
-    h('button', { type:'button', class:'btn', disabled:i === state.blocks.length - 1, onclick:() => move(b, 1) }, ic('down'), 'Ниже'),
     h('button', { type:'button', class:'btn', onclick:() => duplicate(b) }, ic('dup'), 'Дублировать'),
     h('button', { type:'button', class:'btn danger', onclick:() => removeBlock(b) }, ic('trash'), 'Удалить')));
   growAll(sideEl);

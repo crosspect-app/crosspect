@@ -79,8 +79,13 @@ function startListen(){
     cloud.listError = cloudExplain(e) || 'Не удалось загрузить список проповедей.';
     if (screen === 'home' && cloudOn()) renderHomeList();
   });
+  // настройки слайдов пространства (этап 7.1): приходят сразу и при каждом изменении, у всех участников
+  if (cloud.api.watchSlides) cloud.slidesUnsub = cloud.api.watchSlides(cloud.space, cfg => slidesFromCloud(cfg), () => {});
 }
-function stopListen(){ if (cloud.unsub){ try { cloud.unsub(); } catch(e){} cloud.unsub = null; } }
+function stopListen(){
+  if (cloud.unsub){ try { cloud.unsub(); } catch(e){} cloud.unsub = null; }
+  if (cloud.slidesUnsub){ try { cloud.slidesUnsub(); } catch(e){} cloud.slidesUnsub = null; }
+}
 
 async function cloudSignIn(){
   setLocalMode(false);

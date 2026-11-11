@@ -1,17 +1,39 @@
 'use strict';
 
 /* ========= Настройки по умолчанию (можно править здесь) ========= */
-const DEFAULT_SETTINGS = { minScale: 80, limitThesis: 220, limitQuote: 300 };
-/* Файл настроек в репозитории crosspect-data: переводы, проповедники, лимиты.
-   Если он недоступен, форма работает на встроенных списках ниже. Ссылку можно сменить в меню «⋯» → «Источник настроек». */
+/* Файл настроек в репозитории: переводы и спикеры. Если он недоступен, форма работает на встроенных списках.
+   Ссылку можно сменить в меню «⋯» → «Источник настроек». Раздел "slides" в нём больше ни на что не влияет */
 const CONFIG_URL_DEFAULT = 'https://raw.githubusercontent.com/crosspect-app/crosspect/main/data/config.json';
-/* Общие настройки слайдов. Берутся из config.json (раздел "slides"); в окне «Поля и названия слайдов»
-   их можно временно поменять в своём браузере и скопировать строку для config.json.
-   margins — поля от края цветной панели в пикселях кадра 1920×1080; names — названия слайдов для файлов */
-/* font.canva — плотность шрифта: all — как в Canva, основной (толщина 325, буквы −0,04 em, строки 1,05); off — прежний (400, 1,25); verses — как в Canva только стихи.
-   Пока не проверено на проекторе, переключатель остаётся в «Настройках слайдов» */
-const SLIDES_DEFAULT = { margins:{ side:60, top:60, bottom:60 }, names:{ required:true, maxLength:35 }, font:{ canva:'all' },
-  sizes:{ scripture:{ size:110 }, thesis:{ min:70, max:130 }, quote:{ min:70, max:110 } } };   // scripture.size — общий размер стихов, 100% = 48 px (110% — как в Canva)   // thesis, quote — насколько можно уменьшить и увеличить текст, % от базового
+/* Настройки слайдов — общие для всего пространства, лежат в облаке (spaces/…/config/slides), меняют админ и редактор
+   в окне «Настройки слайдов». Здесь — значения, пока в облаке ничего не записано.
+   margins — поля от края цветной панели, px кадра 1920×1080; names.maxLength — длина названия слайда;
+   limits — сколько символов в тезисе и цитате, дальше подсветка жёлтым;
+   fonts — шрифты (пока по одному в каждом списке, см. SLIDE_FONTS);
+   kinds — виды слайдов: size — размер 100% в px; min / max — диапазон в % от size (у заставки — до какого размера
+     название может уменьшиться, чтобы уложиться в три строки; у Писания — ниже этого форма предлагает разбить слайд;
+     у тезиса и цитаты — кнопки −/+ размера); track — расстояние между символами, em; lead — между строками;
+     splash.foot — имя и дата внизу заставки, px;
+   verses — вид стихов на всех слайдах Писания: flow 'inline' (в строку) | 'lines' (с новой строки), frame — рамка пунктиром,
+     caps — заглавными, showTr — подпись перевода, align 'left' | 'center' | 'right', valign 'top' | 'center' | 'bottom' */
+const SLIDES_DEFAULT = {
+  margins:{ side:60, top:60, bottom:60 },
+  names:{ maxLength:35 },
+  limits:{ thesis:220, quote:300 },
+  fonts:{ main:'unbounded', greek:'inter', hebrew:'noto-hebrew' },
+  kinds:{
+    splash:{ size:200, min:55, foot:44 },
+    scripture:{ size:52.8, min:80, track:-0.04, lead:1.05 },
+    thesis:{ size:50.4, min:70, max:130, track:-0.04, lead:1.05 },
+    quote:{ size:51.48, min:70, max:110, track:-0.04, lead:1.05 }
+  },
+  verses:{ flow:'inline', frame:false, caps:true, showTr:true, align:'center', valign:'top' }
+};
+/* Шрифты в списках — только те, что форма загружает и встраивает в JPEG (см. EXPORT_FONTS в export.js) */
+const SLIDE_FONTS = {
+  main:{ unbounded:{ label:'Unbounded', css:"'Unbounded'" } },
+  greek:{ inter:{ label:'Inter, жирный', css:"'Inter'" } },
+  hebrew:{ 'noto-hebrew':{ label:'Noto Sans Hebrew, жирный', css:"'Noto Sans Hebrew'" } }
+};
 const PANEL_INSET = 44;   // панель отступает от края кадра на 44 px
 
 const ICONS = {

@@ -115,7 +115,8 @@ function partEditor(block, part, pi){
   const chap = h('input', { class:'input', placeholder:'№', inputmode:'numeric', autocomplete:'off', value:part.mChapter || '', 'aria-label':'Глава', oninput:e => { part.mChapter = e.target.value.trim(); upd(); } });
   const vers = h('input', { class:'input', placeholder:'2-4, 8', autocomplete:'off', value:part.mVerses || '', 'aria-label':'Стихи',
     oninput:e => { part.mVerses = e.target.value; upd(); }, onchange:() => { syncManualVerses(part); change(); rerender(block); } });
-  wrap.append(h('div', { class:'grid-3' }, h('div', { class:'field' }, h('span', { class:'lbl', text:'Перевод' }), picker), field('Книга', book), field('Глава', chap)));
+  wrap.append(h('div', { class:'field trp-field' }, h('span', { class:'lbl', text:'Перевод' }), picker),
+    h('div', { class:'grid-bc' }, field('Книга', book), field('Глава', chap)));
   wrap.append(h('div', { class:'grid-2' }, field('Стихи', vers),
     field('Название перевода', input(part, 'translation', 'Например: перевод Десницкого', { autocomplete:'off', oninput:e => { part.translation = e.target.value; change(); updateCounter(block); } }))));
   const vs = h('div', { class:'verses' });
@@ -283,7 +284,8 @@ function scriptureEditor(block, it, pi){
   const chapter = h('select', { class:'input', 'aria-label':'Глава', disabled:!chs.length, onchange:e => {
     it.chapter = +e.target.value; it.sel = []; it.verses = []; relayout();
   } }, chs.length ? chs.map(c => h('option', { value:String(c), selected:c === it.chapter }, String(c))) : h('option', null, 'Глава'));
-  wrap.append(h('div', { class:'grid-3' }, h('div', { class:'field' }, h('span', { class:'lbl', text:'Перевод' }), lang), field('Книга', book), field('Глава', chapter)));
+  wrap.append(h('div', { class:'field trp-field' }, h('span', { class:'lbl', text:'Перевод' }), lang),
+    h('div', { class:'grid-bc' }, field('Книга', book), field('Глава', chapter)));
   if (it.lang === 'own') wrap.append(field('Название перевода', h('input', { class:'input', placeholder:'Например: перевод Десницкого', value:it.trName || '', autocomplete:'off',
     oninput:e => { it.trName = e.target.value; it.translation = trOf(it); change(); updateCounter(block); } })));
 
@@ -358,7 +360,7 @@ function itemHead(block, it, i){
 }
 
 /* Размер текста: цитата — от 100% (= на 10% крупнее имени автора) до 85%, тезис — от 100% до 70%, шаг 1% */
-const scaleRange = t => { const z = slidesCfg().sizes; return z[t] || null; };   // диапазон из общих настроек слайдов
+const scaleRange = t => { const z = slidesCfg().kinds[t]; return z && z.max ? { min:z.min, max:z.max } : null; };   // диапазон из общих настроек слайдов
 const blkScale = b => { const R = scaleRange(b.type); return R ? Math.min(R.max, Math.max(R.min, Math.round(+b.scale || 100))) : 100; };
 function scaleStepper(b){
   const R = scaleRange(b.type);
@@ -432,7 +434,7 @@ function nameField(b, n){
     const len = (b.name || '').length;
     cnt.textContent = len + ' / ' + cfg.maxLength;
     cnt.classList.toggle('warn', len > cfg.maxLength);
-    const miss = cfg.required && !cleanName(b.name);
+    const miss = !cleanName(b.name);
     box.classList.toggle('missing', flagMissing && miss);
     refreshThumb(b);
   };
@@ -457,7 +459,7 @@ function nameField(b, n){
   box.append(h('span', { class:'name-pre', text:'[' + n + ']', title:'Номер слайда ставится сам' }), inp);
   requestAnimationFrame(show);
   return h('div', null,
-    h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Название слайда' + (cfg.required ? '' : ' — по желанию') }), cnt),
+    h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Название слайда' }), cnt),
     box, err);
 }
 
@@ -542,19 +544,10 @@ const BODY = {
       chip('plus', 'Текст', () => addItem(b, newTextItem())),
       chip('plus', 'Линия', () => addItem(b, newLineItem())),
       hasScr && chip('arrow', 'Продолжить на новом слайде', () => continueScripture(b), 'accent')));
-    const upd = () => { change(); updateCounter(b); };
-    if (hasScr) body.append(
-      h('div', { class:'opt-row' }, h('span', { class:'lbl', style:'margin:0', text:'Стихи' }),
-        toggle([['inline', 'В строку'], ['lines', 'Каждый с новой строки']], b.flow === 'lines' ? 'lines' : 'inline', v => { b.flow = v; change(); rerender(b); }),
-        b.flow !== 'lines' && sw('Рамка пунктиром', b.frame, v => { b.frame = v; upd(); })),
-      h('div', { class:'opt-row' },
-        sw('Стихи заглавными буквами', b.caps !== false, v => { b.caps = v; upd(); }),
-        sw('Показывать перевод на слайде', b.showTr !== false, v => { b.showTr = v; upd(); })));
-    body.append(h('div', { class:'opt-row' }, h('span', { class:'lbl', style:'margin:0', text:'Выравнивание' }),
-      h('div', { class:'itools', title:'Выравнивание по горизонтали' },
-        [['left', 'alignl', 'По левому краю'], ['center', 'alignc', 'По центру']].map(([a, icn, t]) =>
-          iconBtn(icn, t, () => { b.align = a; change(); rerender(b); }, (b.align === 'left' ? 'left' : 'center') === a ? 'on' : ''))),
-      valignTools(b)));
+    // вид стихов (в строку / с новой строки, рамка, заглавные, перевод, выравнивание) — общий для всех слайдов, в «Настройках слайдов»
+    if (hasScr) body.append(h('p', { class:'hint', text:canEditSlidesCfg()
+      ? 'Как выглядят стихи (в строку или с новой строки, рамка, выравнивание), задано для всех слайдов: меню «⋯» → «Настройки слайдов».'
+      : 'Как выглядят стихи, одинаково для всех слайдов: это задаёт редактор.' }));
   },
   splash(b, body, n){
     const m = state.meta;
@@ -659,8 +652,6 @@ function addItem(b, it){
 function continueScripture(b){
   const scr = b.items.filter(it => it.kind === 'scripture'), lp = scr[scr.length - 1];
   const nb = newBlock('scripture');
-  ['caps', 'flow', 'frame', 'align', 'valign'].forEach(k => { nb[k] = b[k]; });
-  nb.showTr = b.showTr !== false;   // вид слайда и «Показывать перевод» переходят на новый слайд
   if (lp.manual){
     const last = lp.verses[lp.verses.length - 1];
     const nx = nextNum(last.num);
@@ -683,6 +674,15 @@ function move(b, dir){
   const i = state.blocks.indexOf(b), last = state.blocks.length - 1;
   const j = dir === -Infinity ? 0 : dir === Infinity ? last : i + dir;   // ±Infinity — в самый верх или низ
   if (j < 0 || j > last || j === i) return;
+  state.blocks.splice(i, 1); state.blocks.splice(j, 0, b);
+  selId = b.id; change(); renderMain();
+  flash(b.id);
+}
+/* Перетащили в ленте: поставить слайд перед блоком с номером at (at = длина — в конец) */
+function moveTo(b, at){
+  const i = state.blocks.indexOf(b); if (i < 0) return;
+  const j = at > i ? at - 1 : at;
+  if (j === i) return;
   state.blocks.splice(i, 1); state.blocks.splice(j, 0, b);
   selId = b.id; change(); renderMain();
   flash(b.id);
