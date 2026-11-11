@@ -167,7 +167,8 @@ def test_import_several_files(browser, base_url, sermon):
     a = dict(sermon, id="imp1"); b = dict(sermon, id="imp2"); dup = dict(sermon, id="s1")
     files = [{"name": f"{i}.json", "mimeType": "application/json", "buffer": json.dumps(x, ensure_ascii=False).encode()} for i, x in enumerate([a, b, dup])]
     page.set_input_files("#fileInput", files)
-    page.wait_for_function("Object.keys(fakeCloud.db().sermons).length === 3")
+    page.wait_for_function("document.querySelector('.toast').textContent.includes('Перенос')")   # итог — когда обработаны все файлы
+    assert len(page.evaluate("fakeCloud.db().sermons")) == 3
     assert "уже были в облаке: 1" in page.inner_text(".toast")
     ctx.close()
 
