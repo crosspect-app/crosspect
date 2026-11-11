@@ -1,0 +1,54 @@
+name: Проверка и выпуск
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Тесты
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tests/requirements.txt
+      - run: pip install -r tests/requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m pytest tests -v
+
+  deploy:
+    name: Выпуск на GitHub Pages
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Собрать сайт
+        run: |
+          mkdir _site
+          cp -r index.html css js data _site/
+          # номер выпуска в ссылках на файлы: браузер не смешает старые и новые файлы после обновления
+          sed -i "s/__BUILD__/${GITHUB_SHA::8}/g" _site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

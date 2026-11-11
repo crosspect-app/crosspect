@@ -1,33 +1,36 @@
 # Crosspect — устройство
 
 ## Стек
-- Один самодостаточный HTML-файл [`sermon.html`](sermon.html): разметка, CSS и JS внутри, без сборки и без зависимостей.
+- Сайт без сборки: [`index.html`](index.html), [`css/style.css`](css/style.css) и модули [`js/*.js`](js). Сторонних библиотек нет.
+- Модули — обычные скрипты (не ES-модули): все они делят одну область видимости, как раньше делили один файл. Порядок подключения — в `index.html`, он же порядок выполнения. Функции можно вызывать откуда угодно, но на самом верху файла нельзя использовать то, что объявлено в файле ниже по списку: например, `onclick:saveFile` не сработает, а `onclick:() => saveFile()` сработает.
+- К каждому файлу в `index.html` дописано `?v=__BUILD__`: при выпуске CI подставляет номер коммита, и браузер не смешивает старые и новые файлы.
 - Шрифты Google Fonts: Unbounded (переменная толщина 200–900), Inter, Noto Sans Hebrew.
 - Тексты Библии — XML (Beblia или Zefania), грузятся по требованию с GitHub.
 - Настройки — [`data/config.json`](data/config.json) из этого репозитория (`CONFIG_URL_DEFAULT`), последняя копия кешируется в localStorage; при недоступности — встроенные списки.
-- Хранение: черновик в localStorage; «Сохранить» скачивает копию самой формы с данными в `<script id="sermon-data" type="application/json">`.
+- Хранение: черновик в localStorage (`swp-sermon:<id>`, у каждой проповеди свой, `swp-sermon:last` — последняя); «Сохранить» скачивает файл `.json` с проповедью. «Открыть» понимает `.json` и старые HTML-файлы (проповедь лежит в `<script id="sermon-data">`).
 
-## Разделы кода (по порядку в файле)
-| Раздел | Что внутри |
+## Файлы кода (порядок подключения)
+| Файл | Что внутри |
 |---|---|
-| CSS | токены цветов (тёмная/светлая тема), интерфейс, слайд `.sl*` (кадр 1920×1080), печать `#print-op` |
-| Настройки по умолчанию | `DEFAULT_SETTINGS` (лимиты), `CONFIG_URL_DEFAULT`, `SLIDES_DEFAULT` (поля, названия, размеры, временный `font.canva`), `ICONS`, `TYPES` (порядок = окно «Что добавить?») |
-| Форматированный текст | `cleanHTML` / `sanitize` — разрешены только `b i u mark br span.up` |
-| Справочники | `PREACHERS`, `LANGS` (переводы), `BOOKS`, `ABBR` (синодальные сокращения) |
-| Названия слайдов | `BAD_CHARS`, `NAMED`, `cleanName`, `slideName`, `scriptureNamePart`, `quoteNamePart` |
-| Тексты Библии | `loadBible` (Beblia/Zefania), `cleanVerse`, `syncVerses`, `refString` |
-| Модель данных | `newBlock`, `newScripture`, `newPart` (свой перевод), `newTextItem`, `newLineItem`, `newThesisPart`, `normalize` / `normItem` (перевод старых форматов) |
-| Общие настройки слайдов | `mergeSlides`, `slidesCfg` (config + localStorage `swp-slides-local`), `applySlides` (CSS-переменные полей), `missingNames`, `checkNames` |
-| Состояние | `state`, `change`, `persistDraft`, `slideNums`, `blockSummary` |
-| Каркас и отрисовка | меню «⋯», `renderEditor`, `renderBlock`, `rerender`, `BODY[type]` (редакторы блоков), `nameField`, `autoName`, списки (`toggleList`, `listEnter`, `autoList`), `toggleUp`, `toggleMark` |
-| Просмотр | `renderView`, `viewSlide`, `nameView` |
-| Предпросмотр слайдов | `typoText`, `fixOrphan`, `wrapScripts` (греческий/иврит → `span.xl`), `slideEl`, `slideHTML` (Писание), `boxHTML` / `paraHTML` (тезис, цитата, списки), `layoutAt`, `layoutBox`, `fitSlide` (бинарный поиск размера), `BASE`, `scrPx` |
-| Файлы | `saveFile` (проверка названий) / `writeFile`, открытие файла, `newSermon` |
-| Выгрузка JPEG | `exportFonts` (CSS шрифтов с встроенными woff2), `slideCSS`, `renderJPEG` (SVG foreignObject → canvas), `makeZip` (ZIP без сжатия, UTF-8), `exportOne`, `exportMany`, `markDone` |
-| PDF для оператора | `#print-op`, `@page op` 80×170 мм, `buildOperatorPrint`, `operatorPDF` |
-| Окна настроек | `openSettings` (лимиты), `openConfig` (источник), `openSlidesCfg` (поля, названия, размеры, шрифт) |
+| `css/style.css` | токены цветов (тёмная/светлая тема), интерфейс, слайд `.sl*` (кадр 1920×1080), печать `#print-op` |
+| `js/defaults.js` | `DEFAULT_SETTINGS` (лимиты), `CONFIG_URL_DEFAULT`, `SLIDES_DEFAULT` (поля, названия, размеры, временный `font.canva`), `ICONS`, `TYPES` (порядок = окно «Что добавить?») |
+| `js/util.js` | утилиты (`h`, `$`, `LS`…); форматированный текст: `cleanHTML` / `sanitize` — разрешены только `b i u mark br span.up` |
+| `js/refs.js` | справочники `PREACHERS`, `LANGS` (переводы), `BOOKS`, `ABBR` (синодальные сокращения); названия слайдов: `BAD_CHARS`, `NAMED`, `cleanName`, `slideName`, `scriptureNamePart`, `quoteNamePart` |
+| `js/bible.js` | тексты Библии: `loadBible` (Beblia/Zefania), `cleanVerse`, `syncVerses`, `refString` |
+| `js/model.js` | модель данных: `newBlock`, `newScripture`, `newPart` (свой перевод), `newTextItem`, `newLineItem`, `newThesisPart`, `normalize` / `normItem` (перевод старых форматов); общие настройки слайдов: `mergeSlides`, `slidesCfg` (config + localStorage `swp-slides-local`), `applySlides` (CSS-переменные полей), `missingNames`, `checkNames` |
+| `js/state.js` | `state`, `change`, `persistDraft`, `slideNums`, `blockSummary` |
+| `js/shell.js` | каркас: верхняя панель, меню «⋯», окна, панель оформления |
+| `js/render.js` | `renderAll`, `renderEditor`, `renderBlock`, `rerender`, `BODY[type]` (редакторы блоков), `nameField`, `autoName`, списки (`toggleList`, `listEnter`, `autoList`), `toggleUp`, `toggleMark`; просмотр: `renderView`, `viewSlide`, `nameView` |
+| `js/preview.js` | предпросмотр слайдов: `typoText`, `fixOrphan`, `wrapScripts` (греческий/иврит → `span.xl`), `slideEl`, `slideHTML` (Писание), `boxHTML` / `paraHTML` (тезис, цитата, списки), `layoutAt`, `layoutBox`, `fitSlide` (бинарный поиск размера), `BASE`, `scrPx` |
+| `js/files.js` | `saveFile` (проверка названий) / `writeFile`, `parseSermonFile`, открытие файла, `newSermon` |
+| `js/export.js` | выгрузка JPEG: `exportFonts` (CSS шрифтов с встроенными woff2), `slideCSS`, `renderJPEG` (SVG foreignObject → canvas), `makeZip` (ZIP без сжатия, UTF-8), `exportOne`, `exportMany`, `markDone` |
+| `js/print.js` | PDF для оператора: `#print-op`, `@page op` 80×170 мм, `buildOperatorPrint`, `operatorPDF` |
+| `js/settings.js` | окна настроек: `openSettings` (лимиты), `openConfig` (источник), `openSlidesCfg` (поля, названия, размеры, шрифт) |
+| `js/misc.js` | `toast`, закрытие меню, горячие клавиши |
+| `js/main.js` | запуск: настройки из кеша, черновик, первая отрисовка, свежие настройки из репозитория |
 
 ## Модель проповеди
+Файл проповеди (`.json`) — это сам `state`:
 ```
 state = { app:'swp-sermon', v:1, id, createdAt, updatedAt, savedAt,
   meta:{ title, date, preacher }, settings:{ minScale, limitThesis, limitQuote, lang }, blocks:[…] }
@@ -48,8 +51,12 @@ state = { app:'swp-sermon', v:1, id, createdAt, updatedAt, savedAt,
 - JPEG: слайд раскладывается в скрытом контейнере тем же кодом, клонируется вместе с CSS-правилами `.sl*` и шрифтами в SVG foreignObject и рисуется в canvas. Поэтому классы режимов вешаются на `.sl-stage`, а не на `.sl`.
 
 ## Проверка
-- Playwright + Chromium (есть в рабочей среде Claude): загрузить форму, положить проповедь в localStorage (`swp-sermon:<id>`, `swp-sermon:last`, `swp-mode`), проверить редактор, просмотр, скачать JPEG/ZIP (`expect_download`), PDF — `page.pdf(prefer_css_page_size=True)` после `emulate_media('print')`.
-- Перед отправкой: `node --check` для скрипта; в файле не должно быть «сырых» U+00A0/U+00AD/U+2028/U+2029 — только экранированные.
+Тесты — `tests/`, Python + Playwright + pytest (Chromium есть в рабочей среде Claude). Запуск: `python3 -m pytest tests -q`. Тесты сами поднимают локальный сервер с репозиторием.
+- `test_form.py`: форма запускается без ошибок; «Открыть» читает `.json` и старый HTML; «Сохранить» и Ctrl+S пишут `.json`, который открывается снова; черновик переживает перезагрузку; просмотр; JPEG 1920×1080; ZIP со слайдами; PDF для оператора шириной 80 мм.
+- `test_static.py`: `node --check` для каждого `js/*.js`; нет «сырых» U+00A0/U+00AD/U+2028/U+2029 (только экранированные); каждый модуль подключён в `index.html` один раз.
+- `tests/fixtures/sermon.json` — проповедь со всеми типами блоков.
+- Выгрузка JPEG берёт шрифты из интернета, поэтому тестам нужна сеть.
+- Для проверки в консоли страницы: `state`, `newBlock`, `exportOne(...)` и остальное доступны как глобальные имена.
 
 ## Выпуск
-Пока выпуска нет: `sermon.html` в корне — актуальная версия, её скачивают и открывают в Chrome. План — GitHub Pages (шаг 2 в `STATUS.md`).
+Файл `.github/workflows/ci.yml`: на каждый коммит идут тесты; если коммит в `main` и тесты прошли, сайт (`index.html`, `css`, `js`, `data`) выкладывается на GitHub Pages. Адрес: `https://crosspect-app.github.io/crosspect/`. В Settings → Pages источник должен быть «GitHub Actions».

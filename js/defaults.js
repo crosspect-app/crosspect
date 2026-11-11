@@ -1,0 +1,73 @@
+'use strict';
+
+/* ========= Настройки по умолчанию (можно править здесь) ========= */
+const DEFAULT_SETTINGS = { minScale: 80, limitThesis: 220, limitQuote: 300 };
+/* Файл настроек в репозитории crosspect-data: переводы, проповедники, лимиты.
+   Если он недоступен, форма работает на встроенных списках ниже. Ссылку можно сменить в меню «⋯» → «Источник настроек». */
+const CONFIG_URL_DEFAULT = 'https://raw.githubusercontent.com/crosspect-app/crosspect/main/data/config.json';
+/* Общие настройки слайдов. Берутся из config.json (раздел "slides"); в окне «Поля и названия слайдов»
+   их можно временно поменять в своём браузере и скопировать строку для config.json.
+   margins — поля от края цветной панели в пикселях кадра 1920×1080; names — названия слайдов для файлов */
+const SLIDES_DEFAULT = { margins:{ side:60, top:60, bottom:60 }, names:{ required:true, maxLength:35 }, font:{ canva:'off' },   // font.canva — временный тест: off / verses / all
+  sizes:{ scripture:{ size:100 }, thesis:{ min:70, max:130 }, quote:{ min:70, max:110 } } };   // scripture.size — общий размер стихов, 100% = 48 px   // насколько можно уменьшить и увеличить текст, % от базового
+const PANEL_INSET = 44;   // панель отступает от края кадра на 44 px
+
+const ICONS = {
+  book:'<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19"/><path d="M9 7.5h6"/>',
+  split:'<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 12h17"/>',
+  thesis:'<path d="M5 7V5h14v2"/><path d="M12 5v14"/><path d="M9 19h6"/>',
+  quote:'<path d="M10 7H6.5A1.5 1.5 0 0 0 5 8.5V12h5z"/><path d="M10 12c0 3-1.5 5-4.5 5.5"/><path d="M19 7h-3.5A1.5 1.5 0 0 0 14 8.5V12h5z"/><path d="M19 12c0 3-1.5 5-4.5 5.5"/>',
+  image:'<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m20.5 15.5-4.5-4.5-8.5 8.5"/>',
+  video:'<rect x="3.5" y="5.5" width="17" height="13" rx="3"/><path d="m10.5 9.5 4 2.5-4 2.5z"/>',
+  free:'<rect x="3.5" y="3.5" width="17" height="17" rx="3" stroke-dasharray="3 3.2"/><path d="M12 8.5v7M8.5 12h7"/>',
+  text:'<path d="M4.5 6.5h15M4.5 10.5h15M4.5 14.5h11M4.5 18.5h7"/>',
+  note:'<path d="M12 3.8 21 19.5H3z"/><path d="M12 10v4.5"/><path d="M12 17.3v.2"/>',
+  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  tag:'<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3-8.7 8.7z"/><circle cx="8" cy="8" r="1.4"/>',
+  jpg:'<rect x="3.5" y="4.5" width="17" height="13" rx="2.5"/><path d="m3.5 14 4.5-4 4 3.5 2.5-2 6 4.5"/><path d="M12 17.5v4M9.5 19.5 12 22l2.5-2.5"/>',
+  zip:'<path d="M5.5 3.5h9l4 4v13h-13z"/><path d="M10.5 3.5v2h1.5v2h-1.5v2h1.5v2h-1.5v2"/><rect x="9.5" y="14.5" width="3" height="3" rx=".8"/>',
+  phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M10.5 18.5h3"/>',
+  frame:'<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><rect x="7" y="9" width="10" height="6" rx="1" stroke-dasharray="2 1.6"/>',
+  up:'<path d="m6 14 6-6 6 6"/>',
+  top:'<path d="M6 4.5h12"/><path d="m7 15 5-5 5 5"/><path d="M12 10v10"/>',
+  bottom:'<path d="M6 19.5h12"/><path d="m7 9 5 5 5-5"/><path d="M12 14V4"/>',
+  down:'<path d="m6 10 6 6 6-6"/>',
+  fold:'<path d="m7 4 5 5 5-5"/><path d="m7 20 5-5 5 5"/>',
+  unfold:'<path d="m7 9 5-5 5 5"/><path d="m7 15 5 5 5-5"/>',
+  dup:'<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
+  trash:'<path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  save:'<path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 19.5h14"/>',
+  open:'<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  more:'<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>',
+  close:'<path d="M6 6l12 12M18 6 6 18"/>',
+  marker:'<path d="m14.5 4.5 5 5-8 8H6.5v-5z"/><path d="M4 20.5h8"/>',
+  clear:'<path d="M5 6h11"/><path d="M10.5 6 8 18"/><path d="m15 14 5 5M20 14l-5 5"/>',
+  arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+  settings:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  newdoc:'<path d="M14 3.5H7A2.5 2.5 0 0 0 4.5 6v12A2.5 2.5 0 0 0 7 20.5h10a2.5 2.5 0 0 0 2.5-2.5V9z"/><path d="M14 3.5V9h5.5"/><path d="M12 12v5M9.5 14.5h5"/>',
+  splash:'<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>',
+  link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  alignl:'<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>',
+  vtop:'<path d="M4 4.5h16"/><path d="M8 9h8M8 13h8M10 17h4"/>',
+  vmid:'<path d="M4 4.5h16M4 19.5h16"/><path d="M8 10h8M9 14h6"/>',
+  vbot:'<path d="M4 19.5h16"/><path d="M10 7h4M8 11h8M8 15h8"/>',
+  alignc:'<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
+  alignr:'<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
+  reset:'<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>'
+};
+
+/* Порядок здесь = порядок в окне «Что добавить?»: первые два — верхняя строка (широкий текст и узкая заметка), дальше парами */
+const TYPES = {
+  text:      { label:'Текст проповеди', icon:'text', slide:false, desc:'На экран не идёт: подсказка оператору, где вы сейчас' },
+  note:      { label:'Заметка оператору', icon:'note', slide:false, desc:'Что сделать: запустить видео, включить музыку…' },
+  scripture: { label:'Место Писания', icon:'book', slide:true, desc:'Одно или несколько мест, с предпросмотром слайда' },
+  free:      { label:'Свободный слайд', icon:'free', slide:true, desc:'Всё нестандартное: опишите словами' },
+  thesis:    { label:'Тезис', icon:'thesis', slide:true, desc:'Мысль, пункт плана, пояснение слова' },
+  quote:     { label:'Цитата', icon:'quote', slide:true, desc:'Текст и автор' },
+  image:     { label:'Картинка', icon:'image', slide:true, desc:'Найти по описанию или прислать файл' },
+  video:     { label:'Видео', icon:'video', slide:true, desc:'Ссылка или файл отдельно' }
+};
+/* Типы, у которых в редакторе есть предпросмотр слайда */
+const PREVIEW = { scripture:true, thesis:true, quote:true };
+
