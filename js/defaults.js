@@ -59,6 +59,10 @@ const ICONS = {
   reset:'<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>',
   cover:'<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M8 10h8M9.5 13h5"/><path d="M6.5 16.5h11" opacity=".55"/>',
   flag:'<path d="M5.5 21V4"/><path d="M5.5 4.5h11l-2.5 4 2.5 4h-11"/>',
+  back:'<path d="m15 18-6-6 6-6"/>',
+  next:'<path d="m9 18 6-6-6-6"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/>',
   frameDash:'<rect x="4" y="6" width="16" height="12" rx="2" stroke-dasharray="2.6 2.2"/>'
 };
 

@@ -2,7 +2,9 @@
 
 /* ========= Состояние ========= */
 let state, sheetAt = 0, toastTimer = null, draftTimer = null;
-let mode = LS.get('swp-mode') === 'view' ? 'view' : 'edit';
+/* Экран: главная со списком проповедей или сама проповедь (вид «Слайды» или «Текст»). Адрес: #s=<id>&v=text */
+let screen = 'home', view = 'slides';
+let selId = null, speechOpen = false;   // выбранный слайд в ленте; «Текст к слайду» развёрнут во всю высоту
 let viewOpts = { showText:true, size:1 };
 try { Object.assign(viewOpts, JSON.parse(LS.get('swp-view') || '{}')); } catch(e){}
 
@@ -63,3 +65,19 @@ function blockSummary(b){
   return t.length > 120 ? t.slice(0, 120) + '…' : t;
 }
 
+
+/* Статус проповеди пока считается по отметкам «готово»: «подана» и ручные статусы появятся вместе с облаком (этап 7) */
+function sermonStatus(d){
+  const sl = d.blocks.filter(b => TYPES[b.type] && TYPES[b.type].slide), done = sl.filter(b => b.done).length;
+  if (!sl.length) return { key:'draft', label:'Черновик' };
+  if (done === sl.length) return { key:'done', label:'Готово' };
+  if (done > 0) return { key:'work', label:'В работе' };
+  return { key:'draft', label:'Черновик' };
+}
+/* «Вс, 15 ноября» */
+function fmtDay(s){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+  if (!m) return '';
+  const t = new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('ru-RU', { weekday:'short', day:'numeric', month:'long' });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}

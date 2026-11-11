@@ -1,68 +1,5 @@
 'use strict';
 
-/* ========= Отрисовка ========= */
-function renderAll(){ renderMain(); updateStatus(); }
-function setMode(m){
-  if (m === 'view' && !checkNames()) return;
-  mode = m; LS.set('swp-mode', m); renderMain(); window.scrollTo(0, 0);
-}
-
-function renderMain(){
-  segEl.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
-  foldBtns.forEach(b => { b.disabled = mode !== 'edit'; b.title = mode !== 'edit' ? 'Сворачивать блоки можно в режиме «Редактор»' : ''; });
-  mainEl.innerHTML = '';
-  document.title = (state.meta.title || 'Проповедь') + ' · Слово веры';
-  if (mode === 'edit') renderEditor(); else renderView();
-}
-
-function updateStatus(){
-  const n = slideNums()._total, done = state.blocks.filter(b => b.done).length, todo = state.blocks.filter(b => b.todo).length;
-  const words = state.blocks.reduce((s, b) => s + (b.speech ? wordCount(b.speech) : 0), 0), min = words / WORDS_PER_MIN;
-  const left = h('span', null, 'Слайдов: ' + n + (done ? ' · готово: ' + done : '') + (todo ? ' · доработать: ' + todo : '') +
-    (words ? ' · текст ' + (min < 0.75 ? 'меньше минуты' : '≈ ' + Math.round(min) + ' мин') : '') + ' · черновик хранится в этом браузере');
-  let right;
-  if (isDirty()) right = h('span', { class:'warn' }, '● Не сохранено в файл');
-  else if (state.savedAt) right = h('span', { class:'ok' }, '✓ Файл сохранён в ' + fmtTime(state.savedAt));
-  else right = h('span');
-  statusEl.innerHTML = '';
-  statusEl.append(left, right);
-}
-
-/* ----- Редактор ----- */
-function renderEditor(){
-  const m = state.meta;
-  const metaField = (key, label, ph, type) => h('label', { class:'field' },
-    h('span', { class:'lbl', text:label }),
-    h('input', { class:'input', type:type || 'text', placeholder:ph || '', value:m[key] || '', oninput:e => { m[key] = e.target.value; change(); refreshSplash(); } }));
-  mainEl.append(h('section', { class:'card meta' },
-    h('div', { class:'kicker', text:'Шапка проповеди' }),
-    h('input', { class:'title-input', placeholder:'Название проповеди', value:m.title, 'aria-label':'Название проповеди',
-      oninput:e => { m.title = e.target.value; document.title = (m.title || 'Проповедь') + ' · Слово веры'; change(); refreshSplash(); } }),
-    h('div', { class:'meta-grid' },
-      metaField('date', 'Дата', '', 'date'),
-      preacherField())));
-  if (state.blocks.some(b => b.type === 'scripture')) loadBible(curLang());
-
-  const list = h('div', { class:'blocks', id:'blocks' });
-  const nums = slideNums();
-  state.blocks.forEach((b, i) => {
-    list.append(insertLine(i));
-    list.append(renderBlock(b, nums[b.id]));
-  });
-  mainEl.append(list);
-  if (!state.blocks.length) mainEl.append(h('div', { class:'empty' },
-    h('div', { class:'empty-title', text:'Соберите проповедь из блоков' }),
-    h('ol', null,
-      h('li', null, 'Добавляйте слайды по ходу проповеди: места Писания, тезисы, цитаты, картинки.'),
-      h('li', null, 'Под каждым слайдом есть «Текст к слайду»: что вы говорите, пока он на экране. На экран этот текст не выводится, его видит оператор.'),
-      h('li', null, 'Если какое-то время говорите без слайда, добавьте «Заставку»: на экране будет название проповеди.'),
-      h('li', null, '«Заметка оператору» — просьба к оператору: запустить видео, включить музыку.'),
-      h('li', null, 'Готово? Нажмите «Сохранить» и отправьте получившийся файл.'))));
-  mainEl.append(h('button', { type:'button', class:'add-big', onclick:() => openSheet(state.blocks.length) }, ic('plus'), 'Добавить блок'));
-  state.blocks.forEach(updateCounter);
-  growAll(mainEl);
-}
-
 /* Проповедник: из списка («Фамилия Имя») или вручную — имя и фамилия отдельно (на заставке «Имя ФАМИЛИЯ») */
 function preacherField(){
   const m = state.meta, key = preacherKey(m), known = !key || PREACHERS.includes(key);
@@ -83,89 +20,6 @@ function preacherField(){
 /* Шапка поменялась — заставки перерисовываются */
 function refreshSplash(){ state.blocks.forEach(b => { if (b.type === 'splash') schedulePreview(b); }); }
 
-function insertLine(at){
-  return h('div', { class:'insert' }, h('button', { type:'button', title:'Вставить блок сюда', 'aria-label':'Вставить блок сюда', onclick:() => openSheet(at) }, ic('plus')));
-}
-
-function renderBlock(b, n){
-  const T = TYPES[b.type];
-  const miss = flagMissing && NAMED[b.type] && slidesCfg().names.required && !cleanName(b.name);
-  const card = h('article', { class:'block t-' + b.type + (b.collapsed ? ' collapsed' : '') + (b.done ? ' done' : '') + (b.todo ? ' todo' : '') + (miss ? ' missing' : ''), 'data-id':b.id, style:'--tc:var(--c-' + b.type + ')' });
-  let sub;
-  if (b.collapsed){
-    const s = blockSummary(b), w = T.slide ? wordCount(b.speech) : 0;
-    sub = h('div', { class:'bsum' + (s || w ? '' : ' empty'), text:[s, w ? 'текст: ' + speechInfo(w) : ''].filter(Boolean).join(' · ') || 'Пока пусто' });
-  } else sub = h('div', { class:'bsub' }, T.slide ? ['Слайд ' + n, b.done && ' · готов', b.todo && h('span', { class:'todo-tag', text:' · доработать' })] : 'Только для оператора');
-  card.append(h('div', { class:'bhead' },
-    h('div', { class:'btag', title:b.collapsed ? 'Развернуть' : 'Свернуть', onclick:() => toggleFold(b) },
-      T.slide ? h('span', { class:'bnum', text:pad(n) }) : h('span', { class:'bnum off' }, ic(T.icon)),
-      h('div', { style:'min-width:0' }, h('div', { class:'btype', text:T.label }), sub)),
-    h('div', { class:'btools' },
-      T.slide && iconBtn('tag', 'Скопировать название слайда', () => copyText(slideName(b, slideNums()[b.id]), 'Скопировано: ')),
-      PREVIEW[b.type] && iconBtn('jpg', 'Скачать слайд в JPEG', () => exportOne(b)),
-      T.slide && iconBtn('flag', b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную', () => toggleTodo(b), 'todo' + (b.todo ? ' on' : '')),
-      T.slide && iconBtn('check', b.done ? 'Снять отметку «готово»' : 'Отметить как готовый', () => toggleDone(b), 'mark' + (b.done ? ' on' : '')),
-      iconBtn(b.collapsed ? 'unfold' : 'fold', b.collapsed ? 'Развернуть' : 'Свернуть', () => toggleFold(b)),
-      iconBtn('top', 'В самый верх', () => move(b, -Infinity)),
-      iconBtn('up', 'Выше', () => move(b, -1)),
-      iconBtn('down', 'Ниже', () => move(b, 1)),
-      iconBtn('bottom', 'В самый низ', () => move(b, Infinity)),
-      iconBtn('dup', 'Дублировать', () => duplicate(b)),
-      iconBtn('trash', 'Удалить', () => removeBlock(b), 'danger'))));
-  if (b.collapsed) return card;
-  const body = h('div', { class:'bbody' });
-  BODY[b.type](b, body, n);
-  if (PREVIEW[b.type]){
-    const sl = slideEl(b);
-    card.append(h('div', { class:'bsplit' },
-      h('div', { class:'bmain' }, body),
-      h('div', { class:'bprev' },
-        h('div', { class:'bprev-cap' }, h('span', null, 'Предпросмотр'), h('span', { class:'count' }, '')),
-        sl)));
-    if (previewRO) previewRO.observe(sl);
-  } else card.append(body);
-  if (T.slide) card.append(speechBox(b));
-  return card;
-}
-/* «Текст к слайду»: что проповедник говорит, пока слайд на экране. На экран не идёт; оператор видит его в просмотре и PDF */
-function speechBox(b){
-  const cnt = h('span', { class:'count' }), show = () => { cnt.textContent = speechInfo(wordCount(b.speech)); };
-  show();
-  return h('div', { class:'speech' },
-    h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Текст к слайду' }), cnt),
-    rich(b.speech, { key:b.id + ':speech', cls:'speech-text',
-      ph:b.type === 'splash' ? 'Что вы говорите, пока на экране заставка: вступление, история, переход к следующей мысли' : 'Что вы говорите, пока этот слайд на экране. Оператор увидит этот текст у себя',
-      onInput:v => { b.speech = v; show(); change(); } }));
-}
-
-function rerender(b, focusKey, offset){
-  const old = document.querySelector('.block[data-id="' + b.id + '"]');
-  const nb = renderBlock(b, slideNums()[b.id]);
-  if (old) old.replaceWith(nb);
-  if (PREVIEW[b.type] && !b.collapsed){ clearTimeout(previewTimers[b.id]); runPreview(b); }   // раскладываем сразу, без пустого кадра
-  else updateCounter(b);
-  growAll(nb);
-  if (focusKey) focusRich(focusKey, offset);
-}
-
-function updateCounter(b){
-  const card = document.querySelector('.block[data-id="' + b.id + '"]'); if (!card) return;
-  if (card.querySelector('.sl')){ schedulePreview(b); return; }
-  // свёрнутый блок: подсвечиваем только превышение лимита символов
-  if (b.type === 'thesis' || b.type === 'quote') card.classList.toggle('over', charCount(b) > limitFor(b));
-}
-
-function toggleFold(b){
-  b.collapsed = !b.collapsed;
-  change(); rerender(b);
-}
-/* Свернуть или развернуть блоки, подходящие под условие: fold(b) — свернуть ли этот блок */
-function foldWhere(pred, fold, msg){
-  if (mode !== 'edit') return;
-  state.blocks.forEach(b => { if (pred(b)) b.collapsed = !!fold(b); });
-  change(); renderMain();
-  toast(msg);
-}
 /* Отметка «готово»: слайд выгружен или сделан. Ставится вручную, а при выгрузке — сама, если её ещё нет */
 function toggleDone(b){
   b.done = !b.done;
@@ -575,7 +429,7 @@ function autoName(html){
 function syncAutoName(b){
   if (b.type !== 'thesis' || b.nameAuto === false) return;
   b.name = autoName(b.text);
-  const inp = document.querySelector('.block[data-id="' + b.id + '"] .namebox input');
+  const inp = b.id === selId && sideEl ? sideEl.querySelector('.namebox input') : null;
   if (inp && document.activeElement !== inp){ inp.value = b.name; inp.dispatchEvent(new Event('sync')); }
 }
 
@@ -590,7 +444,7 @@ function nameField(b, n){
     cnt.classList.toggle('warn', len > cfg.maxLength);
     const miss = cfg.required && !cleanName(b.name);
     box.classList.toggle('missing', flagMissing && miss);
-    const card = box.closest('.block'); if (card) card.classList.toggle('missing', flagMissing && miss);
+    refreshThumb(b);
   };
   const inp = h('input', { class:'input', value:b.name || '', maxlength:String(cfg.maxLength), autocomplete:'off', spellcheck:'true',
     'aria-label':'Название слайда', placeholder:NAME_PH[b.type] || '',
@@ -712,8 +566,15 @@ const BODY = {
           iconBtn(icn, t, () => { b.align = a; change(); rerender(b); }, (b.align === 'left' ? 'left' : 'center') === a ? 'on' : ''))),
       valignTools(b)));
   },
-  splash(b, body){
-    body.append(h('p', { class:'hint', text:'На заставке — название проповеди, имя проповедника и дата из шапки. Поменять их можно наверху страницы.' }));
+  splash(b, body, n){
+    const m = state.meta;
+    const row = (lbl, val, ph) => h('div', { class:'info-row' }, h('span', { class:'lbl', text:lbl }), h('div', { class:'info-val' + (val ? '' : ' empty'), text:val || ph }));
+    body.append(
+      row('Название для Holyrics', '[' + n + '] заставка'),
+      row('Название на слайде', m.title, 'Без названия'),
+      row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Проповедник и дата не указаны'),
+      h('p', { class:'hint', text:'Это берётся из проповеди: название, проповедник и дата. Размер названия подбирается сам, от 110 до 200 px.' }),
+      h('button', { type:'button', class:'m-btn', onclick:() => openMeta() }, ic('settings'), 'Изменить название, дату, проповедника'));
   },
   thesis(b, body, n){
     body.append(nameField(b, n));
@@ -773,26 +634,29 @@ const BODY = {
     body.append(field('Что должно быть на слайде', area(b, 'desc', 'Опишите словами: три перевода рядом, схема, особая вёрстка… Можно вставить тексты и ссылки', 4)));
   },
   note(b, body){
-    body.append(area(b, 'text', 'Например: после слов «…и Он сказал им» запустить видео', 2));
+    const t = area(b, 'text', 'Например: после слов «…и Он сказал им» запустить видео', 2);
+    t.addEventListener('input', () => updateCounter(b));   // жёлтая плашка на сцене и миниатюра меняются сразу
+    body.append(t);
     body.append(h('p', { class:'hint', text:'Оператор увидит заметку крупно и заглавными буквами, даже если скроет текст проповеди.' }));
   }
 };
 
 /* ----- Действия с блоками ----- */
-function openSheet(at){ sheetAt = at; sheetOverlay.classList.add('open'); }
+function openSheet(at){
+  sheetAt = at;
+  const prev = state.blocks.slice(0, at).reverse().find(b => TYPES[b.type].slide);
+  sheetTitle.textContent = !state.blocks.length ? 'Что добавить?' : prev ? 'Добавить после слайда ' + slideNums()[prev.id] : 'Добавить в начало';
+  sheetOverlay.classList.add('open');
+}
 function closeSheet(){ sheetOverlay.classList.remove('open'); }
 function addBlock(type, at){
   const nb = newBlock(type);
   state.blocks.splice(at, 0, nb);
-  closeSheet(); change(); renderMain(); updateStatus();
-  const card = document.querySelector('.block[data-id="' + nb.id + '"]');
-  if (card){
-    card.scrollIntoView({ block:'center', behavior:'smooth' });
-    flash(nb.id);
-    // тезис и цитата: курсор сразу в текст (название тезиса сформируется из него само)
-    const f = (type === 'thesis' || type === 'quote') ? card.querySelector('.bbody .rich') : type === 'splash' ? card.querySelector('.speech .rich') : card.querySelector('.bbody input, .bbody textarea, .bbody .rich');
-    if (f && window.matchMedia('(pointer:fine)').matches) f.focus({ preventScroll:true });
-  }
+  closeSheet(); selId = nb.id; change(); renderMain();
+  flash(nb.id);
+  // тезис и цитата: курсор сразу в текст (название тезиса сформируется из него само)
+  const f = (type === 'thesis' || type === 'quote') ? sideEl.querySelector('.bbody .rich') : type === 'splash' ? stageEl.querySelector('.speech .rich') : sideEl.querySelector('.bbody input, .bbody textarea, .bbody .rich');
+  if (f && window.matchMedia('(pointer:fine)').matches) f.focus({ preventScroll:true });
 }
 function addItem(b, it){
   b.items.push(it);
@@ -800,7 +664,7 @@ function addItem(b, it){
   const i = b.items.length - 1;
   if (it.kind === 'text') focusRich(b.id + ':' + i + ':t', 0);
   else if (it.kind === 'line') return;
-  else { if (!it.manual) loadBible(it.lang); const card = document.querySelector('.block[data-id="' + b.id + '"]'); const items = card && card.querySelectorAll('.item'); if (items && items[i]) items[i].scrollIntoView({ block:'center', behavior:'smooth' }); }
+  else { if (!it.manual) loadBible(it.lang); const items = sideEl && sideEl.querySelectorAll('.bbody > .item'); if (items && items[i]) items[i].scrollIntoView({ block:'center', behavior:'smooth' }); }
 }
 function continueScripture(b){
   const scr = b.items.filter(it => it.kind === 'scripture'), lp = scr[scr.length - 1];
@@ -821,9 +685,7 @@ function continueScripture(b){
     nb.items = [it];
   }
   state.blocks.splice(state.blocks.indexOf(b) + 1, 0, nb);
-  change(); renderMain();
-  const card = document.querySelector('.block[data-id="' + nb.id + '"]');
-  if (card) card.scrollIntoView({ block:'start', behavior:'smooth' });
+  selId = nb.id; change(); renderMain();
   flash(nb.id);
   toast('Новый слайд с тем же местом');
 }
@@ -832,9 +694,7 @@ function move(b, dir){
   const j = dir === -Infinity ? 0 : dir === Infinity ? last : i + dir;   // ±Infinity — в самый верх или низ
   if (j < 0 || j > last || j === i) return;
   state.blocks.splice(i, 1); state.blocks.splice(j, 0, b);
-  change(); renderMain();
-  const card = document.querySelector('.block[data-id="' + b.id + '"]');
-  if (card) card.scrollIntoView({ block:'center', behavior:'smooth' });
+  selId = b.id; change(); renderMain();
   flash(b.id);
 }
 function duplicate(b){
@@ -842,11 +702,11 @@ function duplicate(b){
   const had = TYPES[b.type].slide && plain(b.speech).trim();
   if (TYPES[b.type].slide) c.speech = '';   // текст к слайду не копируется: иначе он окажется в проповеди дважды
   state.blocks.splice(state.blocks.indexOf(b) + 1, 0, c);
-  change(); renderMain(); flash(c.id); toast(had ? 'Слайд скопирован без текста к нему' : 'Блок скопирован');
+  selId = c.id; change(); renderMain(); flash(c.id); toast(had ? 'Слайд скопирован без текста к нему' : 'Блок скопирован');
 }
 /* Удаление слайда: его «Текст к слайду» не пропадает, а переходит к слайду перед ним (или после, если это первый) */
 function removeBlock(b){
-  const i = state.blocks.indexOf(b);
+  const i = state.blocks.indexOf(b), wasSel = b.id === selId;
   let heir = null, heirOld = '';
   if (TYPES[b.type].slide && plain(b.speech).trim()){
     const prev = state.blocks.slice(0, i).reverse().find(x => TYPES[x.type].slide), next = state.blocks.slice(i + 1).find(x => TYPES[x.type].slide);
@@ -854,17 +714,20 @@ function removeBlock(b){
     if (heir){ heirOld = heir.speech; heir.speech = prev ? joinSpeech(heir.speech, b.speech) : joinSpeech(b.speech, heir.speech); }
   }
   state.blocks.splice(i, 1);
+  if (wasSel){ const nb = state.blocks[Math.min(i, state.blocks.length - 1)]; selId = nb ? nb.id : null; }
   change(); renderMain();
   const msg = heir ? 'Слайд удалён, текст к нему перенесён к слайду ' + slideNums()[heir.id] : TYPES[b.type].slide ? 'Слайд удалён' : 'Заметка удалена';
   toast(msg, 'Вернуть', () => {
     if (heir) heir.speech = heirOld;
     state.blocks.splice(Math.min(i, state.blocks.length), 0, b);
-    change(); renderMain(); flash(b.id);
+    selId = b.id; change(); renderMain(); flash(b.id);
   });
 }
+/* Короткая подсветка миниатюры в ленте: слайд добавлен, перенесён, скопирован */
 function flash(id){
-  const c = document.querySelector('.block[data-id="' + id + '"]'); if (!c) return;
+  const c = filmEl && filmEl.querySelector('.st[data-id="' + id + '"]'); if (!c) return;
   c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+  c.scrollIntoView({ block:'nearest' });
 }
 
 /* ----- Оформление текста ----- */
@@ -961,100 +824,6 @@ document.addEventListener('focusout', () => setTimeout(() => {
 }, 120));
 if (window.visualViewport){ visualViewport.addEventListener('resize', placeFmt); visualViewport.addEventListener('scroll', placeFmt); }
 
-/* ----- Просмотр для оператора ----- */
-function renderView(){
-  const m = state.meta, nums = slideNums();
-  const v = h('div', { class:'view', style:'--vs:' + viewOpts.size });
-  v.append(h('div', { class:'vhead' },
-    h('h1', { class:'vtitle', text:m.title || 'Без названия' }),
-    h('div', { class:'vmeta', text:[fmtDate(m.date), preacherName(m)].filter(Boolean).join(' · ') }),
-    null));
-  const setSize = d => { viewOpts.size = Math.max(0.8, Math.min(1.6, Math.round((viewOpts.size + d) * 10) / 10)); LS.set('swp-view', JSON.stringify(viewOpts)); renderMain(); };
-  v.append(h('div', { class:'vctrl' },
-    toggle([['all', 'Слайды + текст'], ['slides', 'Только слайды']], viewOpts.showText ? 'all' : 'slides', val => { viewOpts.showText = val === 'all'; LS.set('swp-view', JSON.stringify(viewOpts)); renderMain(); }),
-    h('div', { class:'size' },
-      h('button', { type:'button', title:'Мельче', onclick:() => setSize(-0.1) }, 'A−'),
-      h('button', { type:'button', title:'Крупнее', onclick:() => setSize(0.1) }, 'A+'))));
-  const list = h('div', { class:'vlist' });
-  state.blocks.forEach(b => {
-    if (b.type === 'note'){
-      // заметки оператору видны всегда, даже в режиме «Только слайды»
-      if (!(b.text || '').trim()) return;
-      list.append(h('div', { class:'vnote' },
-        h('div', { class:'vnote-tag' }, ic('note'), 'Оператору'),
-        h('div', { class:'vnote-body', text:b.text.trim() })));
-    } else {
-      list.append(viewSlide(b, nums[b.id]));
-      if (viewOpts.showText && plain(b.speech).trim()) list.append(h('div', { class:'vtx' }, h('div', { class:'vtx-body', html:sanitize(b.speech) })));
-    }
-  });
-  if (!state.blocks.length) list.append(h('p', { class:'hint', text:'Пока нет ни одного слайда. Переключитесь в «Редактор» или откройте файл проповеди.' }));
-  v.append(list);
-  wrapScripts(v);
-  mainEl.append(v);
-}
-function viewPart(p){
-  const verses = p.verses.filter(x => plain(x.text).trim())
-    .map(x => '<span>' + (x.num ? '<sup>' + esc(x.num) + '</sup>' : '') + sanitize(x.text) + '</span>').join(' ');
-  return h('div', null,
-    h('div', { class:'vs-ref' }, p.ref || 'Место не указано', p.translation && h('span', { class:'vs-tr', text:p.translation })),
-    h('div', { class:'vs-verses', html:verses || '<span class="empty-v">Текст не вставлен</span>' }));
-}
-/* Картинка, видео, свободный слайд: сначала название, ниже подсказки для того, кто готовит слайды */
-function nameView(b){
-  const n = cleanName(b.name);
-  return h('div', { class:'vs-name' + (n ? '' : ' empty-v'), text:n || 'Без названия' });
-}
-function mediaView(icon, title, lines){
-  return h('div', { class:'vs-media' }, ic(icon), h('div', null, h('div', { class:'vs-mtitle', text:title }), lines));
-}
-function viewSlide(b, n){
-  const card = h('article', { class:'vslide', style:'--tc:var(--c-' + b.type + ')' });
-  card.append(h('div', { class:'vs-head' },
-    h('span', { class:'vs-num', text:pad(n) }),
-    h('span', { class:'vs-type', text:TYPES[b.type].label }),
-    iconBtn('dup', 'Скопировать текст слайда', () => copyText(slideText(b)), 'vs-copy')));
-  const c = h('div', { class:'vs-body' });
-  const desc = t => t && t.trim() ? h('div', { class:'vs-mdesc', text:t }) : null;
-  switch (b.type){
-    case 'splash':
-      c.append(h('div', { class:'vs-name', text:state.meta.title || 'Без названия' }));
-      break;
-    case 'scripture':
-      b.items.forEach((it, i) => {
-        if (i) c.append(h('div', { class:'vs-hr' }));
-        if (it.kind === 'line') return;
-        c.append(it.kind === 'text' ? h('div', { class:'vs-note', style:'text-align:' + it.align, html:sanitize(it.html) || '<span class="empty-v">Пусто</span>' }) : viewPart(it));
-      });
-      break;
-    case 'thesis':
-      c.append(h('div', { class:'vs-thesis', html:sanitize(b.text) || '<span class="empty-v">Пусто</span>' }));
-      break;
-    case 'quote':
-      c.append(h('blockquote', { class:'vs-quote', html:'«' + sanitize(b.text) + '»' }));
-      if (b.author || b.caption) c.append(h('div', { class:'vs-author', text:'— ' + [b.author, b.caption].filter(Boolean).join(', ') }));
-      break;
-    case 'image':
-      c.append(nameView(b));
-      c.append(mediaView('image', b.mode === 'find' ? 'Найти картинку' : 'Файл пришлют отдельно («Слайд ' + n + '»)', desc(b.desc)));
-      break;
-    case 'video': {
-      const lines = [];
-      if (b.mode === 'link' && b.url) lines.push(h('div', { class:'vs-mdesc' }, h('a', { href:b.url, target:'_blank', rel:'noopener', text:b.url })));
-      if (b.from || b.to) lines.push(h('div', { class:'vs-mdesc', text:'Показать: ' + (b.from || '0:00') + ' – ' + (b.to || 'до конца') }));
-      lines.push(desc(b.desc));
-      c.append(nameView(b));
-      c.append(mediaView('video', b.mode === 'link' ? 'Видео по ссылке' : 'Видео пришлют отдельно («Слайд ' + n + '»)', lines));
-      break;
-    }
-    case 'free':
-      c.append(nameView(b));
-      c.append(mediaView('free', 'Свободный слайд', desc(b.desc) || h('div', { class:'vs-mdesc', text:'Описание не заполнено' })));
-      break;
-  }
-  card.append(c);
-  return card;
-}
 function slideText(b){
   const P = p => {
     const head = (p.ref || '') + (p.translation ? ' (' + p.translation + ')' : '');

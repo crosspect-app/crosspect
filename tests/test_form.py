@@ -33,7 +33,7 @@ def test_open_json_file(page, sermon):
     open_sermon(page, sermon)
     assert page.evaluate("state.blocks.length") == len(sermon["blocks"])
     assert page.evaluate("state.meta.title") == sermon["meta"]["title"]
-    assert page.locator(".block").count() == len(sermon["blocks"])
+    assert page.locator(".film .st").count() == len(sermon["blocks"])
     assert page.errors == []
 
 
@@ -90,15 +90,68 @@ def test_draft_survives_reload(page, sermon, base_url):
     assert page.evaluate("state.blocks.length") == len(sermon["blocks"])
 
 
-def test_view_mode(page, sermon):
+def test_text_view(page, sermon):
     open_sermon(page, sermon)
-    page.get_by_role("button", name="Просмотр").click()
-    page.wait_for_function("mode === 'view'")
+    page.locator(".seg button", has_text="Текст").click()
+    page.wait_for_function("view === 'text'")
+    assert page.evaluate("location.hash").endswith("v=text")
     body = page.inner_text("main").lower()
     assert "включить свет в зале" in body      # заметка оператору
     assert "иоанна 3:16" in body               # место Писания
-    assert page.locator("main .block").count() == 0 or page.locator("main .block .namebox input").count() == 0   # редактора нет
+    assert page.locator(".film").count() == 0   # в «Тексте» ленты слайдов нет
+    assert page.evaluate("document.body.classList.contains('light')")   # «Текст» светлый
+    page.locator(".seg button", has_text="Слайды").click()
+    page.wait_for_function("view === 'slides'")
+    assert not page.evaluate("document.body.classList.contains('light')")
     assert page.errors == []
+
+
+def test_home_lists_saved_sermons_and_opens_them(page, sermon, base_url):
+    open_sermon(page, sermon)
+    page.locator("a.btn.ghost").click()
+    page.wait_for_function("screen === 'home'")
+    assert page.locator(".scard").count() == 1
+    assert sermon["meta"]["title"] in page.inner_text(".scard")
+    page.locator(".search input").fill("такого-нет")
+    assert page.locator(".scard").count() == 0
+    page.locator(".search input").fill("форм")
+    assert page.locator(".scard").count() == 1
+    page.locator(".scard").click()
+    page.wait_for_function("screen === 'sermon'")
+    assert page.evaluate("state.blocks.length") == len(sermon["blocks"])
+    assert page.errors == []
+
+
+def test_back_button_returns_to_home_and_reload_keeps_sermon(page, sermon, base_url):
+    open_sermon(page, sermon)
+    page.go_back()
+    page.wait_for_function("screen === 'home'")
+    page.go_forward()
+    page.wait_for_function("screen === 'sermon'")
+    page.reload()
+    page.wait_for_selector(".film .st")
+    assert page.evaluate("state.blocks.length") == len(sermon["blocks"])
+
+
+def test_new_sermon_from_home(page):
+    page.get_by_role("button", name="Новая проповедь").first.click()
+    page.wait_for_function("screen === 'sermon'")
+    assert page.locator(".sheet[aria-label='О проповеди']").count() == 1   # сразу спрашиваем название, проповедника и дату
+    page.evaluate("closeSettings()")
+    assert page.evaluate("state.blocks.length") == 0
+
+
+def test_slide_selection_and_stepper(page, sermon):
+    open_sermon(page, sermon)
+    ids = page.evaluate("state.blocks.map(b => b.id)")
+    assert page.evaluate("selId") == ids[0]
+    page.locator(".film .st").nth(2).click()
+    assert page.evaluate("selId") == ids[2]
+    assert page.locator(".film .st.on").count() == 1
+    page.get_by_role("button", name="Следующий слайд").click()
+    assert page.evaluate("selId") == ids[3]
+    page.get_by_role("button", name="Предыдущий слайд").click()
+    assert page.evaluate("selId") == ids[2]
 
 
 def test_export_single_jpeg(page, sermon):

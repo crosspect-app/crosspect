@@ -286,7 +286,7 @@ function layoutBox(sl, b, px){
 function fitSlide(sl, b){
   const w = sl.clientWidth; if (!w) return null;
   sl.style.setProperty('--s', w / SL.W);
-  if (w < SL.W) lastScale = w / SL.W;
+  if (w < SL.W && !sl.closest('.film')) lastScale = w / SL.W;   // масштаб берём с крупных слайдов, не с миниатюр
   const fit = b.type === 'scripture' ? layoutAt : b.type === 'splash' ? layoutSplash : layoutBox;
   const base = b.type === 'scripture' ? scrPx() : b.type === 'splash' ? SPLASH.max : BASE[b.type] * blkScale(b) / 100;
   if (fit(sl, b, base)) return 1;
@@ -301,10 +301,16 @@ function schedulePreview(b){
   clearTimeout(previewTimers[b.id]);
   previewTimers[b.id] = setTimeout(() => runPreview(b), 90);
 }
+/* Слайд может стоять в нескольких местах сразу (лента, сцена, вид «Текст»): раскладываем каждый,
+   а подпись под сценой и пометку «длинный текст» считаем по большому слайду, если он есть */
 function runPreview(b){
-  const card = document.querySelector('.block[data-id="' + b.id + '"]'); if (!card) return;
-  const sl = card.querySelector('.sl'); if (!sl) return;
-  const ratio = fitSlide(sl, b); if (ratio == null) return;
+  const sls = mainEl.querySelectorAll('.sl[data-id="' + b.id + '"]'); if (!sls.length) return;
+  let ratio = null, main = null;
+  sls.forEach(sl => {
+    const r = fitSlide(sl, b);
+    if (r != null && (ratio == null || sl.closest('.stage'))){ ratio = r; if (sl.closest('.stage')) main = sl; }
+  });
+  if (ratio == null) return;
   const pct = Math.round(ratio * 100);
   let over, msg;
   if (b.type === 'splash'){
@@ -322,9 +328,12 @@ function runPreview(b){
     msg = c + ' / ' + lim + ' символов · текст ' + real + '%' + (pct < 100 ? ' (не поместился, уменьшен)' : '');
     if (over) msg += ' — многовато, лучше разбить';
   }
-  card.classList.toggle('over', over);
-  const cnt = card.querySelector('.bprev-cap .count');
-  if (cnt) cnt.textContent = msg;
+  const th = filmEl && filmEl.isConnected ? filmEl.querySelector('.st[data-id="' + b.id + '"]') : null;
+  if (th) th.classList.toggle('over', over);
+  if (main){
+    const info = main.closest('.stage-view') && main.closest('.stage-view').querySelector('.stage-info');
+    if (info){ info.textContent = msg; info.classList.toggle('over', over); }
+  }
 }
 const previewRO = window.ResizeObserver ? new ResizeObserver(es => es.forEach(e => {
   const b = state && state.blocks.find(x => x.id === e.target.dataset.id); if (b) schedulePreview(b);

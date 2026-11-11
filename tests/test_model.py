@@ -1,7 +1,7 @@
 """Модель проповеди версии 2: текст к слайду, заставка, «доработать», перевод старых файлов, новые настройки слайдов."""
 import json
 
-from conftest import open_sermon
+from conftest import open_sermon, start_blank
 
 
 def blocks(page):
@@ -61,30 +61,51 @@ def test_new_file_roundtrip_keeps_model(page, sermon):
 
 
 def test_new_blocks_get_todo_and_speech(page):
+    start_blank(page)
     page.evaluate("['splash', 'scripture', 'image', 'video', 'free', 'note'].forEach((t, i) => addBlock(t, i))")
     bs = page.evaluate("state.blocks.map(b => [b.type, b.todo, b.speech])")
     assert bs == [["splash", False, ""], ["scripture", False, ""], ["image", True, ""], ["video", True, ""], ["free", True, ""], ["note", None, None]]
-    assert page.locator(".block.todo").count() == 3
-    assert page.locator(".block .speech").count() == 5   # у каждого слайда, у заметки нет
+    assert page.locator(".film .st.todo").count() == 3
+    has = []
+    for i in range(6):   # «Текст к слайду» есть у каждого слайда, у заметки нет
+        page.locator(".film .st").nth(i).click()
+        has.append(page.locator(".stage .speech").count())
+    assert has == [1, 1, 1, 1, 1, 0]
     assert page.errors == []
 
 
 def test_speech_typing_counts_words(page):
+    start_blank(page)
     page.evaluate("addBlock('thesis', 0)")
-    box = page.locator(".block .speech .rich")
+    box = page.locator(".stage .speech .rich")
     box.click()
     page.keyboard.type("Раз два три четыре пять")
     assert page.evaluate("plain(state.blocks[0].speech)") == "Раз два три четыре пять"
-    assert "5 слов" in page.inner_text(".block .speech .count")
+    assert "5 слов" in page.inner_text(".stage .speech .count")
 
 
 def test_todo_toggle(page):
+    start_blank(page)
     page.evaluate("addBlock('image', 0)")
-    page.locator(".block .icon-btn.todo").click()
+    assert page.locator(".film .st.todo").count() == 1
+    page.locator(".stage-bar .btn.todo").click()
     assert page.evaluate("state.blocks[0].todo") is False
-    assert page.locator(".block.todo").count() == 0
-    page.locator(".block .icon-btn.todo").click()
+    assert page.locator(".film .st.todo").count() == 0
+    page.locator(".stage-bar .btn.todo").click()
     assert page.evaluate("state.blocks[0].todo") is True
+    assert page.locator(".film .st.todo").count() == 1
+
+
+def test_done_mark_shows_in_film_and_on_home_card(page):
+    start_blank(page)
+    page.evaluate("addBlock('thesis', 0); addBlock('thesis', 1)")
+    page.locator(".film .st").first.click()
+    page.locator(".stage-bar .btn.ok").click()
+    assert page.evaluate("state.blocks[0].done") is True
+    assert page.locator(".film .st.done").count() == 1
+    page.locator("a.btn.ghost").click()
+    page.wait_for_selector(".scard")
+    assert "Готово 1 из 2" in page.inner_text(".scard")
 
 
 def test_delete_slide_keeps_its_speech(page, sermon):
@@ -110,56 +131,62 @@ def test_duplicate_does_not_copy_speech(page, sermon):
 
 def test_preacher_by_hand(page):
     page.wait_for_function("CONFIG.loadedAt > 0 || CONFIG.error !== ''", timeout=15000)   # список проповедников из настроек уже пришёл
-    page.select_option(".meta select", "__other")
-    page.fill(".meta input[aria-label='Имя']", "Андрей")
-    page.fill(".meta input[aria-label='Фамилия']", "Ковальчук")
+    page.get_by_role("button", name="Новая проповедь").first.click()   # окно «О проповеди» открывается само
+    page.wait_for_selector(".sheet[aria-label='О проповеди'] select")
+    page.select_option(".sheet select", "__other")
+    page.fill(".sheet input[aria-label='Имя']", "Андрей")
+    page.fill(".sheet input[aria-label='Фамилия']", "Ковальчук")
     assert page.evaluate("[state.meta.firstName, state.meta.lastName]") == ["Андрей", "Ковальчук"]
-    page.select_option(".meta select", "Шода Евгений")
+    page.select_option(".sheet select", "Шода Евгений")
     assert page.evaluate("[state.meta.firstName, state.meta.lastName]") == ["Евгений", "Шода"]
 
 
 def test_splash_slide(page):
-    page.fill(".title-input", "Сила в немощи")
-    page.evaluate("Object.assign(state.meta, { firstName:'Андрей', lastName:'Ковальчук', date:'2026-11-15' }); addBlock('splash', 0)")
-    page.wait_for_function("document.querySelector('.block .sl-sp-title') && document.querySelector('.block .sl-sp-title').textContent.length > 0")
+    start_blank(page)
+    page.evaluate("Object.assign(state.meta, { title:'Сила в немощи', firstName:'Андрей', lastName:'Ковальчук', date:'2026-11-15' }); addBlock('splash', 0)")
+    page.wait_for_function("document.querySelector('.stage .sl-sp-title') && document.querySelector('.stage .sl-sp-title').textContent.length > 0")
     page.wait_for_timeout(300)
-    sl = page.locator(".block .sl").first
+    sl = page.locator(".stage .sl").first
     assert sl.locator(".sl-sp-title").inner_text().upper() == "СИЛА В НЕМОЩИ" or "НЕМОЩИ" in sl.locator(".sl-sp-title").inner_text().upper()
     assert sl.locator(".sl-sp-name b").inner_text().upper() == "КОВАЛЬЧУК"
     assert sl.locator(".sl-sp-date").inner_text() == "15/11"
-    px = page.evaluate("parseFloat(document.querySelector('.block .sl-sp-title').style.fontSize)")
+    px = page.evaluate("parseFloat(document.querySelector('.stage .sl-sp-title').style.fontSize)")
     assert 110 <= px <= 200
     assert page.evaluate("slideName(state.blocks[0], 1)") == "[1] заставка"
 
 
 def test_splash_long_title_has_no_broken_words(page):
-    page.fill(".title-input", "Сила Божья совершается в нашей немощи и слабости, когда мы доверяем")
-    page.evaluate("addBlock('splash', 0)")
+    start_blank(page)
+    page.evaluate("state.meta.title = 'Сила Божья совершается в нашей немощи и слабости, когда мы доверяем'; addBlock('splash', 0)")
     page.wait_for_timeout(500)
-    ok = page.evaluate("""() => { const t = document.querySelector('.block .sl-sp-title'); return t.scrollWidth <= t.clientWidth + 1; }""")
+    ok = page.evaluate("""() => { const t = document.querySelector('.stage .sl-sp-title'); return t.scrollWidth <= t.clientWidth + 1; }""")
     assert ok
 
 
 def test_scripture_modes_in_preview(page, sermon):
     open_sermon(page, sermon)
+    page.evaluate("selectBlock(state.blocks.find(b => b.type === 'scripture').id)")
     page.evaluate("const s = state.blocks.find(b => b.type === 'scripture'); s.frame = true; rerender(s)")
-    page.wait_for_selector(".block.t-scripture .sl-verse.framed")
+    page.wait_for_selector(".stage.t-scripture .sl-verse.framed")
     page.evaluate("const s = state.blocks.find(b => b.type === 'scripture'); s.flow = 'lines'; rerender(s)")
-    page.wait_for_selector(".block.t-scripture .sl-vlist .sl-vn")
-    assert page.locator(".block.t-scripture .sl-verse.framed").count() == 0   # в режиме «с новой строки» рамки нет
+    page.wait_for_selector(".stage.t-scripture .sl-vlist .sl-vn")
+    assert page.locator(".stage.t-scripture .sl-verse.framed").count() == 0   # в режиме «с новой строки» рамки нет
     page.evaluate("const s = state.blocks.find(b => b.type === 'scripture'); s.valign = 'bottom'; rerender(s)")
-    assert "translateY" in page.evaluate("document.querySelector('.block.t-scripture .sl-content').style.transform")
-    assert page.evaluate("getComputedStyle(document.querySelector('.block.t-scripture .sl-vt')).textTransform") == "uppercase"
+    assert "translateY" in page.evaluate("document.querySelector('.stage.t-scripture .sl-content').style.transform")
+    assert page.evaluate("getComputedStyle(document.querySelector('.stage.t-scripture .sl-vt')).textTransform") == "uppercase"
 
 
 def test_thesis_frame_and_quote_caption_in_preview(page, sermon):
     open_sermon(page, sermon)
     page.evaluate("""() => {
-      const t = state.blocks.find(b => b.type === 'thesis'); t.parts[0].frame = true; rerender(t);
-      const q = state.blocks.find(b => b.type === 'quote'); q.caption = 'Письма'; rerender(q);
+      const t = state.blocks.find(b => b.type === 'thesis'); selectBlock(t.id); t.parts[0].frame = true; rerender(t);
     }""")
-    page.wait_for_selector(".block.t-thesis .sl-part.framed")
-    assert page.inner_text(".block.t-quote .sl-author .src") == "Письма"
+    page.wait_for_selector(".stage.t-thesis .sl-part.framed")
+    page.evaluate("""() => {
+      const q = state.blocks.find(b => b.type === 'quote'); selectBlock(q.id); q.caption = 'Письма'; rerender(q);
+    }""")
+    page.wait_for_selector(".stage.t-quote .sl-author .src")
+    assert page.inner_text(".stage.t-quote .sl-author .src") == "Письма"
 
 
 def test_canva_font_is_default(page):
@@ -170,9 +197,10 @@ def test_canva_font_is_default(page):
 def test_view_and_pdf_show_speech(page, sermon):
     open_sermon(page, sermon)
     page.evaluate("state.blocks.find(b => b.type === 'quote').speech = 'Слова после цитаты'")
-    page.evaluate("setMode('view')")
+    page.evaluate("setView('text')")
+    page.wait_for_selector(".tv-doc")
     assert "Слова после цитаты" in page.inner_text("main")
-    page.locator(".vctrl button", has_text="Только слайды").click()
+    page.locator(".tv-side .toggle button", has_text="Только слайды").click()
     assert "Слова после цитаты" not in page.inner_text("main")
     page.evaluate("buildOperatorPrint()")
     pdf_text = page.evaluate("document.getElementById('print-op').textContent")

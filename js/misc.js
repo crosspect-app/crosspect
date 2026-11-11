@@ -12,7 +12,7 @@ function toast(msg, actionLabel, action){
 function closeMenu(){ menuEl.classList.remove('open'); }
 document.addEventListener('click', e => { if (!menuEl.contains(e.target)) closeMenu(); });
 document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){ e.preventDefault(); saveFile(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){ e.preventDefault(); if (screen === 'sermon') saveFile(); }
   if (e.key === 'Escape'){ closeSheet(); closeSettings(); closeMenu(); closeTrPanel(); }
 });
 

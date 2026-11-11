@@ -7,27 +7,32 @@
 - Шрифты Google Fonts: Unbounded (переменная толщина 200–900), Inter, Noto Sans Hebrew.
 - Тексты Библии — XML (Beblia или Zefania), грузятся по требованию с GitHub.
 - Настройки — [`data/config.json`](data/config.json) из этого репозитория (`CONFIG_URL_DEFAULT`), последняя копия кешируется в localStorage; при недоступности — встроенные списки.
+- Экраны: главная (`#`) и проповедь (`#s=<id>`, «Текст» — `#s=<id>&v=text`). «Назад» в браузере и перезагрузка возвращают туда же. Тёмные — главная и «Слайды», светлый — «Текст» (`body.light`).
 - Хранение: черновик в localStorage (`swp-sermon:<id>`, у каждой проповеди свой, `swp-sermon:last` — последняя); «Сохранить» скачивает файл `.json` с проповедью. «Открыть» понимает `.json` и старые HTML-файлы (проповедь лежит в `<script id="sermon-data">`).
 
 ## Файлы кода (порядок подключения)
 | Файл | Что внутри |
 |---|---|
-| `css/style.css` | токены цветов (тёмная/светлая тема), интерфейс, слайд `.sl*` (кадр 1920×1080), печать `#print-op` |
+| `css/style.css` | токены цветов (`:root` тёмные, `body.light` — «Текст»), шапка, кнопки, главная (`.home`, `.scard`), «Слайды» (`.sv`, `.film`, `.st`, `.stage`, `.side`), «Текст» (`.tv`, `.blk`), слайд `.sl*` (кадр 1920×1080), печать `#print-op`. Классы интерфейса не должны начинаться с `.sl` / `.sl-`: `slideCSS()` копирует такие правила в JPEG |
 | `js/defaults.js` | `DEFAULT_SETTINGS` (лимиты), `CONFIG_URL_DEFAULT`, `SLIDES_DEFAULT` (поля, названия, размеры, `font.canva` — плотность шрифта, по умолчанию `all`), `ICONS`, `TYPES` (порядок = окно «Что добавить?»; `slide`, `top`, `todo`), `PREVIEW`, `WORDS_PER_MIN` |
 | `js/util.js` | утилиты (`h`, `$`, `LS`, `plural`…); форматированный текст: `cleanHTML` / `sanitize` — разрешены только `b i u mark br span.up` |
 | `js/refs.js` | справочники `PREACHERS`, `LANGS` (переводы), `BOOKS`, `ABBR` (синодальные сокращения); названия слайдов: `BAD_CHARS`, `NAMED`, `cleanName`, `slideName`, `scriptureNamePart`, `quoteNamePart` |
 | `js/bible.js` | тексты Библии: `loadBible` (Beblia/Zefania), `cleanVerse`, `syncVerses`, `refString` |
 | `js/model.js` | модель данных: `newBlock`, `newScripture`, `newPart` (свой перевод), `newTextItem`, `newLineItem`, `newThesisPart`, `splitPreacher` / `preacherName` / `preacherKey`, `normalize` / `normItem` (перевод старых форматов, в том числе v1 → v2), `wordCount` / `speechInfo`; общие настройки слайдов: `mergeSlides`, `slidesCfg` (config + localStorage `swp-slides-local`), `applySlides` (CSS-переменные полей), `missingNames`, `checkNames` |
-| `js/state.js` | `state`, `change`, `persistDraft`, `slideNums`, `blockSummary` |
-| `js/shell.js` | каркас: верхняя панель, меню «⋯», окна, панель оформления |
-| `js/render.js` | `renderAll`, `renderEditor`, `preacherField`, `refreshSplash`, `renderBlock`, `speechBox` («Текст к слайду»), `rerender`, `BODY[type]` (редакторы блоков), `nameField`, `autoName`, списки (`toggleList`, `listEnter`, `autoList`), `toggleUp`, `toggleMark`, `toggleTodo`, `removeBlock` (текст удалённого слайда переходит соседу); просмотр: `renderView`, `viewSlide`, `nameView` |
+| `js/state.js` | `state`, `change`, `persistDraft`, `slideNums`, `blockSummary`; экран и вид: `screen` (`home` / `sermon`), `view` (`slides` / `text`), `selId` (выбранный слайд), `speechOpen`; `sermonStatus`, `fmtDay` |
+| `js/shell.js` | каркас: контейнеры `topbar` и `mainEl`, меню «⋯» (`fillMenu`), окна, панель оформления |
+| `js/render.js` | `preacherField`, `refreshSplash`, `BODY[type]` (редакторы слайдов: показываются в правой панели «Слайдов»), `nameField`, `autoName`, `rich` (редактор с панелью оформления), списки (`toggleList`, `listEnter`, `autoList`), `toggleUp`, `toggleMark`, `toggleTodo`, `toggleDone`, `addBlock`, `move`, `duplicate`, `removeBlock` (текст удалённого слайда переходит соседу), `openSheet` |
+| `js/app.js` | маршруты и каркас экранов: `route` (разбор `#s=<id>&v=text`), `navigate`, `sermonHash`, `renderAll` / `renderMain` (перерисовать текущий экран), `setView` (в «Текст» пускает только если у слайдов есть названия), `renderTopbar`, `updateStatus`, `openMeta` (окно «О проповеди») |
+| `js/home.js` | главная: `renderHome`, список черновиков из localStorage (`draftList`), поиск, карточки `sermonCard` и строки `sermonRow`, `deleteDraft`, `slideCount` |
+| `js/slides.js` | вид «Слайды»: `renderSlides`, лента `renderFilm` / `filmItem` / `refreshThumb`, `selectBlock`, `stepSel`, сцена `renderStage` (слайд, «Текст к слайду» — `speechBox`), правая панель `renderSide`, `rerender(b)` / `updateCounter(b)` обновляют только выбранный слайд |
+| `js/textview.js` | вид «Текст» (светлый): `renderTextView`, `tvBlock`, `tvSlide`, `sermonChecks` (проверка перед отправкой), `tvSide` |
 | `js/preview.js` | предпросмотр слайдов: `typoText`, `fixOrphan`, `wrapScripts` (греческий/иврит → `span.xl`), `slideEl`, `slideHTML` (Писание: в строку / с новой строки), `boxHTML` / `paraHTML` (тезис, цитата, списки), `authorHTML`, `layoutSplash` (заставка), `layoutAt` (Писание, выравнивание по вертикали), `layoutBox`, `fitSlide` (бинарный поиск размера), `BASE`, `SPLASH`, `scrPx` |
 | `js/files.js` | `saveFile` (проверка названий) / `writeFile`, `parseSermonFile`, открытие файла, `newSermon` |
 | `js/export.js` | выгрузка JPEG: `exportFonts` (CSS шрифтов с встроенными woff2), `slideCSS`, `renderJPEG` (SVG foreignObject → canvas), `makeZip` (ZIP без сжатия, UTF-8), `exportOne`, `exportMany`, `markDone` |
 | `js/print.js` | PDF для оператора: `#print-op`, `@page op` 80×170 мм, `buildOperatorPrint`, `operatorPDF` |
 | `js/settings.js` | окна настроек: `openSettings` (лимиты), `openConfig` (источник), `openSlidesCfg` (поля, названия, размеры, шрифт) |
 | `js/misc.js` | `toast`, закрытие меню, горячие клавиши |
-| `js/main.js` | запуск: настройки из кеша, черновик, первая отрисовка, свежие настройки из репозитория |
+| `js/main.js` | запуск: настройки из кеша, `route()` (по адресу открывает главную или проповедь), свежие настройки из репозитория |
 
 ## Модель проповеди
 Файл проповеди (`.json`) — это сам `state`:
@@ -55,8 +60,8 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 
 ## Проверка
 Тесты — `tests/`, Python + Playwright + pytest (Chromium есть в рабочей среде Claude). Запуск: `python3 -m pytest tests -q`. Тесты сами поднимают локальный сервер с репозиторием.
-- `test_form.py`: форма запускается без ошибок; «Открыть» читает `.json` и старый HTML; «Сохранить» и Ctrl+S пишут `.json`, который открывается снова; черновик переживает перезагрузку; просмотр; JPEG 1920×1080; ZIP со слайдами; PDF для оператора шириной 80 мм.
-- `test_model.py`: модель v2 — перевод старых файлов (текст → к слайду / заставка, имя и фамилия, подпись цитаты), сохранение и открытие новых полей, «доработать», «Текст к слайду» со счётчиком, удаление и копирование слайда с текстом, проповедник вручную, заставка (размер, имя, дата, название файла, JPEG), режимы Писания, рамки, подпись цитаты, текст в просмотре и PDF, шрифт как в Canva по умолчанию.
+- `test_form.py`: форма запускается без ошибок; «Открыть» читает `.json` и старый HTML; «Сохранить» и Ctrl+S пишут `.json`, который открывается снова; черновик переживает перезагрузку; вид «Текст» (светлый, без ленты); главная: список, поиск, открытие карточки; кнопка «назад» и перезагрузка; «Новая проповедь»; выбор слайда в ленте и стрелки; JPEG 1920×1080; ZIP со слайдами; PDF для оператора шириной 80 мм.
+- `test_model.py`: модель v2 — перевод старых файлов (текст → к слайду / заставка, имя и фамилия, подпись цитаты), сохранение и открытие новых полей, «доработать», «Текст к слайду» со счётчиком, удаление и копирование слайда с текстом, проповедник вручную, заставка (размер, имя, дата, название файла, JPEG), режимы Писания, рамки, подпись цитаты, «готово» в ленте и на карточке, текст в виде «Текст» и PDF, шрифт как в Canva по умолчанию. Тесты, которым нужна пустая проповедь, начинают с `start_blank(page)` из `conftest.py`.
 - `test_static.py`: `node --check` для каждого `js/*.js`; нет «сырых» U+00A0/U+00AD/U+2028/U+2029 (только экранированные); каждый модуль подключён в `index.html` один раз.
 - `tests/fixtures/sermon.json` — проповедь в старом формате (v1) со всеми типами блоков, включая «Текст проповеди»: заодно проверяет перевод на новую модель.
 - Выгрузка JPEG берёт шрифты из интернета, поэтому тестам нужна сеть.

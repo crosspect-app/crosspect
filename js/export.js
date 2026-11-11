@@ -100,15 +100,15 @@ let exporting = false;
 async function exportOne(b){
   if (exporting) return;
   if (NAMED[b.type] && slidesCfg().names.required && !cleanName(b.name)){
-    flagMissing = true; b.collapsed = false; rerender(b);
-    const f = document.querySelector('.block[data-id="' + b.id + '"] .namebox input'); if (f) f.focus();
+    flagMissing = true; selectBlock(b.id); rerender(b);
+    const f = sideEl && sideEl.querySelector('.namebox input'); if (f) f.focus();
     toast('Сначала напишите название слайда'); return;
   }
   exporting = true; toast('Готовлю JPEG…');
   try {
     const name = slideName(b, slideNums()[b.id]) + '.jpg';
     download(await renderJPEG(b), name);
-    if (markDone(b)){ change(); if (mode === 'edit') rerender(b); }
+    if (markDone(b)){ change(); rerender(b); }
     toast('Скачано: ' + name);
   } catch(e){ toast('Не получилось собрать JPEG: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
   finally { exporting = false; }
@@ -131,7 +131,7 @@ async function exportMany(onlyUnmarked){
     }
     download(makeZip(files), folder + '.zip');
     let marked = 0; list.forEach(b => { if (markDone(b)) marked++; });
-    if (marked){ change(); if (mode === 'edit') renderMain(); }
+    if (marked){ change(); renderMain(); }
     const rest = state.blocks.filter(b => b.type === 'image' || b.type === 'video' || b.type === 'free').length;
     toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео и свободные слайды делаются вручную' : ''));
   } catch(e){ toast('Не получилось собрать слайды: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }

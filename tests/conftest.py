@@ -61,3 +61,10 @@ def open_sermon(page, sermon):
         "buffer": json.dumps(sermon, ensure_ascii=False).encode("utf-8"),
     })
     page.wait_for_function("state.blocks.length > 0")
+
+
+def start_blank(page):
+    """Новая пустая проповедь, как по кнопке «Новая проповедь»; окно «О проповеди» закрыто."""
+    page.evaluate("newSermon()")
+    page.wait_for_selector(".sheet[aria-label='О проповеди']")
+    page.evaluate("closeSettings()")

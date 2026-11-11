@@ -18,7 +18,7 @@ function openSettings(){
       h('button', { type:'button', class:'btn primary', onclick:() => { state.settings = tmp; change(); closeSettings(); renderMain(); toast('Лимиты сохранены'); } }, 'Сохранить'))));
   settingsOverlay.classList.add('open');
 }
-function closeSettings(){ settingsOverlay.classList.remove('open'); }
+function closeSettings(){ settingsOverlay.classList.remove('open'); if (metaOpen){ metaOpen = false; afterMeta(); } }
 
 /* ========= Источник настроек (config.json в репозитории) ========= */
 const CONFIG = { url:'', version:'', loadedAt:0, error:'', source:'встроенные списки' };

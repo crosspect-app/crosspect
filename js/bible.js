@@ -52,12 +52,14 @@ function loadBible(lang){
   return rec.safe;
 }
 function refreshLang(lang){
-  if (!state || mode !== 'edit') return;
+  if (!state) return;
   state.blocks.forEach(b => {
     if (b.type !== 'scripture' || !b.items.some(it => it.kind === 'scripture' && !it.manual && srcKey(it.lang) === lang)) return;
     b.items.forEach(it => { if (it.kind === 'scripture' && !it.manual && srcKey(it.lang) === lang) syncVerses(it); });
-    if (!document.querySelector('.block[data-id="' + b.id + '"]')) return;
-    const a = document.activeElement, keep = a && a.closest && a.closest('.block[data-id="' + b.id + '"]') && a.classList.contains('rich');
+    if (!inSlides()) return;
+    schedulePreview(b);   // миниатюра в ленте и слайд на сцене
+    if (b.id !== selId) return;
+    const a = document.activeElement, keep = a && a.classList && a.classList.contains('rich') && sideEl.contains(a);
     if (!keep) rerender(b);
   });
 }

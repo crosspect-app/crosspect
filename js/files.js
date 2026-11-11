@@ -52,14 +52,16 @@ fileInput.addEventListener('change', async () => {
   if (!f) return;
   const data = parseSermonFile(await f.text());
   if (!data || !Array.isArray(data.blocks)){ toast('В этом файле нет проповеди'); return; }
-  if (isDirty() && data.id !== state.id && !confirm('Текущая проповедь не сохранена в файл. Всё равно открыть другую?')) return;
+  // в браузере уже есть эта же проповедь и она новее файла: не затираем её молча
+  const have = readDraft(data.id);
+  if (have && (have.updatedAt || 0) > (data.updatedAt || 0) && !confirm('В браузере есть более новая версия этой проповеди. Заменить её файлом?')) return;
   state = normalize(data);
-  persistDraft(); renderAll();
+  persistDraft();
+  navigate(sermonHash(state.id));
   toast('Открыто: ' + (state.meta.title || f.name));
 });
 function newSermon(){
-  if (isDirty() && !confirm('Текущая проповедь не сохранена в файл. Начать новую?')) return;
-  state = blank(); persistDraft();
-  mode = 'edit'; LS.set('swp-mode', 'edit');
-  renderAll(); window.scrollTo(0, 0);
+  state = blank(); selId = null; persistDraft();   // прежняя проповедь остаётся в списке: у каждой свой черновик
+  navigate(sermonHash(state.id));
+  openMeta();
 }

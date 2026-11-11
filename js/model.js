@@ -218,11 +218,12 @@ function checkNames(){
   const miss = missingNames(); if (!miss.length) return true;
   flagMissing = true;
   const nums = slideNums();
-  if (mode !== 'edit'){ mode = 'edit'; LS.set('swp-mode', 'edit'); }
-  miss.forEach(b => { b.collapsed = false; });
-  renderMain();
-  const card = document.querySelector('.block[data-id="' + miss[0].id + '"]');
-  if (card){ card.scrollIntoView({ block:'center', behavior:'smooth' }); const f = card.querySelector('.namebox input'); if (f) f.focus({ preventScroll:true }); }
+  selId = miss[0].id;
+  if (screen === 'sermon' && view === 'slides') renderMain(); else navigate(sermonHash(state.id));
+  setTimeout(() => {   // после перерисовки ставим курсор в пустое название
+    const f = sideEl && sideEl.querySelector('.namebox input');
+    if (f) f.focus({ preventScroll:true });
+  }, 80);
   toast('Напишите названия слайдов: ' + miss.map(b => nums[b.id]).join(', '));
   return false;
 }
