@@ -203,13 +203,19 @@ def test_preacher_sees_all_but_edits_own(browser, base_url):
     ctx.close()
 
 
-def test_preacher_new_sermon_gets_own_name(browser, base_url):
-    ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS)
-    wait_home(page)
-    page.evaluate("newSermon()")
-    page.wait_for_selector(".sheet[aria-label='О проповеди']")
-    assert page.evaluate("[state.meta.firstName, state.meta.lastName]") == ["Иван", "Петров"]
-    ctx.close()
+def test_new_sermon_defaults_to_me_and_can_be_changed(browser, base_url):
+    members = dict(MEMBERS, **{"admin@x.pl": {"role": "admin"}})
+    for user, want in [(IVAN, ["Иван", "Петров"]), ({"email": "admin@x.pl", "name": "Виталий Бисюков"}, ["Виталий", "Бисюков"])]:
+        ctx, page = cloud_page(browser, base_url, user=user, members=members)
+        wait_home(page)
+        page.evaluate("newSermon()")
+        page.wait_for_selector(".sheet[aria-label='О проповеди']")
+        assert page.evaluate("[state.meta.firstName, state.meta.lastName]") == want
+        # заменить на другого можно
+        page.select_option("select[aria-label='Проповедник']", "__other")
+        page.fill("input[aria-label='Имя']", "Пётр")
+        assert page.evaluate("state.meta.firstName") == "Пётр"
+        ctx.close()
 
 
 def test_preacher_closed_space_lists_only_own(browser, base_url):

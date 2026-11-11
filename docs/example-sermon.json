@@ -1,0 +1,123 @@
+{
+ "app": "swp-sermon",
+ "v": 1,
+ "id": "fixture-0001",
+ "createdAt": 1760000000000,
+ "updatedAt": 1760000000000,
+ "savedAt": 0,
+ "meta": {
+  "title": "Пример проповеди",
+  "date": "2026-11-15",
+  "firstName": "Иван",
+  "lastName": "Петров"
+ },
+ "settings": {
+  "minScale": 80,
+  "limitThesis": 220,
+  "limitQuote": 300
+ },
+ "blocks": [
+  {
+   "id": "b1",
+   "type": "text",
+   "text": "Полный текст проповеди для проповедника.",
+   "splash": false,
+   "collapsed": false,
+   "done": false
+  },
+  {
+   "id": "b2",
+   "type": "scripture",
+   "items": [
+    {
+     "kind": "scripture",
+     "manual": true,
+     "mBook": "Иоанна",
+     "mChapter": "3",
+     "mVerses": "16",
+     "ref": "Иоанна 3:16",
+     "translation": "Синодальный перевод",
+     "verses": [
+      {
+       "num": "16",
+       "text": "Ибо так возлюбил Бог мир, что отдал Сына Своего Единородного, дабы всякий верующий в Него, не погиб, но имел жизнь вечную."
+      }
+     ],
+     "lang": "ru",
+     "book": 0,
+     "chapter": 0,
+     "sel": [],
+     "trName": ""
+    }
+   ],
+   "collapsed": false,
+   "done": false
+  },
+  {
+   "id": "b3",
+   "type": "thesis",
+   "name": "Бог любит каждого из нас",
+   "nameAuto": true,
+   "text": "Бог любит <b>каждого</b> из нас",
+   "valign": "center",
+   "scale": 100,
+   "parts": [
+    {
+     "kind": "text",
+     "html": "Бог любит <b>каждого</b> из нас",
+     "align": "center",
+     "scale": 100,
+     "caps": true
+    }
+   ],
+   "collapsed": false,
+   "done": false
+  },
+  {
+   "id": "b4",
+   "type": "quote",
+   "text": "Мы не можем делать великих дел, только малые с великой любовью.",
+   "author": "Мать Тереза",
+   "scale": 100,
+   "caps": false,
+   "collapsed": false,
+   "done": false
+  },
+  {
+   "id": "b5",
+   "type": "image",
+   "name": "Фото Десмонд Досс",
+   "mode": "find",
+   "desc": "портрет",
+   "collapsed": false,
+   "done": false
+  },
+  {
+   "id": "b6",
+   "type": "video",
+   "name": "История Николаса Винтона",
+   "mode": "link",
+   "url": "https://youtu.be/example",
+   "from": "",
+   "to": "",
+   "desc": "",
+   "collapsed": false,
+   "done": false
+  },
+  {
+   "id": "b7",
+   "type": "free",
+   "name": "Значения слова АГАПЕ",
+   "desc": "ἀγάπη",
+   "collapsed": false,
+   "done": false
+  },
+  {
+   "id": "b8",
+   "type": "note",
+   "text": "Включить свет в зале",
+   "collapsed": false,
+   "done": false
+  }
+ ]
+}

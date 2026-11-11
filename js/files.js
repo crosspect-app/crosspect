@@ -90,9 +90,13 @@ async function importMany(files){
 }
 function newSermon(){
   state = blank(); selId = null;
-  // проповедник сам открывает форму: имя и фамилия подставляются из его записи среди участников
-  if (cloudOn() && cloud.role === 'preacher' && cloud.member && (cloud.member.firstName || cloud.member.lastName))
-    Object.assign(state.meta, { firstName:cloud.member.firstName || '', lastName:cloud.member.lastName || '' });
+  // проповедником по умолчанию ставим себя (для любой роли), в «О проповеди» его можно сменить: редактор часто делает проповедь за другого.
+  // Имя берём из записи среди участников, а если там пусто — из аккаунта Google («Имя Фамилия»)
+  if (cloudOn()){
+    const m = cloud.member || {}, g = String((cloud.user && cloud.user.name) || '').trim().split(/\s+/).filter(Boolean);
+    const first = m.firstName || m.lastName ? m.firstName || '' : g[0] || '', last = m.firstName || m.lastName ? m.lastName || '' : g.slice(1).join(' ');
+    Object.assign(state.meta, { firstName:first, lastName:last });
+  }
   persistDraft();   // прежняя проповедь остаётся в списке: у каждой свой черновик
   navigate(sermonHash(state.id));
   openMeta();
