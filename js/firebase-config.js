@@ -1,6 +1,6 @@
 // Настройки проекта Firebase (crosspect-2dabd, аккаунт «Słowo Wiary Poznań - Media»).
 // Не секрет: эти строки видны в коде любого сайта на Firebase, данные защищают
-// правила базы (cloud/firestore.rules). Подключается в index.html на этапе 5.
+// правила базы (cloud/firestore.rules). Подключён в index.html первым; используется с этапа 5.
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyDc42fRin7VkW7m2v1QAuwJ7yef7zylB2Y',
   authDomain: 'crosspect-2dabd.firebaseapp.com',
