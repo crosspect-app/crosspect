@@ -105,6 +105,19 @@
       db.flags = db.flags || {}; db.flags[id] = JSON.parse(JSON.stringify(flags || {}));
       store(db);
     },
+    /* Настройки слайдов пространства: читают все, пишут редактор и админ */
+    watchSlides(space, onCfg){
+      const f = () => { const db = load(); onCfg(db.slides ? JSON.parse(JSON.stringify(db.slides)) : null); };
+      listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
+    },
+    async getSlides(space){ const db = load(); return db.slides ? JSON.parse(JSON.stringify(db.slides)) : null; },
+    async setSlides(space, who, slides){
+      calls.slides = (calls.slides || 0) + 1; offline();
+      const db = load();
+      if (!isEditor(db, who.email)) throw fail('permission-denied', 'Missing or insufficient permissions');
+      db.slides = JSON.parse(JSON.stringify(slides || {}));
+      store(db); notify();
+    },
     async remove(space, id){ const db = load(); delete db.sermons[id]; if (db.flags) delete db.flags[id]; store(db); notify(); },
   };
 })();

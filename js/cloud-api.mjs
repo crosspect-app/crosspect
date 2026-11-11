@@ -211,6 +211,22 @@ export function createCloudAPI(fb){
         { flags: JSON.parse(JSON.stringify(flags || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
     },
 
+    /* Настройки слайдов пространства (этап 7.1): документ config/slides, общий для всех проповедей.
+       Читают все участники, пишут админ и редактор. onCfg(slides | null) на каждое изменение; null — документа ещё нет */
+    watchSlides(space, onCfg, onError){
+      return F.onSnapshot(F.doc(db, 'spaces', space, 'config', 'slides'), snap => {
+        onCfg(snap.exists() ? (snap.data().slides || null) : null);
+      }, onError);
+    },
+    async getSlides(space){
+      const snap = await F.getDoc(F.doc(db, 'spaces', space, 'config', 'slides'));
+      return snap.exists() ? (snap.data().slides || null) : null;
+    },
+    async setSlides(space, me, slides){
+      await F.setDoc(F.doc(db, 'spaces', space, 'config', 'slides'),
+        { slides: JSON.parse(JSON.stringify(slides || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
+    },
+
     /* Удалить проповедь (и отметки редактора, если они есть) */
     async remove(space, id){
       const b = F.writeBatch(db);

@@ -364,6 +364,23 @@ describe('работа редактора (этап 7)', () => {
   });
 });
 
+describe('настройки слайдов', () => {
+  test('админ записывает, спикер читает и не может записать, изменения приходят вживую', async () => {
+    const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');
+    assert.equal(await ivan.getSlides('sp1'), null);   // документа ещё нет
+    const seen = [];
+    const off = ivan.watchSlides('sp1', (c) => seen.push(c), (e) => seen.push('error ' + e.code));
+    const cfg = { margins: { side: 70, top: 60, bottom: 60 }, kinds: { thesis: { size: 50.4, track: -0.04 } } };
+    await admin.setSlides('sp1', me('admin@x.pl'), cfg);
+    assert.deepEqual(await ivan.getSlides('sp1'), cfg);
+    await assert.rejects(ivan.setSlides('sp1', me('ivan@x.pl'), { margins: { side: 0 } }), (e) => /permission-denied/.test(e.code));
+    for (let i = 0; i < 40 && !seen.some((c) => c && c.margins && c.margins.side === 70); i++) await new Promise((r) => setTimeout(r, 100));
+    off();
+    assert.ok(seen.some((c) => c && c.margins && c.margins.side === 70), 'спикер получил новые настройки: ' + JSON.stringify(seen));
+    assert.ok(!seen.some((c) => typeof c === 'string'), 'без ошибок');
+  });
+});
+
 test('explain: понятные тексты для людей', () => {
   assert.match(explain({ code: 'resource-exhausted' }), /перегружено до 9:00/);
   assert.equal(explain({ code: 'conflict' }), 'conflict');
