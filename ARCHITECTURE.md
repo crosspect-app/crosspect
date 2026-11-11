@@ -8,7 +8,7 @@
 - Тексты Библии — XML (Beblia или Zefania), грузятся по требованию с GitHub.
 - Настройки — [`data/config.json`](data/config.json) из этого репозитория (`CONFIG_URL_DEFAULT`), последняя копия кешируется в localStorage; при недоступности — встроенные списки.
 - Экраны: главная (`#`) и проповедь (`#s=<id>`, «Текст» — `#s=<id>&v=text`). «Назад» в браузере и перезагрузка возвращают туда же. Тёмные — главная и «Слайды», светлый — «Текст» (`body.light`).
-- Хранение: черновик в localStorage (`swp-sermon:<id>`, у каждой проповеди свой, `swp-sermon:last` — последняя); «Сохранить» скачивает файл `.json` с проповедью. «Открыть» понимает `.json` и старые HTML-файлы (проповедь лежит в `<script id="sermon-data">`).
+- Хранение: проповеди церкви — в облаке (Firestore); у каждой проповеди есть ещё черновик в localStorage; без входа — только он. Черновик в localStorage (`swp-sermon:<id>`, у каждой проповеди свой, `swp-sermon:last` — последняя); «Сохранить» скачивает файл `.json` с проповедью. «Открыть» понимает `.json` и старые HTML-файлы (проповедь лежит в `<script id="sermon-data">`).
 
 ## Файлы кода (порядок подключения)
 | Файл | Что внутри |
@@ -28,6 +28,8 @@
 | `js/textview.js` | вид «Текст» (светлый): `renderTextView`, `tvBlock`, `tvSlide`, `sermonChecks` (проверка перед отправкой), `tvSide` |
 | `js/preview.js` | предпросмотр слайдов: `typoText`, `fixOrphan`, `wrapScripts` (греческий/иврит → `span.xl`), `slideEl`, `slideHTML` (Писание: в строку / с новой строки), `boxHTML` / `paraHTML` (тезис, цитата, списки), `authorHTML`, `layoutSplash` (заставка), `layoutAt` (Писание, выравнивание по вертикали), `layoutBox`, `fitSlide` (бинарный поиск размера), `BASE`, `SPLASH`, `scrPx` |
 | `js/files.js` | `saveFile` (проверка названий) / `writeFile`, `parseSermonFile`, открытие файла, `newSermon` |
+| `js/cloud.js` | облако в форме: состояние `cloud` (`mode`: wait / out / noaccess / error / in; пользователь, пространство, роль, живой список `cloud.list`), `initCloud` (подключает SDK или подмену `window.CROSSPECT_FAKE_API`), `cloudUser`, `cloudGate` / `renderGate` (экран входа вместо главной и проповеди), `saveSermon` (облако или файл), `saveCloud`, `conflictSheet`, `saveAsCopy`, `deleteCloudSermon`, `uploadToCloud` / `uploadOne`, `openCloudSermon`, `canEditCloud`, `isUnsaved` |
+| `js/cloud-api.mjs` | единственное место, где форма говорит с Firebase: `createCloudAPI({auth, db, A, F})` — `onUser`, `signIn`, `spacesOf`, `getSpace`, `listen`, `get`, `save` (транзакция с проверкой версии), `remove`; `explain` — понятный текст ошибки. ES-модуль: грузится динамическим `import()`, проверяется в Node в эмуляторе |
 | `js/export.js` | выгрузка JPEG: `exportFonts` (CSS шрифтов с встроенными woff2), `slideCSS`, `renderJPEG` (SVG foreignObject → canvas), `makeZip` (ZIP без сжатия, UTF-8), `exportOne`, `exportMany`, `markDone` |
 | `js/print.js` | PDF для оператора: `#print-op`, `@page op` 80×170 мм, `buildOperatorPrint`, `operatorPDF` |
 | `js/settings.js` | окна настроек: `openSettings` (лимиты), `openConfig` (источник), `openSlidesCfg` (поля, названия, размеры, шрифт) |
@@ -58,17 +60,27 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 - `letter-spacing` в em на `.sl-stage` наследуется как абсолютное значение от 16 px — фактически почти ноль; трекинг задавать на самих текстовых элементах.
 - JPEG: слайд раскладывается в скрытом контейнере тем же кодом, клонируется вместе с CSS-правилами `.sl*` и шрифтами в SVG foreignObject и рисуется в canvas. Поэтому классы режимов вешаются на `.sl-stage`, а не на `.sl`.
 
+## Облако в форме
+- Порядок запуска: `main.js` рисует экран (пока облако подключается — «Подключаюсь к облаку…»), потом `initCloud()`: SDK `firebasejs/13.1.0` с gstatic (`firebase-app/auth/firestore`) + `cloud-api.mjs?v=<сборка>` динамическим `import()`; номер сборки берётся из адреса самого `cloud.js`. Версия SDK на CDN — `FIREBASE_VERSION` в `cloud.js`; в `cloud/package.json` SDK для тестов может быть новее.
+- Firestore подключён с постоянным кешем в браузере (`persistentLocalCache`, несколько вкладок): список и открытые проповеди читаются и без сети, но **записать** без сети нельзя (сохранение — транзакция).
+- Метки облака в проповеди формы: `cloudSpace`, `cloudAt` (версия в облаке, мс, на которой основаны правки), `cloudOwner`, `cloudStatus`, `cloudBy`. Хранятся в черновике, `normalize` их сохраняет, в `.json` файл и при открытии файла выбрасываются (`stripCloud`). Конфликт — когда версия в облаке отличается от `cloudAt`.
+- `isDirty()` для облака — прежнее правило (`updatedAt > savedAt`); после сохранения `savedAt` равен `updatedAt` на момент отправки, а `change()` не даёт `updatedAt` идти назад.
+- «Только в браузере» на главной — черновики, которых нет в `cloud.list`; чистые копии облачных проповедей из браузера убираются сами (откроются из облака).
+- Режим «без входа» запоминается на вкладку (`sessionStorage swp-local`); после входа сбрасывается.
+- Документ в облаке: `v`, `meta`, `settings`, `blocks` из проповеди плюс `status`, `owner`, `createdBy/At`, `updatedBy/At` (поля — как в `cloud/firestore.rules`, новое поле — сначала правило и тест). Запись — `update` только полей содержимого, поэтому `status`, `owner`, `lock`, `shareKey` не трогаются.
+
 ## Проверка
 Тесты — `tests/`, Python + Playwright + pytest (Chromium есть в рабочей среде Claude). Запуск: `python3 -m pytest tests -q`. Тесты сами поднимают локальный сервер с репозиторием.
 - `test_form.py`: форма запускается без ошибок; «Открыть» читает `.json` и старый HTML; «Сохранить» и Ctrl+S пишут `.json`, который открывается снова; черновик переживает перезагрузку; вид «Текст» (светлый, без ленты); главная: список, поиск, открытие карточки; кнопка «назад» и перезагрузка; «Новая проповедь»; выбор слайда в ленте и стрелки; JPEG 1920×1080; ZIP со слайдами; PDF для оператора шириной 80 мм.
 - `test_model.py`: модель v2 — перевод старых файлов (текст → к слайду / заставка, имя и фамилия, подпись цитаты), сохранение и открытие новых полей, «доработать», «Текст к слайду» со счётчиком, удаление и копирование слайда с текстом, проповедник вручную, заставка (размер, имя, дата, название файла, JPEG), режимы Писания, рамки, подпись цитаты, «готово» в ленте и на карточке, текст в виде «Текст» и PDF, шрифт как в Canva по умолчанию. Тесты, которым нужна пустая проповедь, начинают с `start_blank(page)` из `conftest.py`.
 - `test_static.py`: `node --check` для каждого `js/*.js`; нет «сырых» U+00A0/U+00AD/U+2028/U+2029 (только экранированные); каждый модуль подключён в `index.html` один раз.
+- `test_cloud.py`: вход и экран входа, «Продолжить без входа», нет в списке, запомненный вход, сохранение новой проповеди, открытие и восстановление несохранённых правок, конфликт (копия, «Заменить облачную»), «В облако» для старых черновиков, пачка файлов, удаление, права проповедника (чужая — только чтение, закрытое пространство — только свои), выход, ссылка на проповедь до входа, файл без меток облака. Облако подменено (`tests/fixtures/fake_cloud.js`, база — в localStorage страницы); страница строится через `cloud_page` из `conftest.py`. Обычная фикстура `page` включает «без входа» (`sessionStorage swp-local`).
 - `tests/fixtures/sermon.json` — проповедь в старом формате (v1) со всеми типами блоков, включая «Текст проповеди»: заодно проверяет перевод на новую модель.
 - Выгрузка JPEG берёт шрифты из интернета, поэтому тестам нужна сеть.
 - Для проверки в консоли страницы: `state`, `newBlock`, `exportOne(...)` и остальное доступны как глобальные имена.
 
 ## Облако (`cloud/`)
-Firebase: Cloud Firestore + вход Google. Что строим и по каким этапам — [`docs/PLAN.md`](docs/PLAN.md), там же модель данных и таблица прав. Настройка проекта — [`docs/FIREBASE.md`](docs/FIREBASE.md). Форма к облаку пока не подключена (этап 5).
+Firebase: Cloud Firestore + вход Google. Что строим и по каким этапам — [`docs/PLAN.md`](docs/PLAN.md), там же модель данных и таблица прав. Настройка проекта — [`docs/FIREBASE.md`](docs/FIREBASE.md). Форма подключена к облаку с этапа 5: см. «Облако в форме» ниже.
 
 | Файл | Что внутри |
 |---|---|
@@ -83,6 +95,7 @@ Firebase: Cloud Firestore + вход Google. Что строим и по как�
 | `cloud/scripts/admin.mjs` | `create-space`, `set-member`, `remove-member`, `list` — в обход правил |
 | `cloud/private-repo/` | файлы для приватного репозитория `crosspect-app/crosspect-backup`: ночная копия, восстановление, «Пространства». Меняешь здесь — перенеси туда |
 
+- `cloud/tests/client.test.mjs` — код `js/cloud-api.mjs` в эмуляторах Firestore и Auth (вход выдуманной учёткой Google, настоящие правила): членство, создание и обновление, конфликт версий, права проповедника, закрытое пространство, живой список, удаление.
 - Тесты: `cd cloud && npm ci && npm test` (Node 22, Java 21; эмулятор Firestore скачивается с Google Storage — в рабочей среде Claude он закрыт, поэтому тесты правил гоняются в CI: запушить ветку и запустить workflow вручную, `gh api -X POST repos/crosspect-app/crosspect/actions/workflows/ci.yml/dispatches -f ref=<ветка>`).
 - Секрет `FIREBASE_SERVICE_ACCOUNT` (JSON-ключ сервисного аккаунта с ролью Firebase Admin) — в обоих репозиториях. Идентификатор проекта берётся из ключа (`project_id`).
 - Email в базе — всегда строчными; `me()` в правилах приводит почту из токена к строчным.

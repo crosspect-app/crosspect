@@ -16,6 +16,7 @@ function fillMenu(){
   menuEl.append(
     menuItem('newdoc', 'Новая проповедь', () => newSermon()),
     menuItem('open', 'Открыть файл', () => fileInput.click()));
+  if (cloudOn() && screen === 'sermon') menuEl.append(menuItem('save', 'Скачать файл', () => saveFile()));
   if (screen === 'sermon') menuEl.append(
     h('div', { class:'menu-sep' }),
     menuItem('zip', 'Скачать все слайды', () => exportMany(false)),
@@ -26,6 +27,8 @@ function fillMenu(){
     menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));
   if (screen === 'sermon') menuEl.append(menuItem('settings', 'Лимиты', () => openSettings()));
   menuEl.append(menuItem('link', 'Источник настроек', () => openConfig()));
+  if (cloudOn()) menuEl.append(h('div', { class:'menu-sep' }), h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
+  else if (localMode()) menuEl.append(h('div', { class:'menu-sep' }), menuItem('check', 'Войти в облако', () => leaveLocalMode()));
 }
 
 /* выбор типа слайда: сверху «Заставка» (шире) и «Заметка оператору», ниже остальные парами */

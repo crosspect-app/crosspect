@@ -43,6 +43,7 @@ def sermon():
 def page(browser, base_url):
     """Чистая страница формы; ошибки скриптов собираются в page.errors."""
     ctx = browser.new_context(viewport={"width": 1280, "height": 900}, accept_downloads=True)
+    ctx.add_init_script("sessionStorage.setItem('swp-local', '1')")   # эти тесты — про форму без входа; облако проверяет test_cloud.py
     pg = ctx.new_page()
     pg.errors = []
     pg.on("pageerror", lambda e: pg.errors.append(str(e)))
@@ -51,6 +52,26 @@ def page(browser, base_url):
     pg.wait_for_selector(".topbar")
     yield pg
     ctx.close()
+
+
+FAKE_CLOUD = (FIXTURES / "fake_cloud.js").read_text(encoding="utf-8")
+
+
+def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, settings=None):
+    """Страница формы с подменённым облаком. user — кто входит ({email, name}), members — {почта: {role, firstName, lastName}},
+    sermons — проповеди, уже лежащие в «облаке» ({id: запись}). Возвращает (контекст, страница)."""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900}, accept_downloads=True)
+    db = {"members": members or {}, "space": {"id": "sp1", "name": "Слово веры · тест", "settings": settings or {}}, "sermons": sermons or {}, "clock": 1000}
+    ctx.add_init_script("if (!localStorage.getItem('fake-cloud')) localStorage.setItem('fake-cloud', %s);" % json.dumps(json.dumps(db)))
+    if user:
+        ctx.add_init_script("if (!localStorage.getItem('fake-user')) localStorage.setItem('fake-user', %s);" % json.dumps(json.dumps(user)))
+    ctx.add_init_script(FAKE_CLOUD)
+    pg = ctx.new_page()
+    pg.errors = []
+    pg.on("pageerror", lambda e: pg.errors.append(str(e)))
+    pg.on("console", lambda m: pg.errors.append(m.text) if m.type == "error" and "Failed to load resource" not in m.text else None)
+    pg.goto(base_url + "/index.html")
+    return ctx, pg
 
 
 def open_sermon(page, sermon):

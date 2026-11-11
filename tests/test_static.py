@@ -6,7 +6,7 @@ import subprocess
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-FILES = sorted((ROOT / "js").glob("*.js")) + [ROOT / "css" / "style.css", ROOT / "index.html"]
+FILES = sorted((ROOT / "js").glob("*.js")) + sorted((ROOT / "js").glob("*.mjs")) + [ROOT / "css" / "style.css", ROOT / "index.html"]
 BAD = {" ": "U+00A0", "­": "U+00AD", " ": "U+2028", " ": "U+2029"}
 
 
@@ -18,7 +18,7 @@ def test_no_raw_invisible_chars(path):
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="нет node")
-@pytest.mark.parametrize("path", sorted((ROOT / "js").glob("*.js")), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", sorted((ROOT / "js").glob("*.js")) + sorted((ROOT / "js").glob("*.mjs")), ids=lambda p: p.name)
 def test_js_syntax(path):
     r = subprocess.run(["node", "--check", str(path)], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr

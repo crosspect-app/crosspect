@@ -20,7 +20,7 @@ function persistDraft(){
   updateStatus();
 }
 function change(){
-  state.updatedAt = Date.now();
+  state.updatedAt = Math.max(Date.now(), state.updatedAt + 1);   // только вперёд: иначе при отстающих часах правка выглядела бы сохранённой
   clearTimeout(draftTimer);
   draftTimer = setTimeout(persistDraft, 400);
   updateStatus();

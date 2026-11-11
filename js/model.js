@@ -109,6 +109,8 @@ function normalize(d){
   s.createdAt = d.createdAt || s.createdAt;
   s.updatedAt = d.updatedAt || s.updatedAt;
   s.savedAt = d.savedAt || 0;
+  if (d.cloudSpace) Object.assign(s, { cloudSpace:String(d.cloudSpace), cloudAt:+d.cloudAt || 0, cloudOwner:d.cloudOwner == null ? '' : String(d.cloudOwner),
+    cloudStatus:d.cloudStatus || 'draft', cloudBy:d.cloudBy || '' });   // метки облака: где лежит проповедь и какую версию форма видела в последний раз
   const dm = d.meta || {};
   s.meta = { title:String(dm.title || ''), date:String(dm.date || '') };
   if (dm.firstName != null || dm.lastName != null) Object.assign(s.meta, { firstName:String(dm.firstName || '').trim(), lastName:String(dm.lastName || '').trim() });
