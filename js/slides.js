@@ -28,8 +28,8 @@ function emptyState(){
       h('li', null, 'У каждого слайда есть «Текст к слайду»: что вы говорите, пока он на экране. На экран этот текст не выводится, его видит оператор.'),
       h('li', null, 'Если какое-то время говорите без слайда, добавьте «Заставку»: на экране будет название проповеди.'),
       h('li', null, '«Заметка оператору» — просьба к оператору: запустить видео, включить музыку.'),
-      h('li', null, cloudOn() ? 'Готово? Нажмите «Сохранить»: проповедь окажется в облаке церкви, и её увидят редакторы.' : 'Готово? Нажмите «Сохранить» и отправьте получившийся файл.')),
-    h('div', { class:'chips' },
+      h('li', null, cloudOn() ? 'Правки сами уходят в облако церкви, их видят редакторы. Закончили — нажмите «Сохранить и закрыть».' : 'Готово? Нажмите «Сохранить» и отправьте получившийся файл.')),
+    readOnly() ? null : h('div', { class:'chips' },
       h('button', { type:'button', class:'btn primary', onclick:() => addBlock('splash', 0) }, ic('plus'), 'Добавить заставку'),
       h('button', { type:'button', class:'btn', onclick:() => openSheet(0) }, ic('plus'), 'Другой слайд'))));
 }
@@ -74,7 +74,7 @@ function renderFilm(){
   const nums = slideNums();
   filmEl.append(h('div', { class:'film-head', id:'film-count' }));
   state.blocks.forEach(b => filmEl.append(filmItem(b, nums[b.id])));
-  filmEl.append(h('button', { type:'button', class:'film-add', onclick:() => openSheet(addAt()) }, ic('plus'), 'Добавить'));
+  if (!readOnly()) filmEl.append(h('button', { type:'button', class:'film-add', onclick:() => openSheet(addAt()) }, ic('plus'), 'Добавить'));
   state.blocks.forEach(b => { if (PREVIEW[b.type]) schedulePreview(b); });
   updateStatus();
 }
@@ -121,15 +121,15 @@ function renderStage(){
   if (PREVIEW[b.type]) schedulePreview(b);
 }
 function stageBar(b, n){
-  const T = TYPES[b.type], i = state.blocks.indexOf(b), total = state.blocks.length;
+  const T = TYPES[b.type], i = state.blocks.indexOf(b), total = state.blocks.length, ro = readOnly();
   return h('div', { class:'stage-bar' },
     h('span', { class:'cap strong', text:(T.slide ? n + ' · ' : '') + T.label }),
     h('div', { class:'grow' }),
     T.slide && h('button', { type:'button', class:'btn', title:'Скопировать название слайда для Holyrics', onclick:() => copyText(slideName(b, n), 'Скопировано: ') }, ic('tag'), 'Название'),
     PREVIEW[b.type] && h('button', { type:'button', class:'btn', title:'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
-    T.slide && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo),
+    T.slide && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo), disabled:ro,
       title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную', onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
-    T.slide && h('button', { type:'button', class:'btn ok' + (b.done ? ' on' : ''), 'aria-pressed':String(!!b.done),
+    T.slide && h('button', { type:'button', class:'btn ok' + (b.done ? ' on' : ''), 'aria-pressed':String(!!b.done), disabled:ro,
       title:b.done ? 'Снять отметку «готово»' : 'Отметить как готовый', onclick:() => toggleDone(b) }, ic('check'), 'Готово'),
     h('div', { class:'stepper' },
       h('button', { type:'button', class:'icon-btn', 'aria-label':'Предыдущий слайд', title:'Предыдущий', disabled:i <= 0, onclick:() => stepSel(-1) }, ic('back')),
@@ -157,11 +157,12 @@ function speechBox(b){
     toggleBtn.textContent = speechOpen ? 'Свернуть ↓' : 'Развернуть ↑';
     if (PREVIEW[b.type]) schedulePreview(b);
   } }, speechOpen ? 'Свернуть ↓' : 'Развернуть ↑');
+  const box = rich(b.speech, { key:b.id + ':speech', cls:'speech-text',
+    ph:b.type === 'splash' ? 'Что вы говорите, пока на экране заставка: вступление, история, переход к следующей мысли' : 'Что вы говорите, пока этот слайд на экране. Оператор увидит этот текст у себя',
+    onInput:v => { b.speech = v; show(); change(); } });
+  if (readOnly()) box.inert = true;   // просмотр: щелчок покажет подсказку про «Редактировать» (lock.js)
   return h('section', { class:'speech', 'aria-label':'Текст к слайду' },
-    h('div', { class:'speech-head' }, h('span', { class:'cap', text:'Текст к слайду' }), cnt, h('div', { class:'grow' }), toggleBtn),
-    rich(b.speech, { key:b.id + ':speech', cls:'speech-text',
-      ph:b.type === 'splash' ? 'Что вы говорите, пока на экране заставка: вступление, история, переход к следующей мысли' : 'Что вы говорите, пока этот слайд на экране. Оператор увидит этот текст у себя',
-      onInput:v => { b.speech = v; show(); change(); } }));
+    h('div', { class:'speech-head' }, h('span', { class:'cap', text:'Текст к слайду' }), cnt, h('div', { class:'grow' }), toggleBtn), box);
 }
 
 /* ----- Настройки слайда справа ----- */
@@ -170,9 +171,11 @@ function renderSide(){
   const n = slideNums()[b.id], T = TYPES[b.type];
   sideEl.className = 'side t-' + b.type;
   sideEl.style.setProperty('--tc', 'var(--c-' + b.type + ')');
-  const body = h('div', { class:'bbody' });
+  const body = h('div', { class:'bbody' }), ro = readOnly();
   BODY[b.type](b, body, n);
+  if (ro){ body.inert = true; sideEl.append(h('p', { class:'ro-note', text:'Только просмотр. Чтобы менять слайды, нажмите «Редактировать».' })); }
   sideEl.append(h('div', { class:'cap', text:'Настройки · ' + T.label.toLowerCase() }), body);
+  if (ro){ growAll(sideEl); return; }
   if (T.slide) sideEl.append(h('div', { class:'editor-box' },
     h('div', { class:'eb-head' }, h('b', { text:'Для редактора' }), h('span', { text:'сейчас отметку видят все, у кого открыт файл' })),
     sw('Доработать', b.todo, () => toggleTodo(b)),

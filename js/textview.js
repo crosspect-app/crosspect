@@ -36,9 +36,11 @@ function tvBlock(b, n){
   const cont = h('div', { class:'cont' });
   if (slideCard) cont.append(slideCard);
   if (viewOpts.showText){
-    cont.append(rich(b.speech, { key:b.id + ':tv', cls:'prose' + (b.type === 'splash' ? ' lead' : ''),
+    const pr = rich(b.speech, { key:b.id + ':tv', cls:'prose' + (b.type === 'splash' ? ' lead' : ''),
       ph:b.type === 'splash' ? 'Текст, пока на экране заставка' : 'Текст к слайду',
-      onInput:v => { b.speech = v; change(); } }));
+      onInput:v => { b.speech = v; change(); } });
+    if (readOnly()) pr.inert = true;
+    cont.append(pr);
   } else if (b.type === 'splash') cont.append(h('div', { class:'vs-name', text:state.meta.title || 'Без названия' }));
   return h('div', { class:'blk t-' + b.type, style:'--tc:var(--c-' + b.type + ')' }, gut, cont);
 }

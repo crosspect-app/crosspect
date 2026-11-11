@@ -4,14 +4,14 @@
    Связь с Firebase — в cloud-api.mjs (подключается по требованию). Здесь — состояние входа, экран входа,
    список проповедей из облака и сохранение. Если человек выбрал «Продолжить без входа» (или облако недоступно),
    форма работает как раньше: проповеди в этом браузере и в файлах.
-   Этап 6 добавит замок и автосохранение: пока проповедь уходит в облако кнопкой «Сохранить». */
+   Замок, правка и автосохранение — в lock.js. */
 const BUILD_ID = (document.currentScript && /[?&]v=([^&]+)/.exec(document.currentScript.src || '') || [])[1] || 'dev';
 const FIREBASE_VERSION = '13.1.0';
 const ROLE_NAMES = { admin:'админ', editor:'редактор', preacher:'проповедник' };
 
 /* mode: wait — подключаемся, out — не вошли, noaccess — почты нет в пространстве, error — не вышло, in — всё есть */
 const cloud = { mode:'wait', api:null, user:null, space:'', spaceName:'', role:'', member:null, settings:{}, list:null, fromCache:false,
-  listError:'', error:'', saving:false, unsub:null, norm:new Map(), started:false };
+  listError:'', error:'', unsub:null, norm:new Map(), started:false };
 const cloudOn = () => cloud.mode === 'in';
 const localMode = () => { try { return sessionStorage.getItem('swp-local') === '1'; } catch(e){ return false; } };
 const setLocalMode = on => { try { if (on) sessionStorage.setItem('swp-local', '1'); else sessionStorage.removeItem('swp-local'); } catch(e){} };
@@ -46,7 +46,7 @@ async function initCloud(){
 }
 
 async function cloudUser(user){
-  stopListen();
+  stopListen(); resetCloud();
   cloud.user = user; cloud.list = null; cloud.space = ''; cloud.role = ''; cloud.member = null; cloud.error = '';
   if (!user){ cloud.mode = 'out'; cloudChanged(); return; }
   setLocalMode(false);   // вошли — значит, работаем с облаком
@@ -90,6 +90,7 @@ async function cloudSignIn(){
   catch(e){ const m = cloudExplain(e); if (m) toast(m); }
 }
 async function cloudSignOut(){
+  try { await endCloud(); } catch(e){}   // правили — сохранить и отпустить, пока ещё есть вход
   try { await cloud.api.signOut(); } catch(e){}
   stopListen();
 }
@@ -136,25 +137,11 @@ function canEditCloud(d){
 const isUnsaved = d => d.updatedAt > (d.savedAt || 0) && (d.blocks.length > 0 || !!d.meta.title);
 
 /* ----- Сохранение ----- */
-function saveSermon(){ if (cloudOn()) saveCloud(); else saveFile(); }
-
-async function saveCloud(force){
-  if (cloud.saving || !state) return;
-  if (!canEditCloud()){ toast('Это проповедь другого проповедника: в облако её сохранить нельзя. Скачайте файл или сохраните копию.', 'Сохранить копию', () => saveAsCopy()); return; }
-  cloud.saving = true; persistDraft(); updateStatus();
-  const sent = state.updatedAt;   // правки, сделанные пока идёт сохранение, остаются несохранёнными
-  try {
-    const r = await cloud.api.save(cloud.space, state, cloud.user, { force:force === true });
-    Object.assign(state, { cloudSpace:r.cloudSpace, cloudAt:r.cloudAt, cloudOwner:r.cloudOwner, cloudStatus:r.cloudStatus, cloudBy:r.cloudBy });
-    state.savedAt = sent;
-    persistDraft();
-    toast('Сохранено в облаке');
-  } catch(e){
-    if (e && e.code === 'conflict') conflictSheet(e.remote);
-    else toast(cloudExplain(e) || 'Не удалось сохранить');
-  } finally {
-    cloud.saving = false; updateStatus();
-  }
+/* Облачная проповедь сохраняется сама (lock.js): Ctrl+S и кнопка — «сохранить сейчас». Без входа — файл */
+function saveSermon(){
+  if (!cloudOn()){ saveFile(); return; }
+  if (!cloudSermon()) beginCloud(null);
+  saveNow();
 }
 
 /* Пока проповедь правили здесь, её же сохранили в облаке: человек решает, чья версия главнее */
@@ -163,36 +150,46 @@ function conflictSheet(remote){
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Проповедь уже изменили' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Проповедь уже изменили' }), iconBtn('close', 'Закрыть', closeSettings)),
-    h('p', { class:'hint', style:'font-size:12px;margin-bottom:16px', text:'В облаке есть версия' + (when ? ' от ' + when : '') + by + ', которой нет у вас. Если заменить её вашей, те правки пропадут. Можно сохранить вашу версию отдельной копией или взять облачную, тогда пропадут ваши несохранённые правки.' }),
+    h('p', { class:'hint', style:'font-size:12px;margin-bottom:16px', text:'В облаке есть версия' + (when ? ' от ' + when : '') + by + ', которой нет у вас. Если заменить её вашей, те правки пропадут. Можно сохранить вашу версию отдельной копией или взять облачную, тогда пропадут ваши несохранённые правки. Пока вы не выберете, ваши правки в облако не уходят.' }),
     h('div', { class:'sheet-foot wrap' },
       h('button', { type:'button', class:'btn', onclick:() => { closeSettings(); takeRemote(remote); } }, 'Взять облачную'),
       h('button', { type:'button', class:'btn', onclick:() => { closeSettings(); saveAsCopy(); } }, 'Сохранить копией'),
-      h('button', { type:'button', class:'btn primary', onclick:() => { closeSettings(); saveCloud(true); } }, 'Заменить облачную'))));
+      h('button', { type:'button', class:'btn primary', onclick:() => { closeSettings(); forceSave(); } }, 'Заменить облачную'))));
   settingsOverlay.classList.add('open');
 }
 function takeRemote(remote){
+  ed.conflict = null;
   state = normalize(remote); state.savedAt = state.updatedAt; selId = null;
+  if (!ed.myAt) beginCloud(remote);   // замка у нас нет — дальше просмотр; если есть, правка продолжается с облачной версии
   persistDraft(); renderAll(); toast('Открыта версия из облака');
 }
-/* Копия получает новый номер и уходит в облако как отдельная проповедь */
+/* Копия получает новый номер и уходит в облако как отдельная проповедь (её хозяин — вы). Оригинал не сохраняется */
 function saveAsCopy(){
   const old = state.id;
+  endCloud({ discard:true });   // замок оригинала отпускаем, его несохранённые правки уходят в копию
   state.id = uid(); state.meta.title = (state.meta.title || 'Проповедь') + ' (копия)';
-  ['cloudSpace', 'cloudAt', 'cloudOwner', 'cloudStatus', 'cloudBy'].forEach(k => delete state[k]);
+  CLOUD_FIELDS.forEach(k => delete state[k]);
   state.savedAt = 0; state.updatedAt = Date.now();
   try { localStorage.removeItem('swp-sermon:' + old); } catch(e){}
+  if (cloudOn()) beginCloud(null);
   persistDraft();
   history.replaceState(null, '', sermonHash(state.id) + (view === 'text' ? '&v=text' : ''));
   renderAll();
-  if (cloudOn()) saveCloud();
+  if (cloudOn()) saveNow();
 }
 
 /* ----- Удаление и перенос ----- */
 async function deleteCloudSermon(d){
   const t = d.meta.title ? '«' + d.meta.title + '»' : 'эту проповедь';
+  const r = cloud.list && cloud.list.get(d.id), l = r && r.lock;
+  if (l && lockLive(l) && !(ed.id === d.id && lockHere(l))){
+    toast(l.email === myEmail() ? 'Вы правите её в другой вкладке или на другом устройстве. Закройте правку там и удалите ещё раз' : 'Сейчас её правит ' + lockWho(l) + '. Удалить можно, когда правка закончится');
+    return;
+  }
   if (!confirm('Удалить ' + t + ' из облака? Она пропадёт у всех, вернуть её нельзя.')) return;
   try {
     await cloud.api.remove(cloud.space, d.id);
+    if (ed.id === d.id) resetCloud();
     try { localStorage.removeItem('swp-sermon:' + d.id); if (LS.get('swp-sermon:last') === d.id) localStorage.removeItem('swp-sermon:last'); } catch(e){}
     if (state && state.id === d.id) state = blank();
     toast('Проповедь удалена');
@@ -233,10 +230,11 @@ async function openCloudSermon(id, local, seq){
   if (remote){
     if (!local || !unsaved) pick = remote;
     else if (local.cloudAt === remote.cloudAt) pick = local;
+    else if (remote.lock && remote.lock.email === myEmail() && remote.lock.at === recallAt(id) && remote.cloudBy === myEmail()) pick = local;   // облачная новее из-за нашей же записи (перезагрузили посреди правки)
     else pick = confirm('В браузере остались несохранённые правки этой проповеди, а в облаке она уже новее. Оставить ваши правки? («Отмена» откроет облачную версию.)') ? local : remote;
   } else if (local){ pick = local; if (failed) note = 'Нет связи с облаком: открыта копия из браузера'; }
   if (!pick) return { missing:true, failed };
   const s = normalize(pick);
   if (pick === remote) s.savedAt = s.updatedAt;
-  return { state:s, note };
+  return { state:s, note, remote, local:pick === local, offline:failed };
 }

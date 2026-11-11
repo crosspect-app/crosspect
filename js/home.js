@@ -110,7 +110,7 @@ function renderHomeList(){
       h('div', { class:'cards' }, only.map(sermonCard))));
   }
   box.append(h('p', { class:'hint home-note', text:on
-    ? 'Проповеди хранятся в облаке церкви и видны на любом устройстве после входа. Правки уходят в облако, когда вы нажимаете «Сохранить».'
+    ? 'Проповеди хранятся в облаке церкви и видны на любом устройстве после входа. Чтобы править проповедь, откройте её и нажмите «Редактировать»: пока вы правите, другие её только смотрят, а правки уходят в облако сами.'
     : 'Проповеди хранятся в этом браузере. Чтобы отправить проповедь или перенести её на другой компьютер, нажмите «Сохранить» внутри проповеди и перешлите файл.' }));
 }
 
@@ -144,7 +144,7 @@ function sermonCard(d){
         h('div', { class:'scard-top' }, h('span', { text:fmtDay(m.date) || 'Дата не указана' }), h('span', { class:'stchip st-' + st.key, text:st.label })),
         h('div', { class:'scard-title' + (m.title ? '' : ' empty'), text:m.title || 'Без названия' }),
         h('div', { class:'scard-by', text:preacherName(m) || 'Проповедник не указан' }),
-        cloudMark(d),
+        cloudMark(d), lockMark(d),
         slides.length
           ? [h('div', { class:'prog', 'aria-label':'Готово ' + done + ' из ' + slides.length }, seg),
              h('div', { class:'scard-foot' },
@@ -159,7 +159,7 @@ function sermonRow(d){
   return h('div', { class:'card-wrap' },
     h('a', { class:'prow', href:sermonHash(d.id) },
       h('span', { class:'muted', text:fmtDay(m.date) }),
-      h('span', { class:'pt' }, m.title || 'Без названия', cloudMark(d)),
+      h('span', { class:'pt' }, m.title || 'Без названия', cloudMark(d), lockMark(d)),
       h('span', { class:'muted2', text:preacherName(m) }),
       h('span', { text:String(slideCount(d)) }),
       h('span', null, h('span', { class:'stchip st-' + st.key, text:st.label })),

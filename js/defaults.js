@@ -15,6 +15,7 @@ const SLIDES_DEFAULT = { margins:{ side:60, top:60, bottom:60 }, names:{ require
 const PANEL_INSET = 44;   // панель отступает от края кадра на 44 px
 
 const ICONS = {
+  edit:'<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   book:'<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19"/><path d="M9 7.5h6"/>',
   split:'<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 12h17"/>',
   thesis:'<path d="M5 7V5h14v2"/><path d="M12 5v14"/><path d="M9 19h6"/>',

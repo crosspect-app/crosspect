@@ -15,15 +15,18 @@ function readDraft(id){
 }
 function persistDraft(){
   clearTimeout(draftTimer);
+  if (readOnly()){ updateStatus(); return; }   // просмотр облачной проповеди: черновик не нужен, а чужой (из другой вкладки) не затираем
   LS.set('swp-sermon:' + state.id, JSON.stringify(state));
   LS.set('swp-sermon:last', state.id);
   updateStatus();
 }
 function change(){
+  if (roBlock()) return;   // только просмотр: правка отменяется, подсказка про «Редактировать»
   state.updatedAt = Math.max(Date.now(), state.updatedAt + 1);   // только вперёд: иначе при отстающих часах правка выглядела бы сохранённой
   clearTimeout(draftTimer);
   draftTimer = setTimeout(persistDraft, 400);
   updateStatus();
+  onEdit();   // облако: автосохранение через несколько секунд
 }
 const isDirty = () => state.updatedAt > (state.savedAt || 0) && (state.blocks.length > 0 || !!state.meta.title);
 

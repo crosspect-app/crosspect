@@ -1,4 +1,4 @@
-"""Вход Google и сохранение в облако (этап 5). Облако подменено: tests/fixtures/fake_cloud.js."""
+"""Вход Google и сохранение в облако (этап 5). Облако подменено: tests/fixtures/fake_cloud.js. Замок и автосохранение — test_lock.py."""
 import json
 
 from conftest import cloud_page
@@ -20,6 +20,14 @@ def rec(id, title, owner="admin@x.pl", at=5000, date="2099-01-04"):
 
 def wait_home(page):
     page.wait_for_selector(".home-top")
+
+
+def open_edit(page, id):
+    """Открыть облачную проповедь и нажать «Редактировать»."""
+    page.evaluate("id => navigate(sermonHash(id))", id)
+    page.wait_for_function("id => state && state.id === id && screen === 'sermon' && ed.id === id", arg=id)
+    page.get_by_role("button", name="Редактировать").click()
+    page.wait_for_function("ed.mode === 'edit'")
 
 
 def test_gate_then_sign_in(browser, base_url):
@@ -80,16 +88,16 @@ def test_save_new_sermon_to_cloud(browser, base_url):
     page.fill("input[aria-label='Название проповеди']", "Благодать")
     page.evaluate("closeSettings()")
     page.evaluate("addBlock('splash', 0)")
-    assert "Не сохранено в облако" in page.inner_text("#hd-save")
-    page.get_by_role("button", name="Сохранить").click()
-    page.wait_for_function("document.getElementById('hd-save').textContent.includes('Сохранено в облаке')")
+    assert "Сохранится через пару секунд" in page.inner_text("#hd-save")
+    page.wait_for_function("document.getElementById('hd-save').textContent.includes('Сохранено в облаке')", timeout=10000)   # само, без кнопки
     db = page.evaluate("fakeCloud.db()")
     assert len(db["sermons"]) == 1
     r = next(iter(db["sermons"].values()))
     assert r["meta"]["title"] == "Благодать" and r["owner"] == "admin@x.pl" and r["status"] == "draft" and len(r["blocks"]) == 1
+    assert r["lock"]["email"] == "admin@x.pl"   # новая проповедь сразу под замком автора
     # правка после сохранения снова помечается
     page.evaluate("state.meta.title = 'Благодать 2'; change()")
-    assert "Не сохранено в облако" in page.inner_text("#hd-save")
+    assert "Сохранится через пару секунд" in page.inner_text("#hd-save")
     ctx.close()
 
 
@@ -98,29 +106,31 @@ def test_open_cloud_sermon_edit_and_unsaved_recovery(browser, base_url):
     wait_home(page)
     page.wait_for_selector(".scard")
     page.locator(".scard").first.click()
-    page.wait_for_function("state && state.id === 's1' && screen === 'sermon'")
+    page.wait_for_function("state && state.id === 's1' && screen === 'sermon' && ed.id === 's1'")
     assert page.evaluate("state.blocks[0].speech") == "<b>привет</b>"
-    assert "Сохранено в облаке" in page.inner_text("#hd-save")
+    assert "Только просмотр" in page.inner_text("#hd-save")
+    page.get_by_role("button", name="Редактировать").click()
+    page.wait_for_function("ed.mode === 'edit'")
     page.evaluate("state.meta.title = 'Вера и дела'; change()")
-    page.wait_for_timeout(600)   # черновик сохраняется в браузере с паузой
+    page.wait_for_timeout(600)   # черновик сохраняется в браузере с паузой, в облако — позже
+    page.on("dialog", lambda d: d.accept())   # «Покинуть сайт?» — правки ещё не в облаке
     page.reload()
-    page.wait_for_function("state && state.id === 's1' && screen === 'sermon'")
-    assert page.evaluate("state.meta.title") == "Вера и дела"      # несохранённые правки не потерялись
-    assert "Не сохранено в облако" in page.inner_text("#hd-save")
-    page.get_by_role("button", name="Сохранить").click()
-    page.wait_for_function("fakeCloud.db().sermons.s1.meta.title === 'Вера и дела'")
+    page.wait_for_function("state && state.id === 's1' && screen === 'sermon' && ed.mode === 'edit'")
+    assert page.evaluate("state.meta.title") == "Вера и дела"      # несохранённые правки не потерялись, правка продолжается
+    page.wait_for_function("fakeCloud.db().sermons.s1.meta.title === 'Вера и дела'", timeout=10000)
+    page.evaluate("state.meta.title = 'Вера и дела 2'; change(); saveNow()")
+    page.wait_for_function("fakeCloud.db().sermons.s1.meta.title === 'Вера и дела 2'")
+    assert not page.locator(".sheet[aria-label='Проповедь уже изменили']").count()   # свои записи до перезагрузки — не конфликт
     ctx.close()
 
 
 def test_conflict_replace_and_copy(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": rec("s1", "Вера")})
     wait_home(page)
-    page.evaluate("navigate(sermonHash('s1'))")
-    page.wait_for_function("state && state.id === 's1' && screen === 'sermon'")
-    # пока форма открыта, «другой человек» сохранил свою версию
-    page.evaluate("(() => { const db = fakeCloud.db(); db.sermons.s1.meta.title = 'Чужая версия'; db.sermons.s1.updatedAt += 5000; fakeCloud.put(db); })()")
-    page.evaluate("state.meta.title = 'Моя версия'; change()")
-    page.get_by_role("button", name="Сохранить").click()
+    open_edit(page, "s1")
+    # замок за это время пропал (истёк, его сняли), и «другой человек» сохранил свою версию
+    page.evaluate(OTHER_EDIT)
+    page.evaluate("state.meta.title = 'Моя версия'; change(); saveNow()")
     page.wait_for_selector(".sheet[aria-label='Проповедь уже изменили']")
     assert page.evaluate("fakeCloud.db().sermons.s1.meta.title") == "Чужая версия"    # молча ничего не затёрто
     page.get_by_role("button", name="Сохранить копией").click()
@@ -135,14 +145,18 @@ def test_conflict_replace_and_copy(browser, base_url):
 def test_conflict_force_replace(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": rec("s1", "Вера")})
     wait_home(page)
-    page.evaluate("navigate(sermonHash('s1'))")
-    page.wait_for_function("state && state.id === 's1' && screen === 'sermon'")
-    page.evaluate("(() => { const db = fakeCloud.db(); db.sermons.s1.updatedAt += 5000; fakeCloud.put(db); })()")
-    page.evaluate("state.meta.title = 'Моя версия'; change()")
-    page.get_by_role("button", name="Сохранить").click()
+    open_edit(page, "s1")
+    page.evaluate(OTHER_EDIT)
+    page.evaluate("state.meta.title = 'Моя версия'; change(); saveNow()")
+    page.wait_for_selector(".sheet[aria-label='Проповедь уже изменили']")
+    assert "другая версия" in page.inner_text("#hd-save")   # пока не выбрали, в облако ничего не уходит
     page.get_by_role("button", name="Заменить облачную").click()
     page.wait_for_function("fakeCloud.db().sermons.s1.meta.title === 'Моя версия'")
     ctx.close()
+
+
+OTHER_EDIT = """(() => { const db = fakeCloud.db(), r = db.sermons.s1; r.lock = null; r.meta.title = 'Чужая версия';
+  r.updatedAt += 5000; r.updatedBy = 'petr@x.pl'; fakeCloud.put(db); })()"""
 
 
 def test_local_only_draft_goes_to_cloud(browser, base_url):
@@ -190,16 +204,20 @@ def test_preacher_sees_all_but_edits_own(browser, base_url):
     page.wait_for_selector(".scard")
     assert page.locator(".scard").count() == 2
     page.evaluate("navigate(sermonHash('other'))")
-    page.wait_for_function("state && state.id === 'other' && screen === 'sermon'")
+    page.wait_for_function("state && state.id === 'other' && screen === 'sermon' && ed.id === 'other'")
     assert "другого проповедника" in page.inner_text("#hd-save")
-    page.evaluate("state.meta.title = 'Правка'; change()")
-    page.get_by_role("button", name="Сохранить").click()
+    assert not page.get_by_role("button", name="Редактировать").count()
+    assert page.get_by_role("button", name="Сделать копию").is_visible()
+    page.evaluate("state.meta.title = 'Правка'; change()")   # правка в просмотре не проходит
+    assert page.evaluate("state.meta.title") == "Чужая"
     assert "другого проповедника" in page.inner_text(".toast")
+    page.wait_for_timeout(300)
     assert page.evaluate("fakeCloud.db().sermons.other.meta.title") == "Чужая"
+    assert page.evaluate("fakeCloud.calls.save + fakeCloud.calls.lock") == 0
     # свою можно
     page.evaluate("navigate(sermonHash('mine'))")
-    page.wait_for_function("state && state.id === 'mine'")
-    assert "Сохранено в облаке" in page.inner_text("#hd-save")
+    page.wait_for_function("state && state.id === 'mine' && ed.id === 'mine'")
+    assert page.get_by_role("button", name="Редактировать").is_enabled()
     ctx.close()
 
 

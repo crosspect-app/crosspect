@@ -208,6 +208,12 @@ body.light .logo{color:var(--text)}
 .menu-who{padding:6px 12px 2px;font-size:11px;color:var(--faint);overflow:hidden;text-overflow:ellipsis}
 .cloud-mark{display:inline-block;align-self:flex-start;margin:4px 0 0 0;padding:2px 8px;border-radius:999px;font-size:11px;color:var(--warn);background:var(--warn-bg)}
 .pt .cloud-mark{margin-left:8px}
+.lock-mark{display:inline-block;align-self:flex-start;margin:4px 0 0 0;padding:2px 8px;border-radius:999px;font-size:11px;color:#9fc3ff;background:#14243d}
+.pt .lock-mark{margin-left:8px}
+/* Облачная проповедь в режиме просмотра (lock.js): настройки и текст не правятся */
+body.ro .side .bbody,body.ro .speech .rich,body.ro .tv .prose{opacity:.8;cursor:default}
+.ro-note{margin:0;padding:10px 12px;border-radius:12px;background:var(--surface-2);color:var(--muted);font-size:12px;line-height:1.5}
+.hd-save.pick{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .card-up{margin-top:10px}
 .home-warn{color:var(--warn)}
 .sheet-foot.wrap{justify-content:flex-end}

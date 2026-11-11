@@ -1,0 +1,445 @@
+'use strict';
+
+/* ========= Замок и автосохранение (этап 6) =========
+   Проповедь из облака открывается для просмотра. «Редактировать» берёт замок (транзакция в cloud-api.mjs):
+   пока он мой, другие видят «Сейчас правит …» и проповедь только для чтения, обновляемую вживую.
+   Пока правлю: правка уходит в облако через несколько секунд, сигнал «я здесь» — раз в минуту.
+   «Сохранить и закрыть», уход с проповеди или простой дольше lockMinutes — сохранить и отпустить.
+   Замок забрали (редактор или я сам в другой вкладке) — то, что не успело сохраниться, уходит отдельной копией.
+   Без сети правки копятся в черновике браузера и уходят, когда связь вернётся.
+   «Свой» замок — почта + время начала (`at`): другая вкладка той же почты берёт замок заново, и `at` меняется. */
+const AUTOSAVE_MS = 4000, BEAT_MS = 60000, TICK_MS = 15000, SLOW_MS = 8000, RETRY_MS = 15000;
+/* mode: view — просмотр, edit — правлю я. remote — последняя версия из облака (с замком), myAt — начало моего замка */
+const ed = { id:null, mode:'view', remote:null, myAt:0, unsub:null, saveT:null, tickT:null, retryT:null, pending:null,
+  lastAct:0, lastBeat:0, saving:false, beating:false, slow:false, offline:false, denied:false, conflict:null, busy:false,
+  autoEdit:null, headKey:'', hintAt:0 };
+
+const lockMins = () => { const m = +(cloud.settings && cloud.settings.lockMinutes); return m >= 1 ? m : 10; };
+const lockLive = l => !!l && Date.now() < l.beat + lockMins() * 60000;
+const curLock = () => (ed.remote && ed.remote.lock) || null;
+const lockHere = l => !!l && l.email === myEmail() && !!ed.myAt && l.at === ed.myAt;
+/* Замок, который мешает править здесь: живой и не этой вкладки (может быть и мой — из другой вкладки) */
+function otherLock(l){ l = l === undefined ? curLock() : l; return l && lockLive(l) && !lockHere(l) ? l : null; }
+const cloudSermon = () => cloudOn() && screen === 'sermon' && !!state && ed.id === state.id;
+const editing = () => cloudSermon() && ed.mode === 'edit';
+const readOnly = () => cloudOn() && !!state && ed.id === state.id && ed.mode !== 'edit';   // не зависит от экрана: важно и до того, как проповедь нарисована
+function myLockName(){
+  const m = cloud.member || {};
+  return [m.firstName, m.lastName].filter(Boolean).join(' ') || (cloud.user && cloud.user.name) || myEmail();
+}
+const lockWho = l => l.name || l.email;
+const netErr = e => !navigator.onLine || /unavailable|deadline|network|offline/i.test(((e && e.code) || '') + ' ' + ((e && e.message) || ''));
+const deniedErr = e => /permission-denied/.test((e && e.code) || '');
+/* Начало моего замка помним на вкладку: после перезагрузки страницы правка продолжается */
+function rememberAt(id, at){ try { if (at) sessionStorage.setItem('swp-lock:' + id, String(at)); else sessionStorage.removeItem('swp-lock:' + id); } catch(e){} }
+function recallAt(id){ try { return +sessionStorage.getItem('swp-lock:' + id) || 0; } catch(e){ return 0; } }
+const cloudMarks = r => ({ cloudSpace:r.cloudSpace, cloudAt:r.cloudAt, cloudOwner:r.cloudOwner, cloudStatus:r.cloudStatus, cloudBy:r.cloudBy });
+
+/* ----- Открыть и закрыть ----- */
+/* Открыли проповедь после входа: решить, просмотр или правка. remote — версия из облака (null — её там нет или нет связи),
+   pickedLocal — открыт черновик из браузера, offline — облако не ответило. Рисует экран вызывающий. */
+function beginCloud(remote, pickedLocal, offline){
+  endCloud();
+  Object.assign(ed, { id:state.id, remote:remote || null, myAt:0, conflict:null, offline:false, denied:false, slow:false, lastAct:Date.now(), headKey:'' });
+  const auto = ed.autoEdit === state.id; ed.autoEdit = null;
+  startTimers();
+  if (!remote){
+    if (offline && state.cloudAt && !isUnsaved(state)){ ed.mode = 'view'; ed.remote = JSON.parse(JSON.stringify(state)); startWatch(); return; }
+    ed.mode = 'edit';   // новая или только в браузере: замок появится с первым сохранением
+    if (state.cloudAt) startWatch();
+    if (isDirty()) scheduleSave(offline ? RETRY_MS : 0);
+    return;
+  }
+  ed.mode = 'view';
+  startWatch();
+  const unsaved = pickedLocal && isUnsaved(state);
+  if (!canEditCloud(state)){ if (unsaved) rescueAndShow(state, null); return; }
+  const l = remote.lock, mine = recallAt(state.id);
+  const resume = !!(l && l.email === myEmail() && mine && l.at === mine);   // перезагрузили страницу посреди правки
+  if (!resume && l && l.email === myEmail() && lockLive(l)){   // правка открыта в другой вкладке: черновик в браузере — её, не трогаем
+    if (pickedLocal) setRemoteState(remote);
+    return;
+  }
+  // перезагрузка: замок берём заново (новое начало) — так копия вкладки не будет считать замок своим
+  if (resume || unsaved || auto) startEdit({ force:resume, auto:true, ownSince:resume ? l.at : 0 });
+}
+/* Ушли с проповеди (на главную, в другую, вышли): правили — сохранить и отпустить. discard — не сохранять */
+function endCloud(o){
+  o = o || {};
+  if (!ed.id) return Promise.resolve();
+  const s = state && state.id === ed.id ? state : null, wasEdit = ed.mode === 'edit', at = ed.myAt, id = ed.id, conflict = ed.conflict;
+  stopWatch(); stopTimers();
+  if (s && wasEdit && !o.discard) LS.set('swp-sermon:' + s.id, JSON.stringify(s));   // черновик — сразу, не ждём паузы
+  Object.assign(ed, { id:null, mode:'view', remote:null, myAt:0, conflict:null, saving:false, slow:false, offline:false, denied:false, busy:false, pending:null });
+  rememberAt(id, 0);
+  if (!wasEdit || !s || !cloudOn()) return Promise.resolve();
+  if (!o.discard && !conflict && isUnsaved(s)) return cloudWrite(s, { release:true, at });
+  if (at) return cloud.api.release(cloud.space, id, cloud.user, at).catch(() => {});
+  return Promise.resolve();
+}
+/* Вышли из облака или проповедь удалили: просто забыть, без записей */
+function resetCloud(){ stopWatch(); stopTimers(); Object.assign(ed, { id:null, mode:'view', remote:null, myAt:0, conflict:null, saving:false, busy:false, pending:null }); }
+
+function startWatch(){
+  stopWatch();
+  const id = ed.id;
+  ed.unsub = cloud.api.watch(cloud.space, id, (r, meta) => onRemote(id, r, meta || {}), () => {});
+}
+function stopWatch(){ if (ed.unsub){ try { ed.unsub(); } catch(e){} ed.unsub = null; } }
+function startTimers(){ stopTimers(); ed.tickT = setInterval(tick, TICK_MS); }
+function stopTimers(){
+  clearInterval(ed.tickT); clearTimeout(ed.saveT); clearTimeout(ed.retryT);
+  ed.tickT = ed.saveT = ed.retryT = null;
+}
+
+/* Пришла новая версия из облака (или изменился замок) */
+function onRemote(id, r, meta){
+  if (ed.id !== id || !cloudOn()) return;
+  if (!r){
+    if (meta.fromCache || ed.mode === 'edit') return;   // правлю: следующее сохранение создаст её заново
+    resetCloud();
+    if (screen === 'sermon' && state && state.id === id){ state = blank(); navigate(''); toast('Эту проповедь удалили из облака'); }
+    return;
+  }
+  ed.remote = r;
+  if (ed.mode === 'edit'){
+    const l = r.lock;
+    if (!meta.fromCache && l && ed.myAt && !lockHere(l) && l.at > ed.myAt) lostLock(l, r);   // замок взяли после меня
+    else refreshHead();
+    return;
+  }
+  if (ed.busy){ refreshHead(); return; }
+  if (state && state.id === id && r.cloudAt !== state.cloudAt){ setRemoteState(r); rerenderKeep(); }
+  else refreshHead();
+}
+function setRemoteState(r){
+  const keep = selId;
+  state = normalize(r); state.savedAt = state.updatedAt;
+  selId = state.blocks.some(b => b.id === keep) ? keep : null;
+}
+/* Перерисовать проповедь, не теряя прокрутку ленты и страницы */
+function rerenderKeep(){
+  if (screen !== 'sermon'){ renderTopbar(); return; }
+  const fs = filmEl && filmEl.isConnected ? filmEl.scrollTop : 0, ss = sideEl && sideEl.isConnected ? sideEl.scrollTop : 0, ws = window.scrollY;
+  renderAll();
+  if (filmEl && filmEl.isConnected) filmEl.scrollTop = fs;
+  if (sideEl && sideEl.isConnected) sideEl.scrollTop = ss;
+  window.scrollTo(0, ws);
+}
+/* Шапка зависит от режима и чужого замка: перерисовать её только когда это поменялось */
+function refreshHead(){
+  if (screen !== 'sermon') return;
+  const l = otherLock();
+  const key = [ed.mode, ed.busy, l ? l.email + l.at : '', canEditCloud()].join('|');
+  if (key !== ed.headKey){ ed.headKey = key; renderTopbar(); }
+  else updateStatus();
+}
+
+/* ----- Начать правку ----- */
+async function startEdit(o){
+  o = o || {};
+  if (!cloudOn() || !state || ed.id !== state.id || ed.mode === 'edit' || ed.busy) return;   // экран может быть ещё не нарисован
+  const s = state, id = s.id;
+  if (!s.cloudAt){ ed.mode = 'edit'; rerenderKeep(); return; }
+  ed.busy = true; refreshHead();
+  try {
+    const r = await cloud.api.lock(cloud.space, id, cloud.user, myLockName(), { at:o.resumeAt || 0, force:!!o.force, minutes:lockMins() });
+    if (ed.id !== id || !cloudOn()){ cloud.api.release(cloud.space, id, cloud.user, r.lock && r.lock.at).catch(() => {}); return; }
+    ed.remote = r; ed.myAt = r.lock ? r.lock.at : 0; rememberAt(id, ed.myAt);
+    ed.mode = 'edit'; ed.lastAct = ed.lastBeat = Date.now(); ed.denied = false;
+    if (state === s && !isDirty() && r.cloudAt !== state.cloudAt) setRemoteState(r);   // править будем самую свежую версию
+    // после перезагрузки облачная версия бывает новее черновика только из-за наших же записей: черновик их уже содержит
+    else if (state === s && o.ownSince && r.cloudBy === myEmail() && r.cloudAt >= o.ownSince) state.cloudAt = r.cloudAt;
+    if (isDirty()) scheduleSave(0);
+  } catch(e){
+    if (ed.id !== id) return;
+    if (e && e.code === 'locked'){
+      ed.remote = Object.assign({}, ed.remote, { lock:e.lock });
+      if (state === s && isUnsaved(s)){ ed.busy = false; await rescueAndShow(s, e.lock); return; }   // открыли с несохранёнными правками
+      if (!o.auto) toast('Сейчас её правит ' + lockWho(e.lock) + '. Править можно, когда правка закончится');
+    } else if (e && e.code === 'missing') toast('Этой проповеди уже нет в облаке');
+    else if (netErr(e)) toast('Нет связи с облаком: править можно, когда появится сеть');
+    else toast(cloudExplain(e) || 'Не удалось начать правку');
+  } finally {
+    if (ed.id === id){ ed.busy = false; ed.headKey = ''; rerenderKeep(); }
+  }
+}
+/* Редактор забирает правку у другого человека */
+function takeOver(l){
+  const who = l.email === myEmail() ? 'Вы сами правите эту проповедь в другой вкладке или на другом устройстве' : 'Сейчас эту проповедь правит ' + lockWho(l);
+  if (!confirm(who + ' (с ' + fmtTime(l.at) + '). Забрать правку сюда? Что не успело сохраниться там, форма сохранит отдельной копией.')) return;
+  startEdit({ force:true });
+}
+
+/* ----- Сохранение ----- */
+function onEdit(){ ed.lastAct = Date.now(); if (editing()) scheduleSave(); }
+function scheduleSave(ms){
+  if (ed.saveT || ed.conflict) return;
+  ed.saveT = setTimeout(autoSave, ms == null ? AUTOSAVE_MS : ms);
+}
+function autoSave(){
+  ed.saveT = null;
+  if (!editing() || ed.conflict || ed.denied || !isDirty()) return;
+  if (ed.saving) return;   // по окончании текущей записи проверим ещё раз
+  ed.pending = cloudWrite(state, { at:ed.myAt });
+}
+/* «Заменить облачную» в окне конфликта */
+function forceSave(){
+  ed.conflict = null; clearTimeout(ed.saveT); ed.saveT = null;
+  ed.pending = cloudWrite(state, { at:ed.myAt, force:true });
+}
+/* Ctrl+S и «Сохранить» во время правки: сразу, не дожидаясь паузы */
+function saveNow(){
+  if (readOnly()){ roHint(); return; }
+  clearTimeout(ed.saveT); ed.saveT = null;
+  if (ed.conflict){ conflictSheet(ed.conflict); return; }
+  ed.denied = false;
+  if (isDirty()) autoSave();
+  else updateStatus();
+}
+function retryLater(){
+  if (ed.retryT) return;
+  ed.retryT = setTimeout(() => { ed.retryT = null; if (editing() && isDirty()) scheduleSave(0); }, RETRY_MS);
+}
+
+/* Записать проповедь s в облако. o: { at — мой замок, release — отпустить, force — заменить облачную }.
+   s может быть уже не открыта (ушли с неё): тогда пишем молча и обновляем только её черновик */
+async function cloudWrite(s, o){
+  o = o || {};
+  const here = () => state === s && ed.id === s.id;
+  const sent = s.updatedAt;
+  if (here()){ ed.saving = true; updateStatus(); }
+  const slow = setTimeout(() => { if (here()){ ed.slow = true; updateStatus(); } }, SLOW_MS);
+  let res = 'ok';
+  try {
+    const r = await cloud.api.save(cloud.space, s, cloud.user, { force:!!o.force, lock:{ name:myLockName(), at:o.at || 0, release:!!o.release, minutes:lockMins() } });
+    Object.assign(s, cloudMarks(r)); s.savedAt = Math.max(sent, s.savedAt || 0);
+    if (here()){
+      ed.remote = r; ed.offline = false; ed.lastBeat = Date.now();
+      if (!o.release && r.lock && r.lock.email === myEmail()){ ed.myAt = r.lock.at; rememberAt(s.id, ed.myAt); }
+      persistDraft();
+      if (!ed.unsub) startWatch();
+    } else LS.set('swp-sermon:' + s.id, JSON.stringify(s));
+  } catch(e){
+    const code = (e && e.code) || '';
+    if (code === 'lost-lock'){
+      res = 'lost';
+      if (here()){ if (ed.mode === 'edit') await lostLock(e.lock, e.remote); }   // уже в просмотре — копию сделал lostLock
+      else {   // ушли с проповеди, а сохранить последние правки не дали: они — в копии
+        const c = await rescueCopy(s);
+        toast('«' + (s.meta.title || 'Проповедь') + '» сейчас правит ' + lockWho(e.lock) + '. Ваши последние правки сохранены копией «' + c.title + '»');
+        if (screen === 'home') renderHomeList();
+      }
+    } else if (code === 'conflict'){
+      res = 'conflict';
+      if (here()){ ed.conflict = e.remote; conflictSheet(e.remote); }
+    } else if (netErr(e)){
+      res = 'offline';
+      if (here()){ ed.offline = true; persistDraft(); retryLater(); }   // правки ждут в черновике браузера
+    } else if (deniedErr(e) && here() && ed.mode === 'edit'){
+      res = 'denied';
+      await checkLock(true);
+    } else {
+      res = 'error';
+      if (here()){ ed.denied = true; toast(cloudExplain(e) || 'Не удалось сохранить'); }
+    }
+  } finally {
+    clearTimeout(slow);
+    if (here()){
+      ed.saving = false; ed.slow = false; ed.pending = null; updateStatus();
+      if (res === 'ok' && editing() && isDirty()) scheduleSave();
+    }
+  }
+  return res;
+}
+
+/* База отказала (сигнал или запись): замок забрали или он пропал. Посмотреть, что в облаке */
+async function checkLock(fromSave){
+  const id = state.id;
+  let r = null;
+  try { r = await cloud.api.get(cloud.space, id); } catch(e){ return; }
+  if (ed.id !== id || ed.mode !== 'edit') return;
+  if (r && r.lock && !lockHere(r.lock) && lockLive(r.lock)){ await lostLock(r.lock, r); return; }
+  if (fromSave){ ed.denied = true; updateStatus(); toast('Облако не приняло правку: нет прав. Проверьте, что вы вошли под своей почтой'); }
+}
+
+/* ----- Сигнал «я здесь» и простой ----- */
+function tick(){
+  if (!cloudSermon()) return;
+  const now = Date.now();
+  if (ed.mode === 'edit'){
+    if (now - ed.lastAct >= lockMins() * 60000 && !ed.saving){ closeEdit('idle'); return; }
+    if (ed.myAt && !ed.beating && !ed.saving && now - ed.lastBeat >= BEAT_MS - TICK_MS / 2) beat();
+  }
+  refreshHead();   // чужой замок мог истечь
+}
+async function beat(){
+  const id = state.id, at = ed.myAt;
+  ed.beating = true;
+  try {
+    await cloud.api.beat(cloud.space, id);
+    if (ed.id === id && ed.myAt === at) ed.lastBeat = Date.now();
+  } catch(e){
+    if (deniedErr(e) && ed.id === id && ed.mode === 'edit') await checkLock(false);
+  } finally { ed.beating = false; }
+}
+
+/* ----- Закончить правку ----- */
+/* «Сохранить и закрыть» (reason 'button') или простой ('idle'): сохранить, отпустить замок, остаться в просмотре */
+async function closeEdit(reason){
+  if (!editing()) return;
+  const s = state;
+  if (ed.pending) await ed.pending;
+  if (!editing() || state !== s) return;
+  if (ed.conflict){ conflictSheet(ed.conflict); return; }
+  if (!s.cloudAt && !isUnsaved(s)){ if (reason !== 'idle') toast('Проповедь пустая: сохранять пока нечего'); else ed.lastAct = Date.now(); return; }
+  clearTimeout(ed.saveT); ed.saveT = null;
+  const at = ed.myAt;
+  let res = 'ok';
+  if (isUnsaved(s) || !s.cloudAt) res = await (ed.pending = cloudWrite(s, { release:true, at }));
+  else if (at){ try { await cloud.api.release(cloud.space, s.id, cloud.user, at); } catch(e){ res = netErr(e) ? 'offline' : 'error'; } }
+  if (state !== s || ed.mode !== 'edit') return;
+  if (res !== 'ok'){
+    if (res === 'offline' && reason !== 'idle') toast('Нет связи с облаком. Правки остаются в этом браузере и уйдут в облако, когда появится сеть');
+    if (reason === 'idle') ed.lastAct = Date.now();
+    return;
+  }
+  ed.mode = 'view'; ed.myAt = 0; rememberAt(s.id, 0);
+  if (!ed.remote || !ed.remote.blocks || ed.remote.cloudAt !== s.cloudAt) ed.remote = JSON.parse(JSON.stringify(s));
+  ed.remote = Object.assign({}, ed.remote, { lock:null });
+  ed.headKey = '';
+  rerenderKeep();
+  if (reason === 'idle') idleSheet();
+  else toast('Сохранено. Теперь проповедь могут править другие');
+}
+
+/* ----- Замок забрали ----- */
+async function lostLock(l, remote){
+  if (ed.mode !== 'edit') return;
+  const s = state, dirty = isDirty();
+  clearTimeout(ed.saveT); ed.saveT = null;
+  Object.assign(ed, { mode:'view', myAt:0, conflict:null, offline:false, headKey:'' });
+  rememberAt(s.id, 0);
+  const copy = dirty ? await rescueCopy(s) : null;
+  if (remote) ed.remote = remote;
+  if (state === s && ed.remote && ed.remote.blocks) setRemoteState(ed.remote);
+  rerenderKeep();
+  lostSheet(l, copy);
+}
+/* Несохранённое, что нельзя записать поверх (правит другой), — отдельной копией: в облако, а без сети — в браузер */
+async function rescueCopy(s){
+  const c = JSON.parse(JSON.stringify(s));
+  c.id = uid(); c.meta.title = (c.meta.title || 'Проповедь') + ' (копия)';
+  CLOUD_FIELDS.forEach(k => delete c[k]);
+  c.savedAt = 0; c.updatedAt = Date.now();
+  LS.set('swp-sermon:' + c.id, JSON.stringify(c));
+  try { localStorage.removeItem('swp-sermon:' + s.id); } catch(e){}   // правки теперь в копии: оригинал откроется из облака
+  try {
+    const r = await cloud.api.save(cloud.space, c, cloud.user, {});
+    Object.assign(c, cloudMarks(r)); c.savedAt = c.updatedAt;
+    LS.set('swp-sermon:' + c.id, JSON.stringify(c));
+    return { id:c.id, title:c.meta.title, cloud:true };
+  } catch(e){ return { id:c.id, title:c.meta.title, cloud:false }; }
+}
+/* Открыли черновик с несохранёнными правками, а проповедь сейчас правит другой (или она не ваша): правки — копией */
+async function rescueAndShow(s, l){
+  const copy = await rescueCopy(s);
+  if (state === s && ed.remote && ed.remote.blocks) setRemoteState(ed.remote);
+  ed.headKey = '';
+  rerenderKeep();
+  lostSheet(l, copy, true);
+}
+function lostSheet(l, copy, onOpen){
+  const mine = l && l.email === myEmail();
+  const head = !l ? 'Эту проповедь вам править нельзя.' : mine ? 'Эту проповедь вы правите в другой вкладке или на другом устройстве.' : lockWho(l) + ' сейчас правит эту проповедь.';
+  const what = onOpen ? 'В браузере оставались несохранённые правки: ' : 'То, что не успело сохраниться, ';
+  const tail = copy
+    ? (copy.cloud ? what + (onOpen ? 'они ' : '') + 'сохранены отдельной копией «' + copy.title + '».'
+      : what + (onOpen ? 'они ' : '') + 'лежат отдельной копией «' + copy.title + '» в этом браузере. В облако копия уйдёт, когда появится сеть: кнопка «В облако» на главной.')
+    : 'Все ваши правки успели сохраниться.';
+  settingsOverlay.innerHTML = '';
+  settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Правку забрали' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:onOpen ? 'Проповедь сейчас правят' : mine ? 'Правка открыта в другом месте' : 'Правку забрали' }), iconBtn('close', 'Закрыть', closeSettings)),
+    h('p', { class:'hint', style:'font-size:12px;margin-bottom:16px', text:head + ' ' + tail + ' Здесь проповедь пока только для просмотра.' }),
+    h('div', { class:'sheet-foot wrap' },
+      copy ? h('button', { type:'button', class:'btn', onclick:() => { closeSettings(); ed.autoEdit = copy.id; navigate(sermonHash(copy.id)); } }, 'Открыть копию') : h('span'),
+      h('button', { type:'button', class:'btn primary', onclick:closeSettings }, 'Понятно'))));
+  settingsOverlay.classList.add('open');
+}
+function idleSheet(){
+  settingsOverlay.innerHTML = '';
+  settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Правка закрыта' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Правка закрыта' }), iconBtn('close', 'Закрыть', closeSettings)),
+    h('p', { class:'hint', style:'font-size:12px;margin-bottom:16px', text:'Вы ничего не меняли ' + lockMins() + ' ' + plural(lockMins(), 'минуту', 'минуты', 'минут') +
+      ', поэтому форма сохранила проповедь и отпустила её: теперь её могут править другие. Чтобы продолжить, нажмите «Править дальше».' }),
+    h('div', { class:'sheet-foot' },
+      h('button', { type:'button', class:'btn', onclick:closeSettings }, 'Понятно'),
+      h('button', { type:'button', class:'btn primary', onclick:() => { closeSettings(); startEdit(); } }, 'Править дальше'))));
+  settingsOverlay.classList.add('open');
+}
+
+/* ----- Только просмотр ----- */
+/* Правка в режиме просмотра: вернуть как было и подсказать про «Редактировать». Вызывается из change() */
+function roBlock(){
+  if (!readOnly()) return false;
+  if (ed.remote && ed.remote.blocks) setRemoteState(ed.remote);
+  rerenderKeep();
+  roHint();
+  return true;
+}
+function roHint(){
+  if (Date.now() - ed.hintAt < 1500) return;
+  ed.hintAt = Date.now();
+  if (!canEditCloud()){ toast('Это проповедь другого проповедника: её можно только смотреть. Чтобы взять за основу, нажмите «Сделать копию»'); return; }
+  const l = otherLock();
+  if (l && l.email !== myEmail() && cloud.role === 'preacher'){ toast('Сейчас её правит ' + lockWho(l) + '. Править можно, когда правка закончится'); return; }
+  toast('Сейчас только просмотр', l ? 'Забрать правку' : 'Редактировать', () => l ? takeOver(l) : startEdit());
+}
+
+/* Кнопка в шапке вместо «Сохранить» */
+function headAction(){
+  const b = (cls, icon, label, fn, extra) => h('button', Object.assign({ type:'button', class:'btn ' + cls, onclick:fn }, extra || {}), icon ? ic(icon) : null, label);
+  if (!cloudSermon()) return b('primary', 'save', 'Сохранить', () => saveSermon(), { title:'Ctrl+S' });
+  if (ed.busy) return b('primary', null, 'Открываю правку…', null, { disabled:true });
+  if (ed.mode === 'edit') return b('primary', 'save', 'Сохранить и закрыть', () => closeEdit('button'), { title:'Сохранить и отпустить проповедь: тогда её смогут править другие' });
+  if (!canEditCloud()) return b('', 'dup', 'Сделать копию', () => saveAsCopy(), { title:'Копия станет вашей проповедью, её можно править' });
+  const l = otherLock();
+  if (l && l.email === myEmail()) return b('primary', 'edit', 'Править здесь', () => takeOver(l));
+  if (l && cloud.role !== 'preacher') return b('', 'edit', 'Забрать правку', () => takeOver(l), { title:'Сейчас правит ' + lockWho(l) });
+  if (l) return b('primary', 'edit', 'Редактировать', null, { disabled:true, title:'Сейчас правит ' + lockWho(l) + '. Когда правка закончится, кнопка заработает' });
+  return b('primary', 'edit', 'Редактировать', () => startEdit());
+}
+/* Строка состояния в шапке: [класс, текст, по щелчку] */
+function cloudStatusLine(){
+  if (ed.mode === 'edit'){
+    if (ed.conflict) return ['warn pick', 'Не сохранено: в облаке другая версия. Выбрать', () => conflictSheet(ed.conflict)];
+    if (ed.denied) return ['warn', 'Облако не приняло правку'];
+    if (ed.offline || ed.slow) return ['warn', 'Нет связи: правки в этом браузере, уйдут в облако, когда появится сеть'];
+    if (ed.saving) return ['', 'Сохраняю…'];
+    if (isDirty()) return ['', 'Сохранится через пару секунд'];
+    if (state.cloudAt) return ['ok', '✓ Сохранено в облаке в ' + fmtTime(state.savedAt || state.cloudAt)];
+    return ['', 'Правки сохранятся сами'];
+  }
+  if (ed.busy) return ['', 'Открываю правку…'];
+  if (!canEditCloud()) return ['warn', 'Только чтение: проповедь другого проповедника'];
+  const l = otherLock();
+  if (l && l.email === myEmail()) return ['warn', 'Вы правите её в другой вкладке или на другом устройстве (с ' + fmtTime(l.at) + ')'];
+  if (l) return ['warn', 'Сейчас правит ' + lockWho(l) + ' (с ' + fmtTime(l.at) + ')'];
+  return ['', 'Только просмотр'];
+}
+/* Пометка на карточке главной: кто сейчас правит */
+function lockMark(d){
+  if (!cloudOn() || !cloud.list) return null;
+  const r = cloud.list.get(d.id), l = r && r.lock;
+  if (!l || !lockLive(l)) return null;
+  return h('span', { class:'lock-mark', title:'с ' + fmtTime(l.at), text:l.email === myEmail() ? 'Правите вы' : 'Правит ' + lockWho(l) });
+}
+
+/* ----- События страницы ----- */
+['pointerdown', 'keydown', 'wheel'].forEach(t => document.addEventListener(t, () => { if (ed.mode === 'edit') ed.lastAct = Date.now(); }, { passive:true, capture:true }));
+/* В просмотре щелчок по настройкам слайда или тексту — подсказка про «Редактировать» */
+mainEl.addEventListener('pointerdown', e => { if (readOnly() && e.target.closest && e.target.closest('.side, .speech, .tv .cont')) roHint(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && editing() && isDirty() && !ed.saving){ clearTimeout(ed.saveT); ed.saveT = null; autoSave(); } });
+window.addEventListener('online', () => { if (editing() && isDirty()){ ed.offline = false; scheduleSave(0); } });
+window.addEventListener('pagehide', () => { if (editing()) LS.set('swp-sermon:' + state.id, JSON.stringify(state)); });
+window.addEventListener('beforeunload', e => { if (editing() && (isDirty() || ed.saving)){ e.preventDefault(); e.returnValue = ''; } });

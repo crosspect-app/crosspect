@@ -77,7 +77,7 @@ export function createCloudAPI(fb){
         ? F.query(col(space), F.where('owner', '==', lower(restrictTo)), F.limit(MAX_LIST))
         : F.query(col(space), F.orderBy('updatedAt', 'desc'), F.limit(MAX_LIST));
       return F.onSnapshot(q, snap => {
-        onList(snap.docs.filter(d => d.data().updatedAt).map(d => fromDoc(space, d)), snap.metadata.fromCache);
+        onList(snap.docs.filter(d => d.data().updatedAt).map(d => fromDoc(space, d, { serverTimestamps: 'estimate' })), snap.metadata.fromCache);
       }, onError);
     },
     async get(space, id){

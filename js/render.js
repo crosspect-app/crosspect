@@ -30,7 +30,7 @@ function toggleTodo(b){
   b.todo = !b.todo;
   change(); rerender(b);
 }
-function markDone(b){ if (!b.done){ b.done = true; return true; } return false; }
+function markDone(b){ if (readOnly()) return false; if (!b.done){ b.done = true; return true; } return false; }
 
 /* поля */
 function field(label, control){ return h('label', { class:'field' }, h('span', { class:'lbl', text:label }), control); }

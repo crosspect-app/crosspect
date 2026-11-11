@@ -25,7 +25,7 @@ function fillMenu(){
   menuEl.append(
     h('div', { class:'menu-sep' }),
     menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));
-  if (screen === 'sermon') menuEl.append(menuItem('settings', 'Лимиты', () => openSettings()));
+  if (screen === 'sermon' && !readOnly()) menuEl.append(menuItem('settings', 'Лимиты', () => openSettings()));
   menuEl.append(menuItem('link', 'Источник настроек', () => openConfig()));
   if (cloudOn()) menuEl.append(h('div', { class:'menu-sep' }), h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
   else if (localMode()) menuEl.append(h('div', { class:'menu-sep' }), menuItem('check', 'Войти в облако', () => leaveLocalMode()));

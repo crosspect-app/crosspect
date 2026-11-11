@@ -61,7 +61,9 @@ fileInput.addEventListener('change', async () => {
   // в браузере уже есть эта же проповедь и она новее файла: не затираем её молча
   const have = readDraft(data.id);
   if (have && (have.updatedAt || 0) > (data.updatedAt || 0) && !confirm('В браузере есть более новая версия этой проповеди. Заменить её файлом?')) return;
+  if (cloudOn()) endCloud();
   state = normalize(data);
+  if (cloudOn()){ state.savedAt = 0; beginCloud(null); }   // после входа файл сам уходит в облако; если такая проповедь там уже есть — форма спросит
   persistDraft();
   navigate(sermonHash(state.id));
   toast('Открыто: ' + (state.meta.title || f.name));
@@ -89,6 +91,7 @@ async function importMany(files){
   if (screen === 'home') renderHomeList();
 }
 function newSermon(){
+  if (cloudOn()) endCloud();   // прежнюю проповедь — сохранить и отпустить
   state = blank(); selId = null;
   // проповедником по умолчанию ставим себя (для любой роли), в «О проповеди» его можно сменить: редактор часто делает проповедь за другого.
   // Имя берём из записи среди участников, а если там пусто — из аккаунта Google («Имя Фамилия»)
@@ -96,6 +99,7 @@ function newSermon(){
     const m = cloud.member || {}, g = String((cloud.user && cloud.user.name) || '').trim().split(/\s+/).filter(Boolean);
     const first = m.firstName || m.lastName ? m.firstName || '' : g[0] || '', last = m.firstName || m.lastName ? m.lastName || '' : g.slice(1).join(' ');
     Object.assign(state.meta, { firstName:first, lastName:last });
+    beginCloud(null);   // новая: сразу правка, замок появится с первым сохранением
   }
   persistDraft();   // прежняя проповедь остаётся в списке: у каждой свой черновик
   navigate(sermonHash(state.id));
