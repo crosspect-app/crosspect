@@ -22,6 +22,18 @@ export function createCloudAPI(fb){
   /* Жив ли замок по часам этого компьютера (окончательно решает база по своим часам) */
   const live = (l, minutes) => !!l && Date.now() < l.beat + (minutes || 10) * 60000;
   const denied = e => /permission-denied/.test((e && e.code) || '');
+  const pause = msec => new Promise(res => setTimeout(res, msec));
+  /* Прочитать документ после своей записи. Пока его слушает onSnapshot, Firestore может отдать копию слушателя,
+     в которой этой записи ещё нет: тогда подождать и прочитать ещё раз. ok(snap) — запись уже видна */
+  async function readBack(r, ok){
+    let snap = null;
+    for (let i = 0; i < 12; i++){
+      snap = await F.getDocFromServer(r);
+      if (ok(snap)) return snap;
+      await pause(250);
+    }
+    return snap;
+  }
 
   /* Документ → проповедь в том виде, как её хранит форма (id, миллисекунды), плюс облачные поля */
   function fromDoc(space, snap, opt){
@@ -112,12 +124,14 @@ export function createCloudAPI(fb){
         status: opts.status || 'draft', owner: lower(opts.owner != null ? opts.owner : me.email),
         createdBy: my, createdAt: ts,
       }, L && !L.release ? { lock: newLock() } : {});
+      let before = -1;   // updatedAt до моей записи: перечитанная версия должна быть новее
       if (s.cloudAt || opts.force){
         // проповедь уже в облаке: обновляем, если с тех пор её никто не менял (или человек велел заменить)
         await F.runTransaction(db, async tx => {
           const cur = await tx.get(r);
           if (!cur.exists()) { tx.set(r, fresh()); return; }
           const d = cur.data(), at = ms(d.updatedAt), l = lockOf(d.lock);
+          before = at;
           const held = !!(L && L.at && l && l.email === my && l.at === L.at);   // замок взят этой вкладкой и всё ещё её
           if (L && l && !held && live(l, L.minutes)) throw err('lost-lock', 'Проповедь сейчас правит другой', { lock: l, remote: fromDoc(space, cur) });
           const ownLater = held && at >= l.at && d.updatedBy === my;   // версия новее моей, но записана мной же под моим замком
@@ -140,7 +154,7 @@ export function createCloudAPI(fb){
         if (cur && cur.exists()) throw err('conflict', 'В облаке уже есть такая проповедь', { remote: fromDoc(space, cur) });
         await F.setDoc(r, fresh());
       }
-      const back = await F.getDocFromServer(r);   // время ставит сервер: читаем его обратно
+      const back = await readBack(r, snap => snap.exists() && ms(snap.data().updatedAt) > before);   // время ставит сервер: читаем его обратно
       return fromDoc(space, back);
     },
 
@@ -164,7 +178,8 @@ export function createCloudAPI(fb){
         if (denied(e) && seen && seen.email !== my) throw err('locked', 'Проповедь сейчас правят', { lock: seen });
         throw e;
       }
-      return fromDoc(space, await F.getDocFromServer(r));
+      const was = seen && seen.email === my ? seen.beat : 0;   // сигнал моего замка ставится заново: ждём версию с ним
+      return fromDoc(space, await readBack(r, snap => { const l = snap.exists() && lockOf(snap.data().lock); return !!l && l.email === my && l.beat > was; }));
     },
 
     /* Сигнал «я здесь»: продлить свой замок. Если замок забрали, база откажет (permission-denied) */

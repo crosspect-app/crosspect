@@ -246,6 +246,25 @@ describe('замок и автосохранение (этап 6)', () => {
     await assert.rejects(tab1.save('sp1', sermon('lk3', 'Из первой', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { lock: L(a.lock.at) }), (e) => e.code === 'lost-lock');
   });
 
+  test('пока проповедь слушают, взятие замка и запись возвращают уже новую версию (не копию слушателя)', async () => {
+    const api = await client('ivan@x.pl');
+    const a = await api.save('sp1', sermon('lk9', 'Слушаю'), me('ivan@x.pl'), { lock: L(0) });
+    await api.release('sp1', 'lk9', me('ivan@x.pl'), a.lock.at);
+    const seen = [];
+    const off = api.watch('sp1', 'lk9', (r) => seen.push(r));
+    await new Promise((r) => setTimeout(r, 300));
+    try {
+      for (let i = 0; i < 5; i++) {
+        const l = await api.lock('sp1', 'lk9', me('ivan@x.pl'), 'Иван', { minutes: 10, force: true });
+        const db = (await api.get('sp1', 'lk9')).lock;
+        assert.ok(l.lock && l.lock.at === db.at, 'замок из ответа — тот, что в базе');
+        const s = await api.save('sp1', sermon('lk9', 'Слушаю ' + i, { cloudAt: (await api.get('sp1', 'lk9')).cloudAt }), me('ivan@x.pl'), { lock: L(l.lock.at) });
+        assert.equal(s.meta.title, 'Слушаю ' + i, 'ответ на запись — с этой записью');
+        await api.release('sp1', 'lk9', me('ivan@x.pl'), l.lock.at);
+      }
+    } finally { off(); }
+  });
+
   test('своя запись, о которой форма не узнала (обрыв связи), — не конфликт, пока замок мой; чужая правка до замка — конфликт', async () => {
     const api = await client('ivan@x.pl');
     const a = await api.save('sp1', sermon('lk4', 'Раз'), me('ivan@x.pl'), { lock: L(0) });

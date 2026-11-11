@@ -359,3 +359,38 @@ def test_sign_out_releases(browser, base_url):
     r = page.evaluate("fakeCloud.db().sermons.s1")
     assert r["meta"]["title"] == "Перед выходом" and r["lock"] is None
     ctx.close()
+
+
+def stays_editing(page):
+    """Правка не слетает, когда замок наконец приходит слушателю: форма считает его своим"""
+    page.wait_for_function("fakeCloud.db().sermons.s1.lock && ed.myAt === fakeCloud.db().sermons.s1.lock.at", timeout=5000)
+    page.wait_for_timeout(500)
+    assert page.evaluate("ed.mode") == "edit"
+    assert not page.evaluate("settingsOverlay.classList.contains('open')"), page.inner_text("#app")
+    assert page.get_by_role("button", name="Сохранить и закрыть").is_visible()
+
+
+def test_edit_when_cloud_reads_back_old_lock(browser, base_url):
+    # Firestore при открытом слушателе иногда перечитывает версию без только что взятого замка
+    s = rec("s1", "Вера"); s["lock"] = lock_of("admin@x.pl", "Админ", minutes_ago=15)   # свой старый, истёкший
+    ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": s})
+    page.evaluate("localStorage.setItem('fake-stale-lock', '1')")
+    wait_home(page)
+    open_sermon(page, "s1")
+    start_edit(page)
+    stays_editing(page)
+    assert not page.errors, page.errors
+    ctx.close()
+
+
+def test_edit_here_when_cloud_reads_back_old_lock(browser, base_url):
+    s = rec("s1", "Вера"); s["lock"] = lock_of("admin@x.pl", "Админ")   # свой живой, «из другой вкладки»
+    ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": s})
+    page.evaluate("localStorage.setItem('fake-stale-lock', '1')")
+    wait_home(page)
+    open_sermon(page, "s1")
+    page.on("dialog", lambda d: d.accept())
+    page.get_by_role("button", name="Править здесь").click()
+    page.wait_for_function("ed.mode === 'edit' && !ed.busy")
+    stays_editing(page)
+    ctx.close()

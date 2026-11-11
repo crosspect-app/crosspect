@@ -73,9 +73,12 @@
         if (!opts.force) throw fail('locked', 'Проповедь сейчас правят', { lock:l });
         if (l.email !== my && !isEditor(db, my)) throw fail('locked', 'Проповедь сейчас правят', { lock:l });
       }
-      const at = tick(db);
+      const at = tick(db), before = view(db, cur);
       cur.lock = { email:my, name:name || my, at:same ? l.at : at, beat:at };
-      store(db); notify(); return view(db, cur);
+      store(db);
+      // как Firestore при открытом слушателе: перечитанная версия — ещё без нового замка, он приходит слушателю позже
+      if (localStorage.getItem('fake-stale-lock') === '1'){ setTimeout(notify, 300); return before; }
+      notify(); return view(db, cur);
     },
     async beat(space, id){
       calls.beat++; offline();

@@ -10,11 +10,11 @@
    «Свой» замок — почта + время начала (`at`): другая вкладка той же почты берёт замок заново, и `at` меняется. */
 /* Автосохранение — раз в 30 секунд, пока есть несохранённые правки (бесплатный запас базы общий на всех). Сразу — при
    «Сохранить и закрыть», уходе с проповеди, скрытии вкладки и Ctrl+S. Тесты могут сократить паузу: window.CROSSPECT_AUTOSAVE_MS */
-const AUTOSAVE_MS = +window.CROSSPECT_AUTOSAVE_MS || 30000, BEAT_MS = 60000, TICK_MS = 15000, SLOW_MS = 8000, RETRY_MS = 15000, QUOTA_RETRY_MS = 300000;
+const AUTOSAVE_MS = +window.CROSSPECT_AUTOSAVE_MS || 30000, BEAT_MS = 60000, TICK_MS = 15000, SLOW_MS = 8000, RETRY_MS = 15000, QUOTA_RETRY_MS = 300000, ADOPT_MS = 15000;   // ADOPT_MS — сколько после взятия замка новый замок с моей почтой считается моим
 /* mode: view — просмотр, edit — правлю я. remote — последняя версия из облака (с замком), myAt — начало моего замка */
 const ed = { id:null, mode:'view', remote:null, myAt:0, unsub:null, saveT:null, tickT:null, retryT:null, pending:null,
   lastAct:0, lastBeat:0, saving:false, beating:false, slow:false, offline:false, denied:false, conflict:null, busy:false,
-  autoEdit:null, headKey:'', hintAt:0, quota:false, quotaAt:0 };   // quota — дневной запас базы исчерпан: правки ждут в браузере
+  autoEdit:null, headKey:'', hintAt:0, quota:false, quotaAt:0, adoptUntil:0 };   // quota — дневной запас базы исчерпан: правки ждут в браузере
 
 const lockMins = () => { const m = +(cloud.settings && cloud.settings.lockMinutes); return m >= 1 ? m : 10; };
 const lockLive = l => !!l && Date.now() < l.beat + lockMins() * 60000;
@@ -106,7 +106,11 @@ function onRemote(id, r, meta){
   ed.remote = r;
   if (ed.mode === 'edit'){
     const l = r.lock;
-    if (!meta.fromCache && l && ed.myAt && !lockHere(l) && l.at > ed.myAt) lostLock(l, r);   // замок взяли после меня
+    if (!meta.fromCache && l && ed.myAt && !lockHere(l) && l.at > ed.myAt){
+      // только что взяли замок сами, а перечитали старую версию: новый замок с моей почтой — мой
+      if (l.email === myEmail() && Date.now() < ed.adoptUntil){ ed.myAt = l.at; rememberAt(id, l.at); refreshHead(); }
+      else lostLock(l, r);   // замок взяли после меня
+    }
     else refreshHead();
     return;
   }
@@ -147,7 +151,7 @@ async function startEdit(o){
   try {
     const r = await cloud.api.lock(cloud.space, id, cloud.user, myLockName(), { at:o.resumeAt || 0, force:!!o.force, minutes:lockMins() });
     if (ed.id !== id || !cloudOn()){ cloud.api.release(cloud.space, id, cloud.user, r.lock && r.lock.at).catch(() => {}); return; }
-    ed.remote = r; ed.myAt = r.lock ? r.lock.at : 0; rememberAt(id, ed.myAt);
+    ed.remote = r; ed.myAt = r.lock ? r.lock.at : 0; rememberAt(id, ed.myAt); ed.adoptUntil = Date.now() + ADOPT_MS;
     ed.mode = 'edit'; ed.lastAct = ed.lastBeat = Date.now(); ed.denied = false;
     if (state === s && !isDirty() && r.cloudAt !== state.cloudAt) setRemoteState(r);   // править будем самую свежую версию
     // после перезагрузки облачная версия бывает новее черновика только из-за наших же записей: черновик их уже содержит
@@ -220,7 +224,7 @@ async function cloudWrite(s, o){
     resyncFlags(s);   // у слайдов без отметки редактора подпись содержимого — по сохранённому
     if (here()){
       ed.remote = r; ed.offline = false; ed.quota = false; ed.lastBeat = Date.now();
-      if (!o.release && r.lock && r.lock.email === myEmail()){ ed.myAt = r.lock.at; rememberAt(s.id, ed.myAt); }
+      if (!o.release && r.lock && r.lock.email === myEmail()){ if (!o.at) ed.adoptUntil = Date.now() + ADOPT_MS; ed.myAt = r.lock.at; rememberAt(s.id, ed.myAt); }
       persistDraft();
       if (!ed.unsub) startWatch();
     } else LS.set('swp-sermon:' + s.id, JSON.stringify(s));
