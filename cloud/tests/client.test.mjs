@@ -139,7 +139,8 @@ describe('сохранение', () => {
 
 describe('список', () => {
   const firstList = (api, space, restrict) => new Promise((res, rej) => {
-    const off = api.listen(space, restrict, (items) => { off(); res(items); }, rej);
+    // первый ответ может прийти из местного кеша (записанное этим же клиентом): ждём ответ сервера или отказ
+    const off = api.listen(space, restrict, (items, fromCache) => { if (fromCache) return; off(); res(items); }, rej);
   });
   test('видны проповеди пространства, свежие сверху', async () => {
     const api = await client('petr@x.pl');
