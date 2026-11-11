@@ -1,7 +1,7 @@
 # Crosspect — устройство
 
 ## Стек
-- Сайт без сборки: [`index.html`](index.html), [`css/style.css`](css/style.css) и модули [`js/*.js`](js). Сторонних библиотек нет.
+- Сайт без сборки: [`index.html`](index.html), [`css/style.css`](css/style.css) и модули [`js/*.js`](js). Сторонних библиотек нет. Облако (правила Firestore, тесты, скрипты) — отдельно в [`cloud/`](cloud), см. «Облако».
 - Модули — обычные скрипты (не ES-модули): все они делят одну область видимости, как раньше делили один файл. Порядок подключения — в `index.html`, он же порядок выполнения. Функции можно вызывать откуда угодно, но на самом верху файла нельзя использовать то, что объявлено в файле ниже по списку: например, `onclick:saveFile` не сработает, а `onclick:() => saveFile()` сработает.
 - К каждому файлу в `index.html` дописано `?v=__BUILD__`: при выпуске CI подставляет номер коммита, и браузер не смешивает старые и новые файлы.
 - Шрифты Google Fonts: Unbounded (переменная толщина 200–900), Inter, Noto Sans Hebrew.
@@ -67,5 +67,27 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 - Выгрузка JPEG берёт шрифты из интернета, поэтому тестам нужна сеть.
 - Для проверки в консоли страницы: `state`, `newBlock`, `exportOne(...)` и остальное доступны как глобальные имена.
 
+## Облако (`cloud/`)
+Firebase: Cloud Firestore + вход Google. Что строим и по каким этапам — [`docs/PLAN.md`](docs/PLAN.md), там же модель данных и таблица прав. Настройка проекта — [`docs/FIREBASE.md`](docs/FIREBASE.md). Форма к облаку пока не подключена (этап 5).
+
+| Файл | Что внутри |
+|---|---|
+| `cloud/firestore.rules` | права: пространства, участники, проповеди, замок, отметки редактора, ссылки для оператора. Функции наверху (`signedIn`, `me`, `hasRole`, `isEditor`…), затем `match` по коллекциям |
+| `cloud/firestore.indexes.json` | индекс `members.email` для запроса по всем пространствам (collection group); тяжёлые поля (`blocks`, `settings`, `flags`, `sermon`) исключены из индексов |
+| `cloud/firebase.json` | пути к правилам и индексам, порт эмулятора |
+| `cloud/tests/rules.test.mjs` | тесты правил в эмуляторе (`node:test` + `@firebase/rules-unit-testing`): вход, пространство, участники, чтение / создание / правка / удаление проповедей, замок, отметки, ссылки. `RULES_FILE=путь` — прогнать на другом файле правил |
+| `cloud/tests/scripts.test.mjs` | служебные скрипты в эмуляторе: пространство и участники (и что их записи проходят правила), бэкап → очистка → восстановление даёт ту же копию |
+| `cloud/scripts/lib.mjs` | подключение (эмулятор или ключ `GOOGLE_APPLICATION_CREDENTIALS`), перевод документов в JSON (`$timestamp`, `$ref`, `$map` …) и обратно |
+| `cloud/scripts/backup.mjs` | вся база в папку: документ → `путь/документа.json` |
+| `cloud/scripts/restore.mjs` | папка → база, `--wipe` сначала очищает |
+| `cloud/scripts/admin.mjs` | `create-space`, `set-member`, `remove-member`, `list` — в обход правил |
+| `cloud/private-repo/` | файлы для приватного репозитория `crosspect-app/crosspect-backup`: ночная копия, восстановление, «Пространства». Меняешь здесь — перенеси туда |
+
+- Тесты: `cd cloud && npm ci && npm test` (Node 22, Java 21; эмулятор Firestore скачивается с Google Storage — в рабочей среде Claude он закрыт, поэтому тесты правил гоняются в CI: запушить ветку и запустить workflow вручную, `gh api -X POST repos/crosspect-app/crosspect/actions/workflows/ci.yml/dispatches -f ref=<ветка>`).
+- Секрет `FIREBASE_SERVICE_ACCOUNT` (JSON-ключ сервисного аккаунта с ролью Firebase Admin) — в обоих репозиториях. Идентификатор проекта берётся из ключа (`project_id`).
+- Email в базе — всегда строчными; `me()` в правилах приводит почту из токена к строчным.
+- Время — только `serverTimestamp()`: правила сверяют его с `request.time`.
+- Новое поле проповеди — добавить в `validSermon` (`hasOnly`) и тест; иначе база его не примет.
+
 ## Выпуск
-Файл `.github/workflows/ci.yml`: на каждый коммит идут тесты; если коммит в `main` и тесты прошли, сайт (`index.html`, `css`, `js`, `data`) выкладывается на GitHub Pages. Адрес: `https://crosspect-app.github.io/crosspect/`. В Settings → Pages источник должен быть «GitHub Actions».
+Файл `.github/workflows/ci.yml`: на каждый коммит идут тесты формы (`Тесты`) и правил (`Правила Firestore`); если коммит в `main` и всё прошло, сайт (`index.html`, `css`, `js`, `data`) выкладывается на GitHub Pages, а правила и индексы — в Firebase (`Выкладка правил Firestore`; без секрета `FIREBASE_SERVICE_ACCOUNT` шаг пропускается). Адрес: `https://crosspect-app.github.io/crosspect/`. В Settings → Pages источник должен быть «GitHub Actions».
