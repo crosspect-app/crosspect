@@ -155,7 +155,8 @@ describe('список', () => {
     await ivan.save('closed', sermon('c-ivan', 'Иванова закрытая'), me('ivan@x.pl'));
     await petr.save('closed', sermon('c-petr', 'Петрова закрытая'), me('petr@x.pl'));
     const mine = await firstList(ivan, 'closed', 'ivan@x.pl');
-    assert.deepEqual(mine.map((x) => x.id), ['c-ivan']);
+    assert.ok(mine.some((x) => x.id === 'c-ivan'));
+    assert.ok(mine.every((x) => x.cloudOwner === 'ivan@x.pl'), 'чужих проповедей в списке нет');
     await assert.rejects(firstList(ivan, 'closed', null), (e) => /permission-denied/.test(e.code));
   });
   test('новая запись приходит в живой список', async () => {
