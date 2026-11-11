@@ -185,7 +185,8 @@ def test_scripture_modes_in_preview(page, sermon):
     page.wait_for_selector(".stage.t-scripture .sl-vlist.framed .sl-vn")   # с новой строки: номера колонкой, одна рамка на все стихи
     assert page.locator(".stage.t-scripture .sl-verse.framed").count() == 0
     set_verses(page, valign="bottom")
-    assert "translateY" in page.evaluate("document.querySelector('.stage.t-scripture .sl-content').style.transform")
+    # слайд может перерисоваться ещё раз, когда догрузятся шрифты: ждём, а не проверяем сразу
+    page.wait_for_function("document.querySelector('.stage.t-scripture .sl-content').style.transform.includes('translateY')")
     assert page.evaluate("getComputedStyle(document.querySelector('.stage.t-scripture .sl-vt')).textTransform") == "uppercase"
 
 
