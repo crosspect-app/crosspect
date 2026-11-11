@@ -31,8 +31,8 @@ const SLIDES_DEFAULT = {
 /* Шрифты в списках — только те, что форма загружает и встраивает в JPEG (см. EXPORT_FONTS в export.js) */
 const SLIDE_FONTS = {
   main:{ unbounded:{ label:'Unbounded', css:"'Unbounded'" } },
-  greek:{ inter:{ label:'Inter, жирный', css:"'Inter'" } },
-  hebrew:{ 'noto-hebrew':{ label:'Noto Sans Hebrew, жирный', css:"'Noto Sans Hebrew'" } }
+  greek:{ inter:{ label:'Inter', css:"'Inter'" } },
+  hebrew:{ 'noto-hebrew':{ label:'Noto Sans Hebrew', css:"'Noto Sans Hebrew'" } }
 };
 const PANEL_INSET = 44;   // панель отступает от края кадра на 44 px
 
