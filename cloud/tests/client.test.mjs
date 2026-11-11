@@ -189,6 +189,110 @@ describe('удаление', () => {
   });
 });
 
+describe('замок и автосохранение (этап 6)', () => {
+  const L = (at, extra = {}) => ({ name: 'Я', at, minutes: 10, ...extra });
+  const ago = (min) => F.Timestamp.fromMillis(Date.now() - min * 60_000);
+  /* Записать замок в обход правил: чужой, давний и т. п. */
+  const putLock = (space, id, email, beatMinAgo) => env.withSecurityRulesDisabled((ctx) =>
+    F.updateDoc(F.doc(ctx.firestore(), 'spaces', space, 'sermons', id), { lock: { email, name: email, at: ago(beatMinAgo + 1), beat: ago(beatMinAgo) } }));
+
+  test('новая проповедь создаётся сразу с замком; запись под замком продлевает его, не меняя начала; release отпускает', async () => {
+    const api = await client('ivan@x.pl');
+    const a = await api.save('sp1', sermon('lk1', 'Раз'), me('ivan@x.pl'), { lock: L(0) });
+    assert.equal(a.lock.email, 'ivan@x.pl');
+    assert.ok(a.lock.at > 0 && a.lock.beat >= a.lock.at);
+    await new Promise((r) => setTimeout(r, 20));
+    const b = await api.save('sp1', sermon('lk1', 'Два', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { lock: L(a.lock.at) });
+    assert.equal(b.lock.at, a.lock.at, 'начало замка то же');
+    assert.ok(b.lock.beat >= a.lock.beat);
+    const c = await api.save('sp1', sermon('lk1', 'Три', { cloudAt: b.cloudAt }), me('ivan@x.pl'), { lock: L(a.lock.at, { release: true }) });
+    assert.equal(c.lock, null);
+    assert.equal(c.meta.title, 'Три');
+  });
+
+  test('взять, сигнал, отпустить; второй не берёт живой замок; редактор забирает; у первого — lost-lock, сигнал не проходит', async () => {
+    const ivan = await client('ivan@x.pl'), petr = await client('petr@x.pl'), admin = await client('admin@x.pl');
+    const a = await ivan.save('sp1', sermon('lk2', 'Иванова'), me('ivan@x.pl'));
+    const l = await ivan.lock('sp1', 'lk2', me('ivan@x.pl'), 'Иван Петров', { minutes: 10 });
+    assert.equal(l.lock.name, 'Иван Петров');
+    await ivan.beat('sp1', 'lk2');
+    // проповедник Пётр — не хозяин: база не пустит
+    await assert.rejects(petr.lock('sp1', 'lk2', me('petr@x.pl'), 'Пётр', { minutes: 10 }));
+    // админ без force — «занято», с force — забирает
+    await assert.rejects(admin.lock('sp1', 'lk2', me('admin@x.pl'), 'Админ', { minutes: 10 }), (e) => e.code === 'locked' && e.lock.email === 'ivan@x.pl');
+    const t = await admin.lock('sp1', 'lk2', me('admin@x.pl'), 'Админ', { minutes: 10, force: true });
+    assert.equal(t.lock.email, 'admin@x.pl');
+    assert.equal(t.cloudAt, a.cloudAt, 'забрать замок — не правка содержимого');
+    await assert.rejects(ivan.save('sp1', sermon('lk2', 'Моё', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { lock: L(l.lock.at) }),
+      (e) => e.code === 'lost-lock' && e.lock.email === 'admin@x.pl' && e.remote.meta.title === 'Иванова');
+    await assert.rejects(ivan.beat('sp1', 'lk2'), (e) => /permission-denied/.test(e.code));
+    // отпустить чужой замок нельзя: release просто ничего не делает
+    await ivan.release('sp1', 'lk2', me('ivan@x.pl'), l.lock.at);
+    assert.equal((await ivan.get('sp1', 'lk2')).lock.email, 'admin@x.pl');
+    await admin.release('sp1', 'lk2', me('admin@x.pl'), t.lock.at);
+    assert.equal((await ivan.get('sp1', 'lk2')).lock, null);
+  });
+
+  test('та же почта из другой вкладки: без force — «занято», с force — новый замок; прежняя вкладка получает lost-lock', async () => {
+    const tab1 = await client('ivan@x.pl'), tab2 = await client('ivan@x.pl');
+    const a = await tab1.save('sp1', sermon('lk3', 'Вкладки'), me('ivan@x.pl'), { lock: L(0) });
+    await assert.rejects(tab2.lock('sp1', 'lk3', me('ivan@x.pl'), 'Иван', { minutes: 10 }), (e) => e.code === 'locked');
+    // перезагрузка той же вкладки (известен at): замок продолжается с тем же началом
+    const same = await tab1.lock('sp1', 'lk3', me('ivan@x.pl'), 'Иван', { minutes: 10, at: a.lock.at });
+    assert.equal(same.lock.at, a.lock.at);
+    await new Promise((r) => setTimeout(r, 20));
+    const b = await tab2.lock('sp1', 'lk3', me('ivan@x.pl'), 'Иван', { minutes: 10, force: true });
+    assert.ok(b.lock.at > a.lock.at);
+    await assert.rejects(tab1.save('sp1', sermon('lk3', 'Из первой', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { lock: L(a.lock.at) }), (e) => e.code === 'lost-lock');
+  });
+
+  test('своя запись, о которой форма не узнала (обрыв связи), — не конфликт, пока замок мой; чужая правка до замка — конфликт', async () => {
+    const api = await client('ivan@x.pl');
+    const a = await api.save('sp1', sermon('lk4', 'Раз'), me('ivan@x.pl'), { lock: L(0) });
+    await api.save('sp1', sermon('lk4', 'Два', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { lock: L(a.lock.at) });
+    // форма не получила ответ на «Два» и шлёт «Три» со старой версией
+    const c = await api.save('sp1', sermon('lk4', 'Три', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { lock: L(a.lock.at) });
+    assert.equal(c.meta.title, 'Три');
+    // а правка, сделанная до того, как я взял замок, — конфликт
+    const admin = await client('admin@x.pl');
+    await api.release('sp1', 'lk4', me('ivan@x.pl'), a.lock.at);
+    await admin.save('sp1', sermon('lk4', 'Админ', { cloudAt: c.cloudAt }), me('admin@x.pl'));
+    const l = await api.lock('sp1', 'lk4', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    await assert.rejects(api.save('sp1', sermon('lk4', 'Моё старое', { cloudAt: c.cloudAt }), me('ivan@x.pl'), { lock: L(l.lock.at) }),
+      (e) => e.code === 'conflict' && e.remote.meta.title === 'Админ');
+  });
+
+  test('истёкший чужой замок: lock берёт его, save со свежей версией — тоже', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    const a = await ivan.save('sp1', sermon('lk5', 'Давно'), me('ivan@x.pl'));
+    await putLock('sp1', 'lk5', 'admin@x.pl', 30);
+    const l = await ivan.lock('sp1', 'lk5', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    assert.equal(l.lock.email, 'ivan@x.pl');
+    await putLock('sp1', 'lk5', 'admin@x.pl', 30);
+    const b = await ivan.save('sp1', sermon('lk5', 'Под новым замком', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { lock: L(l.lock.at) });
+    assert.equal(b.lock.email, 'ivan@x.pl');
+    assert.equal(b.meta.title, 'Под новым замком');
+    await assert.rejects(admin.save('sp1', sermon('lk5', 'Админ', { cloudAt: b.cloudAt }), me('admin@x.pl'), { lock: L(0) }), (e) => e.code === 'lost-lock');
+  });
+
+  test('watch присылает правки и замок', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    const a = await ivan.save('sp1', sermon('lk6', 'Смотрим'), me('ivan@x.pl'));
+    const seen = [];
+    const done = new Promise((res, rej) => {
+      const off = admin.watch('sp1', 'lk6', (d) => {
+        seen.push(d);
+        if (d && d.lock && d.lock.email === 'ivan@x.pl' && d.meta.title === 'Правка') { off(); res(); }
+      }, rej);
+    });
+    await new Promise((r) => setTimeout(r, 300));
+    const l = await ivan.lock('sp1', 'lk6', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    await ivan.save('sp1', sermon('lk6', 'Правка', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { lock: L(l.lock.at) });
+    await done;
+    assert.ok(seen.length >= 2);
+  });
+});
+
 test('explain: понятные тексты для людей', () => {
   assert.equal(explain({ code: 'conflict' }), 'conflict');
   assert.match(explain({ code: 'permission-denied' }), /Нет прав/);
