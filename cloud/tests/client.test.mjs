@@ -229,6 +229,7 @@ describe('сводки (этап 8)', () => {
     assert.equal(s.status, 'work');
     assert.equal(s.updatedBy, 'admin@x.pl');
     assert.equal(s.updatedAt.toMillis(), b.cloudAt);
+    await admin.trash('sp1', 'sm1', me('admin@x.pl'));
     await admin.remove('sp1', 'sm1');
     assert.equal(await summary('sm1'), null);
   });
@@ -271,10 +272,104 @@ describe('сводки (этап 8)', () => {
   });
 });
 
+describe('корзина (этап 9.1)', () => {
+  /* прочитать документ в обход правил (withSecurityRulesDisabled сам ничего не возвращает) */
+  const raw = async (path) => {
+    let out = null;
+    await env.withSecurityRulesDisabled(async (ctx) => { const x = await F.getDoc(F.doc(ctx.firestore(), path)); out = x.exists() ? x.data() : null; });
+    return out;
+  };
+  const summary = (id) => raw('spaces/sp1/summaries/' + id);
+  test('в корзину и обратно: пометки в проповеди и сводке, список их видит', async () => {
+    const ivan = await client('ivan@x.pl'), petr = await client('petr@x.pl');
+    await ivan.save('sp1', sermon('tr1', 'В корзину'), me('ivan@x.pl'));
+    const seen = new Promise((res) => {
+      const off = petr.listen('sp1', null, (items) => { const x = items.find((i) => i.id === 'tr1'); if (x && x.deletedAt) { off(); res(x); } }, () => {});
+    });
+    const r = await ivan.trash('sp1', 'tr1', me('ivan@x.pl'));
+    assert.equal(r.shareKey, '');
+    const row = await seen;
+    assert.equal(row.deletedBy, 'ivan@x.pl');
+    assert.ok(row.deletedAt > 0);
+    const got = await ivan.get('sp1', 'tr1');
+    assert.ok(got.deletedAt > 0);
+    assert.equal(got.deletedBy, 'ivan@x.pl');
+    const s = await summary('tr1');
+    assert.equal(s.deletedBy, 'ivan@x.pl');
+    assert.equal(s.deletedAt.toMillis(), got.deletedAt);
+    // в корзине не правится и не запирается
+    await assert.rejects(ivan.save('sp1', Object.assign(sermon('tr1', 'Правка'), { cloudAt: got.cloudAt }), me('ivan@x.pl')), (e) => e.code === 'trashed');
+    await assert.rejects(ivan.lock('sp1', 'tr1', me('ivan@x.pl'), 'Иван', { minutes: 10 }), (e) => e.code === 'trashed');
+    await assert.rejects(ivan.save('sp1', sermon('tr1', 'Как новая'), me('ivan@x.pl')), (e) => e.code === 'trashed');
+    // второй раз в корзину — ничего не делает
+    await ivan.trash('sp1', 'tr1', me('ivan@x.pl'));
+    const back = await ivan.restore('sp1', 'tr1');
+    assert.equal(back.deletedAt, 0);
+    assert.equal(back.cloudAt, got.cloudAt, 'время правки не меняется');
+    const s2 = await summary('tr1');
+    assert.equal(s2.deletedAt, undefined);
+    assert.equal(s2.deletedBy, undefined);
+    // снова правится
+    await ivan.save('sp1', Object.assign(sermon('tr1', 'Снова'), { cloudAt: back.cloudAt }), me('ivan@x.pl'));
+    assert.equal((await summary('tr1')).title, 'Снова');
+  });
+  test('свой замок снимается; под чужим живым — ошибка locked', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    await ivan.save('sp1', sermon('tr2', 'С замком'), me('ivan@x.pl'));
+    await ivan.lock('sp1', 'tr2', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    await assert.rejects(admin.trash('sp1', 'tr2', me('admin@x.pl'), { minutes: 10 }), (e) => e.code === 'locked' && e.lock.email === 'ivan@x.pl');
+    assert.equal((await admin.get('sp1', 'tr2')).deletedAt, 0);
+    await ivan.trash('sp1', 'tr2', me('ivan@x.pl'), { minutes: 10 });
+    const d = await admin.get('sp1', 'tr2');
+    assert.ok(d.deletedAt > 0);
+    assert.equal(d.lock, null);
+    assert.equal((await summary('tr2')).lock, null);
+  });
+  test('автор: в корзину и обратно только свой черновик; редактор — любой', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    await ivan.save('sp1', sermon('tr3', 'Готов'), me('ivan@x.pl'), { status: 'submitted' });
+    await assert.rejects(ivan.trash('sp1', 'tr3', me('ivan@x.pl')), (e) => /permission-denied/.test(e.code));
+    await admin.trash('sp1', 'tr3', me('admin@x.pl'));
+    await assert.rejects(ivan.restore('sp1', 'tr3'), (e) => /permission-denied/.test(e.code));
+    await assert.rejects(ivan.remove('sp1', 'tr3'), (e) => /permission-denied/.test(e.code));
+    await admin.restore('sp1', 'tr3');
+    assert.equal((await ivan.get('sp1', 'tr3')).deletedAt, 0);
+  });
+  test('ссылка для оператора: в корзине снимка нет, ключ остаётся; удалить насовсем — тоже без следа', async () => {
+    const ivan = await client('ivan@x.pl');
+    const key = 'tr'.repeat(12);
+    await ivan.save('sp1', sermon('tr4', 'Со ссылкой'), me('ivan@x.pl'));
+    await ivan.shareOn('sp1', 'tr4', me('ivan@x.pl'), key, { v: 1, title: 'Со ссылкой', blocks: [] });
+    const r = await ivan.trash('sp1', 'tr4', me('ivan@x.pl'));
+    assert.equal(r.shareKey, key);
+    const share = async () => !!(await raw('shares/' + key));
+    assert.equal(await share(), false);
+    const back = await ivan.restore('sp1', 'tr4');
+    assert.equal(back.cloudShare, key);
+    // форма снова создаёт снимок под тем же ключом
+    const on = await ivan.shareOn('sp1', 'tr4', me('ivan@x.pl'), 'zz'.repeat(12), { v: 1, title: 'Со ссылкой', blocks: [] });
+    assert.equal(on.key, key);
+    assert.equal(await share(), true);
+    await ivan.trash('sp1', 'tr4', me('ivan@x.pl'));
+    await ivan.remove('sp1', 'tr4');
+    assert.equal(await share(), false);
+    assert.equal(await ivan.get('sp1', 'tr4'), null);
+    assert.equal(await summary('tr4'), null);
+  });
+  test('не из корзины насовсем не удаляется', async () => {
+    const admin = await client('admin@x.pl');
+    await admin.save('sp1', sermon('tr5', 'Живая'), me('admin@x.pl'));
+    await assert.rejects(admin.remove('sp1', 'tr5'), (e) => /permission-denied/.test(e.code));
+    assert.ok(await admin.get('sp1', 'tr5'));
+  });
+});
+
 describe('удаление', () => {
   test('проповедник удаляет свой черновик, чужой — нет', async () => {
     const ivan = await client('ivan@x.pl'), petr = await client('petr@x.pl');
     await ivan.save('sp1', sermon('del1', 'Удаляемая'), me('ivan@x.pl'));
+    await assert.rejects(petr.trash('sp1', 'del1', me('petr@x.pl')), (e) => /permission-denied/.test(e.code));
+    await ivan.trash('sp1', 'del1', me('ivan@x.pl'));
     await assert.rejects(petr.remove('sp1', 'del1'), (e) => /permission-denied/.test(e.code));
     assert.ok(await ivan.get('sp1', 'del1'));
     await ivan.remove('sp1', 'del1');
@@ -283,6 +378,7 @@ describe('удаление', () => {
   test('админ удаляет любую', async () => {
     const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
     await ivan.save('sp1', sermon('del2', 'Удаляемая 2'), me('ivan@x.pl'));
+    await admin.trash('sp1', 'del2', me('admin@x.pl'));
     await admin.remove('sp1', 'del2');
     assert.equal(await admin.get('sp1', 'del2'), null);
   });
@@ -451,6 +547,7 @@ describe('работа редактора (этап 7)', () => {
     assert.deepEqual(await admin.getFlags('sp1', 'fl1'), { b2: { t: 1, s: 'q' } });
     assert.deepEqual(await ivan.getFlags('sp1', 'fl1'), {}, 'спикер отметок не читает');
     await assert.rejects(ivan.setFlags('sp1', 'fl1', me('ivan@x.pl'), { b1: { t: 1, s: 'z' } }), (e) => /permission-denied/.test(e.code));
+    await admin.trash('sp1', 'fl1', me('admin@x.pl'));
     await admin.remove('sp1', 'fl1');
     assert.deepEqual(await admin.getFlags('sp1', 'fl1'), {});
   });
@@ -712,6 +809,7 @@ describe('ссылка для оператора (этап 9)', () => {
     const ivan = await client('ivan@x.pl');
     await save(ivan, 'ivan@x.pl', 'op9', 'Удаление');
     await ivan.shareOn('sp1', 'op9', me('ivan@x.pl'), KEY('l'), snap('Удаление'));
+    await ivan.trash('sp1', 'op9', me('ivan@x.pl'));
     await ivan.remove('sp1', 'op9');
     assert.equal(await raw('shares/' + KEY('l')), null);
     assert.equal(await ivan.get('sp1', 'op9'), null);
@@ -719,6 +817,7 @@ describe('ссылка для оператора (этап 9)', () => {
     await save(ivan, 'ivan@x.pl', 'op10', 'Битый ключ');
     await ivan.shareOn('sp1', 'op10', me('ivan@x.pl'), KEY('m'), snap('Битый ключ'));
     await env.withSecurityRulesDisabled(async (ctx) => { await F.deleteDoc(F.doc(ctx.firestore(), 'shares/' + KEY('m'))); });
+    await ivan.trash('sp1', 'op10', me('ivan@x.pl'));
     await ivan.remove('sp1', 'op10');
     assert.equal(await ivan.get('sp1', 'op10'), null);
   });
@@ -727,8 +826,10 @@ describe('ссылка для оператора (этап 9)', () => {
     await save(ivan, 'ivan@x.pl', 'op11', 'Без ссылки');
     await save(ivan, 'ivan@x.pl', 'op12', 'Другой');
     await ivan.shareOn('sp1', 'op12', me('ivan@x.pl'), KEY('n'), snap('Другой'));
+    await ivan.trash('sp1', 'op11', me('ivan@x.pl'));
     await ivan.remove('sp1', 'op11');
     assert.ok(await raw('shares/' + KEY('n')));
+    await admin.trash('sp1', 'op12', me('admin@x.pl'));
     await admin.remove('sp1', 'op12');
     assert.equal(await raw('shares/' + KEY('n')), null);
   });

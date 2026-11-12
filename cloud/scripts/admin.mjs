@@ -10,6 +10,10 @@
 //   node scripts/admin.mjs migrate-8 [--email a@b.c]      перенос данных этапа 8 (можно запускать сколько угодно раз):
 //                                                         роль admin у участников → editor, сводки для списка,
 //                                                         --email — сразу сделать эту почту админом всей формы
+//   node scripts/admin.mjs purge-trash [--days 30] [--dry-run]
+//                                                         корзина (этап 9.1): стереть насовсем конспекты, которые лежат
+//                                                         в корзине дольше --days дней (со сводкой, отметками редактора
+//                                                         и снимком для оператора). Ночью — из crosspect-backup после копии
 //   node scripts/admin.mjs list
 import { FieldValue } from 'firebase-admin/firestore';
 import { connect, args, fail } from './lib.mjs';
@@ -121,6 +125,28 @@ if (cmd === 'create-space') {
     if (n) await batch.commit();
   }
   console.log(`Готово. Роль admin → editor: ${roles}; сводок записано: ${sums}; лишних сводок удалено: ${orphans}`);
+} else if (cmd === 'purge-trash') {
+  const days = opt('days') ? Number(opt('days')) : 30;
+  if (!Number.isFinite(days) || days < 1 || days > 3650) fail('--days — число дней от 1 до 3650');
+  const dry = !!a['dry-run'];
+  const cutoff = new Date(Date.now() - days * 86400000);
+  let gone = 0;
+  for (const s of (await db.collection('spaces').get()).docs) {
+    const old = await s.ref.collection('sermons').where('deletedAt', '<', cutoff).get();
+    for (const d of old.docs) {
+      const x = d.data(), when = x.deletedAt.toDate().toISOString().slice(0, 10);
+      console.log(`${s.id}/${d.id} — в корзине с ${when}` + (dry ? ' (только проверка, не удалён)' : ''));
+      if (dry) continue;
+      if (typeof x.shareKey === 'string' && x.shareKey) await db.collection('shares').doc(x.shareKey).delete();   // нет снимка — delete и так ничего не делает
+      const batch = db.batch();
+      batch.delete(d.ref.collection('editor').doc('state'));
+      batch.delete(s.ref.collection('summaries').doc(d.id));
+      batch.delete(d.ref);
+      await batch.commit();
+      gone++;
+    }
+  }
+  console.log(dry ? 'Проверка закончена, ничего не удалено' : `Корзина: удалено насовсем ${gone} (дольше ${days} дн.)`);
 } else if (cmd === 'list') {
   const admins = await db.collection('admins').get();
   console.log('Админы всей формы: ' + (admins.empty ? 'нет' : admins.docs.map((d) => d.id).join(', ')));
@@ -136,5 +162,5 @@ if (cmd === 'create-space') {
     }
   }
 } else {
-  fail('Команда: create-space | set-member | remove-member | set-admin | remove-admin | migrate-8 | list (подробности в начале файла)');
+  fail('Команда: create-space | set-member | remove-member | set-admin | remove-admin | migrate-8 | purge-trash | list (подробности в начале файла)');
 }

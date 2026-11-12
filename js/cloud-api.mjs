@@ -11,6 +11,11 @@
 // Сводки (этап 8): у каждой проповеди есть маленькая копия для списка на главной — spaces/{s}/summaries/{id}
 // (summaryOf ниже). Она пишется в той же записи (транзакции или пачке), что и сама проповедь, поэтому главная
 // слушает только сводки и не качает целые конспекты. Правила проверяют, что сводка совпадает с проповедью.
+//
+// Корзина (этап 9.1): «Удалить» не стирает проповедь, а ставит пометку deletedAt (время сервера) и deletedBy (кто) —
+// в проповеди и в сводке (trash). Такая проповедь не правится и замок на неё не берётся (save и lock — ошибка 'trashed').
+// restore снимает пометку, remove стирает насовсем (правила пускают только из корзины). Через 30 дней корзину чистит
+// служебный скрипт (cloud/scripts/admin.mjs purge-trash, ночью из crosspect-backup).
 
 const MAX_LIST = 200;               // сколько проповедей показывать на главной
 const MAX_BYTES = 900 * 1024;       // документ в Firestore — до 1 МиБ; предупреждаем заранее
@@ -29,6 +34,8 @@ export function summaryOf(d){
     title: txt(m.title), date: txt(m.date), firstName: txt(m.firstName), lastName: txt(m.lastName),
     status: d.status, owner: d.owner, updatedAt: d.updatedAt, updatedBy: d.updatedBy,
     lock: d.lock || null,
+    // корзина (этап 9.1): пометки — только у проповеди в корзине (у остальных этих полей нет совсем)
+    ...(d.deletedAt ? { deletedAt: d.deletedAt, deletedBy: d.deletedBy || '' } : {}),
     slides: Math.min(500, blocks.filter(b => b && b.type !== 'note' && b.type !== 'splash').length),   // заметка оператору — не слайд; заставки не считаем (этап 7.7)
     refs: refs.join(' · ').slice(0, 2000),
   };
@@ -75,6 +82,7 @@ export function createCloudAPI(fb){
       cloudSpace: space, cloudAt: ms(d.updatedAt), cloudOwner: d.owner || '',
       cloudStatus: d.status || 'draft', cloudBy: d.updatedBy || '', cloudShare: typeof d.shareKey === 'string' ? d.shareKey : '',
       lock: lockOf(d.lock),
+      deletedAt: d.deletedAt ? ms(d.deletedAt) || 1 : 0, deletedBy: d.deletedBy || '',   // в корзине (этап 9.1); 0 — нет
     };
   }
   /* Сводка → строка списка на главной (как проповедь, но без слайдов: slides — их число, refs — места Писания) */
@@ -87,6 +95,7 @@ export function createCloudAPI(fb){
       cloudSpace: space, cloudAt: ms(d.updatedAt), cloudOwner: d.owner || '',
       cloudStatus: d.status || 'draft', cloudBy: d.updatedBy || '',
       lock: lockOf(d.lock), slides: d.slides || 0, refs: d.refs || '',
+      deletedAt: d.deletedAt ? ms(d.deletedAt) || 1 : 0, deletedBy: d.deletedBy || '',
     };
   }
   /* Проповедь формы → поля документа: без undefined и без лишнего (Firestore не принимает undefined) */
@@ -186,6 +195,7 @@ export function createCloudAPI(fb){
           if (!cur.exists()) { const f = fresh(); tx.set(r, f); tx.set(sumRef(space, s.id), summaryOf(f)); return; }
           const d = cur.data(), at = ms(d.updatedAt), l = lockOf(d.lock);
           before = at;
+          if (d.deletedAt) throw err('trashed', 'Конспект в корзине', { remote: fromDoc(space, cur) });   // правила такую запись всё равно не пустят
           const held = !!(L && L.at && l && l.email === my && l.at === L.at);   // замок взят этой вкладкой и всё ещё её
           if (L && l && !held && live(l, L.minutes)) throw err('lost-lock', 'Проповедь сейчас правит другой', { lock: l, remote: fromDoc(space, cur) });
           const ownLater = held && at >= l.at && d.updatedBy === my;   // версия новее моей, но записана мной же под моим замком
@@ -206,7 +216,7 @@ export function createCloudAPI(fb){
         let cur = null;
         try { cur = await F.getDocFromServer(r); }
         catch (e) { if (!denied(e)) throw e; }
-        if (cur && cur.exists()) throw err('conflict', 'В облаке уже есть такая проповедь', { remote: fromDoc(space, cur) });
+        if (cur && cur.exists()) throw err(cur.data().deletedAt ? 'trashed' : 'conflict', 'В облаке уже есть такая проповедь', { remote: fromDoc(space, cur) });
         const f = fresh(), b = F.writeBatch(db);
         b.set(r, f);
         b.set(sumRef(space, s.id), summaryOf(f));
@@ -227,6 +237,7 @@ export function createCloudAPI(fb){
         await F.runTransaction(db, async tx => {
           const cur = await tx.get(r);
           if (!cur.exists()) throw err('missing', 'Этой проповеди уже нет в облаке');
+          if (cur.data().deletedAt) throw err('trashed', 'Конспект в корзине');
           const raw = cur.data().lock || null, l = seen = lockOf(raw);
           const same = !!(l && l.email === my && opts.at && l.at === opts.at);
           if (l && !same && live(l, opts.minutes) && !opts.force) throw err('locked', 'Проповедь сейчас правят', { lock: l });
@@ -411,7 +422,61 @@ export function createCloudAPI(fb){
       }, onError);
     },
 
-    /* Удалить проповедь (и её сводку, и отметки редактора, и ссылку для оператора, если они есть) */
+    /* ----- Корзина (этап 9.1) ----- */
+    /* Убрать в корзину: пометка deletedAt / deletedBy в проповеди и сводке, свой замок (или чужой истёкший) снимается.
+       Под чужим живым замком — ошибка 'locked' ({ lock }). Ссылка для оператора перестаёт работать: снимок удаляется ОТДЕЛЬНОЙ
+       записью до пометки (как в remove: не удалился — проповедь не трогаем), ключ остаётся в проповеди — restore вернёт ссылку.
+       Возвращает { shareKey } — какой ключ был у ссылки ('' — не было) */
+    async trash(space, id, me, opts){
+      opts = opts || {};
+      const r = ref(space, id), my = lower(me.email), ts = F.serverTimestamp();
+      const pre = await F.getDocFromServer(r);
+      if (!pre.exists()) throw err('missing', 'Этого конспекта уже нет в облаке');
+      const pd = pre.data();
+      if (pd.deletedAt) return { shareKey: typeof pd.shareKey === 'string' ? pd.shareKey : '' };   // уже в корзине
+      const l0 = lockOf(pd.lock);
+      if (l0 && l0.email !== my && live(l0, opts.minutes)) throw err('locked', 'Конспект сейчас правят', { lock: l0 });   // до того, как снимок тронут
+      const key = typeof pd.shareKey === 'string' ? pd.shareKey : '';
+      if (key){
+        const sh = F.doc(db, 'shares', key);
+        let has = false;
+        try { has = (await F.getDoc(sh)).exists(); } catch (e) { /* не прочитали — не мешаем */ }
+        if (has) await F.deleteDoc(sh);
+      }
+      await F.runTransaction(db, async tx => {
+        const cur = await tx.get(r);
+        if (!cur.exists()) throw err('missing', 'Этого конспекта уже нет в облаке');
+        const d = cur.data(), l = lockOf(d.lock);
+        if (d.deletedAt) return;
+        if (l && l.email !== my && live(l, opts.minutes)) throw err('locked', 'Конспект сейчас правят', { lock: l });
+        const upd = { deletedAt: ts, deletedBy: my };
+        if (d.lock) upd.lock = null;
+        tx.update(r, upd);
+        tx.set(sumRef(space, id), summaryOf(afterUpdate(d, upd)));
+      });
+      return { shareKey: key };
+    },
+
+    /* Вернуть из корзины: пометки снимаются в проповеди и сводке. Не в корзине — ничего не делает.
+       Ссылку для оператора (если была) форма восстанавливает сама: снимок собирается из полной проповеди (js/operator.js).
+       Возвращает проповедь, как get */
+    async restore(space, id){
+      const r = ref(space, id);
+      await F.runTransaction(db, async tx => {
+        const cur = await tx.get(r);
+        if (!cur.exists()) throw err('missing', 'Этого конспекта уже нет в облаке');
+        const d = cur.data();
+        if (!d.deletedAt) return;
+        tx.update(r, { deletedAt: F.deleteField(), deletedBy: F.deleteField() });
+        const after = Object.assign({}, d); delete after.deletedAt; delete after.deletedBy;
+        tx.set(sumRef(space, id), summaryOf(after));
+      });
+      const back = await readBack(r, snap => snap.exists() && !snap.data().deletedAt);
+      return back.exists() ? fromDoc(space, back) : null;
+    },
+
+    /* Удалить насовсем (с этапа 9.1 правила пускают только из корзины): проповедь, сводку, отметки редактора
+       и снимок для оператора, если он остался */
     async remove(space, id){
       let key = '';
       try { const cur = await F.getDoc(ref(space, id)); if (cur.exists() && typeof cur.data().shareKey === 'string') key = cur.data().shareKey; }
@@ -435,6 +500,7 @@ export function explain(e){
   if (/resource-exhausted/.test(c)) return 'Облако перегружено до 9:00: бесплатный дневной запас базы закончился. Правки лежат в этом браузере и уйдут в облако сами, когда запас обновится.';
   if (c === 'lost-lock' || c === 'locked') return 'Проповедь сейчас правит другой человек.';
   if (c === 'missing') return 'Этой проповеди уже нет в облаке.';
+  if (c === 'trashed') return 'Этот конспект в корзине. Верните его из корзины, чтобы править.';
   if (c === 'too-big') return 'Проповедь слишком большая для облака (больше 900 КБ). Уберите лишнее или скачайте файл: «⋯ → Скачать файл».';
   if (/permission-denied/.test(c)) return 'Нет прав на это действие. Проверьте, что вы вошли под своей почтой.';
   if (/unavailable|network|deadline|failed-precondition/.test(c) || /offline|network/i.test(String(e && e.message))) return 'Нет связи с облаком. Проверьте интернет и попробуйте ещё раз.';

@@ -133,6 +133,36 @@ describe('пространства', () => {
   });
 });
 
+describe('корзина (этап 9.1)', () => {
+  test('purge-trash стирает то, что в корзине дольше срока, со сводкой, отметками и снимком; остальное не трогает', async () => {
+    const ago = (d) => Timestamp.fromMillis(Date.now() - d * 86400000);
+    const sermon = (extra) => ({ v: 2, meta: { title: 'К' }, blocks: [], status: 'draft', owner: '', createdBy: 'x@y.z',
+      createdAt: ago(60), updatedAt: ago(60), updatedBy: 'x@y.z', lock: null, ...extra });
+    await db.doc('spaces/tp').set({ name: 'Корзина', settings: {} });
+    await db.doc('spaces/tp/sermons/old').set(sermon({ deletedAt: ago(31), deletedBy: 'x@y.z', shareKey: 'q'.repeat(24) }));
+    await db.doc('spaces/tp/summaries/old').set({ title: 'К' });
+    await db.doc('spaces/tp/sermons/old/editor/state').set({ flags: {} });
+    await db.doc('shares/' + 'q'.repeat(24)).set({ spaceId: 'tp', sermonId: 'old', sermon: {} });
+    await db.doc('spaces/tp/sermons/fresh').set(sermon({ deletedAt: ago(29), deletedBy: 'x@y.z' }));
+    await db.doc('spaces/tp/sermons/live').set(sermon({}));
+    // проверка без удаления
+    const dry = run('admin.mjs', 'purge-trash', '--dry-run');
+    assert.match(dry, /tp\/old/);
+    assert.doesNotMatch(dry, /fresh|live/);
+    assert.ok((await db.doc('spaces/tp/sermons/old').get()).exists);
+    const out = run('admin.mjs', 'purge-trash');
+    assert.match(out, /удалено насовсем 1/);
+    for (const p of ['spaces/tp/sermons/old', 'spaces/tp/summaries/old', 'spaces/tp/sermons/old/editor/state', 'shares/' + 'q'.repeat(24)])
+      assert.equal((await db.doc(p).get()).exists, false, p);
+    assert.ok((await db.doc('spaces/tp/sermons/fresh').get()).exists);
+    assert.ok((await db.doc('spaces/tp/sermons/live').get()).exists);
+    // свой срок
+    run('admin.mjs', 'purge-trash', '--days', '28');
+    assert.equal((await db.doc('spaces/tp/sermons/fresh').get()).exists, false);
+    assert.throws(() => run('admin.mjs', 'purge-trash', '--days', '0'));
+  });
+});
+
 describe('бэкап и восстановление', () => {
   test('копия → очистка → восстановление → та же копия', async () => {
     // данные с особыми типами и вложенностью

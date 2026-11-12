@@ -7,7 +7,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, collectionGroup,
-  query, where, serverTimestamp, writeBatch, Timestamp, runTransaction,
+  query, where, serverTimestamp, writeBatch, Timestamp, runTransaction, deleteField,
 } from 'firebase/firestore';
 
 const PROJECT = 'demo-crosspect';
@@ -510,18 +510,32 @@ describe('замок', () => {
   });
 });
 
-describe('проповеди: удаление', () => {
-  test('проповедник удаляет только свой черновик', async () => {
+// Пометить проповедь «в корзине» в обход правил (как будто её туда уже убрали)
+async function putInTrash(s, id, who = 'ed') {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'spaces', s, 'sermons', id), { deletedAt: minutesAgo(5), deletedBy: PEOPLE[who], lock: null });
+  });
+}
+const toTrash = (who) => ({ deletedAt: serverTimestamp(), deletedBy: PEOPLE[who] });
+const fromTrash = () => ({ deletedAt: deleteField(), deletedBy: deleteField() });
+
+describe('проповеди: удаление насовсем (с этапа 9.1 — только из корзины)', () => {
+  test('не из корзины не удаляет никто, даже админ', async () => {
+    await assertFails(deleteDoc(sermon(as('petr'), 'sw', 'petr1')));
+    await assertFails(deleteDoc(sermon(as('ed'), 'sw', 'guest')));
+    await assertFails(deleteDoc(sermon(as('admin'), 'sw', 'ivan1')));
+  });
+  test('из корзины: проповедник — только свой черновик, редактор и админ — любую', async () => {
+    for (const id of ['ivan1', 'petr1', 'guest']) await putInTrash('sw', id);
     await assertFails(deleteDoc(sermon(as('ivan'), 'sw', 'ivan1')));   // подана
     await assertFails(deleteDoc(sermon(as('ivan'), 'sw', 'petr1')));   // чужая
     await assertSucceeds(deleteDoc(sermon(as('petr'), 'sw', 'petr1')));
-  });
-  test('редактор удаляет любую, но не под чужим живым замком', async () => {
     await assertSucceeds(deleteDoc(sermon(as('ed'), 'sw', 'guest')));
-    await setLock('sw', 'ivan1', 'ivan', 1);
-    await assertFails(deleteDoc(sermon(as('ed'), 'sw', 'ivan1')));
+    await assertSucceeds(deleteDoc(sermon(as('admin'), 'sw', 'ivan1')));
+    await assertFails(deleteDoc(sermon(as('stranger'), 'other', 'o1')));   // не в корзине
   });
   test('вместе с черновиком проповедник удаляет и отметки редактора', async () => {
+    await putInTrash('sw', 'petr1', 'petr');
     const db = as('petr');
     const batch = writeBatch(db);
     batch.delete(sermon(db, 'sw', 'petr1'));
@@ -529,6 +543,78 @@ describe('проповеди: удаление', () => {
     await assertSucceeds(batch.commit());
     // а у живой проповеди — нет
     await assertFails(deleteDoc(doc(db, 'spaces', 'sw', 'sermons', 'ivan1', 'editor', 'state')));
+  });
+});
+
+describe('корзина (этап 9.1)', () => {
+  test('автор убирает в корзину только свой черновик; редактор и админ — любую', async () => {
+    await assertFails(updateDoc(sermon(as('ivan'), 'sw', 'ivan1'), toTrash('ivan')));   // подана
+    await assertFails(updateDoc(sermon(as('ivan'), 'sw', 'petr1'), toTrash('ivan')));   // чужая
+    await assertSucceeds(updateDoc(sermon(as('petr'), 'sw', 'petr1'), toTrash('petr')));
+    await assertSucceeds(updateDoc(sermon(as('ed'), 'sw', 'ivan1'), toTrash('ed')));
+    await assertSucceeds(updateDoc(sermon(as('admin'), 'sw', 'guest'), toTrash('admin')));
+    await assertFails(updateDoc(sermon(as('stranger'), 'sw', 'guest'), toTrash('stranger')));
+    await assertFails(updateDoc(sermon(anon(), 'fast', 'guest'), { deletedAt: serverTimestamp(), deletedBy: 'x@y.z' }));
+  });
+  test('в корзину: время только сервера, кто — только я, больше ничего не меняется', async () => {
+    const ref = sermon(as('ed'), 'sw', 'ivan1');
+    await assertFails(updateDoc(ref, { deletedAt: minutesAgo(100), deletedBy: PEOPLE.ed }));
+    await assertFails(updateDoc(ref, { deletedAt: serverTimestamp(), deletedBy: PEOPLE.ivan }));
+    await assertFails(updateDoc(ref, { deletedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref, { ...toTrash('ed'), 'meta.title': 'Тайком' }));
+    await assertFails(updateDoc(ref, { ...toTrash('ed'), status: 'draft' }));
+    await assertFails(updateDoc(ref, { ...toTrash('ed'), ...takeLock('ed') }));
+    await assertSucceeds(updateDoc(ref, toTrash('ed')));
+  });
+  test('под чужим живым замком в корзину нельзя; под своим и истёкшим — можно, замок снимается', async () => {
+    await setLock('sw', 'ivan1', 'ivan', 1);
+    await assertFails(updateDoc(sermon(as('ed'), 'sw', 'ivan1'), { ...toTrash('ed'), lock: null }));
+    await setLock('sw', 'petr1', 'petr', 1);
+    await assertFails(updateDoc(sermon(as('petr'), 'sw', 'petr1'), toTrash('petr')));   // замок должен уйти
+    await assertSucceeds(updateDoc(sermon(as('petr'), 'sw', 'petr1'), { ...toTrash('petr'), lock: null }));
+    await setLock('sw', 'guest', 'ivan', 30);
+    await assertSucceeds(updateDoc(sermon(as('ed'), 'sw', 'guest'), { ...toTrash('ed'), lock: null }));
+  });
+  test('из корзины возвращает тот же, кто может убрать: автор — свой черновик, редактор — любую', async () => {
+    for (const id of ['ivan1', 'petr1', 'guest']) await putInTrash('sw', id);
+    await assertFails(updateDoc(sermon(as('ivan'), 'sw', 'ivan1'), fromTrash()));   // подана, её убрал редактор
+    await assertFails(updateDoc(sermon(as('ivan'), 'sw', 'petr1'), fromTrash()));   // чужая
+    await assertSucceeds(updateDoc(sermon(as('petr'), 'sw', 'petr1'), fromTrash()));
+    await assertSucceeds(updateDoc(sermon(as('ed'), 'sw', 'ivan1'), fromTrash()));
+    await assertSucceeds(updateDoc(sermon(as('admin'), 'sw', 'guest'), fromTrash()));
+  });
+  test('возврат — только снять пометки: без правок, без замка, без половины пометки', async () => {
+    await putInTrash('sw', 'guest');
+    const ref = sermon(as('ed'), 'sw', 'guest');
+    await assertFails(updateDoc(ref, { deletedAt: deleteField() }));
+    await assertFails(updateDoc(ref, { ...fromTrash(), 'meta.title': 'Заодно' }));
+    await assertFails(updateDoc(ref, { ...fromTrash(), ...takeLock('ed') }));
+    await assertFails(updateDoc(ref, { deletedAt: serverTimestamp(), deletedBy: PEOPLE.ed }));   // пометку не переписать
+    await assertSucceeds(updateDoc(ref, fromTrash()));
+  });
+  test('проповедь в корзине никто не правит, замок не берёт и не забирает', async () => {
+    await putInTrash('sw', 'petr1', 'petr');
+    const p = sermon(as('petr'), 'sw', 'petr1'), e = sermon(as('ed'), 'sw', 'petr1');
+    await assertSucceeds(getDoc(p));   // смотреть можно
+    await assertFails(updateDoc(p, edit('petr')));
+    await assertFails(updateDoc(p, takeLock('petr')));
+    await assertFails(updateDoc(e, edit('ed')));
+    await assertFails(updateDoc(e, takeLock('ed')));
+    await assertFails(updateDoc(e, { status: 'work', updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
+    // и снять пометку обычной правкой автор не может (обход «Восстановить» для чужого решения редактора)
+    await putInTrash('sw', 'ivan1');
+    await assertFails(updateDoc(sermon(as('ivan'), 'sw', 'ivan1'), edit('ivan', fromTrash())));
+    await assertFails(updateDoc(sermon(as('ivan'), 'sw', 'ivan1'), edit('ivan', { deletedAt: deleteField() })));
+  });
+  test('пометку корзины не поставить обычной правкой и при создании', async () => {
+    await assertFails(updateDoc(sermon(as('ed'), 'sw', 'ivan1'), edit('ed', toTrash('ed'))));
+    await assertFails(setDoc(sermon(as('ivan'), 'sw', 'n1'), newSermon('ivan', toTrash('ivan'))));
+  });
+  test('сигнал и отпускание своего замка по-прежнему проходят', async () => {
+    await setLock('sw', 'ivan1', 'ivan', 1);
+    const ref = sermon(as('ivan'), 'sw', 'ivan1');
+    await assertSucceeds(updateDoc(ref, { 'lock.beat': serverTimestamp() }));
+    await assertSucceeds(updateDoc(ref, { lock: null }));
   });
 });
 
@@ -791,7 +877,22 @@ describe('сводки для списка (этап 8)', () => {
     await assertFails(getDocs(collection(as('stranger'), 'spaces', 'sw', 'summaries')));
     await assertFails(getDoc(sum('sw', 'ivan1')(anon())));
   });
+  test('корзина (этап 9.1): пометки в сводке — вместе с проповедью и такие же', async () => {
+    const db = as('ed');
+    const move = (sumExtra, sermonUpd = toTrash('ed')) => runTransaction(db, async (tx) => {
+      const cur = (await tx.get(sermon(db, 'sw', 'ivan1'))).data();
+      tx.update(sermon(db, 'sw', 'ivan1'), sermonUpd);
+      tx.set(sum('sw', 'ivan1')(db), summary(cur, sumExtra));
+    });
+    await assertFails(move({}));   // пометки в сводке нет
+    await assertFails(move({ deletedAt: serverTimestamp(), deletedBy: PEOPLE.ivan }));
+    await assertSucceeds(move({ deletedAt: serverTimestamp(), deletedBy: PEOPLE.ed }));
+    // обратно: в сводке пометки тоже нет
+    await assertFails(move({ deletedAt: minutesAgo(1), deletedBy: PEOPLE.ed }, fromTrash()));
+    await assertSucceeds(move({}, fromTrash()));
+  });
   test('удаляется вместе с проповедью, отдельно — нет', async () => {
+    await putInTrash('sw', 'petr1', 'petr');
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'spaces', 'sw', 'summaries', 'petr1'), summary(sermonData(PEOPLE.petr, { status: 'draft' })));
     });

@@ -13,7 +13,9 @@ rules_version = '2';
 //                                    участника считается редактором); добавляет и меняет админ
 //   spaces/{s}/sermons/{id}          проповедь. Редактор и админ видят и правят всё,
 //                                    проповедник правит свои, видит все (если пространство
-//                                    разрешает) или только свои
+//                                    разрешает) или только свои. Корзина (этап 9.1): удалённая
+//                                    проповедь помечена deletedAt / deletedBy и не правится;
+//                                    стереть насовсем можно только её
 //   spaces/{s}/sermons/{id}/editor/state   отметки редактора; проповедник их не видит
 //   spaces/{s}/summaries/{id}        сводка проповеди для списка на главной (этап 8): пишется
 //                                    в одной записи с проповедью и совпадает с ней
@@ -166,8 +168,15 @@ service cloud.firestore {
         function atEditor(d) {
           return d.status in ['work', 'done'];
         }
+        // в корзине (этап 9.1) автор не правит и в обход «Восстановить» (снять пометку правкой);
+        // редактору проверка не нужна: восстановить он может и так
         function canEdit(d) {
-          return isEditor(s) || (isPreacher(s) && d.owner == me() && !atEditor(d));
+          return isEditor(s) || (isPreacher(s) && d.owner == me() && !atEditor(d) && !('deletedAt' in d));
+        }
+        // Корзина (этап 9.1): кто убирает в корзину, восстанавливает и стирает насовсем — как прежде удаление:
+        // редактор и админ — любую, автор — свой черновик
+        function canTrash(d) {
+          return isEditor(s) || (isPreacher(s) && d.owner == me() && d.status == 'draft');
         }
         function changed() {
           return request.resource.data.diff(resource.data).affectedKeys();
@@ -243,7 +252,24 @@ service cloud.firestore {
                   && request.resource.data.status in ['draft', 'submitted']))
           && lockOk(null, request.resource.data.get('lock', null), request.resource.data.keys());
 
-        allow update: if canEdit(resource.data)
+        // В корзину и обратно — отдельной записью: меняются только пометки (и замок снимается).
+        // Стоит первой: у обычной правки первое же условие ложно, и она почти ничего не тратит из предела вычислений.
+        // Остальная правка проповеди в корзине невозможна: validSermon не знает deletedAt / deletedBy.
+        function trashMove() {
+          return changed().hasOnly(['deletedAt', 'deletedBy', 'lock'])
+            && changed().hasAny(['deletedAt'])   // сигнал и отпускание замка сюда не попадают
+            && canTrash(resource.data)
+            && request.resource.data.get('lock', null) == null
+            && (('deletedAt' in resource.data)
+                // из корзины: пометки уходят
+                ? (!('deletedAt' in request.resource.data) && !('deletedBy' in request.resource.data))
+                // в корзину: когда (время сервера) и кто; под чужим живым замком — нельзя
+                : (request.resource.data.deletedAt == request.time
+                   && request.resource.data.deletedBy == me()
+                   && (!lockLive(resource.data.get('lock', null)) || lockMine(resource.data.get('lock', null)))));
+        }
+
+        allow update: if trashMove() || (canEdit(resource.data)
           && validSermon(request.resource.data)
           && request.resource.data.createdBy == resource.data.createdBy
           && request.resource.data.createdAt == resource.data.createdAt
@@ -257,12 +283,11 @@ service cloud.firestore {
           && (changed().hasOnly(['lock'])
               || (request.resource.data.updatedAt == request.time
                   && request.resource.data.updatedBy == me()))
-          && lockOk(resource.data.get('lock', null), request.resource.data.get('lock', null), changed());
+          && lockOk(resource.data.get('lock', null), request.resource.data.get('lock', null), changed()));
 
-        // Проповедник удаляет только свой черновик («У редактора» — тем более нет). Под чужим живым замком не удаляет никто.
-        allow delete: if (isEditor(s)
-              || (isPreacher(s) && resource.data.owner == me() && resource.data.status == 'draft'))
-          && (!lockLive(resource.data.get('lock', null)) || lockMine(resource.data.get('lock', null)));
+        // Стереть насовсем (этап 9.1) — только из корзины; кто может — как с корзиной (автор — свой черновик).
+        // Замка в корзине нет: его снимает перенос в корзину. Через 30 дней корзину чистит служебный скрипт.
+        allow delete: if ('deletedAt' in resource.data) && canTrash(resource.data);
 
         // ---------- отметки редактора («доработать» и т. п.) ----------
 
@@ -289,20 +314,23 @@ service cloud.firestore {
           return d.keys().hasAll(['title', 'date', 'firstName', 'lastName', 'status', 'owner',
                                   'updatedAt', 'updatedBy', 'lock', 'slides', 'refs'])
             && d.keys().hasOnly(['title', 'date', 'firstName', 'lastName', 'status', 'owner',
-                                 'updatedAt', 'updatedBy', 'lock', 'slides', 'refs'])
+                                 'updatedAt', 'updatedBy', 'lock', 'slides', 'refs', 'deletedAt', 'deletedBy'])
             && d.title == p.meta.get('title', '') && d.date == p.meta.get('date', '')
             && d.firstName == p.meta.get('firstName', '') && d.lastName == p.meta.get('lastName', '')
             && d.status == p.status && d.owner == p.owner
             && d.updatedAt == p.updatedAt && d.updatedBy == p.updatedBy
             && d.lock == p.get('lock', null)
+            // корзина (этап 9.1): пометки — как у проповеди
+            && d.get('deletedAt', null) == p.get('deletedAt', null) && d.get('deletedBy', null) == p.get('deletedBy', null)
             && d.slides is int && d.slides >= 0 && d.slides <= 500
             && str(d.refs, 2000);
         }
-        // проповедь меняется в этой же записи: появилась, сменились время правки или замок
+        // проповедь меняется в этой же записи: появилась, сменились время правки, замок или пометка корзины
         function sermonWritten() {
           return !exists(sermonPath(s, id))
             || get(sermonPath(s, id)).data.updatedAt != after().updatedAt
-            || get(sermonPath(s, id)).data.get('lock', null) != after().get('lock', null);
+            || get(sermonPath(s, id)).data.get('lock', null) != after().get('lock', null)
+            || get(sermonPath(s, id)).data.get('deletedAt', null) != after().get('deletedAt', null);
         }
         allow get, list: if isEditor(s)
           || (isPreacher(s) && (resource.data.owner == me() || seeAll(s)));
