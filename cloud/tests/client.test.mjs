@@ -733,3 +733,32 @@ describe('ссылка для оператора (этап 9)', () => {
     assert.equal(await raw('shares/' + KEY('n')), null);
   });
 });
+
+describe('ДИАГНОСТИКА предела правил (временно, убрать)', () => {
+  test('какие записи под замком проходят', async () => {
+    const ivan = await client('ivan@x.pl');
+    const out = {};
+    const L = (l) => ({ name: 'Иван', at: l.lock.at, minutes: 10 });
+    const run = async (name, fn) => { try { await fn(); out[name] = 'ok'; } catch (e) { out[name] = (e.code || '') + ' ' + String(e.message).slice(0, 80).replace(/\s+/g, ' '); } };
+    // 1. запись ключа под своим замком
+    await ivan.save('sp1', sermon('dg1', 'Диагностика 1'), me('ivan@x.pl'));
+    const l1 = await ivan.lock('sp1', 'dg1', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    await run('1 shareOn под своим замком', () => ivan.shareOn('sp1', 'dg1', me('ivan@x.pl'), 'D'.repeat(24), { v: 1, blocks: [] }, { minutes: 10 }));
+    // 2. обычное сохранение под замком, у конспекта есть shareKey
+    await run('2 save под замком, shareKey есть', () => ivan.save('sp1', sermon('dg1', 'Диагностика 1б', { cloudAt: l1.cloudAt }), me('ivan@x.pl'), { lock: L(l1) }));
+    // 3. контроль: то же без shareKey
+    await ivan.save('sp1', sermon('dg3', 'Диагностика 3'), me('ivan@x.pl'));
+    const l3 = await ivan.lock('sp1', 'dg3', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    await run('3 save под замком, shareKey нет', () => ivan.save('sp1', sermon('dg3', 'Диагностика 3б', { cloudAt: l3.cloudAt }), me('ivan@x.pl'), { lock: L(l3) }));
+    // 4. контроль: смена статуса под своим замком
+    await ivan.save('sp1', sermon('dg4', 'Диагностика 4'), me('ivan@x.pl'));
+    await ivan.lock('sp1', 'dg4', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    await run('4 setStatus под своим замком', () => ivan.setStatus('sp1', 'dg4', me('ivan@x.pl'), 'submitted', { minutes: 10 }));
+    // 5. shareOn без замка, потом save без замка (замок берётся заново)
+    await ivan.save('sp1', sermon('dg5', 'Диагностика 5'), me('ivan@x.pl'));
+    await run('5 shareOn без замка', () => ivan.shareOn('sp1', 'dg5', me('ivan@x.pl'), 'E'.repeat(24), { v: 1, blocks: [] }));
+    const g5 = await ivan.get('sp1', 'dg5');
+    await run('6 save с shareKey без замка', () => ivan.save('sp1', sermon('dg5', 'Диагностика 5б', { cloudAt: g5.cloudAt }), me('ivan@x.pl'), { lock: { name: 'Иван', at: 0, minutes: 10 } }));
+    assert.fail(JSON.stringify(out, null, 1));
+  });
+});
