@@ -25,7 +25,7 @@ function saveFile(){
       h('button', { type:'button', class:'btn primary', onclick:() => { closeSettings(); checkNames(); } }, 'Дописать названия'))));
   settingsOverlay.classList.add('open');
 }
-const CLOUD_FIELDS = ['cloudSpace', 'cloudAt', 'cloudOwner', 'cloudStatus', 'cloudBy'];
+const CLOUD_FIELDS = ['cloudSpace', 'cloudAt', 'cloudOwner', 'cloudStatus', 'cloudBy', 'cloudShare'];   // cloudShare — ключ ссылки для оператора (этап 9): ни в файл, ни в копию не попадает
 function stripCloud(d){ d = Object.assign({}, d); CLOUD_FIELDS.forEach(k => delete d[k]); return d; }
 /* Файл — только копия: отметку «сохранено» у проповеди он не ставит, несохранённое по-прежнему уйдёт в облако */
 function writeFile(data){

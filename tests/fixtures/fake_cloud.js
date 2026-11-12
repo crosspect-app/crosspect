@@ -22,7 +22,7 @@
   };
   const allSp = db => (db.space ? [db] : []).concat(Object.values(db.spaces || {}));   // space: null — пространств нет совсем
   const view = (db, r) => ({ app:'swp-sermon', v:r.v, id:r.id, meta:r.meta, settings:r.settings, blocks:r.blocks, createdAt:r.createdAt, updatedAt:r.updatedAt,
-    cloudSpace:db.space.id, cloudAt:r.updatedAt, cloudOwner:r.owner, cloudStatus:r.status, cloudBy:r.updatedBy, lock:r.lock || null });
+    cloudSpace:db.space.id, cloudAt:r.updatedAt, cloudOwner:r.owner, cloudStatus:r.status, cloudBy:r.updatedBy, cloudShare:r.shareKey || '', lock:r.lock || null });
   /* Сводка, как summaryOf + fromSummary в cloud-api.mjs */
   const row = (db, r) => {
     const m = r.meta || {}, blocks = r.blocks || [], refs = [];
@@ -43,6 +43,7 @@
   const atEditor = r => !!r && (r.status === 'work' || r.status === 'done');
   const authorBlocked = (db, email, r, status) => !isEditor(db, email) && (atEditor(r) || (status != null && !['draft', 'submitted'].includes(status)));
   function notify(){ listeners.forEach(f => f()); }
+  window.addEventListener('storage', e => { if (e.key === KEY) notify(); });   // «база» общая у всех вкладок этого браузера: чужая запись доходит и сюда
   window.fakeCloud = {   // для тестов: «другой человек» правит базу напрямую
     db: load, put(db){ store(db); notify(); },
     calls: { save:0, lock:0, beat:0, release:0, flags:0, list:0 },
@@ -176,9 +177,51 @@
       const db = load(); db.prefs = db.prefs || {}; db.prefs[who.email] = JSON.parse(JSON.stringify(layout || {}));
       store(db);
     },
+    /* Ссылка для оператора (этап 9): снимок — в корне базы, db.shares[ключ] = { spaceId, sermonId, sermon, createdBy, updatedAt };
+       читает кто угодно (в том числе без входа). Создать и отключить — запись проповеди, как смена статуса (замок свободен или мой). */
+    watchShare(key, onShare){
+      const f = () => { const sh = (load().shares || {})[key]; onShare(sh ? { sermon:JSON.parse(JSON.stringify(sh.sermon)), updatedAt:sh.updatedAt } : null, { fromCache:false }); };
+      listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
+    },
+    async shareOn(space, id, who, key, snapshot){
+      calls.shareOn = (calls.shareOn || 0) + 1; offline();
+      const db = load(), x = S(db, space), cur = x.sermons[id], my = who.email;
+      if (!cur) throw fail('missing', 'Этого конспекта уже нет в облаке');
+      const l = cur.lock || null;
+      if (l && l.email !== my && live(x, l)) throw fail('locked', 'Конспект сейчас правят', { lock:l });
+      if (!isEditor(x, my) && (cur.owner !== my || atEditor(cur))) throw denied();
+      db.shares = db.shares || {};
+      const at = tick(db), used = cur.shareKey || key;
+      const sh = db.shares[used];
+      db.shares[used] = { spaceId:space, sermonId:id, sermon:JSON.parse(JSON.stringify(snapshot)), createdBy:sh ? sh.createdBy : my, updatedAt:at };
+      if (!cur.shareKey){ Object.assign(cur, { shareKey:used, updatedAt:at, updatedBy:my }); if (l && l.email !== my) cur.lock = null; }
+      store(db); notify(); return { key:used, remote:view(x, cur) };
+    },
+    async shareOff(space, id, who){
+      calls.shareOff = (calls.shareOff || 0) + 1; offline();
+      const db = load(), x = S(db, space), cur = x.sermons[id], my = who.email;
+      if (!cur) throw fail('missing', 'Этого конспекта уже нет в облаке');
+      if (!cur.shareKey) return view(x, cur);
+      const l = cur.lock || null;
+      if (l && l.email !== my && live(x, l)) throw fail('locked', 'Конспект сейчас правят', { lock:l });
+      if (!isEditor(x, my) && (cur.owner !== my || atEditor(cur))) throw denied();
+      if (db.shares) delete db.shares[cur.shareKey];
+      delete cur.shareKey; Object.assign(cur, { updatedAt:tick(db), updatedBy:my });
+      if (l && l.email !== my) cur.lock = null;
+      store(db); notify(); return view(x, cur);
+    },
+    async shareSync(key, snapshot){
+      calls.shareSync = (calls.shareSync || 0) + 1; offline();
+      const db = load(); const sh = (db.shares || {})[key];
+      if (!sh) throw fail('not-found', 'No document to update');
+      sh.sermon = JSON.parse(JSON.stringify(snapshot)); sh.updatedAt = tick(db);
+      store(db); notify();
+    },
     async remove(space, id){
       const db = load(), x = S(db, space), u = me();
       if (u && x.sermons[id] && !isEditor(x, u.email) && x.sermons[id].status !== 'draft') throw denied();   // автор удаляет только свой черновик
+      const key = x.sermons[id] && x.sermons[id].shareKey;
+      if (key && db.shares) delete db.shares[key];   // ссылка для оператора уходит вместе с конспектом
       delete x.sermons[id]; if (x.flags) delete x.flags[id]; store(db); notify(); },
   };
 })();

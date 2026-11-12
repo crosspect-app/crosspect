@@ -225,8 +225,9 @@ service cloud.firestore {
             // owner — почта проповедника; пусто — гость без входа (такие заводит редактор)
             && (d.owner == '' || isEmail(d.owner))
             && lockShape(d.get('lock', null))
-            && (d.get('shareKey', null) == null
-                || (d.shareKey is string && d.shareKey.size() >= 20 && d.shareKey.size() <= 64));
+            // shareKey — ключ ссылки для оператора (этап 9). Длину ключа проверяет shares/{key};
+            // здесь только «строка не длиннее 64»: каждая проверка в этом правиле считается в предел базы
+            && (!('shareKey' in d) || d.shareKey == null || str(d.shareKey, 64));
         }
 
         allow get, list: if canRead(resource.data);
@@ -247,10 +248,11 @@ service cloud.firestore {
           && request.resource.data.createdBy == resource.data.createdBy
           && request.resource.data.createdAt == resource.data.createdAt
           // проповедник не отдаёт проповедь другому и сам ставит только «Черновик» / «Готов к вёрстке»
-          && (isEditor(s) || request.resource.data.owner == resource.data.owner)
+          // (одна проверка isEditor вместо двух: база считает все выражения запроса, предел — 1000)
           && (isEditor(s)
-              || request.resource.data.status == resource.data.status
-              || request.resource.data.status in ['draft', 'submitted'])
+              || (request.resource.data.owner == resource.data.owner
+                  && (request.resource.data.status == resource.data.status
+                      || request.resource.data.status in ['draft', 'submitted'])))
           // правка содержимого отмечает, кто и когда; сигнал замка — нет
           && (changed().hasOnly(['lock'])
               || (request.resource.data.updatedAt == request.time

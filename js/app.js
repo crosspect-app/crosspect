@@ -1,7 +1,7 @@
 'use strict';
 
 /* ========= Экраны, шапка, окно «О проповеди» =========
-   Адрес: пусто — главная; #s=<id>&sp=<пространство> — проповедь в виде «Слайды»; …&v=text — в виде «Текст».
+   Адрес: пусто — главная; #s=<id>&sp=<пространство> — проповедь в виде «Слайды»; …&v=text — в виде «Текст»; #op=<ключ> — страница оператора (этап 9).
    sp (этап 8) — в каком пространстве проповедь: ссылка открывает её, даже если человек сейчас в другом.
    Ссылка без sp (до этапа 8) открывает проповедь в текущем пространстве. */
 function navigate(hash){
@@ -17,6 +17,8 @@ function route(){
   if (!help && (!id || !state || state.id !== id)) hist.id = null;   // ушли с проповеди: история отмены начнётся заново
   if (screen === 'sermon' && state) persistDraft();   // уходим с проповеди: черновик сохраняем сразу, не ждём паузы
   if (!help && ed.id && ed.id !== id) endCloud();   // ушли с облачной проповеди: сохранить и отпустить замок
+  if (p.has('op')){ openOperator(p.get('op')); return; }   // страница оператора (этап 9, operator.js): открывается без входа
+  if (screen === 'op') closeOperator();   // ушли со страницы оператора: дальше обычная форма
   if (cloudGate()){ screen = 'home'; renderAll(); return; }   // сначала вход; адрес остаётся, после входа откроется эта же проповедь
   const sp = p.get('sp');
   if (sp && sp !== cloud.space && !switchSpace(sp, true)){   // ссылка из другого пространства: переключаемся (cloud.js)
@@ -156,6 +158,7 @@ function renderMain(){
   if (screen === 'home' && cloudGate()){ document.title = 'Вход · Crosspect'; renderGate(); }
   else if (screen === 'home'){ document.title = 'Конспекты · ' + (cloud.spaceName || 'Crosspect'); renderHome(); }
   else if (screen === 'help'){ document.title = 'Как пользоваться · Crosspect'; renderHelp(); }
+  else if (screen === 'op') renderOperator();   // страница оператора: свой заголовок страницы
   else {
     document.title = (state.meta.title || 'Проповедь') + ' · Crosspect';
     if (view === 'text') renderTextView(); else renderSlides();
@@ -171,6 +174,7 @@ function setView(v){
 
 /* ----- Шапка ----- */
 function renderTopbar(){
+  if (screen === 'op'){ topbar.className = 'topbar is-op'; topbar.innerHTML = ''; MOTION.ui.id = ''; return; }   // у страницы оператора шапки нет (этап 9)
   fillMenu();
   motionBeforeTopbar();   // запомнить, где стоял статус, чтобы подложка переехала (motion.js)
   topbar.innerHTML = '';

@@ -117,7 +117,8 @@ function tvSide(){
   const card = (title, ...kids) => h('section', { class:'tv-card2' }, h('div', { class:'tv-h', text:title }), kids);
   return h('aside', { class:'tv-side', 'aria-label':'Для оператора и проверка' },
     card('Для оператора',
-      h('button', { type:'button', class:'btn primary wide', title:'Узкие страницы под телефон: названия и номера слайдов, текст Писания, тезисы и цитаты, под каждым слайдом его текст, жёлтые заметки', onclick:() => operatorPDF() }, ic('save'), 'PDF для оператора')),
+      h('button', { type:'button', class:'btn primary wide', title:'Узкие страницы под телефон: названия и номера слайдов, текст Писания, тезисы и цитаты, под каждым слайдом его текст, жёлтые заметки', onclick:() => operatorPDF() }, ic('save'), 'PDF для оператора'),
+      canEditCloud() ? h('button', { type:'button', class:'btn wide', title:'Ссылка для телефона оператора: открывается без входа и обновляется, когда вы сохраняете конспект', onclick:() => openOpLink() }, ic('link'), 'Ссылка для оператора') : null),
     card('Показать',
       toggle([['all', 'Всё'], ['slides', 'Только слайды']], viewOpts.showText ? 'all' : 'slides', val => { viewOpts.showText = val === 'all'; LS.set('swp-view', JSON.stringify(viewOpts)); renderMain(); }),
       h('div', { class:'size' }, h('button', { type:'button', title:'Мельче', onclick:() => setSize(-0.1) }, 'A−'), h('button', { type:'button', title:'Крупнее', onclick:() => setSize(0.1) }, 'A+'))),

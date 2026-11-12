@@ -35,7 +35,7 @@ const deniedErr = e => /permission-denied/.test((e && e.code) || '');
 /* Начало моего замка помним на вкладку: после перезагрузки страницы правка продолжается */
 function rememberAt(id, at){ try { if (at) sessionStorage.setItem('swp-lock:' + id, String(at)); else sessionStorage.removeItem('swp-lock:' + id); } catch(e){} }
 function recallAt(id){ try { return +sessionStorage.getItem('swp-lock:' + id) || 0; } catch(e){ return 0; } }
-const cloudMarks = r => ({ cloudSpace:r.cloudSpace, cloudAt:r.cloudAt, cloudOwner:r.cloudOwner, cloudStatus:r.cloudStatus, cloudBy:r.cloudBy });
+const cloudMarks = r => ({ cloudSpace:r.cloudSpace, cloudAt:r.cloudAt, cloudOwner:r.cloudOwner, cloudStatus:r.cloudStatus, cloudBy:r.cloudBy, cloudShare:r.cloudShare || '' });
 
 /* ----- Открыть и закрыть ----- */
 /* Открыли проповедь после входа: решить, просмотр или правка. remote — версия из облака (null — её там нет или нет связи),
@@ -224,11 +224,14 @@ async function cloudWrite(s, o){
   if (here()){ ed.saving = true; persistDraft(); lg(2); }   // левая часть знака: черновик записан в браузере (persistDraft обновляет и шапку)
   const slow = setTimeout(() => { if (here()){ ed.slow = true; updateStatus(); } }, SLOW_MS);
   let res = 'ok';
+  const shareWas = s.cloudShare || (ed.remote && ed.remote.id === s.id ? ed.remote.cloudShare : '');   // ссылка для оператора есть: снимок обновится вместе с сохранением (этап 9)
+  const shareSnap = shareWas ? opSnapshot(s) : null;
   try {
     const sending = cloud.api.save(cloud.space, s, cloud.user, { force:!!o.force, status:s.cloudStatus || 'draft', lock:{ name:myLockName(), at:o.at || 0, release:!!o.release, minutes:lockMins() } });
     lg(3);   // верхняя правая часть: запрос ушёл
     const r = await sending;
     Object.assign(s, cloudMarks(r)); s.savedAt = Math.max(sent, s.savedAt || 0);
+    if (shareSnap && r.cloudShare) opSync(r.cloudShare, shareSnap);   // отдельная запись; без ожидания и без влияния на сохранение
     resyncFlags(s);   // у слайдов без отметки редактора подпись содержимого — по сохранённому
     if (here()){
       ed.remote = r; ed.offline = false; ed.quota = false; ed.lastBeat = Date.now();

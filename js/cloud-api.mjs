@@ -73,7 +73,7 @@ export function createCloudAPI(fb){
       meta: d.meta || {}, settings: d.settings || {}, blocks: d.blocks || [],
       createdAt: ms(d.createdAt), updatedAt: ms(d.updatedAt),
       cloudSpace: space, cloudAt: ms(d.updatedAt), cloudOwner: d.owner || '',
-      cloudStatus: d.status || 'draft', cloudBy: d.updatedBy || '',
+      cloudStatus: d.status || 'draft', cloudBy: d.updatedBy || '', cloudShare: typeof d.shareKey === 'string' ? d.shareKey : '',
       lock: lockOf(d.lock),
     };
   }
@@ -331,8 +331,94 @@ export function createCloudAPI(fb){
         { slides: JSON.parse(JSON.stringify(slides || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
     },
 
-    /* Удалить проповедь (и её сводку, и отметки редактора, если они есть) */
+    /* Ссылка для оператора (этап 9): снимок конспекта лежит в shares/{ключ}, читается по ключу без входа; ключ запоминается в проповеди
+       (поле shareKey). Создать и отключить ссылку — такая же запись проповеди, как смена статуса: замок свободен или мой (чужой живой —
+       ошибка 'locked'), время правки и сводка обновляются. Права проверяют правила (shares/{ключ}, canEditSermon).
+       Снимок пишется ОТДЕЛЬНОЙ записью, не в одной транзакции с проповедью: под замком правка проповеди, сводки и снимка вместе
+       упирается в предел правил Firestore (1000 вычислений на запрос; проверено в эмуляторе). Порядок выбран так, чтобы при сбое не оставалось
+       открытого снимка без ссылки в проповеди: включаем — сначала ключ в проповеди, потом снимок (сбой: ключ есть, снимка нет — следующее
+       нажатие создаст его под тем же ключом); отключаем — сначала удаляем снимок, потом стираем ключ (сбой: ключ есть, снимка нет — то же). */
+
+    /* Включить ссылку: key — новый ключ (20–64 знака); если у проповеди ссылка уже есть, остаётся прежняя (key игнорируется), а снимок
+       обновляется. snapshot — то, что видит оператор (форма собирает его в js/operator.js). Возвращает { key, remote }. */
+    async shareOn(space, id, me, key, snapshot, opts){
+      opts = opts || {};
+      if (new TextEncoder().encode(JSON.stringify(snapshot)).length * 1.1 > MAX_BYTES) throw err('too-big', 'Конспект слишком большой для ссылки');
+      const r = ref(space, id), my = lower(me.email), ts = F.serverTimestamp();
+      let before = -1, wrote = false, used = key;
+      await F.runTransaction(db, async tx => {
+        wrote = false; used = key;
+        const cur = await tx.get(r);
+        if (!cur.exists()) throw err('missing', 'Этого конспекта уже нет в облаке');
+        const d = cur.data(), l = lockOf(d.lock);
+        before = ms(d.updatedAt);
+        if (l && l.email !== my && live(l, opts.minutes)) throw err('locked', 'Конспект сейчас правят', { lock: l });
+        const had = typeof d.shareKey === 'string' && d.shareKey ? d.shareKey : '';
+        used = had || key;
+        if (had) return;
+        const upd = { shareKey: used, updatedAt: ts, updatedBy: my };
+        if (l && l.email !== my) upd.lock = null;   // чужой истёкший замок (так требуют правила)
+        tx.update(r, upd);
+        tx.set(sumRef(space, id), summaryOf(afterUpdate(d, upd)));
+        wrote = true;
+      });
+      const back = wrote ? await readBack(r, snap => snap.exists() && ms(snap.data().updatedAt) > before) : await F.getDocFromServer(r);
+      const sh = F.doc(db, 'shares', used), body = { sermon: JSON.parse(JSON.stringify(snapshot)), updatedAt: ts };
+      if ((await F.getDoc(sh)).exists()) await F.updateDoc(sh, body);
+      else await F.setDoc(sh, Object.assign({ spaceId: space, sermonId: id, createdBy: my }, body));
+      return { key: used, remote: fromDoc(space, back) };
+    },
+
+    /* Отключить ссылку: снимок удаляется, shareKey стирается у проповеди. Нет ссылки — ничего не делает. Возвращает проповедь */
+    async shareOff(space, id, me, opts){
+      opts = opts || {};
+      const r = ref(space, id), my = lower(me.email), ts = F.serverTimestamp();
+      const pre = await F.getDocFromServer(r);
+      if (!pre.exists()) throw err('missing', 'Этого конспекта уже нет в облаке');
+      const had = typeof pre.data().shareKey === 'string' && pre.data().shareKey ? pre.data().shareKey : '';
+      if (!had) return fromDoc(space, pre);
+      const l0 = lockOf(pre.data().lock);
+      if (l0 && l0.email !== my && live(l0, opts.minutes)) throw err('locked', 'Конспект сейчас правят', { lock: l0 });   // до того, как снимок тронут
+      const sh = F.doc(db, 'shares', had);
+      if ((await F.getDoc(sh)).exists()) await F.deleteDoc(sh);   // удалять то, чего нет, правила не дают
+      let before = -1;
+      await F.runTransaction(db, async tx => {
+        const cur = await tx.get(r);
+        if (!cur.exists()) throw err('missing', 'Этого конспекта уже нет в облаке');
+        const d = cur.data(), l = lockOf(d.lock);
+        before = ms(d.updatedAt);
+        if (l && l.email !== my && live(l, opts.minutes)) throw err('locked', 'Конспект сейчас правят', { lock: l });
+        const upd = { shareKey: F.deleteField(), updatedAt: ts, updatedBy: my };
+        if (l && l.email !== my) upd.lock = null;
+        tx.update(r, upd);
+        tx.set(sumRef(space, id), summaryOf(afterUpdate(d, upd)));
+      });
+      return fromDoc(space, await readBack(r, snap => snap.exists() && ms(snap.data().updatedAt) > before));
+    },
+
+    /* Обновить снимок после сохранения конспекта (форма зовёт, только если ссылка уже есть). Отдельная запись, не в записи проповеди:
+       сбой здесь не мешает сохранению конспекта; следующее сохранение попробует снова */
+    async shareSync(key, snapshot){
+      await F.updateDoc(F.doc(db, 'shares', key), { sermon: JSON.parse(JSON.stringify(snapshot)), updatedAt: F.serverTimestamp() });
+    },
+
+    /* Страница оператора (без входа): слушает снимок. onShare({ sermon, updatedAt } | null, { fromCache }) на каждое изменение;
+       null — документа нет (ссылку отключили, конспект удалили или ключ неверный). fromCache: ответа сервера ещё не было */
+    watchShare(key, onShare, onError){
+      return F.onSnapshot(F.doc(db, 'shares', key), snap => {
+        const d = snap.exists() ? snap.data({ serverTimestamps: 'estimate' }) : null;
+        onShare(d ? { sermon: d.sermon || {}, updatedAt: ms(d.updatedAt) } : null, { fromCache: snap.metadata.fromCache });
+      }, onError);
+    },
+
+    /* Удалить проповедь (и её сводку, и отметки редактора, и ссылку для оператора, если они есть) */
     async remove(space, id){
+      let key = '';
+      try { const cur = await F.getDoc(ref(space, id)); if (cur.exists() && typeof cur.data().shareKey === 'string') key = cur.data().shareKey; }
+      catch (e) { if (!denied(e)) throw e; }
+      let share = null;
+      if (key){ try { const sn = await F.getDoc(F.doc(db, 'shares', key)); if (sn.exists()) share = sn.ref; } catch (e) { /* снимка не нашли — не мешаем удалению */ } }
+      if (share) await F.deleteDoc(share);   // отдельной записью (предел правил, см. выше); не удалился — конспект не трогаем, чтобы открытый снимок не остался без хозяина
       const b = F.writeBatch(db);
       b.delete(F.doc(db, 'spaces', space, 'sermons', id, 'editor', 'state'));
       b.delete(sumRef(space, id));
