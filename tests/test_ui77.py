@@ -267,8 +267,7 @@ def test_open_sermon_slides_in_and_back_slides_out(browser, base_url):
     page.evaluate("window.__anims = []")
     page.locator("a.btn.ghost", has_text="Проповеди").click()
     page.wait_for_selector(".home-top")
-    assert page.locator(".leave-ghost").count() == 1   # прежний экран уезжает поверх списка
-    assert any("translateX(72px)" in k for _, k in page.evaluate("window.__anims"))
+    assert any(c == "leave-ghost" and "translateX(72px)" in k for c, k in page.evaluate("window.__anims"))   # прежний экран уезжает поверх списка
     page.wait_for_function("!document.querySelector('.leave-ghost')", timeout=2000)
     # при возврате на главную заставки входа нет
     assert page.locator(".gate").count() == 0

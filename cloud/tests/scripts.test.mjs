@@ -122,7 +122,7 @@ describe('пространства', () => {
     assert.ok((await db.doc('admins/boss@example.com').get()).exists);
     const sm = (await db.doc('spaces/m1/summaries/s1').get()).data();
     assert.equal(sm.title, 'Вера');
-    assert.equal(sm.slides, 2);
+    assert.equal(sm.slides, 1);   // заставка и заметка — не в счёт (этап 7.7): migrate-8 пересчитывает старые сводки
     assert.equal(sm.refs, 'Ин. 3:16');
     assert.equal(sm.updatedAt.toMillis(), 2000);
     assert.equal(sm.lock, null);

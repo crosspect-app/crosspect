@@ -295,7 +295,7 @@ a.srow.next{box-shadow:inset 3px 0 0 var(--accent)}
 .sk-card.sk-row{flex-direction:row;align-items:center;gap:24px;padding:18px 16px;border-radius:0;border:0;border-bottom:1px solid var(--line)}
 .sk-row .sk-line{margin:0;height:12px}
 .sk-row .sk-line.w1{width:110px;flex:none}.sk-row .sk-line.w2{flex:1;max-width:420px;height:14px}.sk-row .sk-line.w3{width:140px;flex:none}
-.home-note{padding:0 2px;max-width:70ch}
+.home-note{align-self:flex-start;padding:10px 14px;max-width:70ch;border-radius:12px;background:rgba(14,14,14,.88)}   /* над ярким фоном главной — на своей подложке (этап 7.7) */
 .empty{padding:22px 22px 22px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface)}
 .empty .chips{margin-top:14px}
 
@@ -886,7 +886,7 @@ body.light .size button:hover{background:var(--surface-3)}
   0%{transform:translate(0,0)}12.5%{transform:translate(-37px,29px)}25%{transform:translate(52px,-61px)}37.5%{transform:translate(-90px,-18px)}
   50%{transform:translate(23px,84px)}62.5%{transform:translate(-64px,47px)}75%{transform:translate(71px,12px)}87.5%{transform:translate(-12px,-95px)}}
 /* Главная: очень медленно плывущий размытый фон из генератора (формат по умолчанию), приглушён: карточки на сплошной подложке */
-.home-bg{position:fixed;inset:-12%;z-index:0;pointer-events:none;background-size:cover;background-position:center;opacity:.62;filter:blur(14px) saturate(1.35) contrast(1.12);
+.home-bg{position:fixed;inset:-12%;z-index:0;pointer-events:none;background-size:cover;background-position:center;opacity:.55;filter:blur(14px) saturate(1.3) contrast(1.1);
   animation:home-drift 25s ease-in-out infinite alternate}
 @keyframes home-drift{from{transform:translate(-3%,-2%) rotate(-3deg) scale(1.1)}to{transform:translate(3%,2%) rotate(3deg) scale(1.1)}}
 .home{position:relative;z-index:1}
