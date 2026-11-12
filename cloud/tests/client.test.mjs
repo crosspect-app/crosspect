@@ -646,14 +646,15 @@ describe('ссылка для оператора (этап 9)', () => {
     await save(ivan, 'ivan@x.pl', 'op5b', 'У редактора без ссылки');
     await admin.setStatus('sp1', 'op5', me('admin@x.pl'), 'work');
     await admin.setStatus('sp1', 'op5b', me('admin@x.pl'), 'work');
-    // запись конспекта автору закрыта, а ссылка пишется вместе с ним одной транзакцией: не получается ни то, ни другое
-    await assert.rejects(ivan.shareOff('sp1', 'op5', me('ivan@x.pl')), (e) => /permission-denied/.test(e.code));
-    assert.ok(await raw('shares/' + KEY('f')), 'снимок при отказе остаётся');
-    assert.equal((await raw('spaces/sp1/sermons/op5')).shareKey, KEY('f'));
+    // запись конспекта автору закрыта: новую ссылку он не сделает, и ключ у конспекта не сотрёт
     await assert.rejects(ivan.shareOn('sp1', 'op5b', me('ivan@x.pl'), KEY('g'), snap('x')), (e) => /permission-denied/.test(e.code));
-    assert.equal(await raw('shares/' + KEY('g')), null, 'и снимок без ссылки в конспекте не появляется');
+    assert.equal(await raw('shares/' + KEY('g')), null, 'снимок без ссылки в конспекте не появляется');
+    await assert.rejects(ivan.shareOff('sp1', 'op5', me('ivan@x.pl')), (e) => /permission-denied/.test(e.code));
+    assert.equal((await raw('spaces/sp1/sermons/op5')).shareKey, KEY('f'));
+    // (форма автору в этом случае кнопку не показывает) ключ остался, снимок успел уйти — редактор спокойно доводит отключение до конца
     await admin.shareOff('sp1', 'op5', me('admin@x.pl'));
     assert.equal(await raw('shares/' + KEY('f')), null);
+    assert.equal((await raw('spaces/sp1/sermons/op5')).shareKey, undefined);
     const r = await admin.shareOn('sp1', 'op5b', me('admin@x.pl'), KEY('g'), snap('У редактора без ссылки'));
     assert.equal(r.key, KEY('g'));
   });

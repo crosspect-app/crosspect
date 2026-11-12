@@ -333,8 +333,11 @@ export function createCloudAPI(fb){
 
     /* Ссылка для оператора (этап 9): снимок конспекта лежит в shares/{ключ}, читается по ключу без входа; ключ запоминается в проповеди
        (поле shareKey). Создать и отключить ссылку — такая же запись проповеди, как смена статуса: замок свободен или мой (чужой живой —
-       ошибка 'locked'), время правки и сводка обновляются. Проповедь и снимок пишутся одной транзакцией, поэтому «ссылка без снимка»
-       и «снимок без ссылки в проповеди» не возникают. Права проверяют правила (shares/{ключ}, canEditSermon). */
+       ошибка 'locked'), время правки и сводка обновляются. Права проверяют правила (shares/{ключ}, canEditSermon).
+       Снимок пишется ОТДЕЛЬНОЙ записью, не в одной транзакции с проповедью: под замком правка проповеди, сводки и снимка вместе
+       упирается в предел правил Firestore (1000 вычислений на запрос; проверено в эмуляторе). Порядок выбран так, чтобы при сбое не оставалось
+       открытого снимка без ссылки в проповеди: включаем — сначала ключ в проповеди, потом снимок (сбой: ключ есть, снимка нет — следующее
+       нажатие создаст его под тем же ключом); отключаем — сначала удаляем снимок, потом стираем ключ (сбой: ключ есть, снимка нет — то же). */
 
     /* Включить ссылку: key — новый ключ (20–64 знака); если у проповеди ссылка уже есть, остаётся прежняя (key игнорируется), а снимок
        обновляется. snapshot — то, что видит оператор (форма собирает его в js/operator.js). Возвращает { key, remote }. */
@@ -352,20 +355,17 @@ export function createCloudAPI(fb){
         if (l && l.email !== my && live(l, opts.minutes)) throw err('locked', 'Конспект сейчас правят', { lock: l });
         const had = typeof d.shareKey === 'string' && d.shareKey ? d.shareKey : '';
         used = had || key;
-        const sh = F.doc(db, 'shares', used);
-        const shSnap = await tx.get(sh);
-        const body = { sermon: JSON.parse(JSON.stringify(snapshot)), updatedAt: ts };
-        if (shSnap.exists()) tx.update(sh, body);
-        else tx.set(sh, Object.assign({ spaceId: space, sermonId: id, createdBy: my }, body));
-        if (!had){
-          const upd = { shareKey: used, updatedAt: ts, updatedBy: my };
-          if (l && l.email !== my) upd.lock = null;   // чужой истёкший замок (так требуют правила)
-          tx.update(r, upd);
-          tx.set(sumRef(space, id), summaryOf(afterUpdate(d, upd)));
-          wrote = true;
-        }
+        if (had) return;
+        const upd = { shareKey: used, updatedAt: ts, updatedBy: my };
+        if (l && l.email !== my) upd.lock = null;   // чужой истёкший замок (так требуют правила)
+        tx.update(r, upd);
+        tx.set(sumRef(space, id), summaryOf(afterUpdate(d, upd)));
+        wrote = true;
       });
       const back = wrote ? await readBack(r, snap => snap.exists() && ms(snap.data().updatedAt) > before) : await F.getDocFromServer(r);
+      const sh = F.doc(db, 'shares', used), body = { sermon: JSON.parse(JSON.stringify(snapshot)), updatedAt: ts };
+      if ((await F.getDoc(sh)).exists()) await F.updateDoc(sh, body);
+      else await F.setDoc(sh, Object.assign({ spaceId: space, sermonId: id, createdBy: my }, body));
       return { key: used, remote: fromDoc(space, back) };
     },
 
@@ -373,26 +373,27 @@ export function createCloudAPI(fb){
     async shareOff(space, id, me, opts){
       opts = opts || {};
       const r = ref(space, id), my = lower(me.email), ts = F.serverTimestamp();
-      let before = -1, wrote = false;
+      const pre = await F.getDocFromServer(r);
+      if (!pre.exists()) throw err('missing', 'Этого конспекта уже нет в облаке');
+      const had = typeof pre.data().shareKey === 'string' && pre.data().shareKey ? pre.data().shareKey : '';
+      if (!had) return fromDoc(space, pre);
+      const l0 = lockOf(pre.data().lock);
+      if (l0 && l0.email !== my && live(l0, opts.minutes)) throw err('locked', 'Конспект сейчас правят', { lock: l0 });   // до того, как снимок тронут
+      const sh = F.doc(db, 'shares', had);
+      if ((await F.getDoc(sh)).exists()) await F.deleteDoc(sh);   // удалять то, чего нет, правила не дают
+      let before = -1;
       await F.runTransaction(db, async tx => {
-        wrote = false;
         const cur = await tx.get(r);
         if (!cur.exists()) throw err('missing', 'Этого конспекта уже нет в облаке');
         const d = cur.data(), l = lockOf(d.lock);
         before = ms(d.updatedAt);
-        const had = typeof d.shareKey === 'string' && d.shareKey ? d.shareKey : '';
-        if (!had) return;
         if (l && l.email !== my && live(l, opts.minutes)) throw err('locked', 'Конспект сейчас правят', { lock: l });
-        const sh = F.doc(db, 'shares', had);
-        if ((await tx.get(sh)).exists()) tx.delete(sh);   // удалять то, чего нет, правила не дают — тогда отказала бы вся запись
         const upd = { shareKey: F.deleteField(), updatedAt: ts, updatedBy: my };
         if (l && l.email !== my) upd.lock = null;
         tx.update(r, upd);
         tx.set(sumRef(space, id), summaryOf(afterUpdate(d, upd)));
-        wrote = true;
       });
-      const back = wrote ? await readBack(r, snap => snap.exists() && ms(snap.data().updatedAt) > before) : await F.getDocFromServer(r);
-      return fromDoc(space, back);
+      return fromDoc(space, await readBack(r, snap => snap.exists() && ms(snap.data().updatedAt) > before));
     },
 
     /* Обновить снимок после сохранения конспекта (форма зовёт, только если ссылка уже есть). Отдельная запись, не в записи проповеди:
@@ -416,11 +417,11 @@ export function createCloudAPI(fb){
       try { const cur = await F.getDoc(ref(space, id)); if (cur.exists() && typeof cur.data().shareKey === 'string') key = cur.data().shareKey; }
       catch (e) { if (!denied(e)) throw e; }
       let share = null;
-      if (key){ try { const s = await F.getDoc(F.doc(db, 'shares', key)); if (s.exists()) share = s.ref; } catch (e) { /* снимок не нашли — не мешаем удалению */ } }
+      if (key){ try { const sn = await F.getDoc(F.doc(db, 'shares', key)); if (sn.exists()) share = sn.ref; } catch (e) { /* снимка не нашли — не мешаем удалению */ } }
+      if (share) await F.deleteDoc(share);   // отдельной записью (предел правил, см. выше); не удалился — конспект не трогаем, чтобы открытый снимок не остался без хозяина
       const b = F.writeBatch(db);
       b.delete(F.doc(db, 'spaces', space, 'sermons', id, 'editor', 'state'));
       b.delete(sumRef(space, id));
-      if (share) b.delete(share);
       b.delete(ref(space, id));
       await b.commit();
     },
