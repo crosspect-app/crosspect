@@ -330,6 +330,35 @@ describe('проповеди: правка', () => {
   });
 });
 
+describe('статус отдельно от содержимого (этап 7.2)', () => {
+  const st = (who, status, extra = {}) => ({ status, updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra });
+  test('спикер меняет статус своей проповеди, пока замок свободен или свой', async () => {
+    const ref = sermon(as('petr'), 'sw', 'petr1');
+    await assertSucceeds(updateDoc(ref, st('petr', 'submitted')));
+    await assertSucceeds(updateDoc(ref, st('petr', 'draft')));
+    await setLock('sw', 'petr1', 'petr', 1);
+    await assertSucceeds(updateDoc(ref, st('petr', 'submitted')));
+  });
+  test('редактор меняет статус в любую сторону, под своим замком тоже', async () => {
+    const ref = sermon(as('ed'), 'sw', 'ivan1');
+    await assertSucceeds(updateDoc(ref, st('ed', 'draft')));
+    await setLock('sw', 'ivan1', 'ed', 1);
+    await assertSucceeds(updateDoc(ref, st('ed', 'submitted')));
+  });
+  test('под чужим живым замком статус не меняет никто; истёкший замок снимается вместе со статусом', async () => {
+    await setLock('sw', 'petr1', 'ed', 2);
+    await assertFails(updateDoc(sermon(as('petr'), 'sw', 'petr1'), st('petr', 'submitted')));
+    await setLock('sw', 'ivan1', 'ivan', 2);
+    await assertFails(updateDoc(sermon(as('ed'), 'sw', 'ivan1'), st('ed', 'draft')));
+    await setLock('sw', 'petr1', 'ed', 11);
+    await assertFails(updateDoc(sermon(as('petr'), 'sw', 'petr1'), st('petr', 'submitted')));
+    await assertSucceeds(updateDoc(sermon(as('petr'), 'sw', 'petr1'), st('petr', 'submitted', { lock: null })));
+  });
+  test('без отметки времени и автора статус не меняется', async () => {
+    await assertFails(updateDoc(sermon(as('petr'), 'sw', 'petr1'), { status: 'submitted' }));
+  });
+});
+
 describe('замок', () => {
   test('взять свободный, продлить сигналом, править, отпустить', async () => {
     const db = as('ivan');
@@ -469,6 +498,48 @@ describe('настройки слайдов', () => {
     await assertFails(setDoc(cfg(as('stranger'), 'sw'), body('stranger')));
     await assertFails(setDoc(cfg(as('ed'), 'other'), body('ed')));
     await assertFails(getDoc(cfg(as('ed'), 'other')));
+  });
+});
+
+describe('настройки экрана человека (этап 7.2)', () => {
+  const prefs = (db, email, id = 'screen') => doc(db, 'people', email, 'prefs', id);
+  const body = (extra = {}) => ({ layout: { order: ['film', 'stage', 'side'], film: 214, side: 400 }, updatedAt: serverTimestamp(), ...extra });
+  test('человек пишет и читает свои', async () => {
+    const db = as('ivan');
+    await assertSucceeds(setDoc(prefs(db, PEOPLE.ivan), body()));
+    await assertSucceeds(getDoc(prefs(db, PEOPLE.ivan)));
+    await assertSucceeds(setDoc(prefs(db, PEOPLE.ivan), body({ layout: {} })));
+  });
+  test('посторонний со входом — тоже свои (раскладка общая для всех пространств)', async () => {
+    await assertSucceeds(setDoc(prefs(as('stranger'), PEOPLE.stranger), body()));
+  });
+  test('чужие не читаются и не пишутся, без входа — ничего', async () => {
+    await assertSucceeds(setDoc(prefs(as('ivan'), PEOPLE.ivan), body()));
+    await assertFails(getDoc(prefs(as('ed'), PEOPLE.ivan)));
+    await assertFails(getDoc(prefs(as('admin'), PEOPLE.ivan)));
+    await assertFails(setDoc(prefs(as('ed'), PEOPLE.ivan), body()));
+    await assertFails(getDoc(prefs(anon(), PEOPLE.ivan)));
+    await assertFails(setDoc(prefs(anon(), PEOPLE.ivan), body()));
+  });
+  test('почта с заглавными буквами в токене — та же запись', async () => {
+    const db = env.authenticatedContext('ivan2', { email: 'Ivan@Example.com', email_verified: true }).firestore();
+    await assertSucceeds(setDoc(prefs(db, PEOPLE.ivan), body()));
+  });
+  test('только документ screen, нужные поля, время сервера', async () => {
+    const db = as('ivan');
+    await assertFails(setDoc(prefs(db, PEOPLE.ivan, 'other'), body()));
+    await assertFails(setDoc(prefs(db, PEOPLE.ivan), body({ extra: 1 })));
+    await assertFails(setDoc(prefs(db, PEOPLE.ivan), body({ layout: 'текст' })));
+    await assertFails(setDoc(prefs(db, PEOPLE.ivan), body({ updatedAt: minutesAgo(1) })));
+    await assertFails(setDoc(prefs(db, PEOPLE.ivan), { layout: {} }));
+    const big = {}; for (let i = 0; i < 21; i++) big['k' + i] = i;
+    await assertFails(setDoc(prefs(db, PEOPLE.ivan), body({ layout: big })));
+  });
+  test('удалить и перебрать нельзя', async () => {
+    const db = as('ivan');
+    await assertSucceeds(setDoc(prefs(db, PEOPLE.ivan), body()));
+    await assertFails(deleteDoc(prefs(db, PEOPLE.ivan)));
+    await assertFails(getDocs(collection(db, 'people', PEOPLE.ivan, 'prefs')));
   });
 });
 

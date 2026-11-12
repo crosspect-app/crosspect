@@ -364,6 +364,49 @@ describe('работа редактора (этап 7)', () => {
   });
 });
 
+describe('статус отдельно от содержимого (этап 7.2)', () => {
+  test('спикер меняет статус своей без замка и под своим; под чужим живым — locked; содержимое не трогается', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    const a = await ivan.save('sp1', sermon('ss1', 'Статус'), me('ivan@x.pl'));
+    const r = await ivan.setStatus('sp1', 'ss1', me('ivan@x.pl'), 'submitted');
+    assert.equal(r.cloudStatus, 'submitted');
+    assert.ok(r.cloudAt > a.cloudAt, 'новая версия');
+    assert.equal(r.meta.title, 'Статус');
+    assert.deepEqual(r.blocks, a.blocks);
+    // под своим замком (правка открыта) — тоже можно, замок остаётся
+    const l = await ivan.lock('sp1', 'ss1', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    const r2 = await ivan.setStatus('sp1', 'ss1', me('ivan@x.pl'), 'draft', { minutes: 10 });
+    assert.equal(r2.cloudStatus, 'draft');
+    assert.equal(r2.lock.at, l.lock.at);
+    // редактор под чужим живым замком статус не меняет
+    await assert.rejects(admin.setStatus('sp1', 'ss1', me('admin@x.pl'), 'submitted', { minutes: 10 }), (e) => e.code === 'locked' && e.lock.email === 'ivan@x.pl');
+    await ivan.release('sp1', 'ss1', me('ivan@x.pl'), l.lock.at);
+    const r3 = await admin.setStatus('sp1', 'ss1', me('admin@x.pl'), 'submitted');
+    assert.equal(r3.cloudStatus, 'submitted');
+    assert.equal(r3.cloudBy, 'admin@x.pl');
+  });
+  test('чужую проповедь спикер не трогает, «done» спикеру нельзя', async () => {
+    const ivan = await client('ivan@x.pl'), petr = await client('petr@x.pl');
+    await ivan.save('sp1', sermon('ss2', 'Ивана'), me('ivan@x.pl'));
+    await assert.rejects(petr.setStatus('sp1', 'ss2', me('petr@x.pl'), 'submitted'), (e) => /permission-denied/.test(e.code));
+    await assert.rejects(ivan.setStatus('sp1', 'ss2', me('ivan@x.pl'), 'done'), (e) => /permission-denied/.test(e.code));
+  });
+});
+
+describe('настройки экрана человека (этап 7.2)', () => {
+  test('пишет и читает сам человек, общие для всех пространств; чужие закрыты', async () => {
+    const ivan = await client('Ivan@X.pl'), petr = await client('petr@x.pl');
+    assert.equal(await ivan.getPrefs(me('ivan@x.pl')), null);
+    const lay = { order: ['side', 'stage', 'film'], film: 240, side: 420 };
+    await ivan.setPrefs(me('Ivan@X.pl'), lay);
+    assert.deepEqual(await ivan.getPrefs(me('ivan@x.pl')), lay);
+    await ivan.setPrefs(me('ivan@x.pl'), {});   // «Сбросить настройки экрана»
+    assert.deepEqual(await ivan.getPrefs(me('ivan@x.pl')), {});
+    await assert.rejects(petr.getPrefs(me('ivan@x.pl')), (e) => /permission-denied/.test(e.code));
+    await assert.rejects(petr.setPrefs(me('ivan@x.pl'), lay), (e) => /permission-denied/.test(e.code));
+  });
+});
+
 describe('настройки слайдов', () => {
   test('админ записывает, спикер читает и не может записать, изменения приходят вживую', async () => {
     const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');

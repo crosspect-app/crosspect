@@ -13,6 +13,7 @@ rules_version = '2';
 //                                    разрешает) или только свои
 //   spaces/{s}/sermons/{id}/editor/state   отметки редактора; проповедник их не видит
 //   spaces/{s}/config/slides         настройки слайдов пространства: видят все, правят админ и редактор
+//   people/{email}/prefs/screen      раскладка экрана у человека: видит и правит только он сам
 //   shares/{key}                     снимок для оператора: читается по ключу без входа
 
 service cloud.firestore {
@@ -251,6 +252,19 @@ service cloud.firestore {
           allow delete: if isEditor(s) || (isMember(s) && !existsAfter(sermonPath(s, id)));
         }
       }
+    }
+
+    // ---------- личные настройки экрана (этап 7.2) ----------
+    // people/{email}/prefs/screen — ширина и порядок панелей у человека, общие для всех его пространств.
+    // Читает и пишет только сам человек. Удалить из браузера нельзя: «Сбросить» записывает пустую раскладку.
+    match /people/{email}/prefs/{doc} {
+      allow get: if signedIn() && email == me();
+      allow create, update: if signedIn() && email == me() && doc == 'screen'
+        && request.resource.data.keys().hasAll(['layout', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['layout', 'updatedAt'])
+        && request.resource.data.layout is map
+        && request.resource.data.layout.size() <= 20
+        && request.resource.data.updatedAt == request.time;
     }
 
     // Свои пространства: запрос по всем «members» с условием email == моя почта.

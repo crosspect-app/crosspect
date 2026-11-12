@@ -198,6 +198,38 @@ export function createCloudAPI(fb){
       });
     },
 
+    /* Статус конспекта (этап 7.2) отдельно от содержимого: 'draft' — «В работе», 'submitted' — «Готов к вёрстке».
+       Можно, когда замок свободен (нет или истёк) или мой; под чужим живым замком — ошибка 'locked' ({ lock }).
+       Истёкший чужой замок при этом снимается (так требуют правила). Возвращает новую облачную версию */
+    async setStatus(space, id, me, status, opts){
+      opts = opts || {};
+      const r = ref(space, id), my = lower(me.email), ts = F.serverTimestamp();
+      let before = -1;
+      await F.runTransaction(db, async tx => {
+        const cur = await tx.get(r);
+        if (!cur.exists()) throw err('missing', 'Этой проповеди уже нет в облаке');
+        const d = cur.data(), l = lockOf(d.lock);
+        before = ms(d.updatedAt);
+        if (l && l.email !== my && live(l, opts.minutes)) throw err('locked', 'Проповедь сейчас правят', { lock: l });
+        const upd = { status, updatedAt: ts, updatedBy: my };
+        if (l && l.email !== my) upd.lock = null;   // чужой истёкший замок
+        tx.update(r, upd);
+      });
+      const back = await readBack(r, snap => snap.exists() && ms(snap.data().updatedAt) > before);
+      return fromDoc(space, back);
+    },
+
+    /* Настройки экрана человека (этап 7.2): people/{почта}/prefs/screen = { layout, updatedAt }. Видит и пишет только он сам.
+       layout — ширина и порядок панелей; {} — как по умолчанию. Нет документа — null */
+    async getPrefs(me){
+      const snap = await F.getDoc(F.doc(db, 'people', lower(me.email), 'prefs', 'screen'));
+      return snap.exists() ? (snap.data().layout || {}) : null;
+    },
+    async setPrefs(me, layout){
+      await F.setDoc(F.doc(db, 'people', lower(me.email), 'prefs', 'screen'),
+        { layout: JSON.parse(JSON.stringify(layout || {})), updatedAt: F.serverTimestamp() });
+    },
+
     /* Отметки редактора («доработать»): документ editor/state, читает и пишет только редактор (и админ), замок не нужен.
        flags = { <id слайда>: { t: 1 | 0, s: подпись } }. Нет документа или нет прав — пустой набор */
     async getFlags(space, id){
