@@ -192,10 +192,15 @@ describe('список', () => {
 });
 
 describe('сводки (этап 8)', () => {
-  const summary = (id, space = 'sp1') => env.withSecurityRulesDisabled(async (ctx) => {
-    const snap = await ctx.firestore().doc(`spaces/${space}/summaries/${id}`).get();
-    return snap.exists ? snap.data() : null;
-  });
+  /* Сводка в обход правил (withSecurityRulesDisabled сам ничего не возвращает — результат через переменную) */
+  const summary = async (id, space = 'sp1') => {
+    let out = null;
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const snap = await F.getDoc(F.doc(ctx.firestore(), 'spaces', space, 'summaries', id));
+      out = snap.exists() ? snap.data() : null;
+    });
+    return out;
+  };
   const withRef = (id, title, extra = {}) => sermon(id, title, {
     blocks: [{ id: 'b1', type: 'splash' }, { id: 'n', type: 'note', text: 'оператору' },
       { id: 'b2', type: 'scripture', items: [{ kind: 'scripture', ref: 'Ин. 3:16', verses: [] }, { kind: 'scripture', ref: 'Рим. 5:8', verses: [] }] }],
