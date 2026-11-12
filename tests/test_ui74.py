@@ -313,13 +313,15 @@ def test_logo_follows_real_save_stages(browser, base_url):
     ctx.close()
 
 
-def test_logo_animation_off_with_reduced_motion(browser, base_url):
+def test_logo_animation_ignores_reduced_motion(browser, base_url):
+    """Решение Виталия: анимация идёт всегда, даже если в системе включено «уменьшить анимацию»"""
     ctx, page = editor_page(browser, base_url)
     page.emulate_media(reduced_motion="reduce")
     page.evaluate("logoTo(4)")
-    page.wait_for_timeout(600)
-    assert page.evaluate("LG.level") == 0
-    assert page.evaluate("getComputedStyle(document.querySelectorAll('.topbar .logo-mark path')[0]).fill") == "rgb(236, 223, 207)"
+    page.wait_for_function("LG.level >= 2", timeout=3000)
+    page.wait_for_function("LG.level === 4", timeout=3000)
+    page.wait_for_timeout(400)
+    assert page.evaluate("getComputedStyle(document.querySelectorAll('.topbar .logo-mark path')[0]).fill") == "rgb(90, 209, 122)"
     assert not page.errors, page.errors
     ctx.close()
 

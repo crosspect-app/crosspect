@@ -192,7 +192,6 @@ body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--
 .logo-mark:not([data-lg="0"]) path{fill:var(--lg-off)}
 .logo-mark[data-lg="2"] .lg-a,.logo-mark[data-lg="3"] .lg-a,.logo-mark[data-lg="4"] .lg-a,
 .logo-mark[data-lg="3"] .lg-b,.logo-mark[data-lg="4"] .lg-b,.logo-mark[data-lg="4"] .lg-c{fill:var(--lg-on)}
-@media (prefers-reduced-motion:reduce){ .logo-mark path{transition:none} }
 .org{color:var(--muted);font-size:13px}
 .vsep{width:1px;height:26px;background:var(--line-2)}
 .hd-title{display:flex;flex-direction:column;gap:4px;align-items:flex-start;min-width:0;border:0;background:transparent;padding:3px 8px;margin:-3px -8px;border-radius:8px;text-align:left;color:inherit}

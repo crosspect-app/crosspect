@@ -10,7 +10,8 @@
    и цвета возвращаются. Части привязаны к настоящим стадиям: левая — «записано в браузере» (черновик), верхняя правая — «отправлено»
    (запрос в облако ушёл), клин — «подтверждено сервером». Если облако не приняло, нужная часть остаётся серой до следующего сохранения
    (нет сети — горит только левая; конфликт, замок, ошибка — левая и верхняя правая). Без входа (файл) проходят все части подряд.
-   Не проигрывается при `prefers-reduced-motion`. Без библиотек: SVG + CSS (`transition: fill .3s`).
+   Проигрывается всегда, настройка системы «уменьшить анимацию» (`prefers-reduced-motion`) не учитывается: решение Виталия 12 ноября 2026
+   (в Windows она часто выключена, а знак — единственный индикатор сохранения без текста). Без библиотек: SVG + CSS (`transition: fill .3s`).
    Состояние `LG.level`: 0 — обычные цвета; 1 — всё погасло; 2 — горит левая; 3 — ещё верхняя правая; 4 — ещё клин (потом снова 0). */
 const LOGO_VIEW = '68 112 484 448';
 const LOGO_PATHS = [
@@ -29,11 +30,9 @@ function logoLockup(cls, props){
   return h(cls === 'gate-logo' ? 'div' : 'a', Object.assign({ class:cls }, props || {}), logoMark(), h('span', { class:'logo-t', text:'Crosspect' }));
 }
 
-const logoQuiet = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 function logoPaint(){ document.querySelectorAll('.logo-mark').forEach(m => m.setAttribute('data-lg', String(LG.level))); }
 /* Дойти до стадии `want` (2 — записано в браузере, 3 — отправлено, 4 — подтверждено сервером): по одной части за STEP, чтобы быструю запись было видно */
 function logoTo(want){
-  if (logoQuiet()){ logoReset(); return; }
   LG.want = want;
   if (want < LG.level){ clearTimeout(LG.timer); LG.timer = 0; LG.level = want; logoPaint(); }   // не приняли: часть снова серая
   logoTick();
