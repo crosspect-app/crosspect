@@ -257,39 +257,61 @@ const WALL_TITLES = ['Если я не имею любви', 'Вера без д
   'Любов довготерпить', 'Światło świata', 'Chleb życia', 'Miłość cierpliwa jest', 'Dobry pasterz', 'Nie lękaj się', 'Sól ziemi', 'Nowe stworzenie',
   'Łaska i prawda', 'Light of the World', 'Bread of Life', 'Love Is Patient', 'The Good Shepherd', 'Do Not Be Afraid', 'Salt of the Earth',
   'Grace and Truth', 'Let There Be Light'];
-const WALL = { key:'', el:null, cols:8, rows:6 };
+const WALL = { key:'', el:null, proto:null, vars:null, size:'' };
+const WALL_CELL = 340, WALL_GAP = 22;
 function homeBg(){
   const el = h('div', { class:'home-bg', 'aria-hidden':'true' }, h('div', { class:'hb-grain' }), h('div', { class:'hb-haze' }));
   let cfg = null, bg = null;
   try { cfg = slidesCfg(); bg = formatBg(cfg.defaultFormat, cfg); } catch(e){}
   const key = JSON.stringify(bg);
-  if (!WALL.el || WALL.key !== key){ WALL.key = key; WALL.el = null; WALL.fresh = true; }
-  if (!WALL.el){
-    WALL.el = h('div', { class:'hb-wall' });
-    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;   // повторяемо: у всех одна и та же стена
-    const list = WALL_TITLES.slice().sort(() => rnd() - .5), vars = bgVars(bg);
-    for (let i = 0; i < WALL.cols * WALL.rows; i++){
-      const b = { id:'wall' + i, type:'splash', meta:{ title:list[i % list.length], date:'', firstName:'', lastName:'' } };
-      const sl = slideEl(b); sl.removeAttribute('data-id');   // не слайд проповеди: раскладка проповеди его не трогает
-      const st = sl.querySelector('.sl-stage'); Object.keys(vars).forEach(k => st.style.setProperty(k, vars[k]));
-      sl._b = b;
-      WALL.el.append(h('div', { class:'hb-cell' }, sl));
-    }
-  }
+  if (!WALL.el || WALL.key !== key){ WALL.key = key; WALL.el = h('div', { class:'hb-wall' }); WALL.proto = null; WALL.size = ''; WALL.vars = bgVars(bg); }
   el.prepend(WALL.el);
   return el;
 }
-/* Разложить стену (один раз, когда она уже на странице): только название посередине, как «Заставка: только название» */
+/* Каждое название раскладывается один раз (только название посередине, как «Заставка: только название»), в скрытом месте */
+function wallProtos(){
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;   // повторяемо: у всех одна и та же стена
+  const list = WALL_TITLES.slice().sort(() => rnd() - .5);
+  const host = h('div', { style:'position:fixed;left:-9999px;top:0;width:' + WALL_CELL + 'px;visibility:hidden' });
+  document.body.append(host);
+  const keep = SLIDES_TRY;
+  SLIDES_TRY = mergeSlides(slidesCfg(), { kinds:{ splash:{ titleOnly:true } } });
+  try {
+    WALL.proto = list.map((t, i) => {
+      const b = { id:'wall' + i, type:'splash', meta:{ title:t, date:'', firstName:'', lastName:'' } };
+      const sl = slideEl(b); sl.removeAttribute('data-id');   // не слайд проповеди: раскладка проповеди его не трогает
+      const st = sl.querySelector('.sl-stage'); Object.keys(WALL.vars).forEach(k => st.style.setProperty(k, WALL.vars[k]));
+      host.append(sl); fitSlide(sl, b); sl.remove();
+      return sl;
+    });
+  } finally { SLIDES_TRY = keep; host.remove(); }
+}
+/* Стена по размеру окна: квадрат со стороной в диагональ экрана (с запасом), повёрнут вокруг центра — углы всегда закрыты.
+   Ячейки — копии готовых слайдов (cloneNode), со сдвигом в каждом ряду, чтобы одинаковые названия не стояли столбиком */
+function fillWall(){
+  if (!WALL.el || !WALL.el.isConnected) return;
+  if (!WALL.proto) wallProtos();
+  const W = innerWidth, H = innerHeight, side = Math.hypot(W, H) + 2 * WALL_CELL;
+  const cw = WALL_CELL + WALL_GAP, ch = WALL_CELL * 9 / 16 + WALL_GAP;
+  const cols = Math.ceil(side / cw), rows = Math.ceil(side / ch), size = cols + 'x' + rows;
+  if (WALL.size !== size){
+    WALL.size = size;
+    const n = WALL.proto.length, cells = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells.push(h('div', { class:'hb-cell' }, WALL.proto[(r * 7 + c) % n].cloneNode(true)));
+    WALL.el.replaceChildren(...cells);
+    WALL.el.style.gridTemplateColumns = 'repeat(' + cols + ', ' + WALL_CELL + 'px)';
+  }
+  WALL.el.style.left = Math.round((W - (cols * cw - WALL_GAP)) / 2) + 'px';
+  WALL.el.style.top = Math.round((H - (rows * ch - WALL_GAP)) / 2) + 'px';
+}
 function layoutWall(){
   if (!WALL.el) return;
-  if (!WALL.fresh){ WALL.el.classList.add('ready'); return; }
-  setTimeout(() => {   // после списка: главная показывается сразу, стена (~0,1 с работы) проявляется следом
-    if (!WALL.fresh || !WALL.el || !WALL.el.isConnected) return;
-    WALL.fresh = false;
-    const keep = SLIDES_TRY;
-    SLIDES_TRY = mergeSlides(slidesCfg(), { kinds:{ splash:{ titleOnly:true } } });
-    try { WALL.el.querySelectorAll('.sl').forEach(sl => fitSlide(sl, sl._b)); }
-    finally { SLIDES_TRY = keep; }
+  if (WALL.proto){ fillWall(); WALL.el.classList.add('ready'); return; }
+  setTimeout(() => {   // после списка: главная показывается сразу, стена проявляется следом
+    if (!WALL.el || !WALL.el.isConnected) return;
+    fillWall();
     WALL.el.classList.add('ready');
   }, 0);
 }
+let wallResize = 0;
+window.addEventListener('resize', () => { clearTimeout(wallResize); wallResize = setTimeout(() => { if (WALL.el && WALL.el.isConnected && WALL.proto) fillWall(); }, 200); });

@@ -885,7 +885,7 @@ body.light .size button:hover{background:var(--surface-3)}
 /* Главная (этап 7.8): стена слайдов с библейскими названиями, затемнённая и мягкая, с зерном; поверх — тёмная дымка
    с одним «окном», которое медленно плывёт (только transform). Параметры стены — в --wall-filter */
 .home-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;--wall-filter:brightness(.51) contrast(.8) saturate(.85)}
-.hb-wall{position:absolute;left:-14%;top:-34%;display:grid;grid-template-columns:repeat(8,340px);gap:22px;transform:rotate(-9deg);transform-origin:0 0;filter:var(--wall-filter)}
+.hb-wall{position:absolute;display:grid;gap:22px;transform:rotate(-9deg);transform-origin:50% 50%;filter:var(--wall-filter)}   /* размер и место — fillWall (motion.js), по диагонали окна */
 .hb-cell .sl{width:340px}
 .hb-wall{opacity:0;transition:opacity .6s ease-out}
 .hb-wall.ready{opacity:1}
