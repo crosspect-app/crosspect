@@ -184,7 +184,8 @@ def test_panels_resize_swap_saved_in_cloud(browser, base_url):
     x, y = hd["x"] + hd["width"] / 2, hd["y"] + 200
     page.mouse.move(x, y); page.mouse.down(); page.mouse.move(x + 60, y, steps=5); page.mouse.up()
     assert abs(page.evaluate("filmEl.getBoundingClientRect().width") - (film_w + 60)) <= 2
-    page.wait_for_function("fakeCloud.db().prefs && fakeCloud.db().prefs['admin@x.pl'] && fakeCloud.db().prefs['admin@x.pl'].film === %d" % round(film_w + 60), timeout=5000)
+    # этап 7.8: в облаке — доля ширины экрана «Слайды», а не пиксели
+    page.wait_for_function("(() => { const p = fakeCloud.db().prefs && fakeCloud.db().prefs['admin@x.pl']; return p && p.v === 3 && Math.abs(p.film * document.querySelector('.sv').clientWidth - %d) <= 2; })()" % round(film_w + 60), timeout=5000)
     # поменять местами ленту и боковую панель: перетащить за заголовок
     head = page.locator(".side .side-head").bounding_box()
     tx = page.locator(".film").bounding_box()
@@ -210,8 +211,34 @@ def test_layout_comes_from_cloud_on_other_computer(browser, base_url):
     open_sermon(page, "s1")
     page.wait_for_function("layout.order[0] === 'stage'")
     page.wait_for_selector(".sv.lay")
-    assert abs(page.evaluate("filmEl.getBoundingClientRect().width") - 260) <= 1
+    # запись в пикселях (до этапа 7.8) — пересчитана от экрана 1900 px в долю
+    sv = page.evaluate("document.querySelector('.sv').clientWidth")
+    assert abs(page.evaluate("filmEl.getBoundingClientRect().width") - round(260 / 1900 * sv)) <= 2
     assert page.evaluate("stageEl.getBoundingClientRect().left < filmEl.getBoundingClientRect().left")
+    ctx.close()
+
+
+def test_layout_keeps_proportions_on_any_screen(browser, base_url):
+    """Этап 7.8: доли ширины — на большом и на маленьком экране пропорции те же; слайду — не меньше трети"""
+    ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": three_slides()})
+    page.evaluate("() => { const db = fakeCloud.db(); db.prefs = { 'admin@x.pl':{ v:3, order:['film', 'side', 'stage'], film:0.12, side:0.3 } }; fakeCloud.put(db); localStorage.removeItem('swp-layout'); }")
+    shares = []
+    for w in (1900, 1280):
+        page.set_viewport_size({"width": w, "height": 900})
+        page.evaluate("history.replaceState(null, '', location.pathname)")
+        page.reload()
+        page.wait_for_selector(".scard")
+        open_sermon(page, "s1")
+        page.wait_for_selector(".sv.lay")
+        r = page.evaluate("(() => { const t = document.querySelector('.sv').clientWidth; return [filmEl.getBoundingClientRect().width / t, sideEl.getBoundingClientRect().width / t, stageEl.getBoundingClientRect().width / t]; })()")
+        shares.append(r)
+    assert abs(shares[0][1] - shares[1][1]) < 0.02 and abs(shares[0][0] - shares[1][0]) < 0.02, shares   # боковая панель — та же доля
+    # очень широкая боковая панель на маленьком экране: слайду всё равно не меньше трети
+    page.evaluate("setLayout({ v:3, order:['film', 'side', 'stage'], film:0.25, side:0.45 })")
+    page.set_viewport_size({"width": 1200, "height": 900})
+    page.wait_for_timeout(200)
+    t = page.evaluate("document.querySelector('.sv').clientWidth")
+    assert page.evaluate("stageEl.getBoundingClientRect().width") >= t / 3 - 2
     ctx.close()
 
 
