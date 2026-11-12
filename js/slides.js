@@ -17,6 +17,7 @@ function renderSlides(){
   sideEl = h('aside', { class:'side', 'aria-label':'Настройки слайда' });
   mainEl.append(h('div', { class:'sv' + (speechOpen ? ' speech-open' : '') }, filmEl, stageEl, sideEl));
   renderFilm(); renderStage(); renderSide();
+  applyLayout();   // ширина и порядок панелей (layout.js)
   filmEl.scrollTop = keepScroll;
   if (state.blocks.some(b => b.type === 'scripture')) loadBible(curLang());
 }
@@ -27,9 +28,9 @@ function emptyState(){
     h('ol', null,
       h('li', null, 'Добавляйте слайды по ходу проповеди: места Писания, тезисы, цитаты, картинки.'),
       h('li', null, 'У каждого слайда есть «Текст к слайду»: что вы говорите, пока он на экране. На экран этот текст не выводится, его видит оператор.'),
-      h('li', null, 'Если какое-то время говорите без слайда, добавьте «Заставку»: на экране будет название проповеди.'),
+      h('li', null, 'Если какое-то время говорите без слайда, добавьте «Заставку проповеди»: на экране будет название проповеди.'),
       h('li', null, '«Заметка оператору» — просьба к оператору: запустить видео, включить музыку.'),
-      h('li', null, cloudOn() ? 'Правки сами уходят в облако церкви, их видят редакторы. Закончили — нажмите «Сохранить и закрыть».' : 'Готово? Нажмите «Сохранить» и отправьте получившийся файл.')),
+      h('li', null, cloudOn() ? 'Правки сами уходят в облако церкви, их видят редакторы. Закончили — нажмите «Сохранить».' : 'Готово? Нажмите «Сохранить» и отправьте получившийся файл.')),
     readOnly() ? null : h('div', { class:'chips' },
       h('button', { type:'button', class:'btn primary', onclick:() => addBlock('splash', 0) }, ic('plus'), 'Добавить заставку'),
       h('button', { type:'button', class:'btn', onclick:() => openSheet(0) }, ic('plus'), 'Другой слайд'))));
@@ -173,7 +174,7 @@ function refreshThumb(b){
 
 function selectBlock(id){
   if (id === selId || !state.blocks.some(b => b.id === id)) return;
-  selId = id;
+  selId = id; histSel(id);
   filmEl.querySelectorAll('.st.on').forEach(x => x.classList.remove('on'));
   const it = filmEl.querySelector('.st[data-id="' + id + '"]');
   if (it){ it.classList.add('on'); it.scrollIntoView({ block:'nearest', inline:'nearest' }); }
@@ -202,7 +203,7 @@ function stageBar(b, n){
     h('span', { class:'cap strong', text:(T.slide ? n + ' · ' : '') + T.label }),
     h('div', { class:'grow' }),
     T.slide && h('button', { type:'button', class:'btn', title:'Скопировать название слайда для Holyrics', onclick:() => copyText(slideName(b, n), 'Скопировано: ') }, ic('tag'), 'Название'),
-    PREVIEW[b.type] && h('button', { type:'button', class:'btn', title:'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
+    (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn', title:BLANK_JPEG[b.type] ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
     T.slide && canFlag() && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo),
       title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную.' + (cloudOn() ? ' Спикеры эту отметку не видят.' : ''), onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
     h('div', { class:'stepper' },
@@ -248,7 +249,10 @@ function renderSide(){
   const body = h('div', { class:'bbody' }), ro = readOnly();
   BODY[b.type](b, body, n);
   if (ro){ body.inert = true; sideEl.append(h('p', { class:'ro-note', text:'Только просмотр. Чтобы менять слайды, нажмите «Редактировать».' })); }
-  sideEl.append(h('div', { class:'cap', text:'Настройки · ' + T.label.toLowerCase() }), body);
+  const capTip = b.type !== 'scripture' ? '' : canEditSlidesCfg()
+    ? 'Как выглядят стихи (в строку или с новой строки, рамка, выравнивание), задано для всех слайдов: меню «⋯» → «Настройки слайдов»'
+    : 'Как выглядят стихи, одинаково для всех слайдов: это задаёт редактор';
+  sideEl.append(h('div', { class:'cap side-head', text:'Настройки · ' + T.label.toLowerCase(), title:capTip }), body);
   // «доработать» — кнопкой над слайдом (stageBar); переставляют слайды в ленте слева
   if (ro){ growAll(sideEl); return; }
   sideEl.append(h('div', { class:'side-actions' },

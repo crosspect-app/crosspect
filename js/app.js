@@ -11,6 +11,7 @@ const sermonHash = (id, v) => '#s=' + encodeURIComponent(id) + (v === 'text' ? '
 function route(){
   const seq = ++routeSeq;
   const p = new URLSearchParams(location.hash.slice(1)), id = p.get('s');
+  if (!id || !state || state.id !== id) hist.id = null;   // ушли с проповеди: история отмены начнётся заново
   if (screen === 'sermon' && state) persistDraft();   // уходим с проповеди: черновик сохраняем сразу, не ждём паузы
   if (ed.id && ed.id !== id) endCloud();   // ушли с облачной проповеди: сохранить и отпустить замок
   if (cloudGate()){ screen = 'home'; renderAll(); return; }   // сначала вход; адрес остаётся, после входа откроется эта же проповедь
@@ -37,6 +38,7 @@ function route(){
 }
 function showSermon(p){
   screen = 'sermon'; view = p.get('v') === 'text' ? 'text' : 'slides';
+  if (hist.id !== state.id) histReset();   // «Слайды» ↔ «Текст» историю не сбрасывают
   LS.set('swp-sermon:last', state.id);
   renderAll();
   window.scrollTo(0, 0);
@@ -97,15 +99,15 @@ function renderTopbar(){
     h('button', { type:'button', class:'hd-title', title:'Изменить название, дату, спикера', onclick:() => openMeta() },
       h('span', { class:'hd-name' + (m.title ? '' : ' empty'), text:m.title || 'Без названия' }),
       h('span', { class:'hd-sub', text:[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') || 'Дата и спикер не указаны' })),
-    h('span', { class:'stchip st-' + st.key, text:st.label }),
-    statusAction() || '',   // «Отметить «Готов»» — пока проповедь правится (editor.js); null вывелся бы словом «null»
+    cloudSermon() ? statusSwitch() : h('span', { class:'stchip st-' + st.key, text:st.label }),   // переключатель статуса (editor.js)
     h('div', { class:'grow' }),
     h('div', { class:'seg', role:'group', 'aria-label':'Вид проповеди' },
       h('button', { type:'button', class:view === 'slides' ? 'on' : '', onclick:() => setView('slides') }, 'Слайды'),
       h('button', { type:'button', class:view === 'text' ? 'on' : '', onclick:() => setView('text') }, 'Текст')),
     h('div', { class:'grow' }),
+    histTools() || '',   // ↶ ↷ — пока проповедь правится (history.js)
     h('span', { id:'hd-save', class:'hd-save' }),
-    headAction(),   // «Сохранить»; в облаке — «Редактировать» / «Сохранить и закрыть» (lock.js)
+    headAction(),   // «Сохранить»; в облаке — «Редактировать» / «Сохранить» (закончить правку, lock.js)
     more);
   updateStatus();
 }
@@ -113,6 +115,7 @@ function renderTopbar(){
 /* Состояние сохранения в шапке и счётчики над лентой слайдов — обновляются на каждую правку */
 function updateStatus(){
   if (!state || screen !== 'sermon') return;
+  histButtons();
   const s = $('#hd-save');
   if (s){
     if (cloudSermon()){
@@ -148,10 +151,9 @@ function openMeta(){
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'О проповеди' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'О проповеди' }), iconBtn('close', 'Закрыть', closeSettings)),
-    h('div', { class:'set-grid' },
+    h('div', { class:'set-grid', title:'Название, спикер и дата попадают на заставку' },
       field('Название', title),
       h('div', { class:'grid-2' }, field('Дата', date), preacherField())),
-    h('p', { class:'hint', style:'margin-bottom:16px', text:'Название, спикер и дата попадают на заставку.' }),
     h('div', { class:'sheet-foot' }, h('span'), h('button', { type:'button', class:'btn primary', onclick:closeSettings }, 'Готово'))));
   metaOpen = true;
   settingsOverlay.classList.add('open');

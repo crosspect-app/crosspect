@@ -316,10 +316,9 @@ function scriptureEditor(block, it, pi){
       h('span', { class:'lbl', text:'Стихи' }), grid,
       h('div', { class:'vrow' }, quick,
         h('button', { type:'button', class:'chip', onclick:() => { it.sel = nums.slice(); relayout(); } }, 'Вся глава'),
-        it.sel.length ? h('button', { type:'button', class:'chip', onclick:() => { it.sel = []; relayout(); } }, 'Сбросить') : null),
-      h('p', { class:'hint', html:it.lang === 'own'
-        ? 'Выберите номера стихов, а текст каждого стиха вставьте ниже. Shift + клик — выделить диапазон.'
-        : 'Нажимайте на номера стихов. Shift + клик — выделить диапазон. Текст можно поправить ниже: выделить слово, сделать жирным.' })));
+        it.sel.length ? h('button', { type:'button', class:'chip', onclick:() => { it.sel = []; relayout(); } }, 'Сбросить') : null)));
+    grid.title = it.lang === 'own' ? 'Выберите номера стихов, а текст каждого стиха вставьте ниже. Shift + щелчок — выделить диапазон'
+      : 'Нажимайте на номера стихов. Shift + щелчок — выделить диапазон. Текст можно поправить ниже: выделить слово, сделать жирным';
   }
   if (it.verses.length){
     const vs = h('div', { class:'verses' });
@@ -383,6 +382,18 @@ function partStepper(b, p){
   plus.addEventListener('click', e => { e.preventDefault(); step(1); });
   show();
   return h('div', { class:'step', style:'margin:0', title:'Размер этого текста' }, minus, val, plus);
+}
+/* Размер названия на заставке: один на всю проповедь — меняется на всех её заставках сразу (state.settings.splash) */
+function splashStepper(){
+  const R = scaleRange('splash');
+  const val = h('span'), minus = h('button', { type:'button', title:'Мельче на 1%', 'aria-label':'Мельче на 1%' }, '−'),
+    plus = h('button', { type:'button', title:'Крупнее на 1%', 'aria-label':'Крупнее на 1%' }, '+');
+  const show = () => { const v = splashScale(); val.textContent = v + '%'; minus.disabled = v <= R.min; plus.disabled = v >= R.max; };
+  const step = d => { state.settings.splash = splashScale() + d; show(); change(); refreshSplash(); state.blocks.forEach(x => { if (x.type === 'splash') refreshThumb(x); }); };
+  minus.addEventListener('click', e => { e.preventDefault(); step(-1); });
+  plus.addEventListener('click', e => { e.preventDefault(); step(1); });
+  show();
+  return h('div', { class:'step', title:'Размер названия на всех заставках этой проповеди. Длинное название форма уменьшит сама, чтобы оно поместилось' }, minus, val, plus);
 }
 const isCaps = b => b.type === 'thesis' ? b.caps !== false : !!b.caps;
 function capsSwitch(b){
@@ -544,20 +555,18 @@ const BODY = {
       chip('plus', 'Текст', () => addItem(b, newTextItem())),
       chip('plus', 'Линия', () => addItem(b, newLineItem())),
       hasScr && chip('arrow', 'Продолжить на новом слайде', () => continueScripture(b), 'accent')));
-    // вид стихов (в строку / с новой строки, рамка, заглавные, перевод, выравнивание) — общий для всех слайдов, в «Настройках слайдов»
-    if (hasScr) body.append(h('p', { class:'hint', text:canEditSlidesCfg()
-      ? 'Как выглядят стихи (в строку или с новой строки, рамка, выравнивание), задано для всех слайдов: меню «⋯» → «Настройки слайдов».'
-      : 'Как выглядят стихи, одинаково для всех слайдов: это задаёт редактор.' }));
+    // вид стихов (в строку / с новой строки, рамка, заглавные, перевод, выравнивание) — общий для всех слайдов, в «Настройках слайдов»;
+    // подсказка об этом — всплывающая у заголовка панели (slides.js, renderSide)
   },
   splash(b, body, n){
-    const m = state.meta;
-    const row = (lbl, val, ph) => h('div', { class:'info-row' }, h('span', { class:'lbl', text:lbl }), h('div', { class:'info-val' + (val ? '' : ' empty'), text:val || ph }));
+    const m = state.meta, from = 'Берётся из проповеди: «О проповеди» в шапке';
+    const row = (lbl, val, ph, tip, extra) => h('div', { class:'info-row' }, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:lbl }), extra || null),
+      h('div', { class:'info-val' + (val ? '' : ' empty'), text:val || ph, title:tip || '' }));
     body.append(
-      row('Название для Holyrics', '[' + n + '] заставка'),
-      row('Название на слайде', m.title, 'Без названия'),
-      row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Спикер и дата не указаны'),
-      h('p', { class:'hint', text:'Это берётся из проповеди: название, спикер и дата. Размер названия подбирается сам, от 110 до 200 px.' }),
-      h('button', { type:'button', class:'m-btn', onclick:() => openMeta() }, ic('settings'), 'Изменить название, дату, спикера'));
+      row('Название для Holyrics', slideName(b, n), '', 'Имя файла JPEG. Длинное название проповеди обрезается по длине названия слайда'),
+      row('Название на слайде', m.title, 'Без названия', from, splashStepper()),
+      row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Спикер и дата не указаны', from),
+      h('button', { type:'button', class:'btn', style:'justify-content:center', onclick:() => openMeta() }, ic('settings'), 'Изменить название, дату, спикера'));
   },
   thesis(b, body, n){
     body.append(nameField(b, n));
@@ -620,7 +629,7 @@ const BODY = {
     const t = area(b, 'text', 'Например: после слов «…и Он сказал им» запустить видео', 2);
     t.addEventListener('input', () => updateCounter(b));   // жёлтая плашка на сцене и миниатюра меняются сразу
     body.append(t);
-    body.append(h('p', { class:'hint', text:'Оператор увидит заметку крупно и заглавными буквами, даже если скроет текст проповеди.' }));
+    t.title = 'Оператор увидит заметку крупно и заглавными буквами, даже если скроет текст проповеди';
   }
 };
 
@@ -628,7 +637,8 @@ const BODY = {
 function openSheet(at){
   sheetAt = at;
   const prev = state.blocks.slice(0, at).reverse().find(b => TYPES[b.type].slide);
-  sheetTitle.textContent = !state.blocks.length ? 'Что добавить?' : prev ? 'Добавить после слайда ' + slideNums()[prev.id] : 'Добавить в начало';
+  sheetTitle.textContent = !state.blocks.length ? 'Что добавить?' : at >= state.blocks.length ? 'Добавить в конец'
+    : prev ? 'Добавить после Слайда ' + slideNums()[prev.id] : 'Добавить в начало';
   sheetOverlay.classList.add('open');
 }
 function closeSheet(){ sheetOverlay.classList.remove('open'); }
@@ -797,22 +807,36 @@ function clearFmt(){
   const nr = document.createRange(); nr.selectNodeContents(tn); s.removeAllRanges(); s.addRange(nr);
   el.dispatchEvent(new Event('input', { bubbles:true }));
 }
-function placeFmt(){
-  const vv = window.visualViewport;
-  if (!vv){ fmtEl.style.top = ''; fmtEl.style.bottom = ''; return; }
-  fmtEl.style.bottom = 'auto';
-  fmtEl.style.top = (vv.offsetTop + vv.height - fmtEl.offsetHeight - 14) + 'px';
+/* Панель оформления стоит над полем, где идёт набор (в «Тексте к слайду» — в его заголовке), а не внизу экрана:
+   иначе кажется, что можно выделить текст на самом слайде (слайд — только предпросмотр).
+   Прячется, когда фокус ушёл из поля; если в этот момент нажата мышь — после щелчка, чтобы кнопка под курсором не уехала */
+let fmtFor = null, ptrDown = false, fmtWait = false;
+function dockFmt(el){
+  const sp = el.closest('.speech');
+  const head = sp && sp.querySelector('.speech-head');
+  if (head){ head.insertBefore(fmtEl, head.querySelector('.grow')); fmtEl.classList.add('in-head'); }
+  else { const at = el.closest('.verse') || el; at.parentNode.insertBefore(fmtEl, at); fmtEl.classList.remove('in-head'); }
+  fmtFor = el;
 }
+function hideFmt(){
+  fmtWait = false;
+  if (activeRich()) return;
+  fmtEl.classList.remove('show'); fmtFor = null;
+}
+document.addEventListener('pointerdown', () => { ptrDown = true; }, true);
+document.addEventListener('pointerup', () => { ptrDown = false; if (fmtWait) setTimeout(hideFmt, 0); }, true);
 document.addEventListener('focusin', e => {
-  if (e.target.classList && e.target.classList.contains('rich')){
-    fmtEl.classList.toggle('lists', !!e.target.dataset.lists);
-    fmtEl.classList.add('show'); toastEl.classList.add('lift'); placeFmt();
+  const el = e.target;
+  if (el.classList && el.classList.contains('rich')){
+    fmtEl.classList.toggle('lists', !!el.dataset.lists);
+    if (fmtFor !== el || !fmtEl.isConnected) dockFmt(el);
+    fmtEl.classList.add('show');
   }
 });
 document.addEventListener('focusout', () => setTimeout(() => {
-  if (!activeRich()){ fmtEl.classList.remove('show'); toastEl.classList.remove('lift'); }
-}, 120));
-if (window.visualViewport){ visualViewport.addEventListener('resize', placeFmt); visualViewport.addEventListener('scroll', placeFmt); }
+  if (activeRich()) return;
+  if (ptrDown) fmtWait = true; else hideFmt();
+}, 0));
 
 function slideText(b){
   const P = p => {

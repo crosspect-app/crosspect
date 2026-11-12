@@ -32,13 +32,14 @@ function tvBlock(b, n){
   const open = () => { selId = b.id; navigate(sermonHash(state.id)); };
   const thumb = h('button', { type:'button', class:'tv-thumb' + (sl ? '' : ' none'), title:'Открыть в виде «Слайды»', onclick:open }, sl);
   const mark = todoOn(b) ? h('span', { class:'tv-todo', text:'доработать' }) : null;
-  const gut = h('div', { class:'gut' }, h('span', { class:'num', text:String(n) }), b.type === 'splash' ? h('span', { class:'cap', text:'Заставка' }) : null, thumb, mark);
+  const gut = h('div', { class:'gut' }, h('span', { class:'num', text:String(n) }), b.type === 'splash' ? h('span', { class:'cap', text:TYPES.splash.label }) : null, thumb, mark);
   const cont = h('div', { class:'cont' });
   if (slideCard) cont.append(slideCard);
   if (viewOpts.showText){
     const pr = rich(b.speech, { key:b.id + ':tv', cls:'prose' + (b.type === 'splash' ? ' lead' : ''),
       ph:b.type === 'splash' ? 'Текст, пока на экране заставка' : 'Текст к слайду',
       onInput:v => { b.speech = v; change(); } });
+    pr.title = 'Текст к слайду правится прямо здесь. Чтобы поменять сам слайд, нажмите на его миниатюру';
     if (readOnly()) pr.inert = true;
     cont.append(pr);
   } else if (b.type === 'splash') cont.append(h('div', { class:'vs-name', text:state.meta.title || 'Без названия' }));
@@ -108,11 +109,9 @@ function tvSide(){
   const card = (title, ...kids) => h('section', { class:'tv-card2' }, h('div', { class:'tv-h', text:title }), kids);
   return h('aside', { class:'tv-side', 'aria-label':'Для оператора и проверка' },
     card('Для оператора',
-      h('button', { type:'button', class:'btn primary wide', onclick:() => operatorPDF() }, ic('save'), 'PDF для оператора'),
-      h('p', { class:'hint', text:'Узкие страницы под телефон: названия и номера слайдов, текст Писания, тезисы и цитаты, под каждым слайдом его текст, жёлтые заметки.' })),
+      h('button', { type:'button', class:'btn primary wide', title:'Узкие страницы под телефон: названия и номера слайдов, текст Писания, тезисы и цитаты, под каждым слайдом его текст, жёлтые заметки', onclick:() => operatorPDF() }, ic('save'), 'PDF для оператора')),
     card('Показать',
       toggle([['all', 'Всё'], ['slides', 'Только слайды']], viewOpts.showText ? 'all' : 'slides', val => { viewOpts.showText = val === 'all'; LS.set('swp-view', JSON.stringify(viewOpts)); renderMain(); }),
       h('div', { class:'size' }, h('button', { type:'button', title:'Мельче', onclick:() => setSize(-0.1) }, 'A−'), h('button', { type:'button', title:'Крупнее', onclick:() => setSize(0.1) }, 'A+'))),
-    card('Проверка', sermonChecks().map(x => h('div', { class:'chk' }, h('span', { class:x.ok ? 'ok' : 'warn', text:x.ok ? '✓' : '!' }), h('span', { text:x.text })))),
-    h('p', { class:'hint', text:'Текст к слайду правится прямо здесь. Чтобы поменять сам слайд, нажмите на его миниатюру.' }));
+    card('Проверка', sermonChecks().map(x => h('div', { class:'chk' }, h('span', { class:x.ok ? 'ok' : 'warn', text:x.ok ? '✓' : '!' }), h('span', { text:x.text })))));
 }

@@ -39,7 +39,7 @@ const TR_GROUPS = [['ru', 'Русский'], ['uk', 'Українська'], ['p
 const SLIDE_NAMES = { ru:'Синодальный перевод', nrt:'Новый русский перевод', bti:'Перевод под ред. М. П. Кулакова', srp:'Современный русский перевод (РБО)',
   rsp:'Современный перевод', cas:'Перевод под ред. еп. Кассиана', uk:'Переклад І. Огієнка', ukt:'Переклад Р. Турконяка', ukh:'Переклад І. Хоменка' };
 Object.keys(SLIDE_NAMES).forEach(k => { if (LANGS[k]) LANGS[k].slide = SLIDE_NAMES[k]; });
-let TR_FOOTER = '* {name}';
+let TR_FOOTER = '· {name}';   // подпись перевода внизу слайда Писания; несколько переводов — через « · »
 const OWN = '__own';   // «Свой перевод»: всё вводится вручную
 const srcKey = l => (LANGS[l] && LANGS[l].src) || l;      // какой файл грузить
 const bkLang = l => (LANGS[l] && LANGS[l].books) || l;    // на каком языке названия книг
@@ -61,7 +61,7 @@ const bookRefName = (lang, n) => n === 19 ? (PSALM_REF[bkLang(lang)] || PSALM_RE
 const ABBR = 'Быт.|Исх.|Лев.|Чис.|Втор.|Нав.|Суд.|Руф.|1 Цар.|2 Цар.|3 Цар.|4 Цар.|1 Пар.|2 Пар.|Езд.|Неем.|Есф.|Иов.|Пс.|Притч.|Еккл.|Песн.|Ис.|Иер.|Плач.|Иез.|Дан.|Ос.|Иоил.|Ам.|Авд.|Ион.|Мих.|Наум.|Авв.|Соф.|Агг.|Зах.|Мал.|Мф.|Мк.|Лк.|Ин.|Деян.|Рим.|1 Кор.|2 Кор.|Гал.|Еф.|Флп.|Кол.|1 Фес.|2 Фес.|1 Тим.|2 Тим.|Тит.|Флм.|Евр.|Иак.|1 Пет.|2 Пет.|1 Ин.|2 Ин.|3 Ин.|Иуд.|Откр.'.split('|');
 
 /* ========= Названия слайдов (имена файлов) =========
-   Заставка: «[1] заставка» · Писание: «[3] 1 КОР. 12_7-9,12» · цитата: «[4] цитата Оливер КАН» · тезис, картинка, видео, свободный: «[5] своё название» */
+   Заставка: «[1] Заставка Название проповеди» · Писание: «[3] 1 КОР. 12_7-9,12» · цитата: «[4] цитата Оливер КАН» · тезис, картинка, видео, свободный: «[5] своё название» */
 const BAD_CHARS = /[\\/:*?"<>|]/g;          // символы, которые нельзя в именах файлов Windows
 const NAMED = { thesis:true, image:true, video:true, free:true };   // у этих слайдов название пишут вручную
 const cleanName = s => String(s || '').replace(BAD_CHARS, '').replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().replace(/[ .]+$/, '');
@@ -85,9 +85,19 @@ function quoteNamePart(b){
   const w = a.split(/\s+/), last = w.pop();
   return 'цитата ' + (w.length ? w.join(' ') + ' ' : '') + last.toUpperCase();
 }
+/* «Заставка Название проповеди»: длинное название обрезается по длине названия слайда (целыми словами, если получается) */
+function splashNamePart(){
+  const max = slidesCfg().names.maxLength;
+  let t = cleanName('Заставка ' + cleanName(state && state.meta ? state.meta.title : ''));
+  if (t.length > max){
+    const cut = t.slice(0, max + 1), sp = cut.lastIndexOf(' ');
+    t = (sp > 'Заставка'.length ? cut.slice(0, sp) : t.slice(0, max)).replace(/[\s,.;:!?—–-]+$/, '');
+  }
+  return t;
+}
 function slideName(b, n){
   let part = '';
-  if (b.type === 'splash') part = 'заставка';
+  if (b.type === 'splash') part = splashNamePart();
   else if (b.type === 'scripture') part = scriptureNamePart(b);
   else if (b.type === 'quote') part = quoteNamePart(b);
   else if (NAMED[b.type]) part = b.name || '';

@@ -50,7 +50,7 @@ def test_opens_read_only_and_edit_takes_lock(browser, base_url):
     start_edit(page)
     lock = page.evaluate("fakeCloud.db().sermons.s1.lock")
     assert lock["email"] == "admin@x.pl" and lock["name"] == "Админ"
-    assert page.get_by_role("button", name="Сохранить и закрыть").is_visible()
+    assert page.get_by_role("button", name="Сохранить", exact=True).is_visible()
     assert not page.evaluate("document.querySelector('.side .bbody').inert")
     assert page.locator(".film-add").count() == 1
     assert not page.errors, page.errors
@@ -68,7 +68,7 @@ def test_autosave_then_save_and_close_releases(browser, base_url):
     page.wait_for_function("document.getElementById('hd-save').textContent.includes('Сохранено в облаке')")
     assert page.evaluate("fakeCloud.db().sermons.s1.lock.email") == "admin@x.pl"   # запись под замком его продлевает
     page.evaluate("state.meta.title = 'Вера, надежда'; change()")
-    page.get_by_role("button", name="Сохранить и закрыть").click()
+    page.get_by_role("button", name="Сохранить", exact=True).click()
     page.wait_for_function("ed.mode === 'view'")
     r = page.evaluate("fakeCloud.db().sermons.s1")
     assert r["meta"]["title"] == "Вера, надежда" and r["lock"] is None
@@ -367,7 +367,7 @@ def stays_editing(page):
     page.wait_for_timeout(500)
     assert page.evaluate("ed.mode") == "edit"
     assert not page.evaluate("settingsOverlay.classList.contains('open')"), page.inner_text("#app")
-    assert page.get_by_role("button", name="Сохранить и закрыть").is_visible()
+    assert page.get_by_role("button", name="Сохранить", exact=True).is_visible()
 
 
 def test_edit_when_cloud_reads_back_old_lock(browser, base_url):

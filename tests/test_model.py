@@ -160,7 +160,7 @@ def test_splash_slide(page):
     assert sl.locator(".sl-sp-date").inner_text() == "15/11"
     px = page.evaluate("parseFloat(document.querySelector('.stage .sl-sp-title').style.fontSize)")
     assert 110 <= px <= 200
-    assert page.evaluate("slideName(state.blocks[0], 1)") == "[1] заставка"
+    assert page.evaluate("slideName(state.blocks[0], 1)") == "[1] Заставка Сила в немощи"
 
 
 def test_splash_long_title_has_no_broken_words(page):
@@ -292,4 +292,6 @@ def test_splash_jpeg(page, sermon):
     open_sermon(page, sermon)
     with page.expect_download(timeout=60000) as dl:
         page.evaluate("exportOne(state.blocks.find(b => b.type === 'splash'))")
-    assert dl.value.suggested_filename == "[1] заставка.jpg"
+    title = page.evaluate("state.meta.title")
+    assert dl.value.suggested_filename == page.evaluate("splashNamePart() ? '[1] ' + splashNamePart() + '.jpg' : ''")
+    assert dl.value.suggested_filename.startswith("[1] Заставка " + title.split()[0])

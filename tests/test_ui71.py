@@ -35,7 +35,7 @@ def test_settings_window_for_editor_only(browser, base_url):
     text = sheet.inner_text()
     for gone in ("config.json", "Общие (по умолчанию)", "Плотность шрифта", "только в этом браузере", "обязательно"):
         assert gone not in text, gone
-    for there in ("Общие настройки", "Настройки для видов слайдов", "Стихи на слайдах Писания", "Шрифт для греческого", "С новой строки"):
+    for there in ("Общие настройки", "Настройки для видов слайдов", "Место Писания", "Шрифт для греческого", "С новой строки"):
         assert there in text, there
     assert page.locator(".scfg-slide .sl").count() == 1   # живой пример слайда
     assert not page.errors, page.errors
@@ -55,7 +55,7 @@ def test_apply_writes_cloud_and_applies_everywhere(browser, base_url):
     open_sermon(page, "s1")
     page.evaluate("openSlidesCfg()")
     page.locator(".scfg [aria-label='Тезис: между строками']").fill("1.3")
-    page.locator(".scfg [aria-label='Лимит тезиса']").fill("150")
+    page.locator(".scfg [aria-label='Тезис: лимит символов']").fill("150")
     page.get_by_role("button", name="С новой строки").click()
     assert page.evaluate("SLIDES_BASE.kinds.thesis.lead") == 1.05   # пока не нажали «Применить», ничего не меняется
     page.get_by_role("button", name="Применить").click()
@@ -125,7 +125,7 @@ def test_insert_between_slides(browser, base_url):
     start_edit(page)
     page.locator(".film .film-gap[data-at='1']").hover()
     page.locator(".film .film-gap[data-at='1'] .film-ins").click()
-    assert "после слайда 1" in page.inner_text(".overlay.open .sheet-title")
+    assert "после Слайда 1" in page.inner_text(".overlay.open .sheet-title")
     page.locator(".overlay.open .type.t-quote").click()
     assert page.evaluate("state.blocks.map(b => b.type)") == ["splash", "quote", "thesis", "thesis"]
     # «Добавить в конец» — в конец

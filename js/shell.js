@@ -21,6 +21,7 @@ function fillMenu(){
     h('div', { class:'menu-sep' }),
     menuItem('zip', 'Скачать все слайды', () => exportMany()),
     menuItem('phone', 'PDF для оператора', () => operatorPDF()));
+  if (screen === 'sermon' && wideScreen()) menuEl.append(menuItem('reset', 'Сбросить настройки экрана', () => resetLayout()));   // ширина и порядок панелей
   menuEl.append(h('div', { class:'menu-sep' }));
   if (canEditSlidesCfg()) menuEl.append(menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));   // общие для пространства: админ и редактор
   menuEl.append(menuItem('link', 'Источник настроек', () => openConfig()));
@@ -28,12 +29,11 @@ function fillMenu(){
   else if (localMode()) menuEl.append(h('div', { class:'menu-sep' }), menuItem('check', 'Войти в облако', () => leaveLocalMode()));
 }
 
-/* выбор типа слайда: сверху «Заставка» (шире) и «Заметка оператору», ниже остальные парами */
-const typesTop = h('div', { class:'types types-top' });
+/* выбор типа слайда: плитки парами одинакового размера, порядок — как в TYPES */
 const typesGrid = h('div', { class:'types' });
 Object.keys(TYPES).forEach(t => {
   const T = TYPES[t];
-  (T.top ? typesTop : typesGrid).append(h('button', { type:'button', class:'type t-' + t, style:'--tc:var(--c-' + t + ')', onclick:() => addBlock(t, sheetAt) },
+  typesGrid.append(h('button', { type:'button', class:'type t-' + t, style:'--tc:var(--c-' + t + ')', onclick:() => addBlock(t, sheetAt) },
     h('span', { class:'type-ic' }, ic(T.icon)),
     h('span', null, h('div', { class:'type-name', text:T.label }), h('div', { class:'type-desc', text:T.desc }))));
 });
@@ -41,7 +41,7 @@ const sheetTitle = h('div', { class:'sheet-title', text:'Что добавить
 const sheetOverlay = h('div', { class:'overlay', onclick:e => { if (e.target === sheetOverlay) closeSheet(); } },
   h('div', { class:'sheet', role:'dialog', 'aria-label':'Новый блок' },
     h('div', { class:'sheet-head' }, sheetTitle, iconBtn('close', 'Закрыть', () => closeSheet())),
-    typesTop, typesGrid));
+    typesGrid));
 const settingsOverlay = h('div', { class:'overlay', onclick:e => { if (e.target === settingsOverlay) closeSettings(); } });
 
 /* панель оформления */
@@ -66,5 +66,5 @@ const fmtEl = h('div', { class:'fmtbar', id:'fmtbar' },
 const toastEl = h('div', { class:'toast', role:'status' });
 
 app.append(topbar, mainEl);
-document.body.append(sheetOverlay, settingsOverlay, fmtEl, toastEl);
+document.body.append(sheetOverlay, settingsOverlay, toastEl);   // панель оформления встаёт над полем, где печатают (render.js, dockFmt)
 try { document.execCommand('styleWithCSS', false, false); } catch(e){}

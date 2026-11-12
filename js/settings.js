@@ -25,7 +25,7 @@ function applyConfig(cfg, url){
   }
   if (Array.isArray(cfg.groups) && cfg.groups.length){ TR_GROUPS.length = 0; cfg.groups.forEach(g => TR_GROUPS.push(g)); }
   if (cfg.bibleBase) BIBLE_SRC[0] = cfg.bibleBase;
-  if (typeof cfg.scriptureFooter === 'string' && cfg.scriptureFooter.includes('{name}')) TR_FOOTER = cfg.scriptureFooter;
+  if (typeof cfg.scriptureFooter === 'string' && cfg.scriptureFooter.includes('{name}')) TR_FOOTER = cfg.scriptureFooter.replace(/^\s*\*\s*/, '· ');   // со звёздочкой — прежний вид: теперь точка (этап 7.2)
   if (Array.isArray(cfg.preachers) && cfg.preachers.length){
     PREACHERS.length = 0;
     cfg.preachers.map(String).sort((a, b) => a.localeCompare(b, 'ru')).forEach(x => PREACHERS.push(x));
@@ -67,8 +67,7 @@ function openConfig(){
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Источник настроек' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Источник настроек' }), iconBtn('close', 'Закрыть', closeSettings)),
-    h('p', { class:'hint', text:'Отсюда форма берёт списки переводов и спикеров. Спикерам здесь ничего менять не нужно.' }),
-    h('div', { class:'set-grid' }, field('Ссылка на файл настроек', url), status),
+    h('div', { class:'set-grid', title:'Отсюда форма берёт списки переводов и спикеров. Спикерам здесь ничего менять не нужно' }, field('Ссылка на файл настроек', url), status),
     h('div', { class:'sheet-foot' },
       h('button', { type:'button', class:'btn', onclick:() => {
         try { localStorage.removeItem('swp-config-url'); localStorage.removeItem('swp-config-cache'); } catch(e){}
@@ -102,21 +101,32 @@ const CFG_KINDS = [
   ['splash', 'Заставка: название', 'splash'], ['foot', 'Заставка: имя и дата', 'splash'],
   ['scripture', 'Место Писания', 'scripture'], ['thesis', 'Тезис', 'thesis'], ['quote', 'Цитата', 'quote']
 ];
+/* Объяснения — только во всплывающих подписях (решение 7.2: текстовых подсказок под полями нет) */
 const CFG_TIPS = {
-  size:'Размер текста в пикселях кадра 1920×1080. От него считаются проценты.',
-  min:{ splash:'До какого размера название может уменьшиться, чтобы уложиться в три строки. Если и так не влезает, оно станет ещё мельче, и форма предупредит.',
-    scripture:'Если стихи пришлось уменьшить сильнее, форма советует разбить их на два слайда.',
-    thesis:'Самое маленькое значение кнопки «−» у размера текста в слайде.', quote:'Самое маленькое значение кнопки «−» у размера текста в слайде.' },
-  max:'Самое большое значение кнопки «+» у размера текста в слайде.',
-  track:'Расстояние между буквами в долях размера шрифта: −0,04 — плотнее, 0 — как задумано в шрифте.',
-  lead:'Высота строки относительно размера шрифта: 1 — строки почти вплотную, 1,25 — свободнее.',
-  foot:'Имя спикера и дата внизу заставки. Размер не подбирается сам: какой задан, такой и будет.'
+  size:'Размер текста в пикселях кадра 1920×1080. От него считаются проценты',
+  minHead:'Насколько можно уменьшить текст, в % от размера',
+  min:{ splash:'Предел кнопки «−» у заставки. До этого размера название уменьшается и само, чтобы уложиться в три строки; если и так не влезает, станет ещё мельче, и форма предупредит',
+    scripture:'Если стихи пришлось уменьшить сильнее, форма советует разбить их на два слайда',
+    thesis:'Самое маленькое значение кнопки «−» у размера текста в слайде', quote:'Самое маленькое значение кнопки «−» у размера текста в слайде' },
+  max:'Самое большое значение кнопки «+» у размера текста в слайде',
+  maxSplash:'Самое большое значение кнопки «+» у заставки. Размер один на всю проповедь: меняется на всех её заставках',
+  track:'Расстояние между буквами в долях размера шрифта: −0,04 — плотнее, 0 — как задумано в шрифте',
+  lead:'Высота строки относительно размера шрифта: 1 — строки почти вплотную, 1,25 — свободнее. 1,05 — как в Canva',
+  foot:'Имя спикера и дата внизу заставки. Размер не подбирается сам: какой задан, такой и будет',
+  limit:'Если символов больше, слайд подсвечивается жёлтым. Это подсказка, а не запрет',
+  margins:'Поля считаются от края цветной панели, в пикселях кадра 1920×1080. Пока курсор в поле, на примере видна область текста',
+  name:'Сколько символов можно ввести в название слайда (имя файла для Holyrics). По нему же обрезается название заставки',
+  verses:'Одинаково для всех слайдов Писания: спикеры этого не меняют. Строка с местом Писания и подпись перевода выравниваются вместе со стихами',
+  gap:'Расстояние между стихами, когда каждый стих с новой строки, в долях размера шрифта',
+  refGap:'Расстояние между местом Писания и текстом стихов (и между частями слайда), в долях размера шрифта',
+  apply:'Настройки общие для всего пространства: после «Применить» они сразу действуют во всех проповедях, старых и новых, у всех участников',
+  sample:'Пример меняется сразу, а проповеди — только после «Применить»'
 };
 function openSlidesCfg(){
   if (!canEditSlidesCfg()){ toast('Настройки слайдов меняют админ и редактор'); return; }
   const tmp = JSON.parse(JSON.stringify(SLIDES_BASE));
   let sample = 'scripture', guide = false, raf = 0;
-  const host = h('div', { class:'scfg-slide' }), info = h('div', { class:'scfg-info' });
+  const host = h('div', { class:'scfg-slide', title:CFG_TIPS.sample }), info = h('div', { class:'scfg-info' });
   const tabs = h('div', { class:'toggle scfg-tabs' });
   const setSample = k => { if (k === sample) return; sample = k; drawTabs(); paint(); };
   const drawTabs = () => { tabs.replaceChildren(...[['splash', 'Заставка'], ['scripture', 'Писание'], ['thesis', 'Тезис'], ['quote', 'Цитата']].map(([k, l]) =>
@@ -143,53 +153,52 @@ function openSlidesCfg(){
       'aria-label':o.label, title:o.tip || '', onfocus:() => { if (o.sample) setSample(o.sample); if (o.guide && !guide){ guide = true; paint(); } },
       onblur:() => { if (o.guide && guide){ guide = false; paint(); } },
       oninput:e => { const v = parseFloat(String(e.target.value).replace(',', '.')); if (isFinite(v)){ obj[key] = v; paint(); } } });
+    if (o.disabled) inp.disabled = true;
     return h('div', { class:'unit' + (o.unit ? '' : ' nounit'), title:o.tip || '' }, inp, o.unit ? h('span', { text:o.unit }) : null);
   };
   const dash = tip => h('span', { class:'scfg-na', text:'—', title:tip });
+  const tipField = (label, control, tip) => { const f = field(label, control); if (tip) f.title = tip; return f; };
   const fontSel = (key, label) => field(label, h('select', { class:'input', 'aria-label':label, onchange:e => { tmp.fonts[key] = e.target.value; paint(); } },
     Object.keys(SLIDE_FONTS[key]).map(k => h('option', { value:k, selected:tmp.fonts[key] === k }, SLIDE_FONTS[key][k].label))));
 
-  /* Общие настройки */
+  /* Общие настройки: шрифты, длина названия, поля (лимиты тезиса и цитаты — в таблице видов слайдов) */
   const general = h('section', { class:'scfg-sec' },
     h('div', { class:'scfg-cap', text:'Общие настройки' }),
     h('div', { class:'scfg-g3' }, fontSel('main', 'Шрифт кириллицы и латиницы'), fontSel('greek', 'Шрифт для греческого'), fontSel('hebrew', 'Шрифт для иврита')),
-    h('div', { class:'scfg-g3' },
-      field('Название слайда, до', num(tmp.names, 'maxLength', { min:5, max:120, unit:'симв.', label:'Длина названия слайда', tip:'Сколько символов можно ввести в название слайда (имя файла для Holyrics).' })),
-      field('Тезис, до', num(tmp.limits, 'thesis', { min:20, max:3000, step:10, unit:'симв.', label:'Лимит тезиса', sample:'thesis', tip:'Если символов больше, слайд подсвечивается жёлтым.' })),
-      field('Цитата, до', num(tmp.limits, 'quote', { min:20, max:3000, step:10, unit:'симв.', label:'Лимит цитаты', sample:'quote', tip:'Если символов больше, слайд подсвечивается жёлтым.' }))),
-    h('p', { class:'hint', text:'Если в тезисе или цитате больше символов, слайд подсвечивается жёлтым. Это подсказка, а не запрет.' }),
-    h('div', { class:'scfg-g3' },
-      field('Поля по бокам', num(tmp.margins, 'side', { min:0, max:400, step:2, unit:'px', label:'Поля по бокам', guide:true })),
-      field('Поля сверху', num(tmp.margins, 'top', { min:0, max:400, step:2, unit:'px', label:'Поля сверху', guide:true })),
-      field('Поля снизу', num(tmp.margins, 'bottom', { min:0, max:400, step:2, unit:'px', label:'Поля снизу', guide:true }))),
-    h('p', { class:'hint', text:'Поля считаются от края цветной панели, в пикселях кадра 1920×1080. Пока курсор в поле, на примере видна область текста.' }));
+    h('div', { class:'scfg-g4' },
+      tipField('Название слайда, до', num(tmp.names, 'maxLength', { min:5, max:120, unit:'симв.', label:'Длина названия слайда', tip:CFG_TIPS.name }), CFG_TIPS.name),
+      tipField('Поля по бокам', num(tmp.margins, 'side', { min:0, max:400, step:2, unit:'px', label:'Поля по бокам', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins),
+      tipField('Поля сверху', num(tmp.margins, 'top', { min:0, max:400, step:2, unit:'px', label:'Поля сверху', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins),
+      tipField('Поля снизу', num(tmp.margins, 'bottom', { min:0, max:400, step:2, unit:'px', label:'Поля снизу', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins)));
 
-  /* Виды слайдов: размер, диапазон, расстояния */
+  /* Виды слайдов: размер, диапазон, расстояния, лимит символов */
   const K = tmp.kinds, grid = h('div', { class:'scfg-kinds', role:'table' },
     h('span', { class:'kh' }, ''),
-    h('span', { class:'kh', text:'Размер 100%', title:CFG_TIPS.size }), h('span', { class:'kh', text:'Мельче до', title:'Насколько форма может уменьшить текст, в % от размера' }),
-    h('span', { class:'kh', text:'Крупнее до', title:CFG_TIPS.max }), h('span', { class:'kh', text:'Между символами', title:CFG_TIPS.track }), h('span', { class:'kh', text:'Между строками', title:CFG_TIPS.lead }));
+    h('span', { class:'kh', text:'Размер 100%', title:CFG_TIPS.size }), h('span', { class:'kh', text:'Уменьшение до', title:CFG_TIPS.minHead }),
+    h('span', { class:'kh', text:'Увеличение до', title:CFG_TIPS.max }), h('span', { class:'kh', text:'Между символами', title:CFG_TIPS.track }),
+    h('span', { class:'kh', text:'Между строками', title:CFG_TIPS.lead }), h('span', { class:'kh', text:'Лимит, симв.', title:CFG_TIPS.limit }));
   CFG_KINDS.forEach(([row, label, smp]) => {
     const k = row === 'foot' ? 'splash' : row, z = K[k], o = (x) => Object.assign({ sample:smp }, x);
     grid.append(h('span', { class:'kl', text:label }));
     if (row === 'foot'){
       grid.append(num(z, 'foot', o({ min:10, max:200, step:1, unit:'px', label:label + ': размер', tip:CFG_TIPS.foot })),
-        dash('Размер имени и даты не подбирается сам'), dash(''), dash('Расстояния у имени и даты свои, в коде'), dash(''));
+        dash('Размер имени и даты не подбирается сам'), dash('Размер имени и даты не подбирается сам'),
+        num(z, 'footTrack', o({ min:-0.2, max:0.3, step:0.01, unit:'em', label:label + ': между символами', tip:CFG_TIPS.track })),
+        num(z, 'footLead', o({ min:0.8, max:2, step:0.05, label:label + ': между строками', tip:CFG_TIPS.lead })),
+        dash('Лимита символов нет'));
       return;
     }
     grid.append(num(z, 'size', o({ min:10, max:400, step:k === 'splash' ? 2 : 0.1, unit:'px', label:label + ': размер 100%', tip:CFG_TIPS.size })),
-      num(z, 'min', o({ min:20, max:100, step:5, unit:'%', label:label + ': мельче до', tip:CFG_TIPS.min[k] })),
-      'max' in z ? num(z, 'max', o({ min:100, max:200, step:5, unit:'%', label:label + ': крупнее до', tip:CFG_TIPS.max })) : dash(k === 'splash' ? 'Название не бывает крупнее заданного размера' : 'Стихи не бывают крупнее заданного размера'),
-      'track' in z ? num(z, 'track', o({ min:-0.2, max:0.3, step:0.01, unit:'em', label:label + ': между символами', tip:CFG_TIPS.track })) : dash('У названия заставки расстояния свои, в коде'),
-      'lead' in z ? num(z, 'lead', o({ min:0.8, max:2, step:0.05, label:label + ': между строками', tip:CFG_TIPS.lead })) : dash('У названия заставки расстояния свои, в коде'));
+      num(z, 'min', o({ min:20, max:100, step:5, unit:'%', label:label + ': уменьшение до', tip:CFG_TIPS.min[k] })),
+      'max' in z ? num(z, 'max', o({ min:100, max:200, step:5, unit:'%', label:label + ': увеличение до', tip:k === 'splash' ? CFG_TIPS.maxSplash : CFG_TIPS.max })) : dash('Стихи не бывают крупнее заданного размера'),
+      num(z, 'track', o({ min:-0.2, max:0.3, step:0.01, unit:'em', label:label + ': между символами', tip:CFG_TIPS.track })),
+      num(z, 'lead', o({ min:0.8, max:2, step:0.05, label:label + ': между строками', tip:CFG_TIPS.lead })),
+      k in tmp.limits ? num(tmp.limits, k, o({ min:20, max:3000, step:10, label:label + ': лимит символов', tip:CFG_TIPS.limit })) : dash('Лимита символов нет'));
   });
-  const kinds = h('section', { class:'scfg-sec' },
-    h('div', { class:'scfg-cap', text:'Настройки для видов слайдов' }),
-    grid,
-    h('p', { class:'hint', text:'«Мельче до»: заставка — до какого размера уменьшается название, чтобы уложиться в три строки; Писание — если стихи уменьшены сильнее, форма советует разбить слайд; тезис и цитата — пределы кнопок «−» и «+» у размера текста. «Между символами» — в долях размера шрифта, «Между строками» — высота строки (1,05 — как в Canva). Строка с местом Писания не меняется.' }));
+  const kinds = h('section', { class:'scfg-sec' }, h('div', { class:'scfg-cap', text:'Настройки для видов слайдов' }), grid);
 
-  /* Стихи на всех слайдах Писания */
-  const V = tmp.verses, vbox = h('div');
+  /* Место Писания: вид стихов на всех слайдах Писания и расстояния */
+  const V = tmp.verses, vbox = h('div', { class:'scfg-verses' });
   const drawVerses = () => {
     const set = (k, v) => { V[k] = v; if (sample !== 'scripture'){ sample = 'scripture'; drawTabs(); } drawVerses(); paint(); };
     vbox.replaceChildren(
@@ -205,43 +214,44 @@ function openSlidesCfg(){
             iconBtn(icn, t, () => set('align', a), V.align === a ? 'on' : ''))),
         h('div', { class:'itools', title:'Выравнивание по вертикали' },
           [['top', 'vtop', 'Прижать к верху'], ['center', 'vmid', 'По центру по вертикали'], ['bottom', 'vbot', 'Прижать к низу']].map(([a, icn, t]) =>
-            iconBtn(icn, t, () => set('valign', a), V.valign === a ? 'on' : '')))));
+            iconBtn(icn, t, () => set('valign', a), V.valign === a ? 'on' : '')))),
+      h('div', { class:'scfg-g3' },
+        tipField('Между стихами', num(V, 'gap', { min:0, max:2, step:0.05, unit:'em', label:'Расстояние между стихами', sample:'scripture', disabled:V.flow !== 'lines',
+          tip:V.flow === 'lines' ? CFG_TIPS.gap : 'Действует, когда стихи «С новой строки»: в строку они идут одним абзацем' }), CFG_TIPS.gap),
+        tipField('Между местом и текстом', num(V, 'refGap', { min:0, max:3, step:0.05, unit:'em', label:'Расстояние между местом Писания и текстом', sample:'scripture', tip:CFG_TIPS.refGap }), CFG_TIPS.refGap)));
   };
   drawVerses();
-  const verses = h('section', { class:'scfg-sec' },
-    h('div', { class:'scfg-cap', text:'Стихи на слайдах Писания' }), vbox,
-    h('p', { class:'hint', text:'Одинаково для всех слайдов Писания: спикеры этого не меняют. Строка с местом Писания и подпись перевода выравниваются вместе со стихами.' }));
+  const verses = h('section', { class:'scfg-sec', title:CFG_TIPS.verses }, h('div', { class:'scfg-cap', text:'Место Писания' }), vbox);
 
-  const err = h('div', { class:'err', role:'alert' });
-  const apply = h('button', { type:'button', class:'btn primary', onclick:() => saveSlidesCfg(tmp, apply, err) }, 'Применить');
+  const err = h('div', { class:'err', role:'alert' }), done = h('span', { class:'scfg-done', role:'status' });
+  const apply = h('button', { type:'button', class:'btn primary', title:CFG_TIPS.apply, onclick:() => saveSlidesCfg(tmp, apply, err, done) }, 'Применить');
   drawTabs();
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet wide scfg', role:'dialog', 'aria-label':'Настройки слайдов' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Настройки слайдов' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('div', { class:'scfg-body' },
-      h('div', { class:'scfg-preview' }, tabs, host, info, h('p', { class:'hint', text:'Пример меняется сразу, а проповеди — только после «Применить».' })),
+      h('div', { class:'scfg-preview' }, tabs, host, info),
       h('div', { class:'scfg-form' }, general, kinds, verses)),
     h('div', { class:'sheet-foot' },
-      h('p', { class:'hint', style:'flex:1;min-width:220px', text:'Настройки общие для всего пространства: после «Применить» они сразу действуют во всех проповедях, старых и новых, у всех участников.' }),
       err,
-      h('div', { style:'display:flex;gap:8px' }, h('button', { type:'button', class:'btn', onclick:closeSettings }, 'Отмена'), apply))));
+      h('div', { style:'display:flex;gap:8px;align-items:center;margin-left:auto' }, done, h('button', { type:'button', class:'btn', onclick:closeSettings }, 'Закрыть'), apply))));
   settingsOverlay.classList.add('open');
   paint();
 }
-async function saveSlidesCfg(tmp, btn, err){
+/* «Применить»: записать в облако; окно остаётся открытым, у кнопки — короткое «Применено» */
+async function saveSlidesCfg(tmp, btn, err, done){
   const next = mergeSlides(SLIDES_DEFAULT, tmp);
-  btn.disabled = true; btn.textContent = 'Сохраняю…'; err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Сохраняю…'; err.textContent = ''; if (done) done.textContent = '';
   // без сети запись ждёт связи; настройки уже действуют здесь (их сразу отдаёт и слушатель облака)
   const slow = new Promise(res => setTimeout(() => res('slow'), 10000));
   try {
     const r = await Promise.race([cloud.api.setSlides(cloud.space, cloud.user, next), slow]);
     slidesFromCloud(next);
-    closeSettings();
-    toast(r === 'slow' ? 'Нет связи с облаком: настройки уйдут туда, когда сеть вернётся' : 'Настройки слайдов применены ко всем проповедям');
+    if (r === 'slow') toast('Нет связи с облаком: настройки уйдут туда, когда сеть вернётся');
+    else if (done){ done.textContent = '✓ Применено'; clearTimeout(done._t); done._t = setTimeout(() => { done.textContent = ''; }, 2500); }
   } catch(e){
-    btn.disabled = false; btn.textContent = 'Применить';
     err.textContent = cloudExplain(e) || 'Не получилось сохранить настройки.';
-  }
+  } finally { btn.disabled = false; btn.textContent = 'Применить'; }
 }
 /* Настройки пришли из облака (или их только что применили): запомнить в браузере и перерисовать слайды */
 function slidesFromCloud(cfg){

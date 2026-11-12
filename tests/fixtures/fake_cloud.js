@@ -118,6 +118,25 @@
       db.slides = JSON.parse(JSON.stringify(slides || {}));
       store(db); notify();
     },
+    /* Статус отдельно от содержимого (этап 7.2): замок свободен или мой; чужой истёкший — снимается */
+    async setStatus(space, id, who, status){
+      calls.status = (calls.status || 0) + 1; offline();
+      const db = load(), cur = db.sermons[id], my = who.email;
+      if (!cur) throw fail('missing', 'Этой проповеди уже нет в облаке');
+      const l = cur.lock || null;
+      if (l && l.email !== my && live(db, l)) throw fail('locked', 'Проповедь сейчас правят', { lock:l });
+      if (!isEditor(db, my) && (cur.owner !== my || !['draft', 'submitted'].includes(status))) throw fail('permission-denied', 'Missing or insufficient permissions');
+      if (l && l.email !== my) cur.lock = null;
+      Object.assign(cur, { status, updatedAt:tick(db), updatedBy:my });
+      store(db); notify(); return view(db, cur);
+    },
+    /* Настройки экрана человека (этап 7.2): у каждой почты своя запись */
+    async getPrefs(who){ offline(); const db = load(); const p = (db.prefs || {})[who.email]; return p ? JSON.parse(JSON.stringify(p)) : null; },
+    async setPrefs(who, layout){
+      calls.prefs = (calls.prefs || 0) + 1; offline();
+      const db = load(); db.prefs = db.prefs || {}; db.prefs[who.email] = JSON.parse(JSON.stringify(layout || {}));
+      store(db);
+    },
     async remove(space, id){ const db = load(); delete db.sermons[id]; if (db.flags) delete db.flags[id]; store(db); notify(); },
   };
 })();

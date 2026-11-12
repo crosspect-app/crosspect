@@ -60,6 +60,7 @@ async function cloudUser(user){
     cloud.spaceName = (sp && sp.name) || ''; cloud.settings = (sp && sp.settings) || {};
     cloud.mode = 'in';
     startListen();
+    loadLayoutPrefs();   // раскладка экрана у человека (layout.js)
   } catch(e){
     cloud.mode = 'error'; cloud.error = cloudExplain(e) || 'Не удалось получить доступ к облаку.';
   }
@@ -166,6 +167,7 @@ function takeRemote(remote){
   ed.conflict = null;
   state = applyFlags(normalize(remote)); state.savedAt = state.updatedAt; selId = null;
   if (!ed.myAt) beginCloud(remote);   // замка у нас нет — дальше просмотр; если есть, правка продолжается с облачной версии
+  histReset();
   persistDraft(); renderAll(); toast('Открыта версия из облака');
 }
 /* Копия получает новый номер и уходит в облако как отдельная проповедь (её хозяин — вы). Оригинал не сохраняется */
@@ -177,6 +179,7 @@ function saveAsCopy(){
   state.savedAt = 0; state.updatedAt = Date.now();
   try { localStorage.removeItem('swp-sermon:' + old); } catch(e){}
   if (cloudOn()) beginCloud(null);
+  histReset();
   persistDraft();
   history.replaceState(null, '', sermonHash(state.id) + (view === 'text' ? '&v=text' : ''));
   renderAll();

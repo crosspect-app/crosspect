@@ -1,9 +1,12 @@
 'use strict';
 
-/* ========= Работа редактора (этап 7) =========
-   1. Статус проповеди: «В работе» (в облаке `draft`) и «Готов» (`submitted`). Новая проповедь — «В работе».
-      Спикер или редактор отмечает «Готов», когда конспект закончен. Если спикер правит готовую проповедь,
-      она сама возвращается «В работе»; правка редактора статус не сбрасывает.
+/* ========= Работа редактора (этапы 7 и 7.2) =========
+   1. Статус конспекта: «В работе» (в облаке `draft`) и «Готов к вёрстке» (`submitted`). Новый конспект — «В работе».
+      Переключатель — один, на экране проповеди (statusSwitch); в списке проповедей статус только виден.
+      Спикер: «Готов к вёрстке» — конспект сохраняется и правка закрывается (как «Сохранить»); не вышло (нет связи) — статус
+      не меняется. Потом любая правка спикера сама возвращает «В работе». Редактор и админ меняют статус в любую сторону
+      отдельной записью (setStatus), без выхода из правки; их правки статус не сбрасывают.
+      Статус не меняется, пока проповедь правит другой (так и в правилах облака: замок свободен или свой).
    2. Отметка «доработать»: видят и ставят только редактор и админ, в любой момент (замок не нужен). Лежит не в проповеди,
       а в закрытом от спикеров документе `editor/state`: { flags: { <id слайда>: { t: 1 | 0, s: подпись } } }.
       t — отметка стоит; s — подпись содержимого слайда на тот момент, когда редактор решил. Если редактор снял отметку, а спикер
@@ -12,30 +15,78 @@
       Без входа (старый режим) отметка лежит в самой проповеди, как раньше. */
 
 /* ----- Статус ----- */
-let statusTouch = false;   // статус меняет сама кнопка: change() не должен считать это правкой спикера
-/* Вызывается из change(): спикер изменил готовую проповедь — снова «В работе» */
+/* Тексты уведомлений — короткие и по делу (проверены по humanizer и ru-product-texts) */
+const STATUS_MSG = {
+  reset:'Конспект снова «В работе»: вы его изменили',
+  readyPreacher:'Готов к вёрстке: конспект сохранён, правка закрыта. Редактор увидит это в списке',
+  ready:'Статус: «Готов к вёрстке»',
+  work:'Статус: «В работе»',
+  offline:'Нет связи с облаком, статус не изменился. Правки сохранятся сами, когда появится сеть',
+  offlineView:'Нет связи с облаком, статус не изменился',
+  quota:'Облако перегружено до 9:00, статус не изменился',
+  locked:who => 'Сейчас конспект правит ' + who + '. Статус можно поменять, когда правка закончится',
+  fail:'Статус не изменился'
+};
+let statusTouch = false, statusBusy = false;   // статус меняет сам переключатель: change() не должен считать это правкой спикера
+/* Вызывается из change(): спикер изменил готовый конспект — снова «В работе» */
 function statusOnEdit(){
   if (statusTouch || !cloudOn() || cloud.role !== 'preacher' || !state || !isReady(state.cloudStatus)) return;
   state.cloudStatus = 'draft';
   renderTopbar();
-  toast('Проповедь снова «В работе»: вы изменили её после отметки «Готов»');
+  toast(STATUS_MSG.reset);
 }
-function setSermonStatus(key){
-  if (!cloudSermon()) return;
-  if (readOnly()){ roHint(); return; }
+/* Можно ли менять статус этого конспекта (сам переключатель; облако проверит ещё раз) */
+const canSetStatus = () => cloudSermon() && canEditCloud();
+async function setSermonStatus(key){
+  if (!canSetStatus() || statusBusy) return;
   if ((key === 'submitted') === isReady(state.cloudStatus)) return;
-  statusTouch = true;
-  try { state.cloudStatus = key; change(); } finally { statusTouch = false; }
-  renderTopbar();
-  toast(key === 'submitted' ? 'Отмечено «Готов»: редактор увидит это в списке' : 'Проповедь снова «В работе»');
+  const l = otherLock();
+  if (l && l.email !== myEmail()){ toast(STATUS_MSG.locked(lockWho(l))); return; }
+  const s = state, prev = s.cloudStatus || 'draft';
+  statusBusy = true; renderTopbar();
+  try {
+    // спикер отправляет конспект на вёрстку: сохранить и закрыть правку
+    if (cloud.role === 'preacher' && key === 'submitted' && editing()){
+      s.cloudStatus = key;
+      const res = await closeEdit('status');
+      if (res === 'ok'){ toast(STATUS_MSG.readyPreacher); return; }
+      if (state === s) s.cloudStatus = prev;
+      if (res === 'offline') toast(STATUS_MSG.offline);
+      else if (res === 'quota') toast(STATUS_MSG.quota);
+      else if (res !== 'conflict' && res !== 'lost' && res !== 'none') toast(STATUS_MSG.fail);
+      return;
+    }
+    // конспекта в облаке ещё нет: статус уйдёт с первым сохранением
+    if (!s.cloudAt){ statusTouch = true; try { s.cloudStatus = key; change(); } finally { statusTouch = false; } toast(STATUS_MSG[key === 'submitted' ? 'ready' : 'work']); return; }
+    const r = await cloud.api.setStatus(cloud.space, s.id, cloud.user, key, { minutes:lockMins() });
+    if (state !== s) return;
+    s.cloudStatus = r.cloudStatus;
+    if (editing()){ s.cloudAt = r.cloudAt; s.cloudBy = r.cloudBy; ed.remote = Object.assign({}, ed.remote || {}, { cloudAt:r.cloudAt, cloudStatus:r.cloudStatus, lock:r.lock }); persistDraft(); }   // замок мой: содержимое уйдёт со следующим сохранением
+    else { ed.remote = r; setRemoteState(r); }
+    toast(STATUS_MSG[key === 'submitted' ? 'ready' : 'work']);
+  } catch(e){
+    if (state === s) s.cloudStatus = prev;
+    const code = (e && e.code) || '';
+    if (code === 'locked') toast(STATUS_MSG.locked(lockWho(e.lock)));
+    else if (/resource-exhausted/.test(code)) toast(STATUS_MSG.quota);
+    else if (netErr(e)) toast(STATUS_MSG.offlineView);
+    else toast(cloudExplain(e) || STATUS_MSG.fail);
+  } finally {
+    statusBusy = false;
+    if (state === s) rerenderKeep();
+  }
 }
-/* Кнопка в шапке рядом со статусом: только пока проповедь правится */
-function statusAction(){
-  if (!editing()) return null;
-  const ready = isReady(state.cloudStatus);
-  return h('button', { type:'button', class:'btn',
-    title:ready ? 'Вернуть статус «В работе»' : 'Закончили конспект? Отметьте «Готов»: редактор увидит, что пора делать слайды',
-    onclick:() => setSermonStatus(ready ? 'draft' : 'submitted') }, ready ? 'Вернуть в работу' : 'Отметить «Готов»');
+/* Переключатель статуса в шапке проповеди: два положения, щелчок переключает. Нельзя менять — просто метка */
+function statusSwitch(){
+  const st = sermonStatus(state);
+  if (!canSetStatus()) return h('span', { class:'stchip st-' + st.key, text:st.label });
+  const ready = isReady(state.cloudStatus), preacher = cloud.role === 'preacher';
+  const tip = ready ? 'Вернуть статус «В работе»'
+    : preacher && editing() ? 'Конспект закончен? Переключите: он сохранится, правка закроется, и редактор увидит, что пора делать слайды'
+      : 'Отметить «Готов к вёрстке»: редактор увидит, что пора делать слайды';
+  return h('button', { type:'button', class:'stswitch' + (ready ? ' ready' : ''), role:'switch', 'aria-checked':String(ready), 'aria-label':'Статус конспекта',
+    title:tip, disabled:statusBusy, onclick:() => setSermonStatus(ready ? 'draft' : 'submitted') },
+    h('span', { class:'sw-opt' + (ready ? '' : ' on'), text:STATUS_LABELS.work }), h('span', { class:'sw-opt' + (ready ? ' on' : ''), text:STATUS_LABELS.done }));
 }
 
 /* ----- Доработать ----- */

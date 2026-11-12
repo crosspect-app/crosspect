@@ -115,8 +115,10 @@ function normalize(d){
   s.meta = { title:String(dm.title || ''), date:String(dm.date || '') };
   if (dm.firstName != null || dm.lastName != null) Object.assign(s.meta, { firstName:String(dm.firstName || '').trim(), lastName:String(dm.lastName || '').trim() });
   else Object.assign(s.meta, splitPreacher(dm.preacher));
-  s.settings = {};   // лимиты и размер Писания теперь общие (настройки слайдов пространства); у проповеди остался только перевод
+  s.settings = {};   // лимиты и размер Писания теперь общие (настройки слайдов пространства); у проповеди — перевод и размер заставки
   if (d.settings && typeof d.settings.lang === 'string') s.settings.lang = d.settings.lang;
+  // размер названия на заставках (−/+), один на всю проповедь (этап 7.2), в % от размера из настроек слайдов
+  if (d.settings && isFinite(+d.settings.splash) && +d.settings.splash > 0) s.settings.splash = Math.round(+d.settings.splash);
   let cur = null;   // слайд, к которому относится идущий дальше текст
   (d.blocks || []).forEach(b => {
     if (!b) return;
@@ -212,11 +214,14 @@ function mergeSlides(base, over){
     if ('track' in d) out.track = clampF(z.track, -0.2, 0.3, d.track, 3);
     if ('lead' in d) out.lead = clampF(z.lead, 0.8, 2, d.lead);
     if ('foot' in d) out.foot = clampF(z.foot, 10, 200, d.foot);
+    if ('footTrack' in d) out.footTrack = clampF(z.footTrack, -0.2, 0.3, d.footTrack, 3);
+    if ('footLead' in d) out.footLead = clampF(z.footLead, 0.8, 2, d.footLead);
     r.kinds[k] = out;
   });
   const v = r.verses;
   r.verses = { flow:oneOf(v.flow, ['inline', 'lines'], 'inline'), frame:!!v.frame, caps:v.caps !== false, showTr:v.showTr !== false,
-    align:oneOf(v.align, ['left', 'center', 'right'], 'center'), valign:oneOf(v.valign, ['top', 'center', 'bottom'], 'top') };
+    align:oneOf(v.align, ['left', 'center', 'right'], 'center'), valign:oneOf(v.valign, ['top', 'center', 'bottom'], 'top'),
+    gap:clampF(v.gap, 0, 2, D.verses.gap), refGap:clampF(v.refGap, 0, 3, D.verses.refGap) };
   return r;
 }
 function slidesCfg(){ return SLIDES_TRY || SLIDES_BASE; }
@@ -235,7 +240,9 @@ function slideVars(c){
     '--sc-track':K.scripture.track + 'em', '--sc-lead':String(K.scripture.lead),
     '--th-track':K.thesis.track + 'em', '--th-lead':String(K.thesis.lead),
     '--qt-track':K.quote.track + 'em', '--qt-lead':String(K.quote.lead),
-    '--sp-foot':K.splash.foot + 'px' };
+    '--sc-gap':c.verses.refGap + 'em', '--sc-vgap':c.verses.gap + 'em',
+    '--sp-track':K.splash.track + 'em', '--sp-lead':String(K.splash.lead),
+    '--sp-foot':K.splash.foot + 'px', '--sp-ftrack':K.splash.footTrack + 'em', '--sp-flead':String(K.splash.footLead) };
 }
 function marginVars(m){ return { '--sl-x':(PANEL_INSET + m.side) + 'px', '--sl-t':(PANEL_INSET + m.top) + 'px', '--sl-b':(PANEL_INSET + m.bottom) + 'px' }; }
 function applySlides(){

@@ -9,24 +9,25 @@ const CONFIG_URL_DEFAULT = 'https://raw.githubusercontent.com/crosspect-app/cros
    margins — поля от края цветной панели, px кадра 1920×1080; names.maxLength — длина названия слайда;
    limits — сколько символов в тезисе и цитате, дальше подсветка жёлтым;
    fonts — шрифты (пока по одному в каждом списке, см. SLIDE_FONTS);
-   kinds — виды слайдов: size — размер 100% в px; min / max — диапазон в % от size (у заставки — до какого размера
-     название может уменьшиться, чтобы уложиться в три строки; у Писания — ниже этого форма предлагает разбить слайд;
-     у тезиса и цитаты — кнопки −/+ размера); track — расстояние между символами, em; lead — между строками;
-     splash.foot — имя и дата внизу заставки, px;
+   kinds — виды слайдов: size — размер 100% в px; min / max — диапазон в % от size (у тезиса, цитаты и заставки — пределы
+     кнопок −/+ размера; у заставки min ещё и до какого размера название может уменьшиться само, чтобы уложиться в три строки;
+     у Писания — ниже этого форма предлагает разбить слайд); track — расстояние между символами, em; lead — между строками;
+     splash.foot — имя и дата внизу заставки, px; footTrack / footLead — их расстояния;
    verses — вид стихов на всех слайдах Писания: flow 'inline' (в строку) | 'lines' (с новой строки), frame — рамка пунктиром,
-     caps — заглавными, showTr — подпись перевода, align 'left' | 'center' | 'right', valign 'top' | 'center' | 'bottom' */
+     caps — заглавными, showTr — подпись перевода, align 'left' | 'center' | 'right', valign 'top' | 'center' | 'bottom',
+     gap — расстояние между стихами с новой строки, em; refGap — между местом Писания и текстом (и между частями слайда), em */
 const SLIDES_DEFAULT = {
   margins:{ side:60, top:60, bottom:60 },
   names:{ maxLength:35 },
   limits:{ thesis:220, quote:300 },
   fonts:{ main:'unbounded', greek:'inter', hebrew:'noto-hebrew' },
   kinds:{
-    splash:{ size:200, min:55, foot:44 },
+    splash:{ size:200, min:55, max:130, track:0, lead:1.1, foot:44, footTrack:-0.03, footLead:1.1 },
     scripture:{ size:52.8, min:80, track:-0.04, lead:1.05 },
     thesis:{ size:50.4, min:70, max:130, track:-0.04, lead:1.05 },
     quote:{ size:51.48, min:70, max:110, track:-0.04, lead:1.05 }
   },
-  verses:{ flow:'inline', frame:false, caps:true, showTr:true, align:'center', valign:'top' }
+  verses:{ flow:'inline', frame:false, caps:true, showTr:true, align:'center', valign:'top', gap:0.3, refGap:0.85 }
 };
 /* Шрифты в списках — только те, что форма загружает и встраивает в JPEG (см. EXPORT_FONTS в export.js) */
 const SLIDE_FONTS = {
@@ -86,23 +87,28 @@ const ICONS = {
   next:'<path d="m9 18 6-6-6-6"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/>',
-  frameDash:'<rect x="4" y="6" width="16" height="12" rx="2" stroke-dasharray="2.6 2.2"/>'
+  frameDash:'<rect x="4" y="6" width="16" height="12" rx="2" stroke-dasharray="2.6 2.2"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  redo:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
+  done:'<path d="m4.5 12.5 4.5 4.5 10.5-10.5"/>'
 };
 
-/* Порядок здесь = порядок в окне «Что добавить?»: top — верхняя строка (широкая заставка и узкая заметка), дальше парами.
-   slide — слайд с номером; todo — при создании сразу получает отметку «доработать» (такой слайд делают вручную) */
+/* Порядок здесь = порядок в окне «Что добавить?»: плитки парами (заставка — Писание, тезис — цитата, картинка — видео,
+   свободный — заметка). slide — слайд с номером; todo — при создании сразу получает отметку «доработать» (такой слайд делают вручную) */
 const TYPES = {
-  splash:    { label:'Заставка', icon:'cover', slide:true, top:true, desc:'Название проповеди на экране, пока вы говорите без слайда' },
-  note:      { label:'Заметка оператору', icon:'note', slide:false, top:true, desc:'Что сделать: запустить видео, включить музыку…' },
-  scripture: { label:'Место Писания', icon:'book', slide:true, desc:'Одно или несколько мест, с предпросмотром слайда' },
-  free:      { label:'Свободный слайд', icon:'free', slide:true, todo:true, desc:'Всё нестандартное: опишите словами' },
-  thesis:    { label:'Тезис', icon:'thesis', slide:true, desc:'Мысль, пункт плана, пояснение слова' },
+  splash:    { label:'Заставка проповеди', icon:'cover', slide:true, desc:'Название проповеди на экране, пока вы говорите без слайда' },
+  scripture: { label:'Место Писания', icon:'book', slide:true, desc:'Одно или несколько мест Писания, а также дополнительный текст' },
+  thesis:    { label:'Тезис', icon:'thesis', slide:true, desc:'Мысль, пункт плана, пояснение слова или понятия, список' },
   quote:     { label:'Цитата', icon:'quote', slide:true, desc:'Текст, автор и подпись' },
   image:     { label:'Картинка', icon:'image', slide:true, todo:true, desc:'Найти по описанию или прислать файл' },
-  video:     { label:'Видео', icon:'video', slide:true, todo:true, desc:'Ссылка или файл отдельно' }
+  video:     { label:'Видео', icon:'video', slide:true, todo:true, desc:'Ссылка или файл отдельно' },
+  free:      { label:'Свободный слайд', icon:'free', slide:true, todo:true, desc:'Всё нестандартное: опишите словами' },
+  note:      { label:'Заметка оператору', icon:'note', slide:false, desc:'Что сделать: запустить видео, включить музыку…' }
 };
-/* Типы, у которых в редакторе есть предпросмотр слайда и которые форма сама собирает в JPEG */
+/* Типы, у которых в редакторе есть предпросмотр слайда и которые форма сама собирает в JPEG (и в «Скачать все слайды») */
 const PREVIEW = { splash:true, scripture:true, thesis:true, quote:true };
+/* Картинка, видео и свободный слайд: кнопка JPEG скачивает пустой слайд (рамка и фон, без текста) — основа для Canva */
+const BLANK_JPEG = { image:true, video:true, free:true };
 /* Сколько слов в минуту — для оценки времени по «Тексту к слайду» */
 const WORDS_PER_MIN = 130;
 

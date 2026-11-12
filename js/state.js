@@ -22,8 +22,9 @@ function persistDraft(){
 }
 function change(){
   if (roBlock()) return;   // только просмотр: правка отменяется, подсказка про «Редактировать»
-  statusOnEdit();   // спикер изменил «Готов» — снова «В работе» (editor.js)
+  statusOnEdit();   // спикер изменил «Готов к вёрстке» — снова «В работе» (editor.js)
   state.updatedAt = Math.max(Date.now(), state.updatedAt + 1);   // только вперёд: иначе при отстающих часах правка выглядела бы сохранённой
+  histRecord();   // отмена и возврат (history.js): запомнить, как было до правки
   clearTimeout(draftTimer);
   draftTimer = setTimeout(persistDraft, 400);
   updateStatus();
@@ -70,11 +71,12 @@ function blockSummary(b){
 }
 
 
-/* Статус проповеди — два: «В работе» (в облаке `draft`) и «Готов» (`submitted`; старое `done` тоже считается готовым).
-   Ставит его спикер или редактор; если спикер правит готовую проповедь, она снова «В работе» (editor.js) */
+/* Статус конспекта — два: «В работе» (в облаке `draft`) и «Готов к вёрстке» (`submitted`; старое `done` тоже считается готовым).
+   Переключатель — на экране проповеди (editor.js); если спикер правит готовый конспект, он снова «В работе» */
 const isReady = st => st === 'submitted' || st === 'done';
+const STATUS_LABELS = { work:'В работе', done:'Готов к вёрстке' };
 function sermonStatus(d){
-  return isReady(d.cloudStatus) ? { key:'done', label:'Готов' } : { key:'work', label:'В работе' };
+  return isReady(d.cloudStatus) ? { key:'done', label:STATUS_LABELS.done } : { key:'work', label:STATUS_LABELS.work };
 }
 /* «Вс, 15 ноября» */
 function fmtDay(s){

@@ -6,11 +6,16 @@
    не меньше, чем от верха букв места Писания до верха фона, иначе всё содержимое пропорционально уменьшается.
    Тезис и цитата: текст по центру своей области (тезис можно выровнять влево или вправо); если не помещается, уменьшается. */
 const SL = { W:1920, H:1080, min:16, trGap:48 };
-/* Заставка: название от size (короткое) до size × min% (три строки), слова не переносятся; длиннее — мельче, лишь бы влезло.
-   Размеры — в настройках слайдов (kinds.splash) */
-const SPLASH = { lh:1.1, gap:56 };
+/* Заставка: название от size × размер проповеди (короткое) до size × min% (три строки), слова не переносятся; длиннее — мельче,
+   лишь бы влезло. Размеры — в настройках слайдов (kinds.splash); размер −/+ — один на всю проповедь (settings.splash, %) */
+const SPLASH = { gap:56 };
 const splashMax = () => slidesCfg().kinds.splash.size;
 const splashMin3 = () => Math.round(splashMax() * slidesCfg().kinds.splash.min / 100);
+function splashScale(b){
+  const R = scaleRange('splash'), v = b && b.meta ? 100 : +((state && state.settings && state.settings.splash) || 100);   // b.meta — пример в окне настроек
+  return Math.min(R.max, Math.max(R.min, Math.round(v)));
+}
+const splashBase = b => splashMax() * splashScale(b) / 100;
 let lastScale = 0;   // масштаб последнего предпросмотра в редакторе   // trGap — запас между текстом и подписью перевода
 /* Размеры 100% в px — в настройках слайдов (kinds): Писание 52,8 (= 48 × 110%), тезис 50,4, цитата 51,48; имя автора цитаты — 52 */
 const basePx = t => slidesCfg().kinds[t].size;
@@ -111,7 +116,8 @@ function slideEl(b){
   // слайд всегда раскладывается в полном кадре 1920×1080 и только масштабируется — переносы как в итоговом JPEG
   const kids = [h('div', { class:'sl-frame' }),
     h('div', { class:'sl-panel' }, h('div', { class:'sl-glow' }), h('div', { class:'sl-grain' }), h('div', { class:'sl-vig' }))];
-  if (b.type === 'scripture') kids.push(h('div', { class:'sl-content' }), h('div', { class:'sl-tr' }));
+  if (!PREVIEW[b.type]){}   // картинка, видео, свободный: пустой слайд (рамка и фон) для JPEG
+  else if (b.type === 'scripture') kids.push(h('div', { class:'sl-content' }), h('div', { class:'sl-tr' }));
   else if (b.type === 'splash') kids.push(
     h('div', { class:'sl-sp-box' }, h('div', { class:'sl-sp-title' })),
     h('div', { class:'sl-sp-foot' }, h('div', { class:'sl-hr' }), h('div', { class:'sl-sp-row' }, h('span', { class:'sl-sp-name' }), h('span', { class:'sl-sp-date' }))));
@@ -217,7 +223,7 @@ function layoutSplash(sl, b, px){
   t.textContent = typoText(title || 'Название проповеди');
   wrapScripts(t);
   t.style.fontSize = px + 'px';
-  const lines = Math.round(t.offsetHeight / (px * SPLASH.lh));
+  const lines = Math.round(t.offsetHeight / (px * slidesCfg().kinds.splash.lead));
   return t.scrollWidth <= t.clientWidth + 1 && t.offsetHeight <= box.clientHeight && (lines <= 3 || px <= splashMin3());
 }
 function firstTextRect(root){
@@ -238,7 +244,7 @@ function lastTextRect(root){
   const rc = r.getClientRects()[0], cs = getComputedStyle(last.parentNode);
   return rc ? { top:rc.top, fs:parseFloat(cs.fontSize), wt:parseInt(cs.fontWeight, 10) >= 600 ? 700 : 400 } : null;
 }
-/* Подпись перевода внизу слайда: «* Синодальный перевод»; несколько разных переводов — через точку */
+/* Подпись перевода внизу слайда: «· Синодальный перевод»; несколько разных переводов — через точку */
 function slideTrName(it){
   if (it.manual) return (it.translation || '').trim();
   const L = LANGS[it.lang]; return L ? (L.slide || L.tr || '') : (it.translation || '');
@@ -302,7 +308,8 @@ function fitSlide(sl, b){
   sl.style.setProperty('--s', w / SL.W);
   if (w < SL.W && !sl.closest('.film, .scfg')) lastScale = w / SL.W;   // масштаб берём с крупных слайдов, не с миниатюр
   const fit = b.type === 'scripture' ? layoutAt : b.type === 'splash' ? layoutSplash : layoutBox;
-  const base = b.type === 'scripture' ? scrPx() : b.type === 'splash' ? splashMax() : basePx(b.type) * blkScale(b) / 100;
+  if (!PREVIEW[b.type]) return 1;   // пустой слайд (картинка, видео, свободный): только рамка и фон
+  const base = b.type === 'scripture' ? scrPx() : b.type === 'splash' ? splashBase(b) : basePx(b.type) * blkScale(b) / 100;
   if (fit(sl, b, base)) return 1;
   let lo = SL.min, hi = base;
   if (!fit(sl, b, lo)) return lo / base;
@@ -328,7 +335,7 @@ function runPreview(b){
   const pct = Math.round(ratio * 100);
   let over, msg;
   if (b.type === 'splash'){
-    const px = Math.round(ratio * splashMax());
+    const px = Math.round(ratio * splashBase(b));
     over = px < splashMin3();
     msg = 'название ' + px + ' px' + (over ? ' — длинное, лучше короче' : '');
   } else if (b.type === 'scripture'){
