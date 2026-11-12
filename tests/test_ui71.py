@@ -155,8 +155,8 @@ def test_scripture_panel_translation_on_top(page):
     page.wait_for_selector(".side .trp-field")
     labels = page.evaluate("[...document.querySelectorAll('.side .item .lbl')].map(x => x.textContent)")
     assert labels[:3] == ["Перевод", "Книга", "Глава"]
-    w_tr = page.locator(".side .trp-field").bounding_box()["width"]
-    w_item = page.locator(".side .item").bounding_box()["width"]
+    # одним вызовом: панель может перерисоваться, когда догрузится перевод
+    w_tr, w_item = page.evaluate("[document.querySelector('.side .trp-field').getBoundingClientRect().width, document.querySelector('.side .item').getBoundingClientRect().width]")
     assert w_tr > w_item * 0.8   # перевод — на всю ширину
     side = page.inner_text(".side")
     for gone in ("В строку", "Каждый с новой строки", "Рамка пунктиром", "Показывать перевод на слайде", "Стихи заглавными"):
