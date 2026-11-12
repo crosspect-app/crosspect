@@ -1,4 +1,4 @@
-"""Этап 7.3: фон слайдов (генератор в «Настройках слайдов», одинаковый предпросмотр и JPEG, повторяемость),
+"""Этап 7.3: фон слайдов (одинаковый предпросмотр и JPEG, повторяемость; окно форматов — test_ui75.py),
 окно настроек («Применить» только при изменениях, без «Закрыть», «Между ссылкой и текстом», заставка «Только название»),
 без «Источника настроек» и «Открыть файл», контакт на экране «Вас нет в списке».
 Статусы и «автор» — в test_editor.py. Облако подменено: tests/fixtures/fake_cloud.js."""
@@ -104,49 +104,8 @@ def test_splash_title_only(browser, base_url):
 
 # ---------- фон ----------
 
-def test_background_generator_apply_and_reset(browser, base_url):
-    ctx, page = cloud_page(browser, base_url, user=ED, members=MEMBERS_ED, sermons={"s1": with_splashes()})
-    page.wait_for_selector(".scard")
-    open_sermon(page, "s1")
-    # пока фон не трогали — прежний: пятна .sl-glow, картинки нет
-    assert stage_var(page, ".film .sl-stage", "--sl-bg") == "none"
-    assert page.evaluate("getComputedStyle(document.querySelector('.film .sl-glow')).display") == "block"
-    page.evaluate("openSlidesCfg()")
-    sheet = page.locator(".sheet.scfg")
-    assert "Фон" in sheet.inner_text()
-    for label in ("Полосы по вертикали", "Полосы по горизонтали", "Пятна", "Оттенков", "Основной цвет", "Разброс оттенков",
-                  "Размытие", "Зернистость", "Яркость основы", "Затемнение краёв"):
-        assert sheet.locator("[aria-label='%s']" % label).count() == 1, label
-    assert sheet.get_by_role("button", name="Сбросить фон").is_disabled()
-    sample_before = stage_var(page, ".scfg-slide .sl-stage", "--sl-bg")
-    sheet.locator("[aria-label='Полосы по вертикали']").fill("80")
-    page.wait_for_function("getComputedStyle(document.querySelector('.scfg-slide .sl-stage')).getPropertyValue('--sl-bg').includes('data:image/jpeg')")
-    assert sample_before == "none"
-    # проповеди меняются только после «Применить»
-    assert stage_var(page, ".film .sl-stage", "--sl-bg") == "none"
-    sheet.locator("[aria-label='Основной цвет']").fill("#3355aa")
-    sheet.get_by_text("крупное").click()
-    sheet.get_by_role("button", name="Другой вариант").click()
-    apply_btn(page).click()
-    page.wait_for_function("fakeCloud.calls.slides === 1")
-    bg = page.evaluate("fakeCloud.db().slides.bg")
-    assert bg["stripesV"] == 80 and bg["color"] == "#3355aa" and bg["grainKind"] == "coarse" and bg["seed"] == 2   # «Другой вариант»: следующий номер после начального 1
-    # все слайды проповеди (и пустые: картинка, видео) — с новым фоном, одна и та же картинка
-    page.wait_for_function("getComputedStyle(document.querySelector('.film .sl-stage')).getPropertyValue('--sl-bg').includes('data:image/jpeg')")
-    vals = page.evaluate("[...document.querySelectorAll('.film .sl-stage, .stage .sl-stage')].map(s => getComputedStyle(s).getPropertyValue('--sl-bg').trim())")
-    assert len(set(vals)) == 1 and len(vals) >= 5
-    assert page.evaluate("getComputedStyle(document.querySelector('.film .sl-glow')).display") == "none"
-    assert stage_var(page, ".film .sl-stage", "--sl-gsz") == "192px"   # крупное зерно
-    # «Сбросить фон» — снова прежний, один в один
-    sheet.get_by_role("button", name="Сбросить фон").click()
-    apply_btn(page).click()
-    page.wait_for_function("fakeCloud.calls.slides === 2")
-    assert page.evaluate("fakeCloud.db().slides.bg") is None
-    page.wait_for_function("getComputedStyle(document.querySelector('.film .sl-stage')).getPropertyValue('--sl-bg').trim() === 'none'")
-    assert page.evaluate("getComputedStyle(document.querySelector('.film .sl-glow')).display") == "block"
-    assert stage_var(page, ".film .sl-stage", "--sl-go") == "0.6" and stage_var(page, ".film .sl-stage", "--sl-va") == "0.35"
-    assert not page.errors, page.errors
-    ctx.close()
+# Генератор фона в окне с этапа 7.5 работает через форматы: «Создать новый», «Сохранить», «Сделать по умолчанию» —
+# проверки в test_ui75.py (там же System Template — прежний фон один в один).
 
 
 def test_author_gets_background_and_cannot_change_it(browser, base_url):
@@ -177,11 +136,11 @@ def test_background_jpeg_matches_preview(browser, base_url):
     page.evaluate("d => { const db = fakeCloud.db(); db.slides = { bg:d }; fakeCloud.put(db); }", TEST_BG)
     page.wait_for_selector(".scard")
     open_sermon(page, "s1")
-    page.wait_for_function("SLIDES_BASE.bg && SLIDES_BASE.bg.color === '#2f6fd0'")
+    page.wait_for_function("sermonBg(state) && sermonBg(state).color === '#2f6fd0'")   # фон 7.3 стал форматом «Фон пространства» (этап 7.5)
     # одни и те же точки панели: в картинке фона (как её растягивает слайд) и в JPEG картинки-слайда (пустой слайд — только фон)
     res = page.evaluate("""async () => {
       const pts = [[300, 300], [960, 540], [1600, 800], [700, 900], [1300, 200]];
-      const url = bgImage(SLIDES_BASE.bg).slice(4, -1), img = new Image(); img.src = url; await img.decode();
+      const url = bgImage(sermonBg(state)).slice(4, -1), img = new Image(); img.src = url; await img.decode();
       const a = document.createElement('canvas'); a.width = 1920; a.height = 1080;
       const ax = a.getContext('2d'); ax.drawImage(img, 44, 44, 1832, 992);   // панель — отступ 44 от края кадра
       const bm = await createImageBitmap(await renderJPEG(state.blocks.find(b => b.type === 'image')));

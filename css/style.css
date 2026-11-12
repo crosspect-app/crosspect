@@ -685,7 +685,7 @@ body.light .fmtbar{box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .scfg-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .scfg-g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .scfg-kinds{display:grid;grid-template-columns:minmax(96px,1fr) repeat(6,minmax(70px,1fr));gap:6px;align-items:center;overflow-x:auto}
-.scfg-done{font-size:12px;color:var(--ok,#5ad17a);white-space:nowrap}
+.scfg-done,.scfg-fmtdone{font-size:12px;color:var(--ok,#5ad17a);white-space:nowrap}
 .scfg-verses{display:grid;gap:12px}
 .unit .input:disabled{opacity:.4}
 .scfg-kinds .kh{font-size:10.5px;color:var(--muted);line-height:1.25;cursor:help;align-self:end;padding:0 2px 2px}
@@ -700,7 +700,7 @@ body.light .fmtbar{box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .unit input::-webkit-inner-spin-button,.unit input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .unit input[type=number]{-moz-appearance:textfield}
 .scfg .err{color:var(--danger);font-size:12px;align-self:center}
-/* Блок «Фон» (этап 7.3): ползунки с числом справа, выбор цвета, «Другой вариант» и «Сбросить фон» */
+/* Блок «Фон» (этап 7.3): ползунки с числом справа, выбор цвета, «Другой вариант» */
 .scfg-bg{display:grid;gap:12px}
 .scfg-rng{min-width:0}
 .scfg-rrow{display:flex;align-items:center;gap:8px;min-height:38px}
@@ -712,6 +712,20 @@ body.light .fmtbar{box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .scfg-bgbtns{display:flex;flex-wrap:wrap;gap:6px;align-items:end;align-self:end}
 .scfg-bgbtns .btn{flex:1;justify-content:center;white-space:nowrap}
 .scfg-kinds .off{opacity:.4}
+/* Форматы фона (этап 7.5): выбор формата, кнопки, название и «Сохранить»; у System Template ползунки серые */
+.scfg-fmt{display:grid;gap:10px}
+.scfg-fmt-btns{display:flex;flex-wrap:wrap;gap:6px}
+.scfg-fmt-btns .btn{flex:1 1 auto;justify-content:center;white-space:nowrap}
+.scfg-fmt-name{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end}
+.scfg-fmt-save{display:flex;gap:8px;align-items:center;min-height:38px}
+.scfg-fmt .input:disabled{opacity:.55}
+.scfg-bg.locked{opacity:.4;cursor:not-allowed}
+.scfg-bg.locked *{cursor:not-allowed}
+.scfg-ask{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(0,0,0,.45);padding:16px}
+.scfg-ask[hidden]{display:none}
+.scfg-ask-box{max-width:420px;background:var(--surface);border:1px solid var(--line-2);border-radius:18px;padding:18px;box-shadow:var(--shadow);display:grid;gap:14px}
+.scfg-ask-box p{margin:0;font-size:14px;line-height:1.5}
+.scfg-ask-btns{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 @media (max-width:900px){ .scfg-body{grid-template-columns:1fr} .scfg-preview{position:static} }
 @media (max-width:620px){ .scfg-g3,.scfg-g4{grid-template-columns:1fr} .scfg-kinds{grid-template-columns:100px repeat(6,88px)} }
 .mock{display:grid;gap:12px;margin:6px 0 14px}

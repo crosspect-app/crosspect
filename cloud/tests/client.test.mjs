@@ -449,6 +449,30 @@ describe('настройки слайдов', () => {
   });
 });
 
+describe('форматы фона (этап 7.5)', () => {
+  test('форматы лежат в настройках слайдов: пишут админ и редактор, автор только читает', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('spaces/sp1/members/red@x.pl').set({ email: 'red@x.pl', role: 'editor', firstName: 'Ред', lastName: 'Актор' });
+    });
+    const admin = await client('admin@x.pl'), red = await client('red@x.pl'), ivan = await client('ivan@x.pl');
+    const bg = { stripesV: 100, stripesH: 0, spots: 0, shades: 3, color: '#2f6fd0', spread: 60, blur: 20, grain: 0, grainKind: 'fine', base: 10, vignette: 0, seed: 3 };
+    // данные этапа 7.3 (фон bg) — форма переносит их в формат при чтении; в облаке лежат как есть
+    await admin.setSlides('sp1', me('admin@x.pl'), { margins: { side: 60, top: 60, bottom: 60 }, bg });
+    assert.deepEqual((await ivan.getSlides('sp1')).bg, bg);
+    // редактор записывает форматы (в том числе формат с прежним фоном, bg: null) и формат по умолчанию
+    const cfg = { margins: { side: 60, top: 60, bottom: 60 }, formats: { space: { name: 'Фон пространства', bg }, f1: { name: 'Копия', bg: null } }, defaultFormat: 'space' };
+    await red.setSlides('sp1', me('red@x.pl'), cfg);
+    const got = await ivan.getSlides('sp1');
+    assert.deepEqual(got, cfg);
+    assert.equal(got.bg, undefined, 'фон 7.3 после записи форматов больше не лежит');
+    // автор форматы не меняет
+    await assert.rejects(ivan.setSlides('sp1', me('ivan@x.pl'), Object.assign({}, cfg, { defaultFormat: 'system' })), (e) => /permission-denied/.test(e.code));
+    // удалить формат по умолчанию — снова System Template
+    await red.setSlides('sp1', me('red@x.pl'), { margins: cfg.margins, formats: { f1: cfg.formats.f1 }, defaultFormat: 'system' });
+    assert.deepEqual(await admin.getSlides('sp1'), { margins: cfg.margins, formats: { f1: cfg.formats.f1 }, defaultFormat: 'system' });
+  });
+});
+
 test('explain: понятные тексты для людей', () => {
   assert.match(explain({ code: 'resource-exhausted' }), /перегружено до 9:00/);
   assert.equal(explain({ code: 'conflict' }), 'conflict');

@@ -1,6 +1,13 @@
 'use strict';
 
-function closeSettings(){ settingsOverlay.classList.remove('open'); if (metaOpen){ metaOpen = false; afterMeta(); } }
+/* settingsGuard — проверка перед закрытием окна (этап 7.5: «Настройки слайдов» спрашивают про несохранённый формат фона).
+   Возвращает false, если закрывать окно пока нельзя; closeSettings(true) — закрыть без вопросов */
+let settingsGuard = null;
+function closeSettings(force){
+  if (force !== true && settingsGuard && !settingsGuard()) return;
+  settingsGuard = null;
+  settingsOverlay.classList.remove('open'); if (metaOpen){ metaOpen = false; afterMeta(); }
+}
 
 /* ========= Настройки из репозитория (data/config.json): переводы Библии, список авторов, подпись перевода =========
    Форма всегда берёт файл по ссылке CONFIG_URL_DEFAULT; сменить её больше нельзя (этап 7.3: окно «Источник настроек» убрано).
@@ -95,7 +102,7 @@ const CFG_TIPS = {
   footOff:'Сейчас заставки без имени и даты: включено «Заставка: только название»',
   apply:'Настройки общие для всего пространства: после «Применить» они сразу действуют во всех проповедях, старых и новых, у всех участников',
   applyOff:'Вы ещё ничего не изменили',
-  bg:'Фон общий для всех проповедей пространства, старых и новых. Пока его не меняли, стоит прежний фон',
+  bg:'Фон слайдов задают форматы. Формат по умолчанию стоит во всех проповедях пространства, старых и новых',
   stripesV:'Вертикальные цветные полосы. 0 — их нет. Полосы и пятна можно смешивать',
   stripesH:'Горизонтальные цветные полосы. 0 — их нет. Полосы и пятна можно смешивать',
   spots:'Размытые цветные пятна, как в прежнем фоне. 0 — их нет',
@@ -108,21 +115,40 @@ const CFG_TIPS = {
   base:'Яркость тёмной основы под узором',
   vignette:'Насколько темнеют края слайда. 0 — не темнеют',
   seed:'Другое расположение пятен и полос при тех же настройках. У всех участников фон будет одинаковый',
-  bgReset:'Вернуть прежний фон, какой был до настроек',
+  fmtSel:'Какой формат показать в примере и править. Проповеди получают формат по умолчанию, выбор здесь на них не влияет',
+  fmtNew:'Новый формат: чёрный фон без узора, зерна и затемнения краёв',
+  fmtCopy:'Копия формата с настройками, как сейчас на ползунках. Чтобы сохранить её, поменяйте название',
+  fmtCopyOff:'Сначала сохраните этот формат или выберите другой',
+  fmtName:'Название можно задать только новому формату и копии',
+  fmtSave:'Сохранить формат под тем же названием с новыми настройками',
+  fmtSaveNew:'Сохранить формат с этим названием',
+  fmtSaveSame:'В формате ещё ничего не меняли',
+  fmtSys:'System Template — прежний фон, его нельзя изменить. Чтобы сделать свой фон, нажмите «Копировать» или «Создать новый»',
+  fmtDel:'Удалить формат. Если он стоит по умолчанию, во всех проповедях будет System Template',
+  fmtDelSys:'System Template нельзя удалить: это запасной фон',
+  fmtDelNew:'Формат ещё не сохранён',
+  fmtDef:'Поставить этот формат во все проповеди пространства',
+  fmtDefOn:'Этот формат уже стоит по умолчанию',
+  fmtDefDirty:'Сначала сохраните изменения в формате',
+  fmtDefNew:'Сначала сохраните формат',
   sample:'Пример меняется сразу, а проповеди — только после «Применить»',
   panels:'В каком порядке стоят панели экрана «Слайды» у тех, кто не переставлял их у себя. Каждый может переставить панели у себя, перетащив за заголовок; «⋯ → Сбросить настройки экрана» возвращает порядок, заданный здесь. На узком экране порядок не меняется',
   panelDrag:'Перетащите плашку мышью или пальцем. Можно и стрелками ← → на клавиатуре'
 };
 const PANEL_NAMES = { film:'Миниатюры', stage:'Слайд', side:'Редактор' };
 const PANEL_TIPS = { film:'Лента слайдов с миниатюрами', stage:'Выбранный слайд и «Текст к слайду»', side:'Панель справа: настройки выбранного слайда' };
+let slidesCfgHook = null;   // окно «Настройки слайдов» открыто: что сделать, когда пришли новые настройки
 function openSlidesCfg(){
   if (!canEditSlidesCfg()){ toast('Настройки слайдов меняют админ и редактор'); return; }
   const tmp = JSON.parse(JSON.stringify(SLIDES_BASE));
   let sample = 'scripture', guide = false, raf = 0, apply = null, saving = false;
+  /* Что уйдёт по «Применить»: всё из окна, кроме форматов фона. У форматов свои кнопки, они записываются сразу, поэтому
+     форматы всегда берутся из действующих настроек (и не затираются, если их тем временем поменял другой редактор) */
+  const tmpFull = () => mergeSlides(SLIDES_DEFAULT, Object.assign({}, tmp, { formats:SLIDES_BASE.formats, defaultFormat:SLIDES_BASE.defaultFormat }));
   /* «Применить» активна, только если в окне что-то изменили по сравнению с тем, что сейчас действует */
   const syncApply = () => {
     if (!apply) return;
-    const same = JSON.stringify(mergeSlides(SLIDES_DEFAULT, tmp)) === JSON.stringify(SLIDES_BASE);
+    const same = JSON.stringify(tmpFull()) === JSON.stringify(SLIDES_BASE);
     apply.disabled = saving || same;
     apply.title = same ? CFG_TIPS.applyOff : CFG_TIPS.apply;
   };
@@ -136,6 +162,7 @@ function openSlidesCfg(){
     cancelAnimationFrame(raf);
     const draw = () => {
       SLIDES_TRY = mergeSlides(SLIDES_DEFAULT, tmp);
+      BG_TRY = fe.bg ? normBg(fe.bg) : null;   // пример — с форматом, который выбран (и правится) в блоке «Фон»
       try {
         const b = CFG_SAMPLES[sample](), sl = slideEl(b);
         if (guide) sl.querySelector('.sl-stage').append(h('div', { class:'sl-guide', text:'Область текста' }));
@@ -144,7 +171,7 @@ function openSlidesCfg(){
         const c = SLIDES_TRY.kinds;
         info.textContent = r == null ? '' : sample === 'splash' ? 'название ' + Math.round(r * c.splash.size) + ' px'
           : 'текст ' + (Math.round(r * 100) >= 100 ? '100%' : 'уменьшен до ' + Math.round(r * 100) + '%') + ' · ' + Math.round(r * (sample === 'scripture' ? c.scripture.size : c[sample].size) * 10) / 10 + ' px';
-      } finally { SLIDES_TRY = null; }
+      } finally { SLIDES_TRY = null; BG_TRY = undefined; }
       syncApply();
     };
     if (now) draw(); else raf = requestAnimationFrame(draw);
@@ -257,11 +284,41 @@ function openSlidesCfg(){
     sw('Заставка: только название', K.splash.titleOnly, v => { K.splash.titleOnly = v; footOff(v); if (sample !== 'splash'){ sample = 'splash'; drawTabs(); } paint(); }));
   const kinds = h('section', { class:'scfg-sec' }, h('div', { class:'scfg-cap', text:'Настройки для видов слайдов' }), grid, titleOnly);
 
-  /* Фон: узор, оттенки, размытие, зерно. Пока фон не трогали (tmp.bg = null), стоит прежний, а ползунки показывают начальные значения */
-  const bgBox = h('div', { class:'scfg-bg' });
-  const bgVal = () => tmp.bg || BG_START;
-  let bgReset = null;
-  const bgSet = (k, v) => { if (!tmp.bg) tmp.bg = Object.assign({}, BG_START); tmp.bg[k] = v; if (bgReset) bgReset.disabled = false; paint(); };
+  /* Фон (этапы 7.3 и 7.5): строка форматов и ползунки выбранного формата.
+     fe — формат, который сейчас показан и правится: kind 'system' (System Template — ползунки серые, менять нельзя),
+     'saved' (сохранённый формат пространства), 'new' («Создать новый») или 'copy' («Копировать») — эти два ещё не сохранены.
+     Действия с форматами («Сохранить», «Удалить», «Сделать по умолчанию») записываются в облако сразу; «Применить» их не касается */
+  let fe = null, fmtBusy = false, fmtErr = null, sheetEl = null, saveBtn = null, defBtn = null, nameInp = null;
+  const BF = () => SLIDES_BASE;
+  const bgJSON = b => JSON.stringify(b ? normBg(b) : null);
+  const isDraft = () => fe.kind === 'new' || fe.kind === 'copy';
+  function pickFormat(id){
+    const f = id !== SYSTEM_FORMAT && BF().formats[id];
+    fe = f ? { id, kind:'saved', name:f.name, bg:f.bg ? Object.assign({}, f.bg) : null, base:bgJSON(f.bg) }
+      : { id:SYSTEM_FORMAT, kind:'system', name:SYSTEM_FORMAT_NAME, bg:null };
+  }
+  const startDraft = (kind, name, bg, from) => { fe = { id:null, kind, name, bg, from:from || '', start:bgJSON(bg), startName:cleanFormatName(name) }; };
+  pickFormat(BF().defaultFormat);
+  /* Есть ли в формате несохранённое: у сохранённого — ползунки не как в облаке; у нового и копии — что-то поменяли после создания */
+  const fmtDirty = () => {
+    if (!fe || fe.kind === 'system') return false;
+    if (fe.kind === 'saved'){ const f = BF().formats[fe.id]; return !f || bgJSON(fe.bg) !== bgJSON(f.bg); }
+    return bgJSON(fe.bg) !== fe.start || cleanFormatName(fe.name) !== fe.startName;
+  };
+  /* Почему новый формат или копию нельзя сохранить; '' — можно */
+  const nameProblem = () => {
+    const n = cleanFormatName(fe.name), k = formatKey(n);
+    if (!n) return 'Напишите название формата';
+    const twin = formatList(BF()).find(f => formatKey(f.name) === k);
+    if (!twin) return '';
+    return fe.kind === 'copy' && formatKey(fe.from) === k ? 'У копии то же название, что у «' + twin.name + '»: придумайте другое' : 'Формат «' + twin.name + '» уже есть: придумайте другое название';
+  };
+  const canSaveFmt = () => !fmtBusy && (fe.kind === 'saved' ? fmtDirty() : isDraft() && !nameProblem());
+
+  /* Ползунки — значения выбранного формата; у прежнего фона (bg = null) — начальные BG_START */
+  const bgBox = h('div', { class:'scfg-bg' }), fmtRow = h('div', { class:'scfg-fmt' }), fmtDone = h('span', { class:'scfg-fmtdone', role:'status' });
+  const bgVal = () => fe.bg || BG_START;
+  const bgSet = (k, v) => { if (fe.kind === 'system') return; if (!fe.bg) fe.bg = Object.assign({}, BG_START); fe.bg[k] = v; paint(); syncFmt(); };
   const rng = (label, key, min, max) => {
     const out = h('output', { class:'scfg-rv' }), show = v => { out.textContent = String(v); };
     const inp = h('input', { type:'range', min:String(min), max:String(max), step:'1', value:String(bgVal()[key]), 'aria-label':label,
@@ -269,8 +326,8 @@ function openSlidesCfg(){
     show(bgVal()[key]);
     return h('label', { class:'field scfg-rng', title:CFG_TIPS[key] }, h('span', { class:'lbl', text:label }), h('span', { class:'scfg-rrow' }, inp, out));
   };
-  const drawBg = () => {
-    const B = bgVal();
+  function drawBg(){
+    const B = bgVal(), locked = fe.kind === 'system';
     bgBox.replaceChildren(
       h('div', { class:'scfg-g3' }, rng('Полосы по вертикали', 'stripesV', 0, 100), rng('Полосы по горизонтали', 'stripesH', 0, 100), rng('Пятна', 'spots', 0, 100)),
       h('div', { class:'scfg-g3' },
@@ -283,11 +340,114 @@ function openSlidesCfg(){
       h('div', { class:'scfg-g3' },
         rng('Яркость основы', 'base', 0, 40), rng('Затемнение краёв', 'vignette', 0, 100),
         h('div', { class:'scfg-bgbtns' },
-          h('button', { type:'button', class:'btn', title:CFG_TIPS.seed, onclick:() => bgSet('seed', bgVal().seed % 9999 + 1) }, 'Другой вариант'),
-          bgReset = h('button', { type:'button', class:'btn', title:CFG_TIPS.bgReset, disabled:!tmp.bg, onclick:() => { tmp.bg = null; drawBg(); paint(); } }, 'Сбросить фон'))));
+          h('button', { type:'button', class:'btn', title:CFG_TIPS.seed, onclick:() => bgSet('seed', bgVal().seed % 9999 + 1) }, 'Другой вариант'))));
+    // System Template не меняется: всё серое, объяснение — во всплывающей подписи
+    bgBox.classList.toggle('locked', locked);
+    bgBox.title = locked ? CFG_TIPS.fmtSys : '';
+    if (locked) bgBox.querySelectorAll('input, button').forEach(x => { x.disabled = true; });
+  }
+
+  /* Строка форматов: выбор, «Создать новый», «Копировать», «Удалить», «Сделать по умолчанию»; ниже — название и «Сохранить» */
+  const fbtn = (label, tip, on, act) => h('button', { type:'button', class:'btn', title:tip, disabled:fmtBusy || !on, onclick:act }, label);
+  function drawFmt(){
+    const def = BF().defaultFormat, draft = isDraft(), isDef = !draft && fe.id === def;
+    const sel = h('select', { class:'input', 'aria-label':'Формат фона', disabled:fmtBusy,
+      onchange:e => { const id = e.target.value; drawFmt(); guardFmt(() => openFormat(id)); } },
+      draft ? h('option', { value:'', selected:true }, fe.kind === 'new' ? 'Новый формат (не сохранён)' : 'Копия (не сохранена)') : null,
+      formatList(BF()).map(f => h('option', { value:f.id, selected:!draft && f.id === fe.id }, f.name + (f.id === def ? ' · по умолчанию' : ''))));
+    nameInp = h('input', { class:'input', 'aria-label':'Название формата', maxlength:String(FORMAT_NAME_MAX), value:fe.name, disabled:!draft || fmtBusy,
+      title:draft ? '' : CFG_TIPS.fmtName, oninput:e => { fe.name = e.target.value; syncFmt(); } });
+    saveBtn = h('button', { type:'button', class:'btn primary', onclick:() => saveFormat() }, 'Сохранить');
+    defBtn = fbtn('Сделать по умолчанию', '', !draft && !isDef, () => makeDefault());
+    fmtRow.replaceChildren(
+      tipField('Формат', sel, CFG_TIPS.fmtSel),
+      h('div', { class:'scfg-fmt-btns' },
+        fbtn('Создать новый', CFG_TIPS.fmtNew, true, () => guardFmt(() => { startDraft('new', '', Object.assign({}, BG_BLANK)); refreshFmt(true); })),
+        fbtn('Копировать', draft ? CFG_TIPS.fmtCopyOff : CFG_TIPS.fmtCopy, !draft, () => { startDraft('copy', fe.name, fe.bg ? Object.assign({}, fe.bg) : null, fe.name); refreshFmt(true); }),
+        fbtn('Удалить', fe.kind === 'system' ? CFG_TIPS.fmtDelSys : draft ? CFG_TIPS.fmtDelNew : CFG_TIPS.fmtDel, fe.kind === 'saved', () => deleteFormat()),
+        defBtn),
+      h('div', { class:'scfg-fmt-name' }, tipField('Название формата', nameInp, draft ? '' : CFG_TIPS.fmtName), h('div', { class:'scfg-fmt-save' }, fmtDone, saveBtn)));
+    syncFmt();
+  }
+  /* Кнопки, которые зависят от правок: «Сохранить» и «Сделать по умолчанию» (без перерисовки, чтобы не сбить набор названия) */
+  function syncFmt(){
+    if (!saveBtn) return;
+    saveBtn.disabled = !canSaveFmt();
+    saveBtn.title = fe.kind === 'system' ? CFG_TIPS.fmtSys : fe.kind === 'saved' ? (fmtDirty() ? CFG_TIPS.fmtSave : CFG_TIPS.fmtSaveSame) : (nameProblem() || CFG_TIPS.fmtSaveNew);
+    const isDef = !isDraft() && fe.id === BF().defaultFormat, dirty = fmtDirty();
+    defBtn.disabled = fmtBusy || isDraft() || isDef || dirty;
+    defBtn.title = isDraft() ? CFG_TIPS.fmtDefNew : isDef ? CFG_TIPS.fmtDefOn : dirty ? CFG_TIPS.fmtDefDirty : CFG_TIPS.fmtDef;
+  }
+  function refreshFmt(focusName){
+    drawFmt(); drawBg(); paint();
+    if (focusName && nameInp){ nameInp.focus(); nameInp.select(); }
+  }
+  const openFormat = id => { pickFormat(id); refreshFmt(); };
+  /* Уйти с формата (выбрать другой, создать новый, закрыть окно): если в нём есть несохранённое — сначала спросить */
+  const guardFmt = next => { if (fmtDirty()) askUnsaved(next); else next(); };
+
+  async function writeFormats(formats, def, doneText){
+    fmtBusy = true; fmtErr.textContent = ''; drawFmt();
+    try {
+      const next = mergeSlides(SLIDES_DEFAULT, Object.assign(JSON.parse(JSON.stringify(BF())), { formats, defaultFormat:def }));
+      if (await pushSlides(next) === 'ok') flashDone(fmtDone, doneText);
+      return true;
+    } catch(e){
+      fmtErr.textContent = cloudExplain(e) || 'Не получилось сохранить формат.';
+      return false;
+    } finally { fmtBusy = false; drawFmt(); }
+  }
+  async function saveFormat(){
+    if (!canSaveFmt()) return false;
+    const formats = JSON.parse(JSON.stringify(BF().formats)), bg = fe.bg ? normBg(fe.bg) : null;
+    let id = fe.id;
+    if (fe.kind === 'saved') formats[id] = { name:formats[id].name, bg };
+    else { id = newFormatId(formats); formats[id] = { name:cleanFormatName(fe.name), bg }; }
+    const ok = await writeFormats(formats, BF().defaultFormat, '✓ Сохранено');
+    if (ok) openFormat(id);
+    return ok;
+  }
+  async function deleteFormat(){
+    const id = fe.id, def = BF().defaultFormat;
+    if (fe.kind !== 'saved' || !confirm('Удалить формат «' + fe.name + '»?' + (id === def ? ' Он стоит по умолчанию: во всех проповедях будет System Template.' : '') + ' Вернуть его не получится.')) return;
+    const formats = JSON.parse(JSON.stringify(BF().formats));
+    delete formats[id];
+    if (await writeFormats(formats, id === def ? SYSTEM_FORMAT : def, '✓ Удалено')) openFormat(BF().defaultFormat);
+  }
+  async function makeDefault(){
+    const id = fe.id;
+    if (isDraft() || fmtDirty()) return;
+    if (await writeFormats(JSON.parse(JSON.stringify(BF().formats)), id, '✓ Стоит по умолчанию')) openFormat(id);
+  }
+
+  /* Вопрос о несохранённом формате — внутри окна, поверх него */
+  const askBox = h('div', { class:'scfg-ask', hidden:true });
+  const hideAsk = () => { askBox.hidden = true; askBox.replaceChildren(); };
+  function askUnsaved(next){
+    const why = isDraft() ? nameProblem() : '';
+    const what = fe.kind === 'new' ? 'Новый формат ещё не сохранён.' : fe.kind === 'copy' ? 'Копия формата ещё не сохранена.' : 'В формате «' + fe.name + '» есть несохранённые изменения.';
+    const go = () => { hideAsk(); next(); };
+    askBox.replaceChildren(h('div', { class:'scfg-ask-box', role:'alertdialog', 'aria-label':'Формат не сохранён' },
+      h('p', { text:why ? what + ' ' + why + ', иначе изменения пропадут.' : what + ' Сохранить?' }),
+      h('div', { class:'scfg-ask-btns' },
+        h('button', { type:'button', class:'btn', onclick:hideAsk }, why ? 'Вернуться к формату' : 'Отмена'),
+        h('button', { type:'button', class:'btn', onclick:go }, 'Не сохранять'),
+        why ? null : h('button', { type:'button', class:'btn primary', onclick:async () => { hideAsk(); if (await saveFormat()) next(); } }, 'Сохранить'))));
+    askBox.hidden = false;
+    const f = askBox.querySelector('.btn.primary') || askBox.querySelector('.btn'); if (f) f.focus();
+  }
+  /* Настройки пришли из облака, пока окно открыто (в том числе после своей записи): обновить список форматов */
+  slidesCfgHook = () => {
+    if (!sheetEl || !sheetEl.isConnected){ slidesCfgHook = null; return; }
+    if (fe.kind === 'saved'){
+      const f = BF().formats[fe.id];
+      if (!f){ startDraft('new', fe.name, fe.bg); fe.start = ''; drawBg(); paint(); }   // формат удалили в другом месте: правки не пропадают
+      else if (bgJSON(fe.bg) === fe.base && fe.base !== bgJSON(f.bg)){ pickFormat(fe.id); drawBg(); paint(); }   // формат поменяли в другом месте, здесь его не трогали — показать новый
+    }
+    drawFmt(); syncApply();
   };
-  drawBg();
-  const background = h('section', { class:'scfg-sec', title:CFG_TIPS.bg }, h('div', { class:'scfg-cap', text:'Фон' }), bgBox);
+  drawFmt(); drawBg();
+  const background = h('section', { class:'scfg-sec', title:CFG_TIPS.bg }, h('div', { class:'scfg-cap', text:'Фон' }), fmtRow, bgBox);
 
   /* Место Писания: вид стихов на всех слайдах Писания и расстояния */
   const V = tmp.verses, vbox = h('div', { class:'scfg-verses' });
@@ -316,31 +476,49 @@ function openSlidesCfg(){
   const verses = h('section', { class:'scfg-sec', title:CFG_TIPS.verses }, h('div', { class:'scfg-cap', text:'Место Писания' }), vbox);
 
   const err = h('div', { class:'err', role:'alert' }), done = h('span', { class:'scfg-done', role:'status' });
-  apply = h('button', { type:'button', class:'btn primary', onclick:() => { saving = true; syncApply(); saveSlidesCfg(tmp, apply, err, done).then(() => { saving = false; syncApply(); drawBg(); }); } }, 'Применить');
+  fmtErr = err;
+  apply = h('button', { type:'button', class:'btn primary', onclick:() => { saving = true; syncApply(); saveSlidesCfg(tmpFull(), apply, err, done).then(() => { saving = false; syncApply(); }); } }, 'Применить');
   drawTabs();
   settingsOverlay.innerHTML = '';
-  settingsOverlay.append(h('div', { class:'sheet wide scfg', role:'dialog', 'aria-label':'Настройки слайдов' },
+  settingsOverlay.append(sheetEl = h('div', { class:'sheet wide scfg', role:'dialog', 'aria-label':'Настройки слайдов' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Настройки слайдов' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('div', { class:'scfg-body' },
       h('div', { class:'scfg-preview' }, tabs, host, info),
       h('div', { class:'scfg-form' }, general, panelsSec, background, kinds, verses)),
     h('div', { class:'sheet-foot' },
       err,
-      h('div', { style:'display:flex;gap:8px;align-items:center;margin-left:auto' }, done, apply))));   // закрыть — крестиком или Esc: неприменённое не применяется
+      h('div', { style:'display:flex;gap:8px;align-items:center;margin-left:auto' }, done, apply)),   // закрыть — крестиком или Esc: неприменённое не применяется
+    askBox));
+  /* Закрыть окно с несохранённым форматом — сначала спросить (остальное неприменённое просто не применяется, как раньше) */
+  settingsGuard = () => {
+    if (!sheetEl.isConnected) return true;
+    if (!askBox.hidden){ hideAsk(); return false; }   // Esc при открытом вопросе — отмена вопроса
+    if (!fmtDirty()) return true;
+    askUnsaved(() => closeSettings(true));
+    return false;
+  };
   settingsOverlay.classList.add('open');
   paint(true);   // пример — сразу, без кадра пустоты
 }
-/* «Применить»: записать в облако; окно остаётся открытым, у кнопки — короткое «Применено» */
-async function saveSlidesCfg(tmp, btn, err, done){
-  const next = mergeSlides(SLIDES_DEFAULT, tmp);
-  btn.textContent = 'Сохраняю…'; err.textContent = ''; if (done) done.textContent = '';
-  // без сети запись ждёт связи; настройки уже действуют здесь (их сразу отдаёт и слушатель облака)
+/* Записать настройки слайдов в облако. Без сети запись ждёт связи; настройки уже действуют здесь (их сразу отдаёт и слушатель облака).
+   'ok' — записано, 'slow' — нет связи, запись уйдёт позже; ошибка — исключение */
+async function pushSlides(next){
   const slow = new Promise(res => setTimeout(() => res('slow'), 10000));
+  const r = await Promise.race([cloud.api.setSlides(cloud.space, cloud.user, next), slow]);
+  slidesFromCloud(next);
+  if (r === 'slow') toast('Нет связи с облаком: настройки уйдут туда, когда сеть вернётся');
+  return r === 'slow' ? 'slow' : 'ok';
+}
+function flashDone(done, text){
+  if (!done) return;
+  done.textContent = text; clearTimeout(done._t); done._t = setTimeout(() => { done.textContent = ''; }, 2500);
+}
+/* «Применить»: записать в облако; окно остаётся открытым, у кнопки — короткое «Применено» */
+async function saveSlidesCfg(next, btn, err, done){
+  next = mergeSlides(SLIDES_DEFAULT, next);
+  btn.textContent = 'Сохраняю…'; err.textContent = ''; if (done) done.textContent = '';
   try {
-    const r = await Promise.race([cloud.api.setSlides(cloud.space, cloud.user, next), slow]);
-    slidesFromCloud(next);
-    if (r === 'slow') toast('Нет связи с облаком: настройки уйдут туда, когда сеть вернётся');
-    else if (done){ done.textContent = '✓ Применено'; clearTimeout(done._t); done._t = setTimeout(() => { done.textContent = ''; }, 2500); }
+    if (await pushSlides(next) === 'ok') flashDone(done, '✓ Применено');
   } catch(e){
     err.textContent = cloudExplain(e) || 'Не получилось сохранить настройки.';
   } finally { btn.textContent = 'Применить'; }   // активна ли кнопка дальше — решает окно (есть ли ещё неприменённые изменения)
@@ -358,6 +536,7 @@ function loadSlidesCache(){
 function refreshSlides(){
   const v = slideVars(slidesCfg());
   document.querySelectorAll('.sl-stage').forEach(st => { if (!st.closest('.scfg')) Object.keys(v).forEach(k => st.style.setProperty(k, v[k])); });
+  if (slidesCfgHook) slidesCfgHook();   // открыто окно «Настройки слайдов»: обновить список форматов
   if (state && screen === 'sermon') state.blocks.forEach(b => { if (PREVIEW[b.type]) schedulePreview(b); });
   if (inSlides()){
     applyLayout();   // порядок панелей пространства мог измениться (этап 7.4)

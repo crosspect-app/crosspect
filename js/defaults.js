@@ -19,7 +19,9 @@ const CONTACT_EMAIL = 'swpoznan.media@gmail.com';
      caps — заглавными, showTr — подпись перевода, align 'left' | 'center' | 'right', valign 'top' | 'center' | 'bottom',
      gap — расстояние между стихами с новой строки, em; refGap — между ссылкой (местом Писания) и текстом (и между частями слайда), em;
    kinds.splash.titleOnly — заставка «Только название»: название посередине, без линии, имени и даты (этап 7.3);
-   bg — фон слайдов (этап 7.3): null — прежний фон «Ember», иначе параметры генератора (background.js, normBg);
+   formats — форматы фона пространства (этап 7.5): { <id>: { name, bg } }, bg — null (прежний фон «Ember») или параметры
+     генератора (background.js, normBg); defaultFormat — формат по умолчанию: <id> или 'system' (встроенный System Template,
+     прежний фон; в облаке не хранится). Фон этапа 7.3 (раздел bg) при чтении переносится в формат «Фон пространства»;
    panels — расположение панелей экрана «Слайды» по умолчанию для всего пространства (этап 7.4): порядок слева направо из
      'film' (миниатюры), 'stage' (слайд), 'side' (редактор); у кого нет своей раскладки (layout.js), панели стоят так */
 const SLIDES_DEFAULT = {
@@ -34,7 +36,8 @@ const SLIDES_DEFAULT = {
     quote:{ size:51.48, min:70, max:110, track:-0.04, lead:1.05 }
   },
   verses:{ flow:'inline', frame:false, caps:true, showTr:true, align:'center', valign:'top', gap:0.3, refGap:0.85 },
-  bg:null,
+  formats:{},
+  defaultFormat:'system',
   panels:['film', 'stage', 'side']
 };
 /* Шрифты в списках — только те, что форма загружает и встраивает в JPEG (см. EXPORT_FONTS в export.js) */

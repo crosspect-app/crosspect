@@ -1,7 +1,7 @@
 'use strict';
 
-/* ========= Фон слайдов (этап 7.3) =========
-   Фон — общая настройка пространства: slidesCfg().bg (лежит в облаке вместе с остальными настройками слайдов, раздел `bg`).
+/* ========= Фон слайдов (этапы 7.3 и 7.5) =========
+   Фон слайда берётся из формата (этап 7.5, ниже «Форматы фона»): sermonBg(проповедь). У формата свой bg:
    bg = null — прежний фон «Ember», один в один: четыре размытых пятна (.sl-glow), зерно, затемнение краёв (css/style.css).
    bg = { … } — фон из генератора: узор (полосы по вертикали, по горизонтали, пятна — их можно смешивать), оттенки от основного
    цвета, размытие, зерно, яркость основы, затемнение краёв, номер варианта (seed).
@@ -9,7 +9,7 @@
    миниатюр не размывает ничего заново, а JPEG получает ту же картинку, что и предпросмотр.
    Случайность — только от номера варианта: у всех и при каждом открытии фон одинаковый. Зерно тоже повторяемое. */
 
-/* Начальные значения ползунков, пока фон не трогали (bg = null). Подобраны близко к прежнему фону */
+/* Ползунки у формата с прежним фоном (bg = null: System Template и его копия, пока её не трогали). Подобраны близко к прежнему фону */
 const BG_START = { stripesV:0, stripesH:0, spots:100, shades:4, color:'#c9702a', spread:30, blur:60, grain:60, grainKind:'fine', base:8, vignette:35, seed:1 };
 const BG_GRAIN_KINDS = ['fine', 'coarse', 'color'];
 
@@ -156,3 +156,69 @@ function bgVars(bg){
   const g = grainTile(bg.grainKind);
   return { '--sl-bg':bgImage(bg), '--sl-glow':'none', '--sl-grain':g.url, '--sl-gsz':g.size + 'px', '--sl-go':String(bg.grain / 100), '--sl-va':String(bg.vignette / 100) };
 }
+
+/* ========= Форматы фона (этап 7.5) =========
+   Формат — именованный фон пространства, только фон (шрифты, размеры, поля и заставка — общие настройки слайдов).
+   В настройках слайдов (облако, config/slides, раздел slides — map): formats = { <id>: { name, bg } }, defaultFormat = <id> | 'system'.
+   System Template — встроенный формат, прежний фон «Ember» (bg = null): в облаке не хранится, не меняется и не удаляется.
+   Фон этапа 7.3 (slides.bg, если он не null) при чтении становится форматом «Фон пространства» и форматом по умолчанию;
+   при следующей записи настроек в облако уходят уже форматы, а bg больше не пишется. */
+const SYSTEM_FORMAT = 'system', SYSTEM_FORMAT_NAME = 'System Template';
+const MIGRATED_FORMAT = 'space', MIGRATED_FORMAT_NAME = 'Фон пространства';
+const FORMAT_NAME_MAX = 40;
+/* «Создать новый»: чёрный фон, все ползунки на нуле (оттенков — 1, вариант — 1) */
+const BG_BLANK = { stripesV:0, stripesH:0, spots:0, shades:1, color:'#000000', spread:0, blur:0, grain:0, grainKind:'fine', base:0, vignette:0, seed:1 };
+const cleanFormatName = n => String(n == null ? '' : n).replace(/\s+/g, ' ').trim().slice(0, FORMAT_NAME_MAX);
+const formatKey = n => cleanFormatName(n).toLocaleLowerCase('ru');   // имена не повторяются без учёта регистра и пробелов по краям
+const FORMAT_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
+function newFormatId(taken){
+  let id;
+  do { id = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); } while (id === SYSTEM_FORMAT || (taken && taken[id]));
+  return id;
+}
+/* Проверка форматов: неправильный id, пустое или повторённое имя — формат отбрасывается; формат по умолчанию — из существующих,
+   иначе System Template. src: { formats, defaultFormat } или { bg } (данные этапа 7.3) */
+function normFormats(src){
+  src = src && typeof src === 'object' ? src : {};
+  let raw = src.formats && typeof src.formats === 'object' && !Array.isArray(src.formats) ? src.formats : null, def = src.defaultFormat;
+  if (!raw){
+    raw = {};
+    const old = normBg(src.bg);
+    if (old){ raw[MIGRATED_FORMAT] = { name:MIGRATED_FORMAT_NAME, bg:old }; def = MIGRATED_FORMAT; }
+  }
+  const formats = {}, seen = new Set([formatKey(SYSTEM_FORMAT_NAME)]);
+  Object.keys(raw).sort().forEach(id => {
+    const f = raw[id];
+    if (!FORMAT_ID_RE.test(id) || id === SYSTEM_FORMAT || !f || typeof f !== 'object') return;
+    const name = cleanFormatName(f.name), k = formatKey(name);
+    if (!name || seen.has(k)) return;
+    seen.add(k);
+    formats[id] = { name, bg:normBg(f.bg) };
+  });
+  return { formats, defaultFormat:formats[def] ? def : SYSTEM_FORMAT };
+}
+/* Форматы для списка: System Template первым, остальные по имени */
+function formatList(cfg){
+  cfg = cfg || slidesCfg();
+  return [{ id:SYSTEM_FORMAT, name:SYSTEM_FORMAT_NAME, bg:null }].concat(
+    Object.keys(cfg.formats).map(id => ({ id, name:cfg.formats[id].name, bg:cfg.formats[id].bg })).sort((a, b) => a.name.localeCompare(b.name, 'ru')));
+}
+const formatName = (id, cfg) => { cfg = cfg || slidesCfg(); return id === SYSTEM_FORMAT ? SYSTEM_FORMAT_NAME : cfg.formats[id] ? cfg.formats[id].name : ''; };
+function formatBg(id, cfg){
+  cfg = cfg || slidesCfg();
+  const f = id !== SYSTEM_FORMAT && cfg.formats[id];
+  return f ? f.bg : null;
+}
+/* Какой формат у проповеди. Порядок сразу такой, как нужен этапу 10: формат, выбранный в самой проповеди → формат её серии →
+   формат по умолчанию пространства. До этапа 10 выбора в проповеди и серий нет, поэтому работает только последнее.
+   Этапу 10 остаётся заполнить sermonOwnFormat и seriesFormat. Формат, которого уже нет, пропускается */
+const sermonOwnFormat = (sermon, cfg) => null;   // этап 10: формат из «О проповеди», если в пространстве включено «Выбирать формат фона в проповеди»
+const seriesFormat = (sermon, cfg) => null;      // этап 10: формат серии проповеди («По умолчанию» — null)
+function sermonFormatId(sermon, cfg){
+  cfg = cfg || slidesCfg();
+  for (const id of [sermonOwnFormat(sermon, cfg), seriesFormat(sermon, cfg)])
+    if (id && (id === SYSTEM_FORMAT || cfg.formats[id])) return id;
+  return cfg.defaultFormat;
+}
+/* Фон слайдов проповеди: null — прежний фон, иначе параметры генератора. Одна функция для сцены, ленты, JPEG, ZIP и пустых JPEG */
+function sermonBg(sermon, cfg){ cfg = cfg || slidesCfg(); return formatBg(sermonFormatId(sermon, cfg), cfg); }

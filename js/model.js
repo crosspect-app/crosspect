@@ -195,6 +195,9 @@ const clampN = (v, a, b, d) => { v = Number(v); return isFinite(v) ? Math.min(b,
 const clampF = (v, a, b, d, k) => { v = Number(v); if (!isFinite(v)) return d; const m = Math.pow(10, k || 2); return Math.round(Math.min(b, Math.max(a, v)) * m) / m; };
 let SLIDES_BASE = mergeSlides(SLIDES_DEFAULT, null);
 let SLIDES_TRY = null;
+let BG_TRY;   // фон примера в окне «Настройки слайдов» (формат, который там правят); undefined — фон проповеди
+/* Фон, с которым сейчас рисуются слайды: в примере окна — формат из окна, иначе — фон открытой проповеди (sermonBg) */
+function curBg(sermon, cfg){ return BG_TRY !== undefined ? BG_TRY : sermonBg(sermon !== undefined ? sermon : (typeof state !== 'undefined' ? state : null), cfg); }
 function mergeSlides(base, over){
   const r = JSON.parse(JSON.stringify(base)), D = SLIDES_DEFAULT;
   const o = over && typeof over === 'object' ? over : {};
@@ -223,7 +226,10 @@ function mergeSlides(base, over){
   r.verses = { flow:oneOf(v.flow, ['inline', 'lines'], 'inline'), frame:!!v.frame, caps:v.caps !== false, showTr:v.showTr !== false,
     align:oneOf(v.align, ['left', 'center', 'right'], 'center'), valign:oneOf(v.valign, ['top', 'center', 'bottom'], 'top'),
     gap:clampF(v.gap, 0, 2, D.verses.gap), refGap:clampF(v.refGap, 0, 3, D.verses.refGap) };
-  r.bg = normBg('bg' in o ? o.bg : r.bg);   // фон: null — прежний (background.js)
+  // форматы фона (этап 7.5, background.js): документ этапа 7.3 без форматов, но с фоном bg — фон становится форматом «Фон пространства»
+  const fm = normFormats('formats' in o ? o : 'bg' in o ? { bg:o.bg } : r);
+  delete r.bg;
+  r.formats = fm.formats; r.defaultFormat = fm.defaultFormat;
   r.panels = normPanels('panels' in o ? o.panels : r.panels);
   return r;
 }
@@ -240,8 +246,8 @@ function setSlidesBase(over){
   SLIDES_BASE = next; applySlides();
   return !same;
 }
-/* CSS-переменные слайда: поля, шрифты, расстояния между символами и строками по видам слайдов */
-function slideVars(c){
+/* CSS-переменные слайда: поля, шрифты, расстояния между символами и строками по видам слайдов, фон (bg — из curBg) */
+function slideVars(c, bg){
   const m = c.margins, K = c.kinds, F = c.fonts;
   return { '--sl-x':(PANEL_INSET + m.side) + 'px', '--sl-t':(PANEL_INSET + m.top) + 'px', '--sl-b':(PANEL_INSET + m.bottom) + 'px',
     '--f-main':SLIDE_FONTS.main[F.main].css, '--f-greek':SLIDE_FONTS.greek[F.greek].css, '--f-hebrew':SLIDE_FONTS.hebrew[F.hebrew].css,
@@ -251,7 +257,7 @@ function slideVars(c){
     '--sc-gap':c.verses.refGap + 'em', '--sc-vgap':c.verses.gap + 'em',
     '--sp-track':K.splash.track + 'em', '--sp-lead':String(K.splash.lead),
     '--sp-foot':K.splash.foot + 'px', '--sp-ftrack':K.splash.footTrack + 'em', '--sp-flead':String(K.splash.footLead),
-    ...bgVars(c.bg) };   // фон слайда (background.js)
+    ...bgVars(bg === undefined ? curBg(undefined, c) : bg) };   // фон слайда (background.js)
 }
 function marginVars(m){ return { '--sl-x':(PANEL_INSET + m.side) + 'px', '--sl-t':(PANEL_INSET + m.top) + 'px', '--sl-b':(PANEL_INSET + m.bottom) + 'px' }; }
 function applySlides(){
