@@ -386,8 +386,8 @@ function openHelp(){
   navigate('#help');
 }
 function closeHelp(){
-  if (helpBack !== null){ const to = helpBack; helpBack = null; history.back(); setTimeout(() => { if (new URLSearchParams(location.hash.slice(1)).has('help')) navigate(to); }, 300); }
-  else navigate('');
+  if (helpBack !== null){ helpBack = null; history.back(); }   // открыли из формы: на шаг назад, туда же, где были
+  else navigate('');   // открыли ссылкой #help сразу — на главную
 }
 function renderHelp(){
   mainEl.append(h('div', { class:'home help' },

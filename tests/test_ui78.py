@@ -62,13 +62,13 @@ def test_help_page_and_back(browser, base_url):
     page.wait_for_selector(".help")
     assert page.inner_text(".help h1") == "Как пользоваться"
     page.locator(".topbar .btn.ghost", has_text="Назад").click()
-    page.wait_for_selector(".home-top")
+    page.wait_for_function("screen === 'home' && !location.hash")   # «Назад» — это history.back(): ждём, пока он отработает
     # из конспекта в правке: «⋯ → Как пользоваться» и обратно — правка и замок на месте
     open_sermon(page, "s1")
     start_edit(page)
     page.evaluate("openHelp()")
     page.wait_for_selector(".help")
-    assert page.evaluate("ed.mode") == "edit"
+    assert page.evaluate("ed.mode") == "edit", page.evaluate("JSON.stringify({mode:ed.mode, id:ed.id, st:state && state.id, hash:location.hash, screen})")
     page.locator(".help .btn.primary", has_text="Вернуться").click()
     page.wait_for_function("screen === 'sermon' && !!document.querySelector('.film .st')")
     assert page.evaluate("ed.mode") == "edit"
