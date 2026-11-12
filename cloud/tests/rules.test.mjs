@@ -305,7 +305,9 @@ describe('проповеди: создание', () => {
     const { blocks, ...noBlocks } = newSermon('ivan');
     await assertFails(setDoc(sermon(db, 'sw', 'n1'), noBlocks));
     await assertFails(setDoc(sermon(db, 'sw', 'n1'), newSermon('ivan', { status: 'lost' })));
-    await assertFails(setDoc(sermon(db, 'sw', 'n1'), newSermon('ivan', { shareKey: 'short' })));
+    await assertFails(setDoc(sermon(db, 'sw', 'n1'), newSermon('ivan', { shareKey: 12345 })));
+    await assertFails(setDoc(sermon(db, 'sw', 'n1'), newSermon('ivan', { shareKey: 'k'.repeat(65) })));
+    await assertSucceeds(setDoc(sermon(db, 'sw', 'n1'), newSermon('ivan', { shareKey: 'k'.repeat(24) })));
   });
   test('можно сразу взять замок на себя, но не на другого', async () => {
     const db = as('ivan');
@@ -445,6 +447,13 @@ describe('замок', () => {
     // сигнал «я здесь»: меняется только beat, отметка правки не нужна
     await assertSucceeds(updateDoc(ref, { 'lock.beat': serverTimestamp() }));
     await assertSucceeds(updateDoc(ref, edit('ivan')));
+    await assertSucceeds(updateDoc(ref, edit('ivan', { 'lock.beat': serverTimestamp() })));
+    await assertSucceeds(updateDoc(ref, edit('ivan', { lock: null })));
+  });
+  test('у конспекта со ссылкой для оператора обычная правка под своим замком проходит (предел выражений)', async () => {
+    const ref = sermon(as('ivan'), 'sw', 'ivan1');
+    await assertSucceeds(updateDoc(ref, takeLock('ivan', 'Иван')));
+    await assertSucceeds(updateDoc(ref, edit('ivan', { shareKey: 'k'.repeat(24) })));
     await assertSucceeds(updateDoc(ref, edit('ivan', { 'lock.beat': serverTimestamp() })));
     await assertSucceeds(updateDoc(ref, edit('ivan', { lock: null })));
   });
