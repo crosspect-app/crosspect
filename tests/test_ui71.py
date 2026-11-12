@@ -102,7 +102,8 @@ def test_film_drag_reorders(browser, base_url):
     page.mouse.down()
     page.mouse.move(a["x"] + a["width"] / 2, a["y"] + 10, steps=3)
     page.mouse.move(b["x"] + b["width"] / 2, b["y"] + 8, steps=8)
-    assert page.locator(".film .film-gap.drop[data-at='0']").count() == 1
+    assert page.evaluate("drag && drag.on && drag.at") == 0   # этап 7.7: вместо черты соседи раздвигаются, место — в drag.at
+    assert page.locator(".film .st-box.lifted[data-box='b3']").count() == 1
     page.mouse.up()
     page.wait_for_function("state.blocks[0].id === 'b3'")
     assert order(page) == ["b3", "b1", "b2"]

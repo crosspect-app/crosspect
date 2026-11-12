@@ -29,7 +29,7 @@ export function summaryOf(d){
     title: txt(m.title), date: txt(m.date), firstName: txt(m.firstName), lastName: txt(m.lastName),
     status: d.status, owner: d.owner, updatedAt: d.updatedAt, updatedBy: d.updatedBy,
     lock: d.lock || null,
-    slides: Math.min(500, blocks.filter(b => b && b.type !== 'note').length),   // заметка оператору — не слайд
+    slides: Math.min(500, blocks.filter(b => b && b.type !== 'note' && b.type !== 'splash').length),   // заметка оператору — не слайд; заставки не считаем (этап 7.7)
     refs: refs.join(' · ').slice(0, 2000),
   };
 }

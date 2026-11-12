@@ -6,7 +6,7 @@
 function renderTextView(){
   const m = state.meta, nums = slideNums();
   const words = state.blocks.reduce((t, b) => t + (b.speech ? wordCount(b.speech) : 0), 0), min = words / WORDS_PER_MIN;
-  const splashes = state.blocks.filter(b => b.type === 'splash').length, n = nums._total;
+  const splashes = state.blocks.filter(b => b.type === 'splash').length, n = slideCount(state);   // слайды без заставок, как в списке (этап 7.7)
   const stats = [n + ' ' + plural(n, 'слайд', 'слайда', 'слайдов'), splashes ? splashes + ' ' + plural(splashes, 'заставка', 'заставки', 'заставок') : '',
     words ? (min < 0.75 ? 'текст меньше минуты' : 'текст около ' + Math.round(min) + ' мин') : ''].filter(Boolean).join(' · ');
   const doc = h('article', { class:'tv-doc', style:'--vs:' + viewOpts.size },
@@ -26,7 +26,7 @@ function tvReveal(id){
   const t = id && document.querySelector('.tv-thumb[data-id="' + id + '"]'), blk = t && t.closest('.blk');
   if (!blk || blk === document.querySelector('.tv .blk')){ window.scrollTo(0, 0); return; }
   blk.scrollIntoView({ block:'center', behavior:'auto' });
-  motionHL(blk, 500);
+  motionHL(blk, 2000);   // ~2 с, потом медленно гаснет (этап 7.7)
 }
 function tvBlock(b, n){
   if (b.type === 'note'){

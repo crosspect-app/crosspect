@@ -90,7 +90,7 @@ function applyFlags(s){
 function toggleTodo(b){
   b.todo = !b.todo;
   if (cloudOn()) setFlag(b); else change();
-  if (filmOnlyTodo && inSlides()) renderFilm();
+  if (filmOnlyTodo && inSlides()) syncFilm();
   rerender(b);
 }
 function setFlag(b){

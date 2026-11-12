@@ -25,22 +25,33 @@ function route(){
     if (!state || state.id !== id || ed.id !== id){
       let d = readDraft(id);
       if (d && d.cloudSpace && d.cloudSpace !== cloud.space) d = null;   // черновик того же номера из другого пространства — не наш
-      openCloudSermon(id, d, seq).then(r => {
-        if (!r) return;
+      // данных нет дольше ~300 мс — заготовка экрана «Слайды» (серые миниатюры), а не пустые рамки (этап 7.7)
+      const skel = setTimeout(() => { if (seq === routeSeq) showSkeleton(); }, 300);
+      Promise.all([openCloudSermon(id, d, seq), slideAssetsReady()]).then(([r]) => {
+        clearTimeout(skel);
+        if (!r || seq !== routeSeq) return;
         if (r.missing){ screen = 'home'; renderAll(); navigate(''); toast(r.failed ? 'Нет связи с облаком, проповедь не открылась' : 'Эта проповедь не найдена'); return; }
         state = r.state; selId = null;
         beginCloud(r.remote, r.local, r.offline);   // просмотр или правка (замок)
         persistDraft();   // в просмотре ничего не пишет
-        showSermon(p);
-        if (r.note) toast(r.note);
+        bgReady().then(() => {   // картинка фона расшифрована — миниатюры появятся сразу с фоном
+          if (seq !== routeSeq || !state || state.id !== id) return;
+          showSermon(p);
+          if (r.note) toast(r.note);
+        });
       });
       return;
     }
     showSermon(p);
-  } else { screen = 'home'; renderAll(); window.scrollTo(0, 0); }
+  } else {
+    const from = screen === 'sermon' ? leaveSermon() : null;   // «← Проповеди»: экран проповеди уезжает вправо (этап 7.7)
+    screen = 'home'; renderAll(); window.scrollTo(0, 0);
+    if (from) enterHome();
+  }
 }
 function showSermon(p){
   const was = screen === 'sermon' && state && hist.id === state.id ? view : '';   // с какого вида пришли (пусто — открыли проповедь заново)
+  const fromHome = screen !== 'sermon' || !!document.querySelector('#app > .sk-sv');   // открыли из списка (или вместо заготовки)
   screen = 'sermon'; view = p.get('v') === 'text' ? 'text' : 'slides';
   if (hist.id !== state.id) histReset();   // «Слайды» ↔ «Текст» историю не сбрасывают
   LS.set('swp-sermon:last', state.id);
@@ -48,19 +59,96 @@ function showSermon(p){
     const sel = selId, toText = view === 'text';
     const thumb = () => document.querySelector(toText ? '.film .st[data-id="' + sel + '"] .st-thumb' : '.tv-thumb[data-id="' + sel + '"]');
     const thumbNew = () => document.querySelector(toText ? '.tv-thumb[data-id="' + sel + '"]' : '.film .st[data-id="' + sel + '"] .st-thumb');
-    viewTransition(() => { renderAll(); if (toText) tvReveal(sel); else window.scrollTo(0, 0); }, { from:thumb, to:thumbNew });
-  } else { renderAll(); window.scrollTo(0, 0); }
+    // из «Текста» в «Слайды»: лента сразу прокручена к выбранному слайду, он ближе к середине (этап 7.7)
+    viewTransition(() => { renderAll(); if (toText) tvReveal(sel); else { window.scrollTo(0, 0); filmReveal(sel, { center:true, instant:true }); } }, { from:thumb, to:thumbNew });
+  } else {
+    renderAll(); window.scrollTo(0, 0);
+    if (fromHome) enterSermon();
+  }
   if (editing() && isDirty()) scheduleSave(1000);
 }
 window.addEventListener('hashchange', route);
 
+/* ----- Переходы между списком и проповедью (этап 7.7) ----- */
+/* Шрифты слайда — до первого показа миниатюр: иначе слайд раскладывается запасным шрифтом и тут же перекладывается.
+   Ждём не дольше 1,2 с: без сети шрифтов может и не быть */
+let slideFontsP = null;
+function slideAssetsReady(){
+  if (!slideFontsP){
+    const f = document.fonts && document.fonts.load
+      ? Promise.all(['325 50px Unbounded', '700 50px Unbounded', '900 50px Unbounded', '400 50px Inter'].map(x => document.fonts.load(x, 'АБВabc').catch(() => null)))
+      : Promise.resolve();
+    slideFontsP = Promise.race([f, new Promise(r => setTimeout(r, 1200))]).then(() => { FM = null; });
+  }
+  return slideFontsP;
+}
+/* Картинка фона открытой проповеди (генератор 7.3/7.5) — расшифрована до показа, чтобы миниатюры не мигнули без фона */
+const bgDecoded = new Set();
+function bgReady(){
+  let u = '';
+  try { const bg = curBg(); if (bg) u = (/^url\((.*)\)$/.exec(bgImage(bg)) || [])[1] || ''; } catch(e){}
+  if (!u || bgDecoded.has(u)) return Promise.resolve();
+  const img = new Image(); img.src = u;
+  const p = img.decode ? img.decode().catch(() => {}) : Promise.resolve();
+  return Promise.race([p, new Promise(r => setTimeout(r, 400))]).then(() => { bgDecoded.add(u); });
+}
+/* Заготовка экрана проповеди, пока данные идут дольше ~300 мс: серые миниатюры и слайд с бегущим бликом */
+function showSkeleton(){
+  if (screen === 'sermon' || cloudGate() || mainEl.querySelector(':scope > .gate')) return;   // заставка входа остаётся вместо заготовки
+  const was = mainEl.querySelector('.home');
+  mainEl.innerHTML = '';
+  svFor = null; filmEl = stageEl = sideEl = null;
+  mainEl.append(h('div', { class:'sv sk-sv', role:'status', 'aria-label':'Открываю проповедь…', 'aria-busy':'true' },
+    h('div', { class:'film' }, [0, 1, 2, 3, 4].map(() => h('div', { class:'sk-thumb' }, h('div', { class:'sk-img' }), h('div', { class:'sk-line w1' })))),
+    h('div', { class:'stage' }, h('div', { class:'sk-stage' }, h('div', { class:'sk-img' }))),
+    h('div', { class:'side' }, h('div', { class:'sk-line w2' }), h('div', { class:'sk-line w3' }), h('div', { class:'sk-line w1' }))));
+  if (was) motionAnimate(mainEl.firstElementChild, [{ opacity:0 }, { opacity:1 }], MOTION.ms('--motion', 200));
+}
+/* Экран проповеди въезжает справа (~250 мс): сдвиг и проявление. К этому моменту миниатюры уже разложены */
+function enterSermon(){
+  if (MOTION.off() || document.querySelector('.gate-ghost')) return;   // открыли по ссылке сразу после заставки: она сама расплывается
+  const d = MOTION.ms('--motion-slow', 250);
+  motionAnimate(mainEl, [{ opacity:0, transform:'translateX(56px)' }, { opacity:1, transform:'none' }], d);
+  topbar.querySelectorAll(':scope > *').forEach(x => motionAnimate(x, [{ opacity:0 }, { opacity:1 }], d));
+}
+/* «← Проповеди»: прежний экран проповеди уезжает вправо и гаснет поверх списка (сам узел, не копия: он уже разложен) */
+function leaveSermon(){
+  if (MOTION.off() || view !== 'slides') return null;
+  const sv = mainEl.querySelector(':scope > .sv'); if (!sv) return null;
+  const r = sv.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  const wrap = h('div', { class:'leave-ghost', 'aria-hidden':'true' });
+  wrap.style.cssText = 'left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + Math.min(r.height, innerHeight - r.top) + 'px';
+  sv.inert = true;
+  wrap.append(sv); document.body.append(wrap);
+  const a = motionAnimate(wrap, [{ opacity:1, transform:'none' }, { opacity:0, transform:'translateX(72px)' }], MOTION.ms('--motion-slow', 250), { fill:'forwards' });
+  if (a) a.addEventListener('finish', () => wrap.remove()); else wrap.remove();
+  setTimeout(() => wrap.remove(), 900);
+  filmEl = stageEl = sideEl = null; svFor = null;
+  return wrap;
+}
+/* Список проявляется под уезжающей проповедью */
+function enterHome(){
+  const d = MOTION.ms('--motion-slow', 250);
+  const home = mainEl.querySelector('.home');
+  if (home) motionAnimate(home, [{ opacity:0 }, { opacity:1 }], d);
+}
+
 function renderAll(){ renderTopbar(); renderMain(); }
 function renderMain(){
   closeTrPanel();
-  mainEl.innerHTML = '';
   document.body.classList.toggle('light', screen === 'sermon' && view === 'text');   // «Текст» — светлый, остальное тёмное
   document.body.dataset.screen = screen;
   document.body.classList.toggle('ro', readOnly());
+  // «Слайды» той же проповеди уже на экране — обновить точечно: лента, сцена и панель не пересобираются (этап 7.7)
+  if (screen === 'sermon' && view === 'slides' && state && syncSlides()){
+    document.title = (state.meta.title || 'Проповедь') + ' · Crosspect';
+    updateStatus();
+    return;
+  }
+  svFor = null;
+  const gate = !(screen === 'home' && cloudGate()) ? gateDissolve() : null;   // уходим с экрана входа: он расплывается (этап 7.7)
+  mainEl.innerHTML = '';
   if (screen === 'home' && cloudGate()){ document.title = 'Вход · Crosspect'; renderGate(); }
   else if (screen === 'home'){ document.title = 'Проповеди · ' + (cloud.spaceName || 'Crosspect'); renderHome(); }
   else {
@@ -68,6 +156,7 @@ function renderMain(){
     if (view === 'text') renderTextView(); else renderSlides();
   }
   updateStatus();
+  if (gate) gateReveal();
 }
 
 function setView(v){
@@ -150,10 +239,10 @@ function updateStatus(){
   }
   const fc = $('#film-count');
   if (fc){
-    const n = slideNums()._total, todo = state.blocks.filter(todoOn).length;
+    const n = slideCount(state), sp = state.blocks.filter(b => b.type === 'splash').length, todo = state.blocks.filter(todoOn).length;   // слайды без заставок — как в списке (этап 7.7)
     const words = state.blocks.reduce((t, b) => t + (b.speech ? wordCount(b.speech) : 0), 0), min = words / WORDS_PER_MIN;
     fc.innerHTML = '';
-    fc.append(...[h('span', { text:n + ' ' + plural(n, 'слайд', 'слайда', 'слайдов') }),
+    fc.append(...[h('span', { text:n + ' ' + plural(n, 'слайд', 'слайда', 'слайдов') + (sp ? ' + ' + sp + ' ' + plural(sp, 'заставка', 'заставки', 'заставок') : ''), title:'Как в списке проповедей: заставки считаются отдельно' }),
       todo || filmOnlyTodo ? h('button', { type:'button', class:'film-todo' + (filmOnlyTodo ? ' on' : ''), 'aria-pressed':String(filmOnlyTodo),
         title:filmOnlyTodo ? 'Показать все слайды' : 'Показать только слайды с отметкой «доработать»', onclick:() => toggleOnlyTodo(),
         text:filmOnlyTodo ? 'только доработать · все' : todo + ' доработать' }) : null,

@@ -219,11 +219,7 @@ body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--
 .home-top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px}
 .home-top h1{margin:0;font:600 30px/1.1 'Unbounded',sans-serif;letter-spacing:-.02em}
 .home-sec{display:flex;flex-direction:column;gap:14px}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
 .card-wrap{position:relative}
-.card-del{position:absolute;top:18px;right:18px;opacity:0;background:rgba(14,14,14,.75);transition:.15s}
-.card-wrap:hover .card-del,.card-del:focus-visible{opacity:1}
-@media (hover:none){.card-del{opacity:.85}}
 
 /* Облако: вход, пометки у карточек */
 .gate{min-height:calc(100vh - 80px);display:flex;align-items:center;justify-content:center;padding:24px 16px}
@@ -246,34 +242,59 @@ body.ro .side .bbody,body.ro .speech .rich,body.ro .tv .prose{opacity:.8;cursor:
 .hd-save.pick{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .home-warn{color:var(--warn)}
 .sheet-foot.wrap{justify-content:flex-end}
-.scard{display:flex;flex-direction:column;gap:12px;padding:12px 12px 16px;border-radius:18px;background:var(--surface);border:1px solid var(--line);text-decoration:none;color:var(--text);transition:.15s}
-.scard:hover{border-color:#4a4230}
-.scard.st-draft{box-shadow:0 0 0 1px #3a2c08}
-.mini{aspect-ratio:16/9;background:#000;border-radius:12px;padding:1.4%;container-type:inline-size}
-.mini-fr{height:100%;background:#ecdfcf;border-radius:9px;padding:1.8%}
-.mini-pn{height:100%;border-radius:4px;background:linear-gradient(140deg,#1d0f09 0%,#6e2c12 52%,#2b130b 100%);display:flex;align-items:center;justify-content:center;padding:6%;text-align:center}
-.mini-t{font:900 7.5cqw/1.08 'Unbounded',sans-serif;text-transform:uppercase;color:#ecdfcf;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-.scard-body{display:flex;flex-direction:column;gap:7px;padding:0 4px}
-.scard-top{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted)}
-.scard-title{font-size:18px;font-weight:700;line-height:1.25}
-.scard-title.empty{color:var(--muted);font-weight:500}
-.scard-by{font-size:13px;color:#cfc4b5}
-.scard-foot{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted)}
 .film-todo{color:var(--todo);font-weight:600}
 button.film-todo{background:none;border:0;padding:0;font:inherit;font-weight:600;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
 button.film-todo.on{text-decoration:none;border-bottom:1px solid var(--todo)}
 .cap-row{display:flex;align-items:center;gap:12px}
 .cap-row span{flex:1;height:1px;background:var(--line)}
+/* ---------- Список проповедей (этап 7.7): одна таблица, сортировка и фильтры ---------- */
+#home-list{display:flex;flex-direction:column;gap:14px}
+.home-filters{display:flex;flex-direction:column;gap:10px}
+.hf-toggle{display:none;align-self:flex-start}
+.hf-toggle.on{border-color:var(--accent)}
+.hf-body{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.hf-sel{position:relative;display:inline-flex;align-items:center;border:1px solid var(--line-2);border-radius:999px;background:var(--surface);color:var(--text)}
+.hf-sel:hover{border-color:#4a4230}
+.hf-sel.on{border-color:var(--accent)}
+.hf-sel:focus-within{border-color:var(--accent)}
+.hf-sel select{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:inherit;font:500 13px 'Inter',sans-serif;padding:9px 34px 9px 14px;max-width:260px;text-overflow:ellipsis;cursor:pointer;outline:none}
+.hf-sel select option{background:var(--surface-2);color:var(--text)}
+.hf-sel .ic{position:absolute;right:11px;width:15px;height:15px;color:var(--muted);pointer-events:none}
+.hf-range{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.hf-range .input{height:36px;padding:0 10px;width:auto;color-scheme:dark;border-radius:999px}
+.hf-status{display:inline-flex;flex-wrap:wrap;gap:3px;padding:3px;border-radius:999px;border:1px solid var(--line-2);background:var(--surface)}
+.hf-chip{border:0;background:transparent;color:var(--muted);font:600 12px/1 'Inter',sans-serif;padding:8px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.hf-chip:hover{color:var(--text)}
+.hf-chip.on.st-draft{background:#3a2c08;color:#ffde59}
+.hf-chip.on.st-submitted{background:#13301d;color:#5ad17a}
+.hf-chip.on.st-work{background:#13263d;color:#8cbcff}
+.hf-reset .ic{width:14px;height:14px}
 .ptable{border-radius:14px;border:1px solid var(--line);overflow:hidden}
-.prow{display:grid;grid-template-columns:130px minmax(0,1fr) 200px 80px 130px 44px;gap:16px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--text);font-size:14px}
-.ptable .card-wrap:last-child .prow{border-bottom:0}
-.prow.phead{color:var(--muted);font-size:12px;padding:12px 16px}
-a.prow:hover{background:var(--surface)}
-.prow .pt{font-weight:600}
-.prow .muted{color:var(--muted)}
-.prow .muted2{color:#cfc4b5}
-.row-del{position:absolute;top:50%;right:8px;transform:translateY(-50%);opacity:0;transition:.15s}
-.card-wrap:hover .row-del,.row-del:focus-visible{opacity:1}
+.srow{display:grid;grid-template-columns:160px minmax(0,1fr) 200px 76px 140px 40px;gap:16px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--text);font-size:14px;background:rgba(20,20,20,.9)}
+.ptable .card-wrap:last-child .srow{border-bottom:0}
+.srow.shead{color:var(--muted);font-size:12px;padding:10px 16px;background:rgba(14,14,14,.92)}
+.srow .sort{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;padding:4px 6px;margin:-4px -6px;border-radius:8px;color:inherit;font:inherit;cursor:pointer}
+.srow .sort:hover{color:var(--text);background:var(--surface-2)}
+.srow .sort.on{color:var(--text);font-weight:600}
+.sort-ar{font-size:12px;opacity:.55;width:10px;text-align:center}
+.sort.on .sort-ar{opacity:1;color:var(--accent)}
+a.srow:hover{background:#1b1b1b}
+a.srow.next{box-shadow:inset 3px 0 0 var(--accent)}
+.srow .pt{font-weight:600;min-width:0}
+.srow .scard-title.empty{color:var(--muted);font-weight:500}
+.next-mark{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:#141414;background:var(--accent);vertical-align:1px}
+.srow .muted{color:#b9ae9f}
+.srow .muted2{color:#d8cdbd}
+.srow .c-lbl{display:none}
+.card-del{position:absolute;top:50%;right:8px;transform:translateY(-50%);opacity:0;transition:.15s}
+.card-wrap:hover .card-del,.card-del:focus-visible{opacity:1}
+@media (hover:none){.card-del{opacity:.85}}
+.home-none{display:flex;flex-direction:column;gap:4px}
+.home-none .hint{margin:0}
+.sk-table{border-color:var(--line)}
+.sk-card.sk-row{flex-direction:row;align-items:center;gap:24px;padding:18px 16px;border-radius:0;border:0;border-bottom:1px solid var(--line)}
+.sk-row .sk-line{margin:0;height:12px}
+.sk-row .sk-line.w1{width:110px;flex:none}.sk-row .sk-line.w2{flex:1;max-width:420px;height:14px}.sk-row .sk-line.w3{width:140px;flex:none}
 .home-note{padding:0 2px;max-width:70ch}
 .empty{padding:22px 22px 22px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface)}
 .empty .chips{margin-top:14px}
@@ -292,7 +313,7 @@ a.prow:hover{background:var(--surface)}
 .sv.swapping{cursor:grabbing;user-select:none}
 .sv .panel-drag{opacity:.55}
 .sv .panel-drop{box-shadow:inset 0 0 0 2px var(--accent);border-radius:6px}
-.film{overflow-y:auto;padding:14px 12px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:8px;min-width:0}
+.film{position:relative;overflow-y:auto;padding:14px 12px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:8px;min-width:0}
 .film-head{display:flex;flex-wrap:wrap;gap:4px 10px;padding:2px 6px 6px;font:600 11px/1.3 'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .film-head .film-time{width:100%;font-weight:500;letter-spacing:.02em;text-transform:none}
 .st{display:flex;flex-direction:column;gap:6px;width:100%;padding:6px;border-radius:10px;border:0;background:transparent;color:var(--text);text-align:left;position:relative;flex:none}
@@ -339,7 +360,10 @@ a.prow:hover{background:var(--surface)}
 .film-gap.drop::before,.film-add.drop::before{content:"";position:absolute;left:4px;right:4px;top:50%;height:3px;margin-top:-1.5px;border-radius:2px;background:var(--accent)}
 .film-add{position:relative}
 .film-add.drop::before{top:-6px}
-.st.dragging{opacity:.4}
+/* Перетаскивание (этап 7.7): слайд приподнят и идёт за указателем, соседи плавно раздвигаются */
+.st-box.lifted{z-index:5;transition:none;will-change:transform}
+.st-box.lifted > .st{background:var(--surface-2);box-shadow:0 0 0 2px var(--accent),0 14px 34px rgba(0,0,0,.55)}
+.st-box.shifting{transition:transform var(--motion-slow) var(--ease-out)}
 .film.dragging{cursor:grabbing}
 .film-add:hover{background:var(--surface-2)}
 .film-add .ic{width:16px;height:16px}
@@ -469,10 +493,22 @@ a.prow:hover{background:var(--surface)}
   .org{display:none}
   .org.org-sel{display:inline-flex}
   .org-pick{max-width:34vw}
-  .prow{grid-template-columns:90px minmax(0,1fr) 40px}
-  .prow > :nth-child(3),.prow > :nth-child(5),.prow > :nth-child(6){display:none}
+  /* список: строки — компактные карточки, фильтры — под кнопкой «Фильтры» */
+  .hf-toggle{display:inline-flex}
+  .home-filters:not(.open) .hf-body{display:none}
+  .srow.shead{display:none}
+  .srow{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"date status" "title title" "author slides";gap:6px 12px;padding:13px 48px 13px 14px}
+  .srow .c-date{grid-area:date;font-size:12px}
+  .srow .c-title{grid-area:title}
+  .srow .c-author{grid-area:author;font-size:13px}
+  .srow .c-slides{grid-area:slides;font-size:12px;color:var(--muted);justify-self:end}
+  .srow .c-status{grid-area:status;justify-self:end}
+  .srow .stchip{display:inline-flex;padding:4px 8px;font-size:11px}
+  .srow .c-lbl{display:inline}
+  .card-del{top:14px;transform:none}
+  .ptable{border-radius:12px}
   .sv{grid-template-columns:1fr}
-  .film{grid-row:auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;max-height:none;position:static;border-right:0;border-bottom:1px solid var(--line);padding:10px}
+  .film{grid-row:auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;max-height:none;position:relative;border-right:0;border-bottom:1px solid var(--line);padding:10px}
   .film-head{display:none}
   .st-box{width:150px}
   .film-add{width:110px;align-self:center}
@@ -850,7 +886,7 @@ body.light .size button:hover{background:var(--surface-3)}
   0%{transform:translate(0,0)}12.5%{transform:translate(-37px,29px)}25%{transform:translate(52px,-61px)}37.5%{transform:translate(-90px,-18px)}
   50%{transform:translate(23px,84px)}62.5%{transform:translate(-64px,47px)}75%{transform:translate(71px,12px)}87.5%{transform:translate(-12px,-95px)}}
 /* Главная: очень медленно плывущий размытый фон из генератора (формат по умолчанию), приглушён: карточки на сплошной подложке */
-.home-bg{position:fixed;inset:-12%;z-index:0;pointer-events:none;background-size:cover;background-position:center;opacity:.3;filter:blur(36px);
+.home-bg{position:fixed;inset:-12%;z-index:0;pointer-events:none;background-size:cover;background-position:center;opacity:.62;filter:blur(14px) saturate(1.35) contrast(1.12);
   animation:home-drift 25s ease-in-out infinite alternate}
 @keyframes home-drift{from{transform:translate(-3%,-2%) rotate(-3deg) scale(1.1)}to{transform:translate(3%,2%) rotate(3deg) scale(1.1)}}
 .home{position:relative;z-index:1}
@@ -858,8 +894,27 @@ body.light .size button:hover{background:var(--surface-3)}
 .scfg-slide{position:relative}
 .scfg-old{position:absolute;left:0;top:0;width:100%;pointer-events:none}
 
+/* Этап 7.7: заставка входа расплывается в список; экран проповеди уезжает вправо; заготовка экрана проповеди */
+/* Заставка при открытии: знак крупно, без карточки; строка про облако — только если ждать дольше ~1,5 с */
+.gate-card.splash{background:transparent;border-color:transparent;align-items:center;gap:22px;text-align:center}
+.gate-card.splash .gate-logo{font-size:30px;gap:16px}
+.gate-card.splash .gate-logo .logo-mark{height:46px}
+.gate-wait{opacity:0;animation:fade-in .4s ease-out 1.5s forwards}
+.gate-ghost{position:fixed;inset:0;z-index:40;pointer-events:none;background:var(--bg)}
+.gate-ghost .gate-fx{position:absolute}
+.gate-ghost .gate{min-height:100%}
+.leave-ghost{position:fixed;z-index:40;pointer-events:none;overflow:hidden;background:var(--bg)}
+.leave-ghost .sv{height:100%}
+.sk-sv .film{gap:12px}
+.sk-thumb{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:8px;padding:6px;border-radius:10px;flex:none}
+.sk-thumb .sk-img,.sk-stage .sk-img{border-radius:7px}
+.sk-stage{position:relative;overflow:hidden;width:min(100%, 880px);margin:52px auto 0;border-radius:14px}
+.sk-sv .side{display:flex;flex-direction:column;gap:14px;padding-top:56px}
+.sk-sv .sk-line{margin:0}
+.sk-thumb::after,.sk-stage::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(236,223,207,.07),transparent);animation:sk-shine 1.2s linear infinite}
+
 /* Фоновая вкладка: бесконечные анимации стоят */
-html.page-hidden .gate-grain,html.page-hidden .home-bg,html.page-hidden .sk-card::after{animation-play-state:paused}
+html.page-hidden .gate-grain,html.page-hidden .home-bg,html.page-hidden .sk-card::after,html.page-hidden .sk-thumb::after,html.page-hidden .sk-stage::after{animation-play-state:paused}
 /* На время снятия JPEG и ZIP движение выключено */
 html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{animation:none!important;transition:none!important}
 
@@ -869,7 +924,7 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
   :root{--motion-fast:0ms;--motion:0ms;--motion-slow:0ms}
   *,*::before,*::after{transition-duration:0s!important;transition-delay:0s!important;animation-duration:0s!important;animation-delay:0s!important;scroll-behavior:auto!important}
   .logo-mark path{transition-duration:.3s!important}
-  .gate-grain,.home-bg,.sk-card::after{animation:none!important}
+  .gate-grain,.home-bg,.sk-card::after,.sk-thumb::after,.sk-stage::after{animation:none!important}
   .toast-bar{display:none}
   .st.hl::after,.blk.hl::after{animation:none!important}
 }

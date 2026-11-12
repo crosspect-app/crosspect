@@ -344,6 +344,10 @@ function runPreview(b){
   }
   const th = filmEl && filmEl.isConnected ? filmEl.querySelector('.st[data-id="' + b.id + '"]') : null;
   if (th) th.classList.toggle('over', over);
+  // этап 7.7: запомнить, по какому содержимому разложено, — syncSlides не будет раскладывать то же самое ещё раз
+  const fp = thumbFp(b);
+  if (th) th.parentNode._fp = fp;
+  if (stageEl && stageEl._id === b.id) stageEl._fp = fp;
   if (main){
     const info = main.closest('.stage-view') && main.closest('.stage-view').querySelector('.stage-info');
     if (info){ info.textContent = msg; info.classList.toggle('over', over); }

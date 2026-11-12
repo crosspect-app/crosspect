@@ -29,7 +29,7 @@
     blocks.forEach(b => { if (b && b.type === 'scripture') (b.items || []).forEach(it => { if (it && it.ref) refs.push(it.ref); }); });
     return { id:r.id, summary:true, meta:{ title:m.title || '', date:m.date || '', firstName:m.firstName || '', lastName:m.lastName || '' },
       updatedAt:r.updatedAt, cloudSpace:db.space.id, cloudAt:r.updatedAt, cloudOwner:r.owner, cloudStatus:r.status, cloudBy:r.updatedBy,
-      lock:r.lock || null, slides:blocks.filter(b => b && b.type !== 'note').length, refs:refs.join(' · ') };
+      lock:r.lock || null, slides:blocks.filter(b => b && b.type !== 'note' && b.type !== 'splash').length, refs:refs.join(' · ') };
   };
   const live = (db, l) => !!l && Date.now() < l.beat + ((db.space.settings || {}).lockMinutes || 10) * 60000;
   const fail = (code, message, extra) => Object.assign(new Error(message || code), { code }, extra);

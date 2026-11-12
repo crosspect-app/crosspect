@@ -162,9 +162,9 @@ def test_home_list_from_summaries(browser, base_url):
     page.wait_for_selector(".scard")
     row = page.evaluate("cloud.list.get('s1')")
     assert row["summary"] is True and "blocks" not in row
-    assert row["slides"] == 2 and row["refs"] == "Евр. 11:1"
+    assert row["slides"] == 1 and row["refs"] == "Евр. 11:1"   # этап 7.7: заставка и заметка — не слайды
     card = page.locator(".card-wrap", has_text="Вера")
-    assert "2 слайда" in card.inner_text()
+    assert card.locator(".c-slides .c-n").inner_text() == "1"
     page.locator(".search input").fill("евр. 11")
     assert titles(page) == ["Вера"]
     page.locator(".search input").fill("")

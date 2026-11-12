@@ -27,6 +27,37 @@ const MOTION = {
   ui:{ id:'', lock:false, swPrev:null, flare:false }   // шапка проповеди: что было на прошлой отрисовке
 };
 
+/* ----- Заставка при открытии формы (этап 7.7) -----
+   Знак собирается, шевелится зерно; заставка держится не меньше ~1,5 с от открытия страницы при любой скорости связи,
+   потом расплывается (размытие и проявление, ~500 мс) в список. Только при открытии формы: на главную из проповеди — без неё.
+   «Уменьшить движение» — без задержки и без размытия */
+const INTRO = { ms:1500, done:false, timer:0 };
+function introHold(){
+  if (INTRO.done) return false;
+  if (MOTION.reduced() || performance.now() >= INTRO.ms){ INTRO.done = true; return false; }
+  if (!INTRO.timer) INTRO.timer = setTimeout(() => { INTRO.done = true; if (typeof route === 'function') route(); }, Math.max(0, INTRO.ms - performance.now()) + 20);
+  return true;
+}
+/* Экран входа уходит: его узлы — поверх, расплываются и гаснут, новый экран проявляется из лёгкого размытия */
+function gateDissolve(){
+  if (MOTION.off()) return null;
+  const nodes = [...mainEl.querySelectorAll(':scope > .gate, :scope > .gate-fx')];
+  if (!nodes.some(n => n.classList.contains('gate'))) return null;
+  const wrap = h('div', { class:'gate-ghost', 'aria-hidden':'true' });
+  nodes.forEach(n => wrap.append(n));
+  document.body.append(wrap);
+  const a = motionAnimate(wrap, [{ opacity:1, filter:'blur(0px)' }, { opacity:0, filter:'blur(18px)' }], 520, { fill:'forwards', easing:'ease-in' });
+  if (a) a.addEventListener('finish', () => wrap.remove()); else wrap.remove();
+  setTimeout(() => wrap.remove(), 1200);
+  return wrap;
+}
+function gateReveal(){
+  if (MOTION.off()) return;
+  [...mainEl.children].forEach(el => { if (!el.classList.contains('home-bg')) motionAnimate(el, [{ opacity:0, filter:'blur(8px)' }, { opacity:1, filter:'blur(0px)' }], 520, { easing:'ease-out' }); });
+  const bg = mainEl.querySelector(':scope > .home-bg'); if (bg) motionAnimate(bg, [{ opacity:0 }, { opacity:getComputedStyle(bg).opacity }], 700, { easing:'ease-out' });
+  topbar.querySelectorAll(':scope > *').forEach(x => motionAnimate(x, [{ opacity:0 }, { opacity:1 }], 520));
+}
+
 /* Запустить анимацию элемента; выключено — ничего не делает (возвращает null) */
 function motionAnimate(el, keyframes, ms, opts){
   if (!el || !el.animate || MOTION.off() || ms <= 0) return null;
@@ -59,14 +90,17 @@ function motionHL(el, ms){
 }
 
 /* ----- Лента: FLIP -----
-   run() меняет данные и перерисовывает экран. До этого запоминаем, где стояли миниатюры, после — двигаем только те, что сдвинулись:
-   они «доезжают» от старого места к новому. Фон при этом не перерисовывается (картинка из кеша 7.3/7.5).
-   o.add — id нового слайда (проявляется с увеличением 0,96 → 1), o.remove — id удалённого (гаснет и схлопывается, остальные подъезжают),
-   o.hl — id слайда для жёлтой рамки */
+   run() меняет данные и обновляет ленту (с этапа 7.7 — те же узлы, syncSlides). До этого запоминаем, где стояли миниатюры
+   (как их видно на экране, со сдвигами перетаскивания), после — двигаем только те, что сдвинулись: они «доезжают» от старого
+   места к новому. Фон при этом не перерисовывается (картинка из кеша 7.3/7.5).
+   o.add — id нового слайда (вырастает 0,85 → 1 и проявляется), o.remove — id удалённого (гаснет и схлопывается, остальные подъезжают),
+   o.hl — id слайда для жёлтой рамки, o.lift — id слайда, который отпустили после перетаскивания (опускается из-под указателя),
+   o.done — после запуска движения (прокрутить ленту к выбранному: положение берётся по раскладке, сдвиги не мешают) */
 function motionFilm(run, o){
   o = o || {};
   const film = typeof inSlides === 'function' && inSlides() ? filmEl : null;
-  if (!film || MOTION.off()){ run(); if (o.hl) hlThumb(o.hl); return; }
+  const done = () => { if (o.hl) hlThumb(o.hl); if (o.done) o.done(); };
+  if (!film || MOTION.off()){ run(); done(); return; }
   const before = new Map();
   film.querySelectorAll('.st-box[data-box]').forEach(b => before.set(b.dataset.box, b.getBoundingClientRect()));
   let ghost = null;
@@ -74,17 +108,28 @@ function motionFilm(run, o){
     const bx = film.querySelector('.st-box[data-box="' + o.remove + '"]');
     if (bx) ghost = { node:bx.cloneNode(true), r:before.get(o.remove) };
   }
+  // бегущие сдвиги прошлого действия — довести до конца, иначе новый снимок возьмёт их середину как «прежнее место»
+  film.querySelectorAll('.st-box[data-box]').forEach(b => { if (b._flip){ try { b._flip.cancel(); } catch(e){} b._flip = null; } });
   run();
   const nf = typeof filmEl !== 'undefined' ? filmEl : null;
-  if (o.hl) hlThumb(o.hl);
-  if (!nf || !nf.isConnected) return;
-  const d = MOTION.ms('--motion', 200);
+  if (!nf || !nf.isConnected){ done(); return; }
+  const d = MOTION.ms('--motion-slow', 250);
   nf.querySelectorAll('.st-box[data-box]').forEach(b => {
     const id = b.dataset.box, was = before.get(id);
-    if (!was){ if (id === o.add) motionAnimate(b, [{ opacity:0, transform:'scale(.96)' }, { opacity:1, transform:'none' }], d); return; }
-    const now = b.getBoundingClientRect(), dx = was.left - now.left, dy = was.top - now.top;
+    if (!was){
+      if (id === o.add) b._flip = motionAnimate(b, [{ opacity:0, transform:'scale(.85)' }, { opacity:1, transform:'none' }], d);
+      return;
+    }
+    const now = b.getBoundingClientRect();
+    const dx = (was.left + was.width / 2) - (now.left + now.width / 2), dy = (was.top + was.height / 2) - (now.top + now.height / 2);   // по центрам: у приподнятого слайда другой масштаб
+    if (id === o.lift){
+      const sc = was.width / (now.width || 1);
+      b._flip = motionAnimate(b, [{ transform:'translate(' + dx + 'px,' + dy + 'px) scale(' + sc + ')', boxShadow:'0 14px 34px rgba(0,0,0,.55)', zIndex:5 },
+        { transform:'none', boxShadow:'0 0 0 rgba(0,0,0,0)', zIndex:5 }], d);
+      return;
+    }
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-    motionAnimate(b, [{ transform:'translate(' + dx + 'px,' + dy + 'px)' }, { transform:'none' }], d);
+    b._flip = motionAnimate(b, [{ transform:'translate(' + dx + 'px,' + dy + 'px)' }, { transform:'none' }], d);
   });
   if (ghost){
     const g = ghost.node, wrap = document.createElement('div');
@@ -92,14 +137,15 @@ function motionFilm(run, o){
     wrap.style.cssText = 'left:' + ghost.r.left + 'px;top:' + ghost.r.top + 'px;width:' + ghost.r.width + 'px;height:' + ghost.r.height + 'px';
     g.removeAttribute('data-box'); g.querySelectorAll('[data-id]').forEach(x => x.removeAttribute('data-id'));
     wrap.append(g); document.body.append(wrap);
-    const a = motionAnimate(wrap, [{ opacity:1, transform:'none' }, { opacity:0, transform:'scale(.92)' }], d, { fill:'forwards' });
+    const a = motionAnimate(wrap, [{ opacity:1, transform:'none' }, { opacity:0, transform:'scale(.85)' }], d, { fill:'forwards' });
     if (a) a.addEventListener('finish', () => wrap.remove()); else wrap.remove();
     setTimeout(() => wrap.remove(), d + 200);
   }
+  done();
 }
 function hlThumb(id){
   const c = typeof filmEl !== 'undefined' && filmEl && filmEl.querySelector('.st[data-id="' + id + '"]');
-  if (c) motionHL(c, 600);
+  if (c) motionHL(c, 1000);
 }
 
 /* ----- Переход «Слайды ↔ Текст» -----
@@ -197,9 +243,9 @@ function motionFlare(){
 }
 
 /* ----- Главная: заготовки карточек и плывущий фон ----- */
-function skeletonCards(){
-  return h('div', { class:'cards', role:'status', 'aria-label':'Загружаю проповеди…', 'aria-busy':'true' },
-    [0, 1, 2, 3].map(() => h('div', { class:'sk-card' }, h('div', { class:'sk-img' }), h('div', { class:'sk-line w1' }), h('div', { class:'sk-line w2' }), h('div', { class:'sk-line w3' }))));
+function skeletonCards(){   // с этапа 7.7 — строки таблицы
+  return h('div', { class:'ptable sk-table', role:'status', 'aria-label':'Загружаю проповеди…', 'aria-busy':'true' },
+    [0, 1, 2, 3].map(() => h('div', { class:'sk-card sk-row' }, h('div', { class:'sk-line w1' }), h('div', { class:'sk-line w2' }), h('div', { class:'sk-line w3' }))));
 }
 /* Размытая картинка из генератора фона (7.3/7.5) в цветах формата по умолчанию; у System Template — ползунки прежнего фона. Одна картинка, анимируется только transform */
 function homeBg(){

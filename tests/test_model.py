@@ -112,7 +112,7 @@ def test_no_done_mark_any_more(page):
     page.locator("a.btn.ghost").click()
     page.wait_for_selector(".scard")
     assert "Готово" not in page.inner_text(".scard") and not page.locator(".scard .prog").count()
-    assert "2 слайда" in page.inner_text(".scard")
+    assert page.inner_text(".scard .c-slides .c-n") == "2"
     assert not page.evaluate("state.blocks.some(b => 'done' in b)")
     # старый файл: картинка с «готово» не просит доработки, а самой отметки в модели уже нет
     r = page.evaluate("""(() => { const s = normalize({ app:'swp-sermon', v:2, id:'x', meta:{}, settings:{}, blocks:[

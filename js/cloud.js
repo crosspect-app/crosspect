@@ -19,7 +19,7 @@ const cloud = { mode:'wait', api:null, user:null, admin:false, spaces:[], space:
   list:null, fromCache:false, listError:'', error:'', unsub:null, started:false };
 const cloudOn = () => cloud.mode === 'in';
 /* Что показывать вместо главной и проповеди: null — ничего, можно работать */
-const cloudGate = () => cloudOn() ? null : cloud.mode;
+const cloudGate = () => cloudOn() ? (introHold() ? 'wait' : null) : cloud.mode;   // при открытии формы заставка держится ~1,5 с (motion.js)
 const inAppBrowser = () => /Telegram|Instagram|FBAN|FBAV|Line\//i.test(navigator.userAgent || '');
 
 async function loadFirebaseAPI(){
@@ -143,7 +143,8 @@ function renderGate(){
   const mode = cloudGate();
   const other = () => h('button', { type:'button', class:'btn primary', onclick:() => cloudSignOut().then(() => cloudSignIn()) }, 'Войти другой почтой');
   let body;
-  if (mode === 'wait') body = [h('h1', { text:'Подключаюсь к облаку…' }), h('p', { class:'gate-text', text:'Это занимает несколько секунд.' })];
+  // заставка при открытии (этап 7.7): только знак и зерно; если облако отвечает дольше ~1,5 с — тихая строка «Подключаюсь к облаку…»
+  if (mode === 'wait') body = [h('p', { class:'gate-text gate-wait', role:'status', text:'Подключаюсь к облаку…' })];
   else if (mode === 'noaccess') body = [
     h('h1', { text:'Вас нет в списке' }),
     h('p', { class:'gate-text' }, 'Вы вошли как ' + (cloud.user ? cloud.user.email : '') + ', но этой почты нет среди участников. Чтобы получить доступ, напишите на\u00a0',
@@ -168,7 +169,7 @@ function renderGate(){
   const lg = logoLockup('gate-logo'), el = Date.now() - (MOTION.gateAt || (MOTION.gateAt = Date.now()));
   if (el < 1000){ lg.classList.add('intro'); lg.style.setProperty('--el', el + 'ms'); }
   mainEl.append(h('div', { class:'gate-fx', 'aria-hidden':'true' }, h('div', { class:'gate-grain' })),
-    h('div', { class:'gate' }, h('div', { class:'gate-card' }, lg, body)));
+    h('div', { class:'gate' }, h('div', { class:'gate-card' + (mode === 'wait' ? ' splash' : '') }, lg, body)));
 }
 
 /* ----- Права ----- */
@@ -256,8 +257,7 @@ async function deleteCloudSermon(d){
 /* ----- Открыть проповедь из облака (адрес #s=<id>) ----- */
 let routeSeq = 0;
 async function openCloudSermon(id, local, seq){
-  mainEl.innerHTML = '';
-  mainEl.append(h('div', { class:'gate' }, h('p', { class:'gate-text', text:'Открываю проповедь…' })));
+  // этап 7.7: прежний экран остаётся, пока проповедь не готова; дольше ~300 мс — заготовка (showSkeleton в app.js)
   let remote = null, failed = false;
   try { remote = await cloud.api.get(cloud.space, id); } catch(e){ failed = !/permission-denied/.test((e && e.code) || ''); }
   if (remote && canFlag()) await loadFlags(id);   // отметки «доработать» — только редактору   // «нет прав» — это «нет такой для вас», а не обрыв связи

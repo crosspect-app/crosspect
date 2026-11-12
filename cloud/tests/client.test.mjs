@@ -164,7 +164,7 @@ describe('список', () => {
     // в списке — сводки: без слайдов, с их числом
     const one = items.find((x) => x.id === 'new1');
     assert.equal(one.summary, true);
-    assert.equal(one.slides, 2);
+    assert.equal(one.slides, 1);   // заставка не в счёт (этап 7.7)
     assert.equal(one.blocks, undefined);
     assert.equal(one.meta.title, 'Вера');
     assert.equal(one.cloudOwner, 'ivan@x.pl');
@@ -206,17 +206,20 @@ describe('сводки (этап 8)', () => {
       { id: 'b2', type: 'scripture', items: [{ kind: 'scripture', ref: 'Ин. 3:16', verses: [] }, { kind: 'scripture', ref: 'Рим. 5:8', verses: [] }] }],
     ...extra,
   });
-  test('summaryOf: число слайдов без заметок, места Писания, поля проповеди', () => {
+  test('summaryOf: число слайдов без заметок и заставок, места Писания, поля проповеди', () => {
     const d = summaryOf({ meta: { title: 'Т', date: '2026-11-15' }, blocks: withRef('x', 'Т').blocks, status: 'draft', owner: 'a@b.c', updatedAt: 5, updatedBy: 'a@b.c' });
     assert.deepEqual(d, { title: 'Т', date: '2026-11-15', firstName: '', lastName: '', status: 'draft', owner: 'a@b.c',
-      updatedAt: 5, updatedBy: 'a@b.c', lock: null, slides: 2, refs: 'Ин. 3:16 · Рим. 5:8' });
+      updatedAt: 5, updatedBy: 'a@b.c', lock: null, slides: 1, refs: 'Ин. 3:16 · Рим. 5:8' });
+    // этап 7.7: картинка, видео и свободный слайд (и «пришлю отдельно») считаются, заставка и заметка — нет
+    const e = summaryOf({ meta: {}, blocks: [{ type: 'splash' }, { type: 'image', mode: 'send' }, { type: 'video' }, { type: 'free' }, { type: 'note' }, { type: 'thesis' }] });
+    assert.equal(e.slides, 4);
   });
   test('сводка пишется с каждой записью и совпадает с проповедью; удаление убирает её', async () => {
     const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
     const a = await ivan.save('sp1', withRef('sm1', 'Сводка'), me('ivan@x.pl'));
     let s = await summary('sm1');
     assert.equal(s.title, 'Сводка');
-    assert.equal(s.slides, 2);
+    assert.equal(s.slides, 1);   // заставка и заметка — не в счёт (этап 7.7)
     assert.equal(s.refs, 'Ин. 3:16 · Рим. 5:8');
     assert.equal(s.updatedAt.toMillis(), a.cloudAt);
     // правка редактора меняет и сводку

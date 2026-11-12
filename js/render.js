@@ -649,7 +649,7 @@ function addBlock(type, at){
   const nb = newBlock(type);
   state.blocks.splice(at, 0, nb);
   closeSheet(); selId = nb.id;
-  motionFilm(() => { change(); renderMain(); flash(nb.id); }, { add:nb.id });   // новая миниатюра проявляется, промежуток раздвигается (motion.js)
+  motionFilm(() => { change(); renderMain(); }, { add:nb.id, done:() => flash(nb.id) });   // новая миниатюра вырастает, соседи раздвигаются (motion.js)
   // тезис и цитата: курсор сразу в текст (название тезиса сформируется из него само)
   const f = (type === 'thesis' || type === 'quote') ? sideEl.querySelector('.bbody .rich') : type === 'splash' ? stageEl.querySelector('.speech .rich') : sideEl.querySelector('.bbody input, .bbody textarea, .bbody .rich');
   if (f && window.matchMedia('(pointer:fine)').matches) f.focus({ preventScroll:true });
@@ -680,7 +680,7 @@ function continueScripture(b){
   }
   state.blocks.splice(state.blocks.indexOf(b) + 1, 0, nb);
   selId = nb.id;
-  motionFilm(() => { change(); renderMain(); flash(nb.id); }, { add:nb.id });
+  motionFilm(() => { change(); renderMain(); }, { add:nb.id, done:() => flash(nb.id) });
   toast('Новый слайд с тем же местом');
 }
 function move(b, dir){
@@ -689,16 +689,17 @@ function move(b, dir){
   if (j < 0 || j > last || j === i) return;
   state.blocks.splice(i, 1); state.blocks.splice(j, 0, b);
   selId = b.id;
-  motionFilm(() => { change(); renderMain(); flash(b.id); });   // соседи плавно отъезжают, слайд доезжает на место
+  motionFilm(() => { change(); renderMain(); }, { done:() => flash(b.id) });   // соседи плавно отъезжают, слайд доезжает на место
 }
 /* Перетащили в ленте: поставить слайд перед блоком с номером at (at = длина — в конец) */
-function moveTo(b, at){
+function moveTo(b, at, o){
+  o = o || {};
   const i = state.blocks.indexOf(b); if (i < 0) return;
   const j = at > i ? at - 1 : at;
-  if (j === i) return;
+  if (j === i){ if (o.prep) motionFilm(o.prep, { lift:o.lift }); return; }
   state.blocks.splice(i, 1); state.blocks.splice(j, 0, b);
   selId = b.id;
-  motionFilm(() => { change(); renderMain(); flash(b.id); });
+  motionFilm(() => { if (o.prep) o.prep(); change(); renderMain(); }, { lift:o.lift, done:() => flash(b.id) });   // перетаскивание: слайд доезжает из-под указателя (slides.js)
 }
 function duplicate(b){
   const c = JSON.parse(JSON.stringify(b)); c.id = uid();
@@ -706,12 +707,12 @@ function duplicate(b){
   if (TYPES[b.type].slide) c.speech = '';   // текст к слайду не копируется: иначе он окажется в проповеди дважды
   state.blocks.splice(state.blocks.indexOf(b) + 1, 0, c);
   selId = c.id;
-  motionFilm(() => { change(); renderMain(); flash(c.id); }, { add:c.id, hl:c.id });   // копия проявляется и ~0,6 с светится жёлтой рамкой
-  toast(had ? 'Слайд скопирован без текста к нему' : 'Блок скопирован');
+  motionFilm(() => { change(); renderMain(); }, { add:c.id, hl:c.id, done:() => flash(c.id, b.id) });   // копия вырастает под исходным и ~1 с светится жёлтой рамкой; видны обе
+  toast(had ? 'Слайд скопирован без текста к нему' : TYPES[b.type].slide ? 'Слайд скопирован' : 'Заметка скопирована');
 }
 /* Удаление слайда: его «Текст к слайду» не пропадает, а переходит к слайду перед ним (или после, если это первый) */
 function removeBlock(b){
-  const i = state.blocks.indexOf(b), wasSel = b.id === selId;
+  const i = state.blocks.indexOf(b);
   let heir = null, heirOld = '';
   if (TYPES[b.type].slide && plain(b.speech).trim()){
     const prev = state.blocks.slice(0, i).reverse().find(x => TYPES[x.type].slide), next = state.blocks.slice(i + 1).find(x => TYPES[x.type].slide);
@@ -719,21 +720,23 @@ function removeBlock(b){
     if (heir){ heirOld = heir.speech; heir.speech = prev ? joinSpeech(heir.speech, b.speech) : joinSpeech(b.speech, heir.speech); }
   }
   state.blocks.splice(i, 1);
-  if (wasSel){ const nb = state.blocks[Math.min(i, state.blocks.length - 1)]; selId = nb ? nb.id : null; }
-  motionFilm(() => { change(); renderMain(); }, { remove:b.id });   // миниатюра гаснет и схлопывается, остальные подъезжают
+  { const nb = state.blocks[Math.min(i, state.blocks.length - 1)]; selId = nb ? nb.id : null; }   // выбран следующий слайд (удалили последний — предыдущий)
+  motionFilm(() => { change(); renderMain(); }, { remove:b.id, done:() => { if (inSlides()) filmReveal(selId); } });   // миниатюра гаснет и схлопывается, остальные подъезжают; выбранный (следующий) — на виду
   const msg = heir ? 'Слайд удалён, текст к нему перенесён к слайду ' + slideNums()[heir.id] : TYPES[b.type].slide ? 'Слайд удалён' : 'Заметка удалена';
   toast(msg, 'Вернуть', () => {
     if (heir) heir.speech = heirOld;
     state.blocks.splice(Math.min(i, state.blocks.length), 0, b);
     selId = b.id;
-    motionFilm(() => { change(); renderMain(); flash(b.id); }, { add:b.id });
+    motionFilm(() => { change(); renderMain(); }, { add:b.id, done:() => flash(b.id) });
   });
 }
-/* Короткая подсветка миниатюры в ленте: слайд добавлен, перенесён, скопирован */
-function flash(id){
-  const c = filmEl && filmEl.querySelector('.st[data-id="' + id + '"]'); if (!c) return;
+/* Короткая подсветка миниатюры в ленте: слайд добавлен, перенесён, скопирован. Лента докручивается так, чтобы он был виден
+   целиком (with — второй слайд, который тоже стоит показать: исходный у копии) */
+function flash(id, withId){
+  if (!inSlides()) return;
+  const c = filmEl.querySelector('.st[data-id="' + id + '"]'); if (!c) return;
   c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
-  c.scrollIntoView({ block:'nearest' });
+  filmReveal(id, { with:withId });
 }
 
 /* ----- Оформление текста ----- */
