@@ -121,6 +121,7 @@ function startListen(){
   cloud.unsub = cloud.api.listen(cloud.space, restrict, (items, fromCache) => {
     cloud.list = new Map(items.map(r => [r.id, r])); cloud.fromCache = !!fromCache; cloud.listError = '';
     if (screen === 'home' && cloudOn()) renderHomeList();
+    renderTrash();   // окно «Корзина» открыто — обновить (trash.js)
   }, e => {
     cloud.listError = cloudExplain(e) || 'Не удалось загрузить список конспектов.';
     if (screen === 'home' && cloudOn()) renderHomeList();
@@ -239,27 +240,7 @@ function saveAsCopy(){
   if (cloudOn()) saveNow();
 }
 
-/* ----- Удаление ----- */
-async function deleteCloudSermon(d){
-  const t = d.meta.title ? '«' + d.meta.title + '»' : 'этот конспект';
-  const r = cloud.list && cloud.list.get(d.id), l = r && r.lock;
-  if (l && lockLive(l) && !(ed.id === d.id && lockHere(l))){
-    toast(l.email === myEmail() ? 'Вы правите его в другой вкладке или на другом устройстве. Закройте правку там и удалите ещё раз' : 'Сейчас его правит ' + lockWho(l) + '. Удалить можно, когда правка закончится');
-    return;
-  }
-  if (cloud.role === 'preacher' && r && statusKey(r.cloudStatus) !== 'draft'){   // автор удаляет только свой черновик (так решает и база)
-    toast(atEditor(r) ? AT_EDITOR_MSG : 'Удалить можно только черновик. Откройте конспект, нажмите «Редактировать» и переключите статус на «Черновик»');
-    return;
-  }
-  if (!confirm('Удалить ' + t + ' из облака? Конспект пропадёт у всех, вернуть его нельзя.')) return;
-  try {
-    await cloud.api.remove(cloud.space, d.id);
-    if (ed.id === d.id) resetCloud();
-    try { localStorage.removeItem('swp-sermon:' + d.id); if (LS.get('swp-sermon:last') === d.id) localStorage.removeItem('swp-sermon:last'); } catch(e){}
-    if (state && state.id === d.id) state = blank();
-    toast('Конспект удалён');
-  } catch(e){ toast(cloudExplain(e) || 'Не удалось удалить'); }
-}
+/* ----- Удаление: с этапа 9.1 — в корзину (trash.js) ----- */
 
 /* ----- Открыть проповедь из облака (адрес #s=<id>) ----- */
 let routeSeq = 0;
@@ -267,6 +248,7 @@ async function openCloudSermon(id, local, seq){
   // этап 7.7: прежний экран остаётся, пока проповедь не готова; дольше ~300 мс — заготовка (showSkeleton в app.js)
   let remote = null, failed = false;
   try { remote = await cloud.api.get(cloud.space, id); } catch(e){ failed = !/permission-denied/.test((e && e.code) || ''); }
+  if (remote && remote.deletedAt) return { missing:true, trashed:true };   // в корзине (этап 9.1): не открывается, пока не вернут
   if (remote && canFlag()) await loadFlags(id);   // отметки «доработать» — только редактору   // «нет прав» — это «нет такой для вас», а не обрыв связи
   if (seq !== routeSeq) return null;   // пока грузили, человек ушёл на другой экран
   const unsaved = local && isUnsaved(local);

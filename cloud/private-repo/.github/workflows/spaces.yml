@@ -8,7 +8,7 @@ on:
       action:
         description: 'Что сделать'
         type: choice
-        options: [list, set-member, remove-member, create-space, set-admin, remove-admin, migrate-8]
+        options: [list, set-member, remove-member, create-space, set-admin, remove-admin, migrate-8, purge-trash]
         default: list
       space:
         description: 'id пространства (для set-member и remove-member; см. list)'

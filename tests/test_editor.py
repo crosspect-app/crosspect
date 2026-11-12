@@ -115,9 +115,9 @@ def test_editor_takes_sermon_and_author_cannot_edit(browser, base_url):
     assert page.evaluate("ed.mode") == "view" and page.evaluate("fakeCloud.calls.lock") == 0
     # копию сделать можно: она — новый черновик автора
     assert "Сделать копию" in menu_items(page)
-    # удалить нельзя
-    page.evaluate("deleteCloudSermon(state)")
-    assert page.evaluate("!!fakeCloud.db().sermons.s1")
+    # удалить (в корзину) нельзя
+    page.evaluate("trashCloudSermon(state)")
+    assert not page.evaluate("fakeCloud.calls.trash") and not page.evaluate("fakeCloud.db().sermons.s1.deletedAt")
     # редактор вернул «Черновик» — автор снова правит (живое обновление, без перезагрузки)
     db_eval(page, "r.status = 'draft'; r.updatedAt += 1000; r.updatedBy = 'admin@x.pl'")
     page.wait_for_function("(() => { const b = [...document.querySelectorAll('#app button')].find(x => x.textContent.includes('Редактировать')); return b && !b.disabled; })()")

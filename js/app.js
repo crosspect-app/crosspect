@@ -36,7 +36,12 @@ function route(){
       Promise.all([openCloudSermon(id, d, seq), slideAssetsReady()]).then(([r]) => {
         clearTimeout(skel);
         if (!r || seq !== routeSeq) return;
-        if (r.missing){ screen = 'home'; renderAll(); navigate(''); toast(r.failed ? 'Нет связи с облаком, конспект не открылся' : 'Этот конспект не найден'); return; }
+        if (r.missing){
+          screen = 'home'; renderAll(); navigate('');
+          if (r.trashed) toast('Этот конспект в корзине', canTrash(cloud.list && cloud.list.get(id) || {}) ? 'Корзина' : null, () => openTrash());
+          else toast(r.failed ? 'Нет связи с облаком, конспект не открылся' : 'Этот конспект не найден');
+          return;
+        }
         state = r.state; selId = null;
         beginCloud(r.remote, r.local, r.offline);   // просмотр или правка (замок)
         persistDraft();   // в просмотре ничего не пишет

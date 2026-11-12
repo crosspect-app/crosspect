@@ -3,7 +3,8 @@
 /* ========= Главная: список проповедей =========
    Проповеди пространства из облака — по сводкам (cloud.list, строки без слайдов). Если в браузере есть несохранённые
    правки проповеди этого пространства (`swp-sermon:<id>`, в том числе новой, ещё не записанной), показывается она,
-   с пометкой «Не сохранено в облако». Старые черновики без пространства (до облака) не показываются. */
+   с пометкой «Не сохранено в облако». Старые черновики без пространства (до облака) не показываются.
+   Конспекты в корзине (этап 9.1, trash.js) в список не попадают; их несохранённые черновики ждут в браузере. */
 let homeQuery = '';
 
 /* Черновики из браузера. Пустые (ни слайдов, ни названия) — это брошенные «Новые проповеди»: убираем */
@@ -37,6 +38,7 @@ function cloudItems(){
   const loc = new Map(draftList().filter(d => d.cloudSpace === cloud.space).map(d => [d.id, d]));
   const items = [];
   if (cloud.list) cloud.list.forEach((r, id) => {
+    if (inTrash(r)) return;   // в корзине (этап 9.1): только в окне «Корзина»
     const l = loc.get(id);
     items.push(l && isUnsaved(l) ? l : rowItem(r));
   });
@@ -70,6 +72,7 @@ function renderHome(){
     h('div', { class:'home-top' },
       h('h1', { text:'Конспекты' }),
       h('div', { class:'grow' }),
+      h('span', { id:'home-trash' }),   // «Корзина · N» (этап 9.1): только когда в ней что-то есть
       h('button', { type:'button', class:'btn primary big', onclick:() => newSermon() }, ic('plus'), 'Новый конспект')),
     h('div', { id:'home-list' })));
   layoutWall();   // стена слайдов на фоне — разложить, когда она уже на странице (motion.js)
@@ -126,6 +129,7 @@ function homeFilter(d, today){
 
 function renderHomeList(){
   const box = $('#home-list'); if (!box || !cloudOn()) return;
+  const tb = $('#home-trash'); if (tb){ tb.innerHTML = ''; const b = trashButton(); if (b) tb.append(b); }
   box.innerHTML = '';
   if (cloud.listError) box.append(h('p', { class:'hint home-warn', text:cloud.listError }));
   // ждём список из облака — серые заготовки строк; пришёл — таблица проявляется (этап 7.6). Пустой список — обычный пустой экран
@@ -201,7 +205,7 @@ function cloudMark(d){
 }
 function removeBtn(d, cls){
   const remote = cloud.list && cloud.list.has(d.id);
-  return iconBtn('trash', remote ? 'Удалить из облака' : 'Удалить черновик', e => { e.stopPropagation(); remote ? deleteCloudSermon(d).then(() => renderHomeList()) : deleteDraft(d); }, 'danger ' + cls);
+  return iconBtn('trash', remote ? 'Удалить (в корзину)' : 'Удалить черновик', e => { e.stopPropagation(); remote ? trashCloudSermon(d) : deleteDraft(d); }, 'danger ' + cls);
 }
 /* Строка таблицы; на узком экране — компактная карточка (CSS) */
 function sermonRow(d){

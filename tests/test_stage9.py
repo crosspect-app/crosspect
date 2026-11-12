@@ -253,8 +253,8 @@ def test_delete_sermon_removes_link(browser, base_url):
     op.wait_for_selector(".opv-title")
     page.evaluate("localStorage.setItem('fake-user', JSON.stringify({email:'admin@x.pl', name:'Админ'}))")
     page.on("dialog", lambda dlg: dlg.accept())
-    page.evaluate("deleteCloudSermon(state)")
-    page.wait_for_function("!fakeCloud.db().sermons.r1")
+    page.evaluate("trashCloudSermon(state)")   # в корзину (этап 9.1): снимок уходит сразу, ключ остаётся
+    page.wait_for_function("!!fakeCloud.db().sermons.r1.deletedAt")
     assert db(page)["shares"] == {}
     op.wait_for_selector(".opv-msg")
     assert "больше не работает" in op.locator(".opv-msg").inner_text()

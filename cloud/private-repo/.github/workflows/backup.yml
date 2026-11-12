@@ -1,6 +1,8 @@
 # Ночная резервная копия базы Crosspect.
 # Лежит в приватном репозитории crosspect-app/crosspect-backup; копия — папка data/,
 # каждая ночь — коммит, если что-то изменилось. Старые копии — в истории git.
+# После копии — уборка корзины (этап 9.1): конспекты, которые лежат в корзине дольше 30 дней,
+# стираются насовсем (в сегодняшней копии и в истории они остаются).
 # Шаблон и описание: cloud/private-repo/ в публичном репозитории crosspect-app/crosspect.
 name: Резервная копия
 
@@ -50,3 +52,10 @@ jobs:
             git commit -q -m "Копия $(TZ=Europe/Warsaw date '+%Y-%m-%d %H:%M')"
             git push
           fi
+      - name: Очистить корзину (дольше 30 дней)
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/key.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json" node app/cloud/scripts/admin.mjs purge-trash --days 30
+          rm -f "$RUNNER_TEMP/key.json"

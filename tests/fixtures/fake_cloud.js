@@ -5,6 +5,7 @@
 // Список на главной (listen) отдаёт строки-сводки, как cloud-api.mjs (fromSummary): без слайдов, с их числом.
 // Замок (этап 6) — как в правилах: чужой живой замок не взять (редактор — с force), запись под чужим — 'lost-lock'.
 // localStorage['fake-offline'] = '1' — «нет сети»: запись и замок отвечают ошибкой unavailable.
+// Корзина (этап 9.1): у проповеди в корзине deletedAt (мс) и deletedBy; save и lock — ошибка 'trashed'; remove — только из корзины.
 (function(){
   const KEY = 'fake-cloud';
   const load = () => (rootDb = JSON.parse(localStorage.getItem(KEY) || '{"members":{},"space":{"id":"sp1","name":"Тест","settings":{}},"sermons":{},"clock":1000}'));
@@ -22,14 +23,15 @@
   };
   const allSp = db => (db.space ? [db] : []).concat(Object.values(db.spaces || {}));   // space: null — пространств нет совсем
   const view = (db, r) => ({ app:'swp-sermon', v:r.v, id:r.id, meta:r.meta, settings:r.settings, blocks:r.blocks, createdAt:r.createdAt, updatedAt:r.updatedAt,
-    cloudSpace:db.space.id, cloudAt:r.updatedAt, cloudOwner:r.owner, cloudStatus:r.status, cloudBy:r.updatedBy, cloudShare:r.shareKey || '', lock:r.lock || null });
+    cloudSpace:db.space.id, cloudAt:r.updatedAt, cloudOwner:r.owner, cloudStatus:r.status, cloudBy:r.updatedBy, cloudShare:r.shareKey || '', lock:r.lock || null,
+    deletedAt:r.deletedAt || 0, deletedBy:r.deletedBy || '' });
   /* Сводка, как summaryOf + fromSummary в cloud-api.mjs */
   const row = (db, r) => {
     const m = r.meta || {}, blocks = r.blocks || [], refs = [];
     blocks.forEach(b => { if (b && b.type === 'scripture') (b.items || []).forEach(it => { if (it && it.ref) refs.push(it.ref); }); });
     return { id:r.id, summary:true, meta:{ title:m.title || '', date:m.date || '', firstName:m.firstName || '', lastName:m.lastName || '' },
       updatedAt:r.updatedAt, cloudSpace:db.space.id, cloudAt:r.updatedAt, cloudOwner:r.owner, cloudStatus:r.status, cloudBy:r.updatedBy,
-      lock:r.lock || null, slides:blocks.filter(b => b && b.type !== 'note' && b.type !== 'splash').length, refs:refs.join(' · ') };
+      lock:r.lock || null, deletedAt:r.deletedAt || 0, deletedBy:r.deletedBy || '', slides:blocks.filter(b => b && b.type !== 'note' && b.type !== 'splash').length, refs:refs.join(' · ') };
   };
   const live = (db, l) => !!l && Date.now() < l.beat + ((db.space.settings || {}).lockMinutes || 10) * 60000;
   const fail = (code, message, extra) => Object.assign(new Error(message || code), { code }, extra);
@@ -83,6 +85,7 @@
       opts = opts || {};
       const db = load(), x = S(db, space), cur = x.sermons[s.id], L = opts.lock || null, my = who.email;
       if (authorBlocked(x, my, cur && (s.cloudAt || opts.force) ? cur : null, opts.status)) throw denied();
+      if (cur && cur.deletedAt) throw fail('trashed', 'Конспект в корзине', { remote:view(x, cur) });
       const body = JSON.parse(JSON.stringify({ v:s.v, meta:s.meta, settings:s.settings, blocks:(s.blocks || []).map(b => { const c = Object.assign({}, b); delete c.todo; delete c.done; return c; }) }));   // как content() в cloud-api.mjs
       if (cur && (s.cloudAt || opts.force)){
         const l = cur.lock || null, held = !!(L && L.at && l && l.email === my && l.at === L.at);
@@ -107,6 +110,7 @@
       opts = opts || {};
       const db = load(), x = S(db, space), cur = x.sermons[id], my = who.email;
       if (!cur) throw fail('missing', 'Этой проповеди уже нет в облаке');
+      if (cur.deletedAt) throw fail('trashed', 'Конспект в корзине');
       if (authorBlocked(x, my, cur)) throw denied();
       const l = cur.lock || null, same = !!(l && l.email === my && opts.at && l.at === opts.at);
       if (l && !same && live(x, l)){
@@ -217,10 +221,34 @@
       sh.sermon = JSON.parse(JSON.stringify(snapshot)); sh.updatedAt = tick(db);
       store(db); notify();
     },
+    /* Корзина (этап 9.1), как в правилах: автор — только свой черновик, редактор и админ — любую; под чужим живым замком — нельзя */
+    async trash(space, id, who){
+      calls.trash = (calls.trash || 0) + 1; offline();
+      const db = load(), x = S(db, space), cur = x.sermons[id], my = who.email;
+      if (!cur) throw fail('missing', 'Этого конспекта уже нет в облаке');
+      if (cur.deletedAt) return { shareKey:cur.shareKey || '' };
+      if (!isEditor(x, my) && (cur.owner !== my || cur.status !== 'draft')) throw denied();
+      const l = cur.lock || null;
+      if (l && l.email !== my && live(x, l)) throw fail('locked', 'Конспект сейчас правят', { lock:l });
+      if (cur.shareKey && db.shares) delete db.shares[cur.shareKey];   // снимок уходит, ключ остаётся
+      Object.assign(cur, { deletedAt:Date.now(), deletedBy:my, lock:null });
+      store(db); notify(); return { shareKey:cur.shareKey || '' };
+    },
+    async restore(space, id){
+      calls.restore = (calls.restore || 0) + 1; offline();
+      const db = load(), x = S(db, space), cur = x.sermons[id], u = me();
+      if (!cur) throw fail('missing', 'Этого конспекта уже нет в облаке');
+      if (!cur.deletedAt) return view(x, cur);
+      if (!u || (!isEditor(x, u.email) && (cur.owner !== u.email || cur.status !== 'draft'))) throw denied();
+      delete cur.deletedAt; delete cur.deletedBy;
+      store(db); notify(); return view(x, cur);
+    },
     async remove(space, id){
-      const db = load(), x = S(db, space), u = me();
-      if (u && x.sermons[id] && !isEditor(x, u.email) && x.sermons[id].status !== 'draft') throw denied();   // автор удаляет только свой черновик
-      const key = x.sermons[id] && x.sermons[id].shareKey;
+      calls.remove = (calls.remove || 0) + 1; offline();
+      const db = load(), x = S(db, space), u = me(), cur = x.sermons[id];
+      if (cur && !cur.deletedAt) throw denied();   // насовсем — только из корзины (этап 9.1)
+      if (u && cur && !isEditor(x, u.email) && (cur.owner !== u.email || cur.status !== 'draft')) throw denied();   // автор удаляет только свой черновик
+      const key = cur && cur.shareKey;
       if (key && db.shares) delete db.shares[key];   // ссылка для оператора уходит вместе с конспектом
       delete x.sermons[id]; if (x.flags) delete x.flags[id]; store(db); notify(); },
   };

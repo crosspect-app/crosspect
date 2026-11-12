@@ -186,12 +186,13 @@ def test_browser_drafts_on_home(browser, base_url):
 
 
 def test_delete_from_cloud(browser, base_url):
+    # с этапа 9.1 — в корзину, без вопроса; насовсем — из окна «Корзина» (подробно — tests/test_trash.py)
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": rec("s1", "Вера")})
     wait_home(page)
     page.wait_for_selector(".scard")
-    page.on("dialog", lambda d: d.accept())
     page.locator(".card-del").first.click(force=True)
-    page.wait_for_function("Object.keys(fakeCloud.db().sermons).length === 0")
+    page.wait_for_function("!!fakeCloud.db().sermons.s1.deletedAt")
+    page.wait_for_function("!document.querySelector('.scard')")
     ctx.close()
 
 

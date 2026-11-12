@@ -1029,3 +1029,19 @@ body[data-screen="op"] .app-main{min-height:100vh}
 .opv-empty,.opv-text{color:var(--muted)}
 .opv-msg{padding-top:18vh}
 .opv-msg .btn{margin-top:18px}
+
+/* Корзина (этап 9.1, js/trash.js): кнопка на главной и окно */
+.home-trash .ic{width:16px;height:16px}
+.trash-list{display:flex;flex-direction:column;gap:8px}
+.trash-row{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line-2);border-radius:14px;background:var(--surface-2)}
+.trash-info{flex:1;min-width:0}
+.trash-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trash-title.empty{color:var(--muted)}
+.trash-meta,.trash-when{font-size:12px;color:var(--muted);margin-top:2px}
+.trash-when{color:var(--faint)}
+.trash-acts{display:flex;gap:8px;flex-shrink:0}
+.trash-empty{margin:4px 0 6px}
+@media (max-width:620px){
+  .trash-row{flex-direction:column;align-items:stretch}
+  .trash-acts{justify-content:flex-end;flex-wrap:wrap}
+}

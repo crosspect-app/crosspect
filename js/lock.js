@@ -97,6 +97,7 @@ function stopTimers(){
 /* Пришла новая версия из облака (или изменился замок) */
 function onRemote(id, r, meta){
   if (ed.id !== id || !cloudOn()) return;
+  if (r && r.deletedAt && !meta.fromCache){ trashedAway(id); return; }   // конспект убрали в корзину (этап 9.1)
   if (!r){
     if (meta.fromCache || ed.mode === 'edit') return;   // правлю: следующее сохранение создаст её заново
     resetCloud();
@@ -166,6 +167,7 @@ async function startEdit(o){
       if (state === s && isUnsaved(s)){ ed.busy = false; await rescueAndShow(s, e.lock); return; }   // открыли с несохранёнными правками
       if (!o.auto) toast('Сейчас его правит ' + lockWho(e.lock) + '. Править можно, когда правка закончится');
     } else if (e && e.code === 'missing') toast('Этого конспекта уже нет в облаке');
+    else if (e && e.code === 'trashed'){ ed.busy = false; await trashedAway(id); return; }
     else if (netErr(e)) toast('Нет связи с облаком: править можно, когда появится сеть');
     else toast(cloudExplain(e) || 'Не удалось начать правку');
   } finally {
@@ -249,6 +251,14 @@ async function cloudWrite(s, o){
       else {   // ушли с проповеди, а сохранить последние правки не дали: они — в копии
         const c = await rescueCopy(s);
         toast('«' + (s.meta.title || 'Конспект') + '» сейчас правит ' + lockWho(e.lock) + '. Ваши последние правки сохранены копией «' + c.title + '»');
+        if (screen === 'home') renderHomeList();
+      }
+    } else if (code === 'trashed'){   // конспект убрали в корзину, пока правки ждали отправки (этап 9.1): они — в копии
+      res = 'trashed';
+      if (here()) await trashedAway(s.id, s);
+      else {
+        const c = await rescueCopy(s);
+        toast('«' + (s.meta.title || 'Конспект') + '» убрали в корзину. Ваши последние правки сохранены копией «' + c.title + '»');
         if (screen === 'home') renderHomeList();
       }
     } else if (code === 'conflict'){
@@ -355,6 +365,17 @@ async function lostLock(l, remote){
   if (state === s && ed.remote && ed.remote.blocks) setRemoteState(ed.remote);
   rerenderKeep();
   lostSheet(l, copy);
+}
+/* Открытый конспект убрали в корзину (другой человек или я сам в другой вкладке): на главную. Несохранённое — отдельной копией.
+   s — конспект, запись которого база не приняла (по умолчанию — открытый) */
+async function trashedAway(id, s){
+  s = s || (state && state.id === id ? state : null);
+  const dirty = !!s && ed.mode === 'edit' && isUnsaved(s);
+  resetCloud(); rememberAt(id, 0);
+  const copy = dirty ? await rescueCopy(s) : null;
+  if (state && state.id === id){ state = blank(); if (screen === 'sermon') navigate(''); }
+  const title = s && s.meta && s.meta.title ? '«' + s.meta.title + '»' : 'Этот конспект';
+  toast(title + ' убрали в корзину' + (copy ? '. Ваши несохранённые правки — в копии «' + copy.title + '»' : ''));
 }
 /* Несохранённое, что нельзя записать поверх (правит другой), — отдельной копией: в облако, а без сети — в браузер */
 async function rescueCopy(s){
