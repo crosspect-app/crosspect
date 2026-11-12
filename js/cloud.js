@@ -7,7 +7,7 @@
    Замок, правка и автосохранение — в lock.js. */
 const BUILD_ID = (document.currentScript && /[?&]v=([^&]+)/.exec(document.currentScript.src || '') || [])[1] || 'dev';
 const FIREBASE_VERSION = '13.1.0';
-const ROLE_NAMES = { admin:'админ', editor:'редактор', preacher:'спикер' };
+const ROLE_NAMES = { admin:'админ', editor:'редактор', preacher:'автор' };   // в данных и правилах роль автора — preacher
 
 /* mode: wait — подключаемся, out — не вошли, noaccess — почты нет в пространстве, error — не вышло, in — всё есть */
 const cloud = { mode:'wait', api:null, user:null, space:'', spaceName:'', role:'', member:null, settings:{}, list:null, fromCache:false,
@@ -112,7 +112,8 @@ function renderGate(){
   if (mode === 'wait') body = [h('h1', { text:'Подключаюсь к облаку…' }), h('p', { class:'gate-text', text:'Это занимает несколько секунд.' }), local];
   else if (mode === 'noaccess') body = [
     h('h1', { text:'Вас нет в списке' }),
-    h('p', { class:'gate-text', text:'Вы вошли как ' + (cloud.user ? cloud.user.email : '') + ', но этой почты нет среди участников церкви. Попросите админа добавить её или войдите другой почтой.' }),
+    h('p', { class:'gate-text' }, 'Вы вошли как ' + (cloud.user ? cloud.user.email : '') + ', но этой почты нет среди участников. Чтобы получить доступ, напишите на\u00a0',
+      h('a', { class:'gate-mail', href:'mailto:' + CONTACT_EMAIL, text:CONTACT_EMAIL }), ' или войдите другой почтой.'),
     h('div', { class:'chips' },
       h('button', { type:'button', class:'btn primary', onclick:() => cloudSignOut().then(() => cloudSignIn()) }, 'Войти другой почтой'),
       local)];
@@ -133,13 +134,17 @@ function renderGate(){
 
 /* ----- Права ----- */
 const myEmail = () => (cloud.user ? cloud.user.email : '');
-/* Редактор и админ правят всё, спикер — только свои (так же отвечает и база) */
+/* Редактор и админ правят всё, автор — только свои и только пока конспект не «У редактора» (так же отвечает и база) */
+const ownSermon = d => { d = d || state; return d.cloudOwner == null || d.cloudOwner === myEmail(); };
 function canEditCloud(d){
   if (!cloudOn()) return true;
   if (cloud.role !== 'preacher') return true;
   d = d || state;
-  return d.cloudOwner == null || d.cloudOwner === myEmail();
+  return ownSermon(d) && !atEditor(d);
 }
+/* Свой конспект автора, который сейчас «У редактора»: смотреть можно, править — нет */
+const authorWaits = d => cloudOn() && cloud.role === 'preacher' && ownSermon(d) && atEditor(d || state);
+const AT_EDITOR_MSG = 'Конспект у редактора: если нужны правки, напишите ему';
 const isUnsaved = d => d.updatedAt > (d.savedAt || 0) && (d.blocks.length > 0 || !!d.meta.title);
 
 /* ----- Сохранение ----- */
@@ -192,6 +197,10 @@ async function deleteCloudSermon(d){
   const r = cloud.list && cloud.list.get(d.id), l = r && r.lock;
   if (l && lockLive(l) && !(ed.id === d.id && lockHere(l))){
     toast(l.email === myEmail() ? 'Вы правите её в другой вкладке или на другом устройстве. Закройте правку там и удалите ещё раз' : 'Сейчас её правит ' + lockWho(l) + '. Удалить можно, когда правка закончится');
+    return;
+  }
+  if (cloud.role === 'preacher' && r && statusKey(r.cloudStatus) !== 'draft'){   // автор удаляет только свой черновик (так решает и база)
+    toast(atEditor(r) ? AT_EDITOR_MSG : 'Удалить можно только черновик. Откройте конспект, нажмите «Редактировать» и переключите статус на «Черновик»');
     return;
   }
   if (!confirm('Удалить ' + t + ' из облака? Она пропадёт у всех, вернуть её нельзя.')) return;

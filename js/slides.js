@@ -205,7 +205,7 @@ function stageBar(b, n){
     T.slide && h('button', { type:'button', class:'btn', title:'Скопировать название слайда для Holyrics', onclick:() => copyText(slideName(b, n), 'Скопировано: ') }, ic('tag'), 'Название'),
     (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn', title:BLANK_JPEG[b.type] ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
     T.slide && canFlag() && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo),
-      title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную.' + (cloudOn() ? ' Спикеры эту отметку не видят.' : ''), onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
+      title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную.' + (cloudOn() ? ' Авторы эту отметку не видят.' : ''), onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
     h('div', { class:'stepper' },
       h('button', { type:'button', class:'icon-btn', 'aria-label':'Предыдущий слайд', title:'Предыдущий', disabled:i <= 0, onclick:() => stepSel(-1) }, ic('back')),
       h('span', { text:(i + 1) + ' / ' + total }),
@@ -248,7 +248,10 @@ function renderSide(){
   sideEl.style.setProperty('--tc', 'var(--c-' + b.type + ')');
   const body = h('div', { class:'bbody' }), ro = readOnly();
   BODY[b.type](b, body, n);
-  if (ro){ body.inert = true; sideEl.append(h('p', { class:'ro-note', text:'Только просмотр. Чтобы менять слайды, нажмите «Редактировать».' })); }
+  if (ro){
+    const why = authorWaits() ? AT_EDITOR_MSG + '.' : !canEditCloud() ? 'Только просмотр: это проповедь другого автора.' : 'Только просмотр. Чтобы менять слайды, нажмите «Редактировать».';
+    body.inert = true; sideEl.append(h('p', { class:'ro-note', text:why }));
+  }
   const capTip = b.type !== 'scripture' ? '' : canEditSlidesCfg()
     ? 'Как выглядят стихи (в строку или с новой строки, рамка, выравнивание), задано для всех слайдов: меню «⋯» → «Настройки слайдов»'
     : 'Как выглядят стихи, одинаково для всех слайдов: это задаёт редактор';

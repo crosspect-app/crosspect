@@ -137,7 +137,7 @@ export function createCloudAPI(fb){
           const ownLater = held && at >= l.at && d.updatedBy === my;   // версия новее моей, но записана мной же под моим замком
           if (!opts.force && at !== s.cloudAt && !ownLater) throw err('conflict', 'В облаке проповедь успели изменить', { remote: fromDoc(space, cur) });
           const upd = Object.assign({}, body, stamp);
-          if (opts.status) upd.status = opts.status;   // «В работе» (draft) / «Готов» (submitted): спикер и редактор, правила разрешают
+          if (opts.status) upd.status = opts.status;   // «Черновик» (draft) / «Готов к вёрстке» (submitted) / «У редактора» (work, только редактор): правила проверяют
           if (L){
             if (L.release) upd.lock = null;
             else if (held) upd['lock.beat'] = ts;
@@ -198,7 +198,8 @@ export function createCloudAPI(fb){
       });
     },
 
-    /* Статус конспекта (этап 7.2) отдельно от содержимого: 'draft' — «В работе», 'submitted' — «Готов к вёрстке».
+    /* Статус конспекта отдельно от содержимого (этап 7.2): 'draft' — «Черновик», 'submitted' — «Готов к вёрстке», 'work' — «У редактора».
+       С этапа 7.3 форма меняет статус обычной правкой (save с opts.status) и эту функцию не вызывает; оставлена для служебных случаев.
        Можно, когда замок свободен (нет или истёк) или мой; под чужим живым замком — ошибка 'locked' ({ lock }).
        Истёкший чужой замок при этом снимается (так требуют правила). Возвращает новую облачную версию */
     async setStatus(space, id, me, status, opts){

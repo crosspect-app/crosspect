@@ -2,9 +2,12 @@
 
 function closeSettings(){ settingsOverlay.classList.remove('open'); if (metaOpen){ metaOpen = false; afterMeta(); } }
 
-/* ========= Источник настроек (config.json в репозитории) ========= */
+/* ========= Настройки из репозитория (data/config.json): переводы Библии, список авторов, подпись перевода =========
+   Форма всегда берёт файл по ссылке CONFIG_URL_DEFAULT; сменить её больше нельзя (этап 7.3: окно «Источник настроек» убрано).
+   Свою ссылку, сохранённую раньше (swp-config-url), форма забывает */
 const CONFIG = { url:'', version:'', loadedAt:0, error:'', source:'встроенные списки' };
-const configUrl = () => LS.get('swp-config-url') || CONFIG_URL_DEFAULT;
+const configUrl = () => CONFIG_URL_DEFAULT;
+try { localStorage.removeItem('swp-config-url'); } catch(e){}
 function applyConfig(cfg, url){
   if (!cfg || typeof cfg !== 'object' || (!Array.isArray(cfg.translations) && !Array.isArray(cfg.preachers))) return false;
   const abs = u => { try { return new URL(u, url).href; } catch(e){ return u; } };
@@ -53,40 +56,9 @@ async function fetchConfig(url){
     return true;
   } catch(e){ CONFIG.error = e && e.message ? e.message : 'не удалось загрузить'; return false; }
 }
-function configStatus(){
-  const n = Object.keys(LANGS).length;
-  return h('div', { class:'cfg-status' },
-    h('div', null, CONFIG.version ? 'Загружена версия ' + CONFIG.version + ' (' + CONFIG.source + (CONFIG.loadedAt ? ', ' + fmtTime(CONFIG.loadedAt) : '') + ')' : 'Сейчас используются встроенные списки.'),
-    h('div', null, 'Переводов: ' + n + ' · спикеров: ' + PREACHERS.length),
-    CONFIG.error ? h('div', { class:'err', text:'Не получилось загрузить настройки: ' + CONFIG.error }) : null);
-}
-function openConfig(){
-  const url = h('input', { class:'input', type:'url', inputmode:'url', placeholder:CONFIG_URL_DEFAULT || 'https://raw.githubusercontent.com/…/config.json', value:LS.get('swp-config-url') || CONFIG_URL_DEFAULT });
-  const status = h('div', null, configStatus());
-  const redraw = () => { status.innerHTML = ''; status.append(configStatus()); };
-  settingsOverlay.innerHTML = '';
-  settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Источник настроек' },
-    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Источник настроек' }), iconBtn('close', 'Закрыть', closeSettings)),
-    h('div', { class:'set-grid', title:'Отсюда форма берёт списки переводов и спикеров. Спикерам здесь ничего менять не нужно' }, field('Ссылка на файл настроек', url), status),
-    h('div', { class:'sheet-foot' },
-      h('button', { type:'button', class:'btn', onclick:() => {
-        try { localStorage.removeItem('swp-config-url'); localStorage.removeItem('swp-config-cache'); } catch(e){}
-        location.reload();
-      } }, 'По умолчанию'),
-      h('button', { type:'button', class:'btn primary', onclick:async e => {
-        const b = e.currentTarget, u = url.value.trim();
-        b.disabled = true; b.textContent = 'Проверяю…';
-        const ok = await fetchConfig(u);
-        b.disabled = false; b.textContent = 'Проверить и применить';
-        if (ok){ if (u && u !== CONFIG_URL_DEFAULT) LS.set('swp-config-url', u); else try { localStorage.removeItem('swp-config-url'); } catch(err){} renderMain(); toast('Настройки загружены'); }
-        redraw();
-      } }, 'Проверить и применить'))));
-  settingsOverlay.classList.add('open');
-}
-
 /* ========= Настройки слайдов пространства =========
    Общие для всех проповедей пространства, старых и новых; лежат в облаке (spaces/…/config/slides).
-   Меняют админ и редактор, спикеры окна не видят. Пример слайда слева раскладывается с ещё не применёнными значениями. */
+   Меняют админ и редактор, авторы окна не видят. Пример слайда слева раскладывается с ещё не применёнными значениями. */
 const canEditSlidesCfg = () => cloudOn() && (cloud.role === 'admin' || cloud.role === 'editor');
 /* Примеры для окна: заставка, Писание, тезис, цитата */
 const CFG_SAMPLES = {
@@ -112,20 +84,44 @@ const CFG_TIPS = {
   maxSplash:'Самое большое значение кнопки «+» у заставки. Размер один на всю проповедь: меняется на всех её заставках',
   track:'Расстояние между буквами в долях размера шрифта: −0,04 — плотнее, 0 — как задумано в шрифте',
   lead:'Высота строки относительно размера шрифта: 1 — строки почти вплотную, 1,25 — свободнее. 1,05 — как в Canva',
-  foot:'Имя спикера и дата внизу заставки. Размер не подбирается сам: какой задан, такой и будет',
+  foot:'Имя автора и дата внизу заставки. Размер не подбирается сам: какой задан, такой и будет',
   limit:'Если символов больше, слайд подсвечивается жёлтым. Это подсказка, а не запрет',
   margins:'Поля считаются от края цветной панели, в пикселях кадра 1920×1080. Пока курсор в поле, на примере видна область текста',
   name:'Сколько символов можно ввести в название слайда (имя файла для Holyrics). По нему же обрезается название заставки',
-  verses:'Одинаково для всех слайдов Писания: спикеры этого не меняют. Строка с местом Писания и подпись перевода выравниваются вместе со стихами',
+  verses:'Одинаково для всех слайдов Писания: авторы этого не меняют. Строка с местом Писания и подпись перевода выравниваются вместе со стихами',
   gap:'Расстояние между стихами, когда каждый стих с новой строки, в долях размера шрифта',
-  refGap:'Расстояние между местом Писания и текстом стихов (и между частями слайда), в долях размера шрифта',
+  refGap:'Расстояние между ссылкой (местом Писания) и текстом стихов, а также между частями слайда, в долях размера шрифта',
+  titleOnly:'На всех заставках пространства — только название проповеди посередине слайда: без линии, имени автора и даты',
+  footOff:'Сейчас заставки без имени и даты: включено «Заставка: только название»',
   apply:'Настройки общие для всего пространства: после «Применить» они сразу действуют во всех проповедях, старых и новых, у всех участников',
+  applyOff:'Вы ещё ничего не изменили',
+  bg:'Фон общий для всех проповедей пространства, старых и новых. Пока его не меняли, стоит прежний фон',
+  stripesV:'Вертикальные цветные полосы. 0 — их нет. Полосы и пятна можно смешивать',
+  stripesH:'Горизонтальные цветные полосы. 0 — их нет. Полосы и пятна можно смешивать',
+  spots:'Размытые цветные пятна, как в прежнем фоне. 0 — их нет',
+  shades:'Сколько цветных полос или пятен в узоре',
+  color:'От этого цвета берутся все оттенки узора',
+  spread:'Слева оттенки близки к основному цвету: светлее, темнее, насыщеннее. Чем правее, тем дальше они по цветовому кругу',
+  blur:'Чем больше, тем мягче переходы и тем слабее видны полосы и пятна',
+  grain:'Сила зерна поверх фона. 0 — без зерна',
+  grainKind:'Мелкое — как в прежнем фоне, крупное — заметнее, цветное — с цветными точками',
+  base:'Яркость тёмной основы под узором',
+  vignette:'Насколько темнеют края слайда. 0 — не темнеют',
+  seed:'Другое расположение пятен и полос при тех же настройках. У всех участников фон будет одинаковый',
+  bgReset:'Вернуть прежний фон, какой был до настроек',
   sample:'Пример меняется сразу, а проповеди — только после «Применить»'
 };
 function openSlidesCfg(){
   if (!canEditSlidesCfg()){ toast('Настройки слайдов меняют админ и редактор'); return; }
   const tmp = JSON.parse(JSON.stringify(SLIDES_BASE));
-  let sample = 'scripture', guide = false, raf = 0;
+  let sample = 'scripture', guide = false, raf = 0, apply = null, saving = false;
+  /* «Применить» активна, только если в окне что-то изменили по сравнению с тем, что сейчас действует */
+  const syncApply = () => {
+    if (!apply) return;
+    const same = JSON.stringify(mergeSlides(SLIDES_DEFAULT, tmp)) === JSON.stringify(SLIDES_BASE);
+    apply.disabled = saving || same;
+    apply.title = same ? CFG_TIPS.applyOff : CFG_TIPS.apply;
+  };
   const host = h('div', { class:'scfg-slide', title:CFG_TIPS.sample }), info = h('div', { class:'scfg-info' });
   const tabs = h('div', { class:'toggle scfg-tabs' });
   const setSample = k => { if (k === sample) return; sample = k; drawTabs(); paint(); };
@@ -145,6 +141,7 @@ function openSlidesCfg(){
         info.textContent = r == null ? '' : sample === 'splash' ? 'название ' + Math.round(r * c.splash.size) + ' px'
           : 'текст ' + (Math.round(r * 100) >= 100 ? '100%' : 'уменьшен до ' + Math.round(r * 100) + '%') + ' · ' + Math.round(r * (sample === 'scripture' ? c.scripture.size : c[sample].size) * 10) / 10 + ' px';
       } finally { SLIDES_TRY = null; }
+      syncApply();
     };
     if (now) draw(); else raf = requestAnimationFrame(draw);
   }
@@ -173,7 +170,7 @@ function openSlidesCfg(){
       tipField('Поля снизу', num(tmp.margins, 'bottom', { min:0, max:400, step:2, unit:'px', label:'Поля снизу', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins)));
 
   /* Виды слайдов: размер, диапазон, расстояния, лимит символов */
-  const K = tmp.kinds, grid = h('div', { class:'scfg-kinds', role:'table' },
+  const K = tmp.kinds, footCells = [], grid = h('div', { class:'scfg-kinds', role:'table' },
     h('span', { class:'kh' }, ''),
     h('span', { class:'kh', text:'Размер 100%', title:CFG_TIPS.size }), h('span', { class:'kh', text:'Уменьшение до', title:CFG_TIPS.minHead }),
     h('span', { class:'kh', text:'Увеличение до', title:CFG_TIPS.max }), h('span', { class:'kh', text:'Между символами', title:CFG_TIPS.track }),
@@ -182,11 +179,11 @@ function openSlidesCfg(){
     const k = row === 'foot' ? 'splash' : row, z = K[k], o = (x) => Object.assign({ sample:smp }, x);
     grid.append(h('span', { class:'kl', text:label }));
     if (row === 'foot'){
-      grid.append(num(z, 'foot', o({ min:10, max:200, step:1, unit:'px', label:label + ': размер', tip:CFG_TIPS.foot })),
-        dash('Размер имени и даты не подбирается сам'), dash('Размер имени и даты не подбирается сам'),
+      const cells = [num(z, 'foot', o({ min:10, max:200, step:1, unit:'px', label:label + ': размер', tip:CFG_TIPS.foot })),
         num(z, 'footTrack', o({ min:-0.2, max:0.3, step:0.01, unit:'em', label:label + ': между символами', tip:CFG_TIPS.track })),
-        num(z, 'footLead', o({ min:0.8, max:2, step:0.05, label:label + ': между строками', tip:CFG_TIPS.lead })),
-        dash('Лимита символов нет'));
+        num(z, 'footLead', o({ min:0.8, max:2, step:0.05, label:label + ': между строками', tip:CFG_TIPS.lead }))];
+      footCells.push(grid.lastChild, ...cells);
+      grid.append(cells[0], dash('Размер имени и даты не подбирается сам'), dash('Размер имени и даты не подбирается сам'), cells[1], cells[2], dash('Лимита символов нет'));
       return;
     }
     grid.append(num(z, 'size', o({ min:10, max:400, step:k === 'splash' ? 2 : 0.1, unit:'px', label:label + ': размер 100%', tip:CFG_TIPS.size })),
@@ -196,7 +193,48 @@ function openSlidesCfg(){
       num(z, 'lead', o({ min:0.8, max:2, step:0.05, label:label + ': между строками', tip:CFG_TIPS.lead })),
       k in tmp.limits ? num(tmp.limits, k, o({ min:20, max:3000, step:10, label:label + ': лимит символов', tip:CFG_TIPS.limit })) : dash('Лимита символов нет'));
   });
-  const kinds = h('section', { class:'scfg-sec' }, h('div', { class:'scfg-cap', text:'Настройки для видов слайдов' }), grid);
+  /* Заставка «Только название»: строка «Заставка: имя и дата» в таблице при этом неактивна */
+  const footOff = on => footCells.forEach(c => {
+    c.classList.toggle('off', on);
+    c.querySelectorAll('input').forEach(i => { i.disabled = on; });
+    if (c.classList.contains('unit')) c.title = on ? CFG_TIPS.footOff : CFG_TIPS[c === footCells[1] ? 'foot' : c === footCells[2] ? 'track' : 'lead'];
+  });
+  footOff(K.splash.titleOnly);
+  const titleOnly = h('div', { class:'opt-row', title:CFG_TIPS.titleOnly },
+    sw('Заставка: только название', K.splash.titleOnly, v => { K.splash.titleOnly = v; footOff(v); if (sample !== 'splash'){ sample = 'splash'; drawTabs(); } paint(); }));
+  const kinds = h('section', { class:'scfg-sec' }, h('div', { class:'scfg-cap', text:'Настройки для видов слайдов' }), grid, titleOnly);
+
+  /* Фон: узор, оттенки, размытие, зерно. Пока фон не трогали (tmp.bg = null), стоит прежний, а ползунки показывают начальные значения */
+  const bgBox = h('div', { class:'scfg-bg' });
+  const bgVal = () => tmp.bg || BG_START;
+  let bgReset = null;
+  const bgSet = (k, v) => { if (!tmp.bg) tmp.bg = Object.assign({}, BG_START); tmp.bg[k] = v; if (bgReset) bgReset.disabled = false; paint(); };
+  const rng = (label, key, min, max) => {
+    const out = h('output', { class:'scfg-rv' }), show = v => { out.textContent = String(v); };
+    const inp = h('input', { type:'range', min:String(min), max:String(max), step:'1', value:String(bgVal()[key]), 'aria-label':label,
+      oninput:e => { const v = +e.target.value; show(v); bgSet(key, v); } });
+    show(bgVal()[key]);
+    return h('label', { class:'field scfg-rng', title:CFG_TIPS[key] }, h('span', { class:'lbl', text:label }), h('span', { class:'scfg-rrow' }, inp, out));
+  };
+  const drawBg = () => {
+    const B = bgVal();
+    bgBox.replaceChildren(
+      h('div', { class:'scfg-g3' }, rng('Полосы по вертикали', 'stripesV', 0, 100), rng('Полосы по горизонтали', 'stripesH', 0, 100), rng('Пятна', 'spots', 0, 100)),
+      h('div', { class:'scfg-g3' },
+        rng('Оттенков', 'shades', 1, 20),
+        tipField('Основной цвет', h('input', { class:'input scfg-color', type:'color', value:B.color, 'aria-label':'Основной цвет', oninput:e => bgSet('color', e.target.value) }), CFG_TIPS.color),
+        rng('Разброс оттенков', 'spread', 0, 100)),
+      h('div', { class:'scfg-g3' },
+        rng('Размытие', 'blur', 0, 100), rng('Зернистость', 'grain', 0, 100),
+        tipField('Зерно', toggle([['fine', 'мелкое'], ['coarse', 'крупное'], ['color', 'цветное']], B.grainKind, v => { bgSet('grainKind', v); drawBg(); }), CFG_TIPS.grainKind)),
+      h('div', { class:'scfg-g3' },
+        rng('Яркость основы', 'base', 0, 40), rng('Затемнение краёв', 'vignette', 0, 100),
+        h('div', { class:'scfg-bgbtns' },
+          h('button', { type:'button', class:'btn', title:CFG_TIPS.seed, onclick:() => bgSet('seed', bgVal().seed % 9999 + 1) }, 'Другой вариант'),
+          bgReset = h('button', { type:'button', class:'btn', title:CFG_TIPS.bgReset, disabled:!tmp.bg, onclick:() => { tmp.bg = null; drawBg(); paint(); } }, 'Сбросить фон'))));
+  };
+  drawBg();
+  const background = h('section', { class:'scfg-sec', title:CFG_TIPS.bg }, h('div', { class:'scfg-cap', text:'Фон' }), bgBox);
 
   /* Место Писания: вид стихов на всех слайдах Писания и расстояния */
   const V = tmp.verses, vbox = h('div', { class:'scfg-verses' });
@@ -219,30 +257,30 @@ function openSlidesCfg(){
       h('div', { class:'scfg-g3' },
         tipField('Между стихами', num(V, 'gap', { min:0, max:2, step:0.05, unit:'em', label:'Расстояние между стихами', sample:'scripture', disabled:V.flow !== 'lines',
           tip:V.flow === 'lines' ? CFG_TIPS.gap : 'Действует, когда стихи «С новой строки»: в строку они идут одним абзацем' }), CFG_TIPS.gap),
-        tipField('Между местом и текстом', num(V, 'refGap', { min:0, max:3, step:0.05, unit:'em', label:'Расстояние между местом Писания и текстом', sample:'scripture', tip:CFG_TIPS.refGap }), CFG_TIPS.refGap)));
+        tipField('Между ссылкой и текстом', num(V, 'refGap', { min:0, max:3, step:0.05, unit:'em', label:'Расстояние между ссылкой и текстом', sample:'scripture', tip:CFG_TIPS.refGap }), CFG_TIPS.refGap)));
   };
   drawVerses();
   const verses = h('section', { class:'scfg-sec', title:CFG_TIPS.verses }, h('div', { class:'scfg-cap', text:'Место Писания' }), vbox);
 
   const err = h('div', { class:'err', role:'alert' }), done = h('span', { class:'scfg-done', role:'status' });
-  const apply = h('button', { type:'button', class:'btn primary', title:CFG_TIPS.apply, onclick:() => saveSlidesCfg(tmp, apply, err, done) }, 'Применить');
+  apply = h('button', { type:'button', class:'btn primary', onclick:() => { saving = true; syncApply(); saveSlidesCfg(tmp, apply, err, done).then(() => { saving = false; syncApply(); drawBg(); }); } }, 'Применить');
   drawTabs();
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet wide scfg', role:'dialog', 'aria-label':'Настройки слайдов' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Настройки слайдов' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('div', { class:'scfg-body' },
       h('div', { class:'scfg-preview' }, tabs, host, info),
-      h('div', { class:'scfg-form' }, general, kinds, verses)),
+      h('div', { class:'scfg-form' }, general, background, kinds, verses)),
     h('div', { class:'sheet-foot' },
       err,
-      h('div', { style:'display:flex;gap:8px;align-items:center;margin-left:auto' }, done, h('button', { type:'button', class:'btn', onclick:closeSettings }, 'Закрыть'), apply))));
+      h('div', { style:'display:flex;gap:8px;align-items:center;margin-left:auto' }, done, apply))));   // закрыть — крестиком или Esc: неприменённое не применяется
   settingsOverlay.classList.add('open');
   paint(true);   // пример — сразу, без кадра пустоты
 }
 /* «Применить»: записать в облако; окно остаётся открытым, у кнопки — короткое «Применено» */
 async function saveSlidesCfg(tmp, btn, err, done){
   const next = mergeSlides(SLIDES_DEFAULT, tmp);
-  btn.disabled = true; btn.textContent = 'Сохраняю…'; err.textContent = ''; if (done) done.textContent = '';
+  btn.textContent = 'Сохраняю…'; err.textContent = ''; if (done) done.textContent = '';
   // без сети запись ждёт связи; настройки уже действуют здесь (их сразу отдаёт и слушатель облака)
   const slow = new Promise(res => setTimeout(() => res('slow'), 10000));
   try {
@@ -252,7 +290,7 @@ async function saveSlidesCfg(tmp, btn, err, done){
     else if (done){ done.textContent = '✓ Применено'; clearTimeout(done._t); done._t = setTimeout(() => { done.textContent = ''; }, 2500); }
   } catch(e){
     err.textContent = cloudExplain(e) || 'Не получилось сохранить настройки.';
-  } finally { btn.disabled = false; btn.textContent = 'Применить'; }
+  } finally { btn.textContent = 'Применить'; }   // активна ли кнопка дальше — решает окно (есть ли ещё неприменённые изменения)
 }
 /* Настройки пришли из облака (или их только что применили): запомнить в браузере и перерисовать слайды */
 function slidesFromCloud(cfg){

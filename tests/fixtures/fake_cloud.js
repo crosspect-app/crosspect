@@ -16,6 +16,10 @@
   const offline = () => { if (localStorage.getItem('fake-offline') === '1') throw fail('unavailable', 'offline'); };
   const me = () => JSON.parse(localStorage.getItem('fake-user') || 'null');
   const isEditor = (db, email) => { const m = db.members[email]; return !!m && m.role !== 'preacher'; };
+  // «У редактора» (этап 7.3), как в правилах: автор не правит, не берёт замок, не меняет статус и не удаляет; сам ставит только draft / submitted
+  const denied = () => fail('permission-denied', 'Missing or insufficient permissions');
+  const atEditor = r => !!r && (r.status === 'work' || r.status === 'done');
+  const authorBlocked = (db, email, r, status) => !isEditor(db, email) && (atEditor(r) || (status != null && !['draft', 'submitted'].includes(status)));
   function notify(){ listeners.forEach(f => f()); }
   window.fakeCloud = {   // для тестов: «другой человек» правит базу напрямую
     db: load, put(db){ store(db); notify(); },
@@ -44,6 +48,7 @@
       if (localStorage.getItem('fake-quota') === '1') throw fail('resource-exhausted', 'Облако перегружено до 9:00');   // дневной запас базы исчерпан
       opts = opts || {};
       const db = load(), cur = db.sermons[s.id], L = opts.lock || null, my = who.email;
+      if (authorBlocked(db, my, cur && (s.cloudAt || opts.force) ? cur : null, opts.status)) throw denied();
       const body = JSON.parse(JSON.stringify({ v:s.v, meta:s.meta, settings:s.settings, blocks:(s.blocks || []).map(b => { const c = Object.assign({}, b); delete c.todo; delete c.done; return c; }) }));   // как content() в cloud-api.mjs
       if (cur && (s.cloudAt || opts.force)){
         const l = cur.lock || null, held = !!(L && L.at && l && l.email === my && l.at === L.at);
@@ -68,6 +73,7 @@
       opts = opts || {};
       const db = load(), cur = db.sermons[id], my = who.email;
       if (!cur) throw fail('missing', 'Этой проповеди уже нет в облаке');
+      if (authorBlocked(db, my, cur)) throw denied();
       const l = cur.lock || null, same = !!(l && l.email === my && opts.at && l.at === opts.at);
       if (l && !same && live(db, l)){
         if (!opts.force) throw fail('locked', 'Проповедь сейчас правят', { lock:l });
@@ -125,7 +131,7 @@
       if (!cur) throw fail('missing', 'Этой проповеди уже нет в облаке');
       const l = cur.lock || null;
       if (l && l.email !== my && live(db, l)) throw fail('locked', 'Проповедь сейчас правят', { lock:l });
-      if (!isEditor(db, my) && (cur.owner !== my || !['draft', 'submitted'].includes(status))) throw fail('permission-denied', 'Missing or insufficient permissions');
+      if (!isEditor(db, my) && (cur.owner !== my || atEditor(cur) || !['draft', 'submitted'].includes(status))) throw fail('permission-denied', 'Missing or insufficient permissions');
       if (l && l.email !== my) cur.lock = null;
       Object.assign(cur, { status, updatedAt:tick(db), updatedBy:my });
       store(db); notify(); return view(db, cur);
@@ -137,6 +143,9 @@
       const db = load(); db.prefs = db.prefs || {}; db.prefs[who.email] = JSON.parse(JSON.stringify(layout || {}));
       store(db);
     },
-    async remove(space, id){ const db = load(); delete db.sermons[id]; if (db.flags) delete db.flags[id]; store(db); notify(); },
+    async remove(space, id){
+      const db = load(), u = me();
+      if (u && db.sermons[id] && !isEditor(db, u.email) && db.sermons[id].status !== 'draft') throw denied();   // автор удаляет только свой черновик
+      delete db.sermons[id]; if (db.flags) delete db.flags[id]; store(db); notify(); },
   };
 })();

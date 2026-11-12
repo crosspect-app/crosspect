@@ -156,21 +156,20 @@ mark{background:var(--mark);color:inherit;border-radius:5px;padding:0 3px;-webki
 .seg button{flex:1;height:30px;border:0;background:transparent;padding:0 12px;border-radius:999px;font-size:13px;font-weight:500;color:var(--muted);transition:.15s}
 .seg button.on{background:var(--surface-3);color:var(--text)}
 .stchip{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font:600 12px/1 'Inter',sans-serif;white-space:nowrap}
-/* Переключатель статуса конспекта (editor.js, statusSwitch): два положения, щелчок переключает */
-.stswitch{display:inline-flex;gap:2px;padding:3px;border-radius:999px;border:1px solid var(--line-2);background:var(--surface);cursor:pointer}
-.stswitch:disabled{opacity:.6;cursor:progress}
-.stswitch .sw-opt{padding:5px 10px;border-radius:999px;font:600 12px/1 'Inter',sans-serif;white-space:nowrap;color:var(--faint)}
-.stswitch .sw-opt.on{background:#3a2c08;color:#ffde59}
-.stswitch.ready .sw-opt.on{background:#13301d;color:#5ad17a}
-.stswitch:hover:not(:disabled) .sw-opt:not(.on){color:var(--text)}
-body.light .stswitch .sw-opt.on{background:#fbeeb8;color:#6b4e00}
-body.light .stswitch.ready .sw-opt.on{background:#d9f0e0;color:#17693a}
+/* Переключатель статуса конспекта (editor.js, statusSwitch): три положения — «Черновик», «Готов к вёрстке», «У редактора».
+   Цвета статусов одни и те же в шапке, на карточках и в таблице главной */
+.stswitch{display:inline-flex;gap:2px;padding:3px;border-radius:999px;border:1px solid var(--line-2);background:var(--surface)}
+.stswitch .sw-opt{padding:5px 10px;border:0;border-radius:999px;background:transparent;font:600 12px/1 'Inter',sans-serif;white-space:nowrap;color:var(--faint);cursor:pointer}
+.stswitch .sw-opt:disabled{cursor:not-allowed;opacity:.55}
+.stswitch .sw-opt:hover:not(:disabled):not(.on){color:var(--text)}
+.stswitch.view .sw-opt:not(.on){opacity:.7}
+.stswitch .sw-opt.on.st-draft,.stchip.st-draft{background:#3a2c08;color:#ffde59}
+.stswitch .sw-opt.on.st-submitted,.stchip.st-submitted{background:#13301d;color:#5ad17a}
+.stswitch .sw-opt.on.st-work,.stchip.st-work{background:#13263d;color:#8cbcff}
+body.light .stswitch .sw-opt.on.st-draft,body.light .stchip.st-draft{background:#fbeeb8;color:#6b4e00}
+body.light .stswitch .sw-opt.on.st-submitted,body.light .stchip.st-submitted{background:#d9f0e0;color:#17693a}
+body.light .stswitch .sw-opt.on.st-work,body.light .stchip.st-work{background:#dce9fb;color:#1d4f8f}
 .hist{display:inline-flex;gap:2px}
-.stchip.st-draft{background:var(--surface-3);color:var(--muted)}
-.stchip.st-work{background:#3a2c08;color:#ffde59}
-.stchip.st-done{background:#13301d;color:#5ad17a}
-body.light .stchip.st-work{background:#fbeeb8;color:#6b4e00}
-body.light .stchip.st-done{background:#d9f0e0;color:#17693a}
 
 /* ---------- Шапка ---------- */
 .topbar{
@@ -188,7 +187,7 @@ body.light .logo{color:var(--text)}
 .hd-name{font-weight:600;font-size:15px;line-height:1.15;max-width:36ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hd-name.empty{color:var(--muted);font-weight:400}
 .hd-sub{font-size:12px;color:var(--muted);line-height:1.15;max-width:44ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hd-save{font-size:12px;color:var(--muted);white-space:nowrap}
+.hd-save{font-size:12px;line-height:1.3;color:var(--muted);max-width:250px;text-align:right;text-wrap:balance}   /* длинное сообщение — в две строки, а не перенос всей шапки */
 .hd-save.warn{color:var(--warn)}
 .search{display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line-2);min-width:260px;color:var(--muted)}
 .search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:400 13px 'Inter',sans-serif}
@@ -211,6 +210,7 @@ body.light .logo{color:var(--text)}
 .gate-logo{font:700 15px/1 'Unbounded',sans-serif;color:var(--accent);letter-spacing:-.01em}
 .gate-card h1{margin:0;font:600 26px/1.15 'Unbounded',sans-serif;letter-spacing:-.02em}
 .gate-text{margin:0;font-size:14px;line-height:1.6;color:var(--muted)}
+.gate-mail{color:var(--text);text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
 .gate-warn{margin:0;font-size:12px;line-height:1.6;color:var(--warn);background:var(--warn-bg);border-radius:12px;padding:10px 12px}
 .gate-note{margin-top:2px}
 .who{font-size:12px;color:var(--muted);white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
@@ -228,7 +228,7 @@ body.ro .side .bbody,body.ro .speech .rich,body.ro .tv .prose{opacity:.8;cursor:
 .sheet-foot.wrap{justify-content:flex-end}
 .scard{display:flex;flex-direction:column;gap:12px;padding:12px 12px 16px;border-radius:18px;background:var(--surface);border:1px solid var(--line);text-decoration:none;color:var(--text);transition:.15s}
 .scard:hover{border-color:#4a4230}
-.scard.st-work{box-shadow:0 0 0 1px #3a2c08}
+.scard.st-draft{box-shadow:0 0 0 1px #3a2c08}
 .mini{aspect-ratio:16/9;background:#000;border-radius:12px;padding:1.4%;container-type:inline-size}
 .mini-fr{height:100%;background:#ecdfcf;border-radius:9px;padding:1.8%}
 .mini-pn{height:100%;border-radius:4px;background:linear-gradient(140deg,#1d0f09 0%,#6e2c12 52%,#2b130b 100%);display:flex;align-items:center;justify-content:center;padding:6%;text-align:center}
@@ -474,13 +474,16 @@ a.prow:hover{background:var(--surface)}
 .sl-frame{position:absolute;inset:calc(var(--u) * 14px);border-radius:calc(var(--u) * 34px);background:#ecdfcf;overflow:hidden}
 .sl-frame::after{content:"";position:absolute;inset:0;background-image:var(--noise);background-size:128px 128px;mix-blend-mode:multiply;opacity:.22}
 .sl-panel{position:absolute;inset:calc(var(--u) * 44px);border-radius:calc(var(--u) * 8px);overflow:hidden;background:#151612;isolation:isolate}
-.sl-glow{position:absolute;inset:-12%;filter:blur(calc(var(--u) * 60px));background:
+.sl-glow{position:absolute;inset:-12%;display:var(--sl-glow,block);filter:blur(calc(var(--u) * 60px));background:
   radial-gradient(circle at 100% 6%, #c9702a 0, transparent 34%),
   radial-gradient(circle at 102% 40%, #8a8a38 0, transparent 20%),
   radial-gradient(circle at -2% 96%, #ff4a12 0, transparent 30%),
   radial-gradient(circle at 4% 48%, #5a2a16 0, transparent 26%)}
-.sl-grain{position:absolute;inset:0;background-image:var(--noise);background-size:128px 128px;mix-blend-mode:overlay;opacity:.6}
-.sl-vig{position:absolute;inset:0;background:radial-gradient(ellipse 75% 70% at 45% 45%, transparent 40%, rgba(0,0,0,.35) 100%)}
+/* Фон (этап 7.3): без настройки — прежний «Ember» (.sl-glow, зерно .6, затемнение краёв .35); с генератором — картинка .sl-bg
+   поверх (.sl-glow скрыт), своё зерно и затемнение. Переменные ставит slideVars → bgVars (background.js) */
+.sl-bg{position:absolute;inset:0;background-image:var(--sl-bg,none);background-size:100% 100%;background-repeat:no-repeat}
+.sl-grain{position:absolute;inset:0;background-image:var(--sl-grain,var(--noise));background-size:var(--sl-gsz,128px) var(--sl-gsz,128px);mix-blend-mode:overlay;opacity:var(--sl-go,.6)}
+.sl-vig{position:absolute;inset:0;background:radial-gradient(ellipse 75% 70% at 45% 45%, transparent 40%, rgba(0,0,0,var(--sl-va,.35)) 100%)}
 .sl-content{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);text-align:center;display:flex;flex-direction:column;gap:var(--sc-gap,.85em);--track:var(--sc-track,-0.04em);--lead:var(--sc-lead,1.05)}
 .sl-ref{font-weight:700;font-size:1.2083em;line-height:1.1;text-transform:uppercase;letter-spacing:-0.035em;margin:0}
 .sl-ref.ph{opacity:.3}
@@ -671,6 +674,18 @@ body.light .fmtbar{box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .unit input::-webkit-inner-spin-button,.unit input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .unit input[type=number]{-moz-appearance:textfield}
 .scfg .err{color:var(--danger);font-size:12px;align-self:center}
+/* Блок «Фон» (этап 7.3): ползунки с числом справа, выбор цвета, «Другой вариант» и «Сбросить фон» */
+.scfg-bg{display:grid;gap:12px}
+.scfg-rng{min-width:0}
+.scfg-rrow{display:flex;align-items:center;gap:8px;min-height:38px}
+.scfg-rrow input[type=range]{flex:1;min-width:0;accent-color:#ffde59;margin:0}
+.scfg-rv{min-width:22px;text-align:right;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.scfg-color{padding:3px;height:38px;cursor:pointer}
+.scfg-bg .toggle{width:100%}
+.scfg-bg .toggle button{flex:1;padding:8px 4px}
+.scfg-bgbtns{display:flex;flex-wrap:wrap;gap:6px;align-items:end;align-self:end}
+.scfg-bgbtns .btn{flex:1;justify-content:center;white-space:nowrap}
+.scfg-kinds .off{opacity:.4}
 @media (max-width:900px){ .scfg-body{grid-template-columns:1fr} .scfg-preview{position:static} }
 @media (max-width:620px){ .scfg-g3,.scfg-g4{grid-template-columns:1fr} .scfg-kinds{grid-template-columns:100px repeat(6,88px)} }
 .mock{display:grid;gap:12px;margin:6px 0 14px}

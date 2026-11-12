@@ -1,9 +1,11 @@
 'use strict';
 
 /* ========= Настройки по умолчанию (можно править здесь) ========= */
-/* Файл настроек в репозитории: переводы и спикеры. Если он недоступен, форма работает на встроенных списках.
-   Ссылку можно сменить в меню «⋯» → «Источник настроек». Раздел "slides" в нём больше ни на что не влияет */
+/* Файл настроек в репозитории: переводы и авторы. Если он недоступен, форма работает на встроенных списках.
+   Ссылка постоянная (окно «Источник настроек» убрано на этапе 7.3). Раздел "slides" в нём больше ни на что не влияет */
 const CONFIG_URL_DEFAULT = 'https://raw.githubusercontent.com/crosspect-app/crosspect/main/data/config.json';
+/* Куда писать, чтобы получить доступ: показывается на экране «Вас нет в списке» */
+const CONTACT_EMAIL = 'swpoznan.media@gmail.com';
 /* Настройки слайдов — общие для всего пространства, лежат в облаке (spaces/…/config/slides), меняют админ и редактор
    в окне «Настройки слайдов». Здесь — значения, пока в облаке ничего не записано.
    margins — поля от края цветной панели, px кадра 1920×1080; names.maxLength — длина названия слайда;
@@ -15,19 +17,22 @@ const CONFIG_URL_DEFAULT = 'https://raw.githubusercontent.com/crosspect-app/cros
      splash.foot — имя и дата внизу заставки, px; footTrack / footLead — их расстояния;
    verses — вид стихов на всех слайдах Писания: flow 'inline' (в строку) | 'lines' (с новой строки), frame — рамка пунктиром,
      caps — заглавными, showTr — подпись перевода, align 'left' | 'center' | 'right', valign 'top' | 'center' | 'bottom',
-     gap — расстояние между стихами с новой строки, em; refGap — между местом Писания и текстом (и между частями слайда), em */
+     gap — расстояние между стихами с новой строки, em; refGap — между ссылкой (местом Писания) и текстом (и между частями слайда), em;
+   kinds.splash.titleOnly — заставка «Только название»: название посередине, без линии, имени и даты (этап 7.3);
+   bg — фон слайдов (этап 7.3): null — прежний фон «Ember», иначе параметры генератора (background.js, normBg) */
 const SLIDES_DEFAULT = {
   margins:{ side:60, top:60, bottom:60 },
   names:{ maxLength:35 },
   limits:{ thesis:220, quote:300 },
   fonts:{ main:'unbounded', greek:'inter', hebrew:'noto-hebrew' },
   kinds:{
-    splash:{ size:200, min:55, max:130, track:0, lead:1.1, foot:44, footTrack:-0.03, footLead:1.1 },
+    splash:{ size:200, min:55, max:130, track:0, lead:1.1, foot:44, footTrack:-0.03, footLead:1.1, titleOnly:false },
     scripture:{ size:52.8, min:80, track:-0.04, lead:1.05 },
     thesis:{ size:50.4, min:70, max:130, track:-0.04, lead:1.05 },
     quote:{ size:51.48, min:70, max:110, track:-0.04, lead:1.05 }
   },
-  verses:{ flow:'inline', frame:false, caps:true, showTr:true, align:'center', valign:'top', gap:0.3, refGap:0.85 }
+  verses:{ flow:'inline', frame:false, caps:true, showTr:true, align:'center', valign:'top', gap:0.3, refGap:0.85 },
+  bg:null
 };
 /* Шрифты в списках — только те, что форма загружает и встраивает в JPEG (см. EXPORT_FONTS в export.js) */
 const SLIDE_FONTS = {

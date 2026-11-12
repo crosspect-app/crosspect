@@ -22,7 +22,6 @@ function persistDraft(){
 }
 function change(){
   if (roBlock()) return;   // только просмотр: правка отменяется, подсказка про «Редактировать»
-  statusOnEdit();   // спикер изменил «Готов к вёрстке» — снова «В работе» (editor.js)
   state.updatedAt = Math.max(Date.now(), state.updatedAt + 1);   // только вперёд: иначе при отстающих часах правка выглядела бы сохранённой
   histRecord();   // отмена и возврат (history.js): запомнить, как было до правки
   clearTimeout(draftTimer);
@@ -71,13 +70,13 @@ function blockSummary(b){
 }
 
 
-/* Статус конспекта — два: «В работе» (в облаке `draft`) и «Готов к вёрстке» (`submitted`; старое `done` тоже считается готовым).
-   Переключатель — на экране проповеди (editor.js); если спикер правит готовый конспект, он снова «В работе» */
-const isReady = st => st === 'submitted' || st === 'done';
-const STATUS_LABELS = { work:'В работе', done:'Готов к вёрстке' };
-function sermonStatus(d){
-  return isReady(d.cloudStatus) ? { key:'done', label:STATUS_LABELS.done } : { key:'work', label:STATUS_LABELS.work };
-}
+/* Статус конспекта (этап 7.3) — три: «Черновик» (в облаке `draft`, новый конспект), «Готов к вёрстке» (`submitted`, автор закончил)
+   и «У редактора» (`work`, конспект взял редактор; старое `done` считается так же). Переключатель — на экране проповеди (editor.js) */
+const STATUS_KEYS = ['draft', 'submitted', 'work'];
+const STATUS_LABELS = { draft:'Черновик', submitted:'Готов к вёрстке', work:'У редактора' };
+const statusKey = st => st === 'submitted' ? 'submitted' : st === 'work' || st === 'done' ? 'work' : 'draft';
+const atEditor = d => !!d && statusKey(d.cloudStatus) === 'work';
+function sermonStatus(d){ const k = statusKey(d.cloudStatus); return { key:k, label:STATUS_LABELS[k] }; }
 /* «Вс, 15 ноября» */
 function fmtDay(s){
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');

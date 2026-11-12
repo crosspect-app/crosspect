@@ -1,8 +1,9 @@
-"""Работа редактора (этапы 7 и 7.2): статусы «В работе / Готов к вёрстке», «доработать» только у редактора (editor/state, вне замка),
-автосохранение, «спикер», исчерпанный запас базы. Облако подменено: tests/fixtures/fake_cloud.js."""
+"""Работа редактора (этапы 7, 7.2 и 7.3): статусы «Черновик / Готов к вёрстке / У редактора», «доработать» только у редактора
+(editor/state, вне замка), автосохранение, «автор», исчерпанный запас базы. Облако подменено: tests/fixtures/fake_cloud.js."""
 from conftest import cloud_page
 from test_cloud import ADMIN, IVAN, MEMBERS, rec
 from test_lock import open_sermon, start_edit, db_eval, status
+from test_ui71 import menu_items
 
 
 def full(id="s1", title="Вера", owner="ivan@x.pl", st="draft"):
@@ -22,7 +23,7 @@ def todo(page):
     return page.evaluate("state.blocks.map(b => b.todo)")
 
 
-# ---------- статус ----------
+# ---------- статус (этап 7.3: «Черновик» / «Готов к вёрстке» / «У редактора») ----------
 
 def st_label(page):
     """Статус в шапке: включённое положение переключателя или метка"""
@@ -30,94 +31,140 @@ def st_label(page):
     return sw.inner_text() if sw.count() else page.locator(".topbar .stchip").inner_text()
 
 
-def test_speaker_marks_ready_and_edit_resets_it(browser, base_url):
+def opt(page, label):
+    return page.locator(".topbar .stswitch .sw-opt", has_text=label)
+
+
+def test_author_switches_draft_and_ready_while_editing(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": full()})
     page.wait_for_selector(".scard")
-    assert "В работе" in page.inner_text(".scard")
+    assert "Черновик" in page.inner_text(".scard")
     open_sermon(page, "s1")
-    assert page.locator(".topbar .stswitch").is_visible()   # переключатель — на экране проповеди, и в просмотре тоже
+    assert page.locator(".topbar .stswitch .sw-opt").count() == 3   # переключатель виден и в просмотре
+    assert st_label(page) == "Черновик"
     assert "null" not in page.inner_text(".topbar")
+    assert opt(page, "У редактора").is_disabled()   # этот статус ставит редактор
+    # в просмотре статус не меняется: подсказка про «Редактировать»
+    opt(page, "Готов к вёрстке").click()
+    page.wait_for_function("document.querySelector('.toast').textContent.includes('Редактировать')")
+    assert st_label(page) == "Черновик" and page.evaluate("ed.mode") == "view"
     start_edit(page)
     page.evaluate("state.blocks[1].speech = 'дописал'; change()")
-    page.locator(".topbar .stswitch").click()
-    # спикер: «Готов к вёрстке» — сохранить и закрыть правку
-    page.wait_for_function("fakeCloud.db().sermons.s1.status === 'submitted' && !fakeCloud.db().sermons.s1.lock", timeout=10000)
-    page.wait_for_function("ed.mode === 'view'")
-    assert page.evaluate("fakeCloud.db().sermons.s1.blocks[1].speech") == "дописал"
+    # «Готов к вёрстке» — обычная правка: правка не закрывается, статус уходит в облако вместе с текстом
+    saves = page.evaluate("fakeCloud.calls.save")
+    opt(page, "Готов к вёрстке").click()
     assert st_label(page) == "Готов к вёрстке"
-    assert "готов к вёрстке" in page.inner_text(".toast").lower()
-    assert page.get_by_role("button", name="Редактировать").is_visible()
-    # спикер снова правит готовый конспект — он снова «В работе», сразу и в облаке
-    start_edit(page)
+    assert page.evaluate("ed.mode") == "edit" and page.evaluate("fakeCloud.calls.save") == saves, "отдельной записи нет"
+    page.wait_for_function("fakeCloud.db().sermons.s1.status === 'submitted'", timeout=10000)
+    assert page.evaluate("fakeCloud.db().sermons.s1.blocks[1].speech") == "дописал"
+    assert page.evaluate("fakeCloud.db().sermons.s1.lock.email") == "ivan@x.pl"   # правка не закрылась
+    # правка готового конспекта статус не сбрасывает
     page.evaluate("state.blocks[1].speech = 'другое'; change()")
-    assert st_label(page) == "В работе"
-    assert "снова «В работе»" in page.inner_text(".toast")
-    page.wait_for_function("fakeCloud.db().sermons.s1.status === 'draft'", timeout=10000)
-    assert page.evaluate("fakeCloud.db().sermons.s1.blocks[1].speech") == "другое"
+    page.keyboard.press("Control+s")
+    page.wait_for_function("fakeCloud.db().sermons.s1.blocks[1].speech === 'другое'")
+    assert page.evaluate("fakeCloud.db().sermons.s1.status") == "submitted" and st_label(page) == "Готов к вёрстке"
+    # и обратно в «Черновик» — тоже без ограничений
+    opt(page, "Черновик").click()
     page.get_by_role("button", name="Сохранить").click()
-    page.wait_for_function("ed.mode === 'view'")
-    # в просмотре статус меняется отдельной записью, правка не открывается
-    page.locator(".topbar .stswitch").click()
-    page.wait_for_function("fakeCloud.db().sermons.s1.status === 'submitted'")
-    assert page.evaluate("ed.mode") == "view" and page.evaluate("fakeCloud.calls.status") >= 1
-    page.wait_for_function("document.querySelector('.topbar .stswitch .sw-opt.on').textContent === 'Готов к вёрстке'")
-    page.locator(".topbar .stswitch").click()
-    page.wait_for_function("fakeCloud.db().sermons.s1.status === 'draft'")
+    page.wait_for_function("ed.mode === 'view' && fakeCloud.db().sermons.s1.status === 'draft'")
+    assert not page.evaluate("fakeCloud.calls.status"), "отдельная запись статуса больше не нужна"
+    # смена статуса в отмену не входит
+    assert st_label(page) == "Черновик"
     assert not page.errors, page.errors
     ctx.close()
 
 
-def test_speaker_ready_offline_keeps_status(browser, base_url):
-    ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": full()})
+def test_status_is_not_undone(browser, base_url):
+    ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": full()})
     page.wait_for_selector(".scard")
     open_sermon(page, "s1")
     start_edit(page)
-    page.evaluate("state.blocks[1].speech = 'без сети'; change()")
-    page.evaluate("localStorage.setItem('fake-offline', '1')")
-    page.locator(".topbar .stswitch").click()
-    page.wait_for_function("document.querySelector('.toast').textContent.includes('статус не изменился')", timeout=10000)
-    assert st_label(page) == "В работе"
-    assert page.evaluate("ed.mode") == "edit"
-    assert page.evaluate("fakeCloud.db().sermons.s1.status") == "draft"
+    page.evaluate("state.blocks[1].speech = 'раз'; change()")
+    opt(page, "У редактора").click()
+    page.keyboard.press("Control+z")
+    assert page.evaluate("state.blocks[1].speech") != "раз"
+    assert st_label(page) == "У редактора"
     ctx.close()
 
 
-def test_editor_switches_status_freely_and_edit_keeps_it(browser, base_url):
+def test_editor_takes_sermon_and_author_cannot_edit(browser, base_url):
+    # редактор: «У редактора» в правке, вместе с содержимым
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": full(st="submitted")})
     page.wait_for_selector(".scard")
     assert "Готов к вёрстке" in page.inner_text(".scard")
     open_sermon(page, "s1")
     start_edit(page)
-    page.evaluate("state.blocks[1].speech = 'поправил редактор'; change()")
-    assert st_label(page) == "Готов к вёрстке"
-    # редактор переключает статус без выхода из правки; содержимое уходит своим чередом
-    page.locator(".topbar .stswitch").click()
-    page.wait_for_function("fakeCloud.db().sermons.s1.status === 'draft'")
-    assert page.evaluate("ed.mode") == "edit"
-    page.locator(".topbar .stswitch").click()
-    page.wait_for_function("fakeCloud.db().sermons.s1.status === 'submitted'")
+    assert opt(page, "У редактора").is_enabled()
+    opt(page, "У редактора").click()
     page.keyboard.press("Control+s")
-    page.wait_for_function("fakeCloud.db().sermons.s1.blocks[1].speech === 'поправил редактор'")
-    assert page.evaluate("fakeCloud.db().sermons.s1.status") == "submitted"
-    assert not page.evaluate("settingsOverlay.classList.contains('open')"), "без окна конфликта"
+    page.wait_for_function("fakeCloud.db().sermons.s1.status === 'work'")
+    assert page.evaluate("ed.mode") == "edit"
+    ctx.close()
+    # автор: смотреть можно, править — нет
+    ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": full(st="work")})
+    page.wait_for_selector(".scard")
+    assert "У редактора" in page.inner_text(".scard")
+    open_sermon(page, "s1")
+    assert st_label(page) == "У редактора"
+    btn = page.locator("#app").get_by_role("button", name="Редактировать")
+    assert btn.is_disabled()
+    assert "у редактора" in btn.get_attribute("title").lower()
+    assert "Конспект у редактора: если нужны правки, напишите ему" in status(page)
+    page.locator(".side").click()
+    page.wait_for_function("document.querySelector('.toast').textContent.includes('Конспект у редактора')")
+    assert page.evaluate("ed.mode") == "view" and page.evaluate("fakeCloud.calls.lock") == 0
+    # копию сделать можно: она — новый черновик автора
+    assert "Сделать копию" in menu_items(page)
+    # удалить нельзя
+    page.evaluate("deleteCloudSermon(state)")
+    assert page.evaluate("!!fakeCloud.db().sermons.s1")
+    # редактор вернул «Черновик» — автор снова правит (живое обновление, без перезагрузки)
+    db_eval(page, "r.status = 'draft'; r.updatedAt += 1000; r.updatedBy = 'admin@x.pl'")
+    page.wait_for_function("(() => { const b = [...document.querySelectorAll('#app button')].find(x => x.textContent.includes('Редактировать')); return b && !b.disabled; })()")
+    start_edit(page)
+    page.evaluate("state.blocks[1].speech = 'снова правлю'; change()")
+    page.keyboard.press("Control+s")
+    page.wait_for_function("fakeCloud.db().sermons.s1.blocks[1].speech === 'снова правлю'")
     assert not page.errors, page.errors
     ctx.close()
 
 
-def test_status_not_changed_while_someone_else_edits(browser, base_url):
-    rec_ = full()
-    rec_["lock"] = {"email": "ivan@x.pl", "name": "Иван Петров", "at": 9e12, "beat": 9e12}
-    ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": rec_})
+def test_editor_takes_while_author_edits_rescues_copy(browser, base_url):
+    ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": full()})
     page.wait_for_selector(".scard")
     open_sermon(page, "s1")
-    page.locator(".topbar .stswitch").click()
-    page.wait_for_function("document.querySelector('.toast').textContent.includes('Иван Петров')")
-    assert page.evaluate("fakeCloud.db().sermons.s1.status") == "draft"
-    assert st_label(page) == "В работе"
+    start_edit(page)
+    page.evaluate("state.meta.title = 'Мои правки'; change()")   # ещё не ушло в облако
+    # редактор забирает правку и ставит «У редактора»
+    db_eval(page, "r.lock = { email:'admin@x.pl', name:'Админ', at:Date.now() + 999999, beat:Date.now() + 999999 }; r.status = 'work'")
+    page.wait_for_selector(".sheet[aria-label='Правку забрали']")
+    copy = [r for k, r in page.evaluate("fakeCloud.db().sermons").items() if k != "s1"]
+    assert len(copy) == 1 and copy[0]["meta"]["title"] == "Мои правки (копия)" and copy[0]["status"] == "draft"
+    page.get_by_role("button", name="Понятно").click()
+    assert st_label(page) == "У редактора"
+    assert page.locator("#app").get_by_role("button", name="Редактировать").is_disabled()
     ctx.close()
 
 
-def test_other_speakers_sermon_shows_status_only(browser, base_url):
+def test_author_reopens_with_unsaved_draft_while_at_editor(browser, base_url):
+    """В браузере остались несохранённые правки, а конспект уже у редактора: правки уходят копией"""
+    r = full(st="work")
+    ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": r})
+    page.wait_for_selector(".scard")
+    # черновик в браузере основан на версии до того, как редактор взял конспект; человек решает оставить свои правки
+    local = dict(full(), cloudSpace="sp1", cloudAt=r["updatedAt"] - 1000, cloudOwner="ivan@x.pl", cloudStatus="draft", cloudBy="ivan@x.pl",
+                 app="swp-sermon", savedAt=r["updatedAt"] - 1000, updatedAt=r["updatedAt"] + 50000)
+    local["meta"] = dict(local["meta"], title="Несохранённое")
+    page.evaluate("d => localStorage.setItem('swp-sermon:s1', JSON.stringify(d))", local)
+    page.on("dialog", lambda d: d.accept())
+    page.evaluate("navigate(sermonHash('s1'))")
+    page.wait_for_selector(".sheet[aria-label='Правку забрали']")
+    assert "Конспект у редактора" in page.inner_text(".sheet[aria-label='Правку забрали']")
+    assert any(x["meta"]["title"] == "Несохранённое (копия)" for x in page.evaluate("Object.values(fakeCloud.db().sermons)"))
+    ctx.close()
+
+
+def test_other_authors_sermon_shows_status_only(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": full(owner="petr@x.pl", st="submitted")})
     page.wait_for_selector(".scard")
     open_sermon(page, "s1")
@@ -126,14 +173,16 @@ def test_other_speakers_sermon_shows_status_only(browser, base_url):
     ctx.close()
 
 
-def test_new_sermon_starts_in_work_and_old_done_counts_as_ready(browser, base_url):
+def test_new_sermon_is_draft_and_old_done_counts_as_at_editor(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s2": full("s2", "Старая", "ivan@x.pl", "done")})
     page.wait_for_selector(".scard")
-    assert "Готов к вёрстке" in page.inner_text(".scard")
+    assert "У редактора" in page.inner_text(".scard")
+    open_sermon(page, "s2")
+    assert page.locator("#app").get_by_role("button", name="Редактировать").is_disabled()
     page.evaluate("newSermon()")
     page.wait_for_selector(".sheet[aria-label='О проповеди']")
     page.evaluate("closeSettings()")
-    assert st_label(page) == "В работе"
+    assert st_label(page) == "Черновик"
     page.evaluate("state.meta.title = 'Новая'; change()")
     page.keyboard.press("Control+s")
     page.wait_for_function("Object.values(fakeCloud.db().sermons).some(r => r.meta.title === 'Новая' && r.status === 'draft')")
@@ -294,12 +343,35 @@ def test_quota_exhausted_keeps_edits_in_browser(browser, base_url):
     ctx.close()
 
 
-# ---------- «спикер» ----------
+# ---------- «автор» вместо «спикер» (этап 7.3) ----------
 
-def test_role_is_called_speaker(browser, base_url):
+def test_role_is_called_author(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": full(owner="admin@x.pl")})
     page.wait_for_selector(".scard")
-    assert "спикер" in page.locator(".who").inner_text()
+    assert "автор" in page.locator(".who").inner_text()
+    assert "автор" in page.locator(".topbar input[type=search]").get_attribute("placeholder")
     open_sermon(page, "s1")
-    assert "другого спикера" in status(page)
+    assert "другого автора" in status(page)
+    assert "спикер" not in page.inner_text("body").lower()
+    ctx.close()
+
+
+def test_no_speaker_word_anywhere(browser, base_url):
+    """Слова «спикер» нет ни на главной, ни в проповеди, ни в окне «О проповеди», ни в подсказках"""
+    ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": full()})
+    page.wait_for_selector(".scard")
+    texts = [page.inner_text("body")]
+    open_sermon(page, "s1")
+    start_edit(page)
+    texts.append(page.inner_text("body"))
+    page.evaluate("openMeta()")
+    page.wait_for_selector(".sheet[aria-label='О проповеди']")
+    texts.append(page.inner_text(".sheet[aria-label='О проповеди']"))
+    assert page.locator(".sheet[aria-label='О проповеди'] .lbl", has_text="Автор").count() == 1
+    page.evaluate("closeSettings()")
+    page.evaluate("openSlidesCfg()")
+    texts.append(page.inner_text(".sheet.scfg"))
+    texts.append(page.evaluate("[...document.querySelectorAll('[title],[aria-label],[placeholder]')].map(e => [e.title, e.getAttribute('aria-label'), e.placeholder].join(' ')).join(' ')"))
+    for t in texts:
+        assert "спикер" not in t.lower(), t[:200]
     ctx.close()

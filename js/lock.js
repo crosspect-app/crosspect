@@ -55,7 +55,7 @@ function beginCloud(remote, pickedLocal, offline){
   ed.mode = 'view';
   startWatch();
   const unsaved = pickedLocal && isUnsaved(state);
-  if (!canEditCloud(state)){ if (unsaved) rescueAndShow(state, null); return; }
+  if (!canEditCloud(remote)){ if (unsaved) rescueAndShow(state, null); return; }   // права — по облачной версии: там может стоять «У редактора»
   const l = remote.lock, mine = recallAt(state.id);
   const resume = !!(l && l.email === myEmail() && mine && l.at === mine);   // перезагрузили страницу посреди правки
   if (!resume && l && l.email === myEmail() && lockLive(l)){   // правка открыта в другой вкладке: черновик в браузере — её, не трогаем
@@ -298,7 +298,7 @@ async function beat(){
 }
 
 /* ----- Закончить правку ----- */
-/* «Сохранить» (reason 'button'), спикер отметил «Готов к вёрстке» ('status') или простой ('idle'):
+/* «Сохранить» (reason 'button') или простой ('idle'):
    сохранить, отпустить замок, остаться в просмотре. Возвращает 'ok' или причину, почему не вышло */
 async function closeEdit(reason){
   if (!editing()) return 'none';
@@ -310,8 +310,7 @@ async function closeEdit(reason){
   clearTimeout(ed.saveT); ed.saveT = null;
   const at = ed.myAt;
   let res = 'ok';
-  // статус уходит вместе с проповедью, поэтому при смене статуса записываем, даже если правок нет
-  if (isUnsaved(s) || !s.cloudAt || reason === 'status') res = await (ed.pending = cloudWrite(s, { release:true, at }));
+  if (isUnsaved(s) || !s.cloudAt) res = await (ed.pending = cloudWrite(s, { release:true, at }));
   else if (at){ try { await cloud.api.release(cloud.space, s.id, cloud.user, at); } catch(e){ res = netErr(e) ? 'offline' : 'error'; } }
   if (state !== s || ed.mode !== 'edit') return res === 'ok' ? 'none' : res;
   if (res !== 'ok'){
@@ -371,7 +370,7 @@ async function rescueAndShow(s, l){
 }
 function lostSheet(l, copy, onOpen){
   const mine = l && l.email === myEmail();
-  const head = !l ? 'Эту проповедь вам править нельзя.' : mine ? 'Эту проповедь вы правите в другой вкладке или на другом устройстве.' : lockWho(l) + ' сейчас правит эту проповедь.';
+  const head = !l ? (authorWaits(state) ? AT_EDITOR_MSG + '.' : 'Эту проповедь вам править нельзя.') : mine ? 'Эту проповедь вы правите в другой вкладке или на другом устройстве.' : lockWho(l) + ' сейчас правит эту проповедь.';
   const what = onOpen ? 'В браузере оставались несохранённые правки: ' : 'То, что не успело сохраниться, ';
   const tail = copy
     ? (copy.cloud ? what + (onOpen ? 'они ' : '') + 'сохранены отдельной копией «' + copy.title + '».'
@@ -379,7 +378,7 @@ function lostSheet(l, copy, onOpen){
     : 'Все ваши правки успели сохраниться.';
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Правку забрали' },
-    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:onOpen ? 'Проповедь сейчас правят' : mine ? 'Правка открыта в другом месте' : 'Правку забрали' }), iconBtn('close', 'Закрыть', closeSettings)),
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:!l && authorWaits(state) ? 'Конспект у редактора' : onOpen ? 'Проповедь сейчас правят' : mine ? 'Правка открыта в другом месте' : 'Правку забрали' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('p', { class:'hint', style:'font-size:12px;margin-bottom:16px', text:head + ' ' + tail + ' Здесь проповедь пока только для просмотра.' }),
     h('div', { class:'sheet-foot wrap' },
       copy ? h('button', { type:'button', class:'btn', onclick:() => { closeSettings(); ed.autoEdit = copy.id; navigate(sermonHash(copy.id)); } }, 'Открыть копию') : h('span'),
@@ -410,7 +409,8 @@ function roBlock(){
 function roHint(){
   if (Date.now() - ed.hintAt < 1500) return;
   ed.hintAt = Date.now();
-  if (!canEditCloud()){ toast('Это проповедь другого спикера: её можно только смотреть. Чтобы взять за основу, нажмите «Сделать копию»'); return; }
+  if (authorWaits()){ toast(AT_EDITOR_MSG); return; }
+  if (!canEditCloud()){ toast('Это проповедь другого автора: её можно только смотреть. Чтобы взять за основу, нажмите «Сделать копию»'); return; }
   const l = otherLock();
   if (l && l.email !== myEmail() && cloud.role === 'preacher'){ toast('Сейчас её правит ' + lockWho(l) + '. Править можно, когда правка закончится'); return; }
   toast('Сейчас только просмотр', l ? 'Забрать правку' : 'Редактировать', () => l ? takeOver(l) : startEdit());
@@ -422,6 +422,7 @@ function headAction(){
   if (!cloudSermon()) return b('primary', 'save', 'Сохранить', () => saveSermon(), { title:'Ctrl+S' });
   if (ed.busy) return b('primary', null, 'Открываю правку…', null, { disabled:true });
   if (ed.mode === 'edit') return b('primary', 'done', 'Сохранить', () => closeEdit('button'), { title:'Сохранить и закончить правку: тогда проповедь смогут править другие (Ctrl+S — сохранить и продолжить)' });
+  if (authorWaits()) return b('primary', 'edit', 'Редактировать', null, { disabled:true, title:AT_EDITOR_MSG + '. Чтобы взять конспект за основу, сделайте копию: «⋯ → Сделать копию»' });
   if (!canEditCloud()) return b('', 'dup', 'Сделать копию', () => saveAsCopy(), { title:'Копия станет вашей проповедью, её можно править' });
   const l = otherLock();
   if (l && l.email === myEmail()) return b('primary', 'edit', 'Править здесь', () => takeOver(l));
@@ -442,7 +443,8 @@ function cloudStatusLine(){
     return ['', 'Правки сохранятся сами'];
   }
   if (ed.busy) return ['', 'Открываю правку…'];
-  if (!canEditCloud()) return ['warn', 'Только чтение: проповедь другого спикера'];
+  if (authorWaits()) return ['warn', AT_EDITOR_MSG];
+  if (!canEditCloud()) return ['warn', 'Только чтение: проповедь другого автора'];
   const l = otherLock();
   if (l && l.email === myEmail()) return ['warn', 'Вы правите её в другой вкладке или на другом устройстве (с ' + fmtTime(l.at) + ')'];
   if (l) return ['warn', 'Сейчас правит ' + lockWho(l) + ' (с ' + fmtTime(l.at) + ')'];

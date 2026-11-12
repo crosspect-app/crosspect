@@ -216,12 +216,14 @@ function mergeSlides(base, over){
     if ('foot' in d) out.foot = clampF(z.foot, 10, 200, d.foot);
     if ('footTrack' in d) out.footTrack = clampF(z.footTrack, -0.2, 0.3, d.footTrack, 3);
     if ('footLead' in d) out.footLead = clampF(z.footLead, 0.8, 2, d.footLead);
+    if ('titleOnly' in d) out.titleOnly = !!z.titleOnly;
     r.kinds[k] = out;
   });
   const v = r.verses;
   r.verses = { flow:oneOf(v.flow, ['inline', 'lines'], 'inline'), frame:!!v.frame, caps:v.caps !== false, showTr:v.showTr !== false,
     align:oneOf(v.align, ['left', 'center', 'right'], 'center'), valign:oneOf(v.valign, ['top', 'center', 'bottom'], 'top'),
     gap:clampF(v.gap, 0, 2, D.verses.gap), refGap:clampF(v.refGap, 0, 3, D.verses.refGap) };
+  r.bg = normBg('bg' in o ? o.bg : r.bg);   // фон: null — прежний (background.js)
   return r;
 }
 function slidesCfg(){ return SLIDES_TRY || SLIDES_BASE; }
@@ -242,7 +244,8 @@ function slideVars(c){
     '--qt-track':K.quote.track + 'em', '--qt-lead':String(K.quote.lead),
     '--sc-gap':c.verses.refGap + 'em', '--sc-vgap':c.verses.gap + 'em',
     '--sp-track':K.splash.track + 'em', '--sp-lead':String(K.splash.lead),
-    '--sp-foot':K.splash.foot + 'px', '--sp-ftrack':K.splash.footTrack + 'em', '--sp-flead':String(K.splash.footLead) };
+    '--sp-foot':K.splash.foot + 'px', '--sp-ftrack':K.splash.footTrack + 'em', '--sp-flead':String(K.splash.footLead),
+    ...bgVars(c.bg) };   // фон слайда (background.js)
 }
 function marginVars(m){ return { '--sl-x':(PANEL_INSET + m.side) + 'px', '--sl-t':(PANEL_INSET + m.top) + 'px', '--sl-b':(PANEL_INSET + m.bottom) + 'px' }; }
 function applySlides(){

@@ -7,7 +7,7 @@ function preacherField(){
   const first = h('input', { class:'input', placeholder:'Имя', 'aria-label':'Имя', autocomplete:'off', value:known ? '' : m.firstName || '', oninput:e => { m.firstName = e.target.value; upd(); } });
   const last = h('input', { class:'input', placeholder:'Фамилия', 'aria-label':'Фамилия', autocomplete:'off', value:known ? '' : m.lastName || '', oninput:e => { m.lastName = e.target.value; upd(); } });
   const other = h('div', { class:'grid-2', style:known ? 'display:none;margin-top:8px' : 'margin-top:8px' }, first, last);
-  const sel = h('select', { class:'input', 'aria-label':'Спикер', onchange:e => {
+  const sel = h('select', { class:'input', 'aria-label':'Автор', onchange:e => {
     if (e.target.value === '__other'){ m.firstName = ''; m.lastName = ''; first.value = ''; last.value = ''; other.style.display = ''; first.focus(); }
     else { Object.assign(m, splitPreacher(e.target.value)); other.style.display = 'none'; }
     upd();
@@ -15,7 +15,7 @@ function preacherField(){
     h('option', { value:'' }, 'Выберите…'),
     PREACHERS.map(p => h('option', { value:p, selected:p === key }, p)),
     h('option', { value:'__other', selected:!known }, 'Другой — ввести вручную'));
-  return h('div', { class:'field' }, h('span', { class:'lbl', text:'Спикер' }), sel, other);
+  return h('div', { class:'field' }, h('span', { class:'lbl', text:'Автор' }), sel, other);
 }
 /* Шапка поменялась — заставки перерисовываются */
 function refreshSplash(){ state.blocks.forEach(b => { if (b.type === 'splash') schedulePreview(b); }); }
@@ -565,8 +565,8 @@ const BODY = {
     body.append(
       row('Название для Holyrics', slideName(b, n), '', 'Имя файла JPEG. Длинное название проповеди обрезается по длине названия слайда'),
       row('Название на слайде', m.title, 'Без названия', from, splashStepper()),
-      row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Спикер и дата не указаны', from),
-      h('button', { type:'button', class:'btn', style:'justify-content:center', onclick:() => openMeta() }, ic('settings'), 'Изменить название, дату, спикера'));
+      row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Автор и дата не указаны', from),
+      h('button', { type:'button', class:'btn', style:'justify-content:center', onclick:() => openMeta() }, ic('settings'), 'Изменить название, дату, автора'));
   },
   thesis(b, body, n){
     body.append(nameField(b, n));

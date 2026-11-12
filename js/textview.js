@@ -15,7 +15,7 @@ function renderTextView(){
       h('div', { class:'tv-stats', text:[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') }),
       h('div', { class:'tv-stats', text:stats })));
   state.blocks.forEach(b => { const el = tvBlock(b, nums[b.id]); if (el) doc.append(el); });
-  if (!state.blocks.length) doc.append(h('p', { class:'hint', text:'Пока нет ни одного слайда. Переключитесь на «Слайды» или откройте файл проповеди.' }));
+  if (!state.blocks.length) doc.append(h('p', { class:'hint', text:'Пока нет ни одного слайда. Добавить их можно в виде «Слайды».' }));
   mainEl.append(h('div', { class:'tv' }, doc, tvSide()));
   state.blocks.forEach(b => { if (PREVIEW[b.type]) schedulePreview(b); });
 }

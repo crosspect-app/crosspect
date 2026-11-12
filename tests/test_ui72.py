@@ -23,7 +23,7 @@ def test_settings_apply_keeps_window_and_new_fields(browser, base_url):
     page.evaluate("openSlidesCfg()")
     sheet = page.locator(".sheet.scfg")
     text = sheet.inner_text()
-    for there in ("Уменьшение до", "Увеличение до", "Лимит, симв.", "Место Писания", "Между стихами", "Между местом и текстом"):
+    for there in ("Уменьшение до", "Увеличение до", "Лимит, симв.", "Место Писания", "Между стихами", "Между ссылкой и текстом"):
         assert there in text, there
     for gone in ("Мельче до", "Крупнее до", "Стихи на слайдах Писания", "Тезис, до", "Цитата, до"):
         assert gone not in text, gone
@@ -38,7 +38,7 @@ def test_settings_apply_keeps_window_and_new_fields(browser, base_url):
     page.get_by_role("button", name="С новой строки").click()
     assert sheet.locator("[aria-label='Расстояние между стихами']").is_enabled()
     sheet.locator("[aria-label='Расстояние между стихами']").fill("0.6")
-    sheet.locator("[aria-label='Расстояние между местом Писания и текстом']").fill("1.2")
+    sheet.locator("[aria-label='Расстояние между ссылкой и текстом']").fill("1.2")
     sheet.locator("[aria-label='Заставка: название: между строками']").fill("1.3")
     sheet.locator("[aria-label='Заставка: имя и дата: между символами']").fill("0.02")
     page.get_by_role("button", name="Применить").click()

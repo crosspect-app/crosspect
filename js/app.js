@@ -80,7 +80,7 @@ function renderTopbar(){
   }
   if (screen === 'home'){
     topbar.className = 'topbar is-home';
-    const q = h('input', { type:'search', placeholder:'Название, спикер, место Писания', 'aria-label':'Поиск', value:homeQuery,
+    const q = h('input', { type:'search', placeholder:'Название, автор, место Писания', 'aria-label':'Поиск', value:homeQuery,
       oninput:e => { homeQuery = e.target.value; renderHomeList(); } });
     topbar.append(
       h('a', { class:'logo', href:'#', title:'Проповеди' }, 'Crosspect'),
@@ -96,9 +96,9 @@ function renderTopbar(){
   topbar.append(
     h('a', { class:'btn ghost', href:'#', title:'К списку проповедей' }, ic('back'), 'Проповеди'),
     h('span', { class:'vsep' }),
-    h('button', { type:'button', class:'hd-title', title:'Изменить название, дату, спикера', onclick:() => openMeta() },
+    h('button', { type:'button', class:'hd-title', title:'Изменить название, дату, автора', onclick:() => openMeta() },
       h('span', { class:'hd-name' + (m.title ? '' : ' empty'), text:m.title || 'Без названия' }),
-      h('span', { class:'hd-sub', text:[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') || 'Дата и спикер не указаны' })),
+      h('span', { class:'hd-sub', text:[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') || 'Дата и автор не указаны' })),
     cloudSermon() ? statusSwitch() : h('span', { class:'stchip st-' + st.key, text:st.label }),   // переключатель статуса (editor.js)
     h('div', { class:'grow' }),
     h('div', { class:'seg', role:'group', 'aria-label':'Вид проповеди' },
@@ -139,7 +139,7 @@ function updateStatus(){
   }
 }
 
-/* ----- Окно «О проповеди»: название, дата, спикер ----- */
+/* ----- Окно «О проповеди»: название, дата, автор ----- */
 let metaOpen = false;
 function openMeta(){
   if (readOnly()){ roHint(); return; }
@@ -151,7 +151,7 @@ function openMeta(){
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'О проповеди' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'О проповеди' }), iconBtn('close', 'Закрыть', closeSettings)),
-    h('div', { class:'set-grid', title:'Название, спикер и дата попадают на заставку' },
+    h('div', { class:'set-grid', title:'Название, автор и дата попадают на заставку' },
       field('Название', title),
       h('div', { class:'grid-2' }, field('Дата', date), preacherField())),
     h('div', { class:'sheet-foot' }, h('span'), h('button', { type:'button', class:'btn primary', onclick:closeSettings }, 'Готово'))));

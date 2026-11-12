@@ -1,92 +1,50 @@
 'use strict';
 
-/* ========= Работа редактора (этапы 7 и 7.2) =========
-   1. Статус конспекта: «В работе» (в облаке `draft`) и «Готов к вёрстке» (`submitted`). Новый конспект — «В работе».
+/* ========= Работа редактора (этапы 7, 7.2 и 7.3) =========
+   1. Статус конспекта (этап 7.3) — три: «Черновик» (в облаке `draft`), «Готов к вёрстке» (`submitted`), «У редактора» (`work`).
       Переключатель — один, на экране проповеди (statusSwitch); в списке проповедей статус только виден.
-      Спикер: «Готов к вёрстке» — конспект сохраняется и правка закрывается (как «Сохранить»); не вышло (нет связи) — статус
-      не меняется. Потом любая правка спикера сама возвращает «В работе». Редактор и админ меняют статус в любую сторону
-      отдельной записью (setStatus), без выхода из правки; их правки статус не сбрасывают.
-      Статус не меняется, пока проповедь правит другой (так и в правилах облака: замок свободен или свой).
+      Статус меняется только в режиме правки, как обычная правка: уходит в облако вместе с содержимым (автосохранение или
+      «Сохранить»), правку не закрывает и в отмену не входит. В просмотре щелчок по переключателю — подсказка «Редактировать».
+      «Черновик» ↔ «Готов к вёрстке» — в любую сторону, без ограничений. «У редактора» ставит и снимает только редактор или админ;
+      пока он стоит, автор (роль preacher) конспект не правит (canEditCloud в cloud.js, правило в cloud/firestore.rules).
    2. Отметка «доработать»: видят и ставят только редактор и админ, в любой момент (замок не нужен). Лежит не в проповеди,
-      а в закрытом от спикеров документе `editor/state`: { flags: { <id слайда>: { t: 1 | 0, s: подпись } } }.
-      t — отметка стоит; s — подпись содержимого слайда на тот момент, когда редактор решил. Если редактор снял отметку, а спикер
+      а в закрытом от авторов документе `editor/state`: { flags: { <id слайда>: { t: 1 | 0, s: подпись } } }.
+      t — отметка стоит; s — подпись содержимого слайда на тот момент, когда редактор решил. Если редактор снял отметку, а автор
       потом изменил слайд, подпись не совпадёт и отметка вернётся сама (считается при показе, отдельной записи не нужно).
       Слайды без записи: картинка, видео и свободный слайд — «доработать» (TYPES[type].todo), остальные — нет.
       Без входа (старый режим) отметка лежит в самой проповеди, как раньше. */
 
 /* ----- Статус ----- */
-/* Тексты уведомлений — короткие и по делу (проверены по humanizer и ru-product-texts) */
-const STATUS_MSG = {
-  reset:'Конспект снова «В работе»: вы его изменили',
-  readyPreacher:'Готов к вёрстке: конспект сохранён, правка закрыта. Редактор увидит это в списке',
-  ready:'Статус: «Готов к вёрстке»',
-  work:'Статус: «В работе»',
-  offline:'Нет связи с облаком, статус не изменился. Правки сохранятся сами, когда появится сеть',
-  offlineView:'Нет связи с облаком, статус не изменился',
-  quota:'Облако перегружено до 9:00, статус не изменился',
-  locked:who => 'Сейчас конспект правит ' + who + '. Статус можно поменять, когда правка закончится',
-  fail:'Статус не изменился'
-};
-let statusTouch = false, statusBusy = false;   // статус меняет сам переключатель: change() не должен считать это правкой спикера
-/* Вызывается из change(): спикер изменил готовый конспект — снова «В работе» */
-function statusOnEdit(){
-  if (statusTouch || !cloudOn() || cloud.role !== 'preacher' || !state || !isReady(state.cloudStatus)) return;
-  state.cloudStatus = 'draft';
+/* Можно ли этой роли ставить положение переключателя (облако проверит ещё раз) */
+const canPickStatus = key => key !== 'work' || cloud.role !== 'preacher';
+/* Щелчок по положению переключателя: в правке — обычная правка (уйдёт в облако с автосохранением), в просмотре — подсказка */
+function setSermonStatus(key){
+  if (!cloudSermon() || !STATUS_LABELS[key]) return;
+  if (!editing()){ roHint(); return; }
+  if (!canPickStatus(key) || statusKey(state.cloudStatus) === key) return;
+  state.cloudStatus = key;
+  state.updatedAt = Math.max(Date.now(), state.updatedAt + 1);   // как change(), но без истории отмены: статус в неё не входит
+  persistDraft();
+  onEdit();
   renderTopbar();
-  toast(STATUS_MSG.reset);
 }
-/* Можно ли менять статус этого конспекта (сам переключатель; облако проверит ещё раз) */
-const canSetStatus = () => cloudSermon() && canEditCloud();
-async function setSermonStatus(key){
-  if (!canSetStatus() || statusBusy) return;
-  if ((key === 'submitted') === isReady(state.cloudStatus)) return;
-  const l = otherLock();
-  if (l && l.email !== myEmail()){ toast(STATUS_MSG.locked(lockWho(l))); return; }
-  const s = state, prev = s.cloudStatus || 'draft';
-  statusBusy = true; renderTopbar();
-  try {
-    // спикер отправляет конспект на вёрстку: сохранить и закрыть правку
-    if (cloud.role === 'preacher' && key === 'submitted' && editing()){
-      s.cloudStatus = key;
-      const res = await closeEdit('status');
-      if (res === 'ok'){ toast(STATUS_MSG.readyPreacher); return; }
-      if (state === s) s.cloudStatus = prev;
-      if (res === 'offline') toast(STATUS_MSG.offline);
-      else if (res === 'quota') toast(STATUS_MSG.quota);
-      else if (res !== 'conflict' && res !== 'lost' && res !== 'none') toast(STATUS_MSG.fail);
-      return;
-    }
-    // конспекта в облаке ещё нет: статус уйдёт с первым сохранением
-    if (!s.cloudAt){ statusTouch = true; try { s.cloudStatus = key; change(); } finally { statusTouch = false; } toast(STATUS_MSG[key === 'submitted' ? 'ready' : 'work']); return; }
-    const r = await cloud.api.setStatus(cloud.space, s.id, cloud.user, key, { minutes:lockMins() });
-    if (state !== s) return;
-    s.cloudStatus = r.cloudStatus;
-    if (editing()){ s.cloudAt = r.cloudAt; s.cloudBy = r.cloudBy; ed.remote = Object.assign({}, ed.remote || {}, { cloudAt:r.cloudAt, cloudStatus:r.cloudStatus, lock:r.lock }); persistDraft(); }   // замок мой: содержимое уйдёт со следующим сохранением
-    else { ed.remote = r; setRemoteState(r); }
-    toast(STATUS_MSG[key === 'submitted' ? 'ready' : 'work']);
-  } catch(e){
-    if (state === s) s.cloudStatus = prev;
-    const code = (e && e.code) || '';
-    if (code === 'locked') toast(STATUS_MSG.locked(lockWho(e.lock)));
-    else if (/resource-exhausted/.test(code)) toast(STATUS_MSG.quota);
-    else if (netErr(e)) toast(STATUS_MSG.offlineView);
-    else toast(cloudExplain(e) || STATUS_MSG.fail);
-  } finally {
-    statusBusy = false;
-    if (state === s) rerenderKeep();
-  }
-}
-/* Переключатель статуса в шапке проповеди: два положения, щелчок переключает. Нельзя менять — просто метка */
+const STATUS_TIPS = {
+  draft:'Конспект ещё пишется',
+  submitted:'Конспект закончен: редактор увидит, что пора делать слайды',
+  work:'Конспект взял редактор. Пока стоит этот статус, автор конспект не правит',
+  workAuthor:'Этот статус ставит и снимает редактор'
+};
+/* Переключатель статуса в шапке проповеди: три положения. Чужой конспект автору — просто метка */
 function statusSwitch(){
-  const st = sermonStatus(state);
-  if (!canSetStatus()) return h('span', { class:'stchip st-' + st.key, text:st.label });
-  const ready = isReady(state.cloudStatus), preacher = cloud.role === 'preacher';
-  const tip = ready ? 'Вернуть статус «В работе»'
-    : preacher && editing() ? 'Конспект закончен? Переключите: он сохранится, правка закроется, и редактор увидит, что пора делать слайды'
-      : 'Отметить «Готов к вёрстке»: редактор увидит, что пора делать слайды';
-  return h('button', { type:'button', class:'stswitch' + (ready ? ' ready' : ''), role:'switch', 'aria-checked':String(ready), 'aria-label':'Статус конспекта',
-    title:tip, disabled:statusBusy, onclick:() => setSermonStatus(ready ? 'draft' : 'submitted') },
-    h('span', { class:'sw-opt' + (ready ? '' : ' on'), text:STATUS_LABELS.work }), h('span', { class:'sw-opt' + (ready ? ' on' : ''), text:STATUS_LABELS.done }));
+  const cur = statusKey(state.cloudStatus);
+  if (cloud.role === 'preacher' && !canEditCloud() && !atEditor(state)) return h('span', { class:'stchip st-' + cur, text:STATUS_LABELS[cur] });
+  const live = editing();
+  return h('div', { class:'stswitch st-' + cur + (live ? '' : ' view'), role:'radiogroup', 'aria-label':'Статус конспекта' },
+    STATUS_KEYS.map(k => {
+      const can = canPickStatus(k);
+      return h('button', { type:'button', role:'radio', class:'sw-opt st-' + k + (k === cur ? ' on' : ''), 'aria-checked':String(k === cur),
+        disabled:!can, title:can ? STATUS_TIPS[k] : STATUS_TIPS.workAuthor, onclick:() => setSermonStatus(k) }, STATUS_LABELS[k]);
+    }));
 }
 
 /* ----- Доработать ----- */
@@ -109,7 +67,7 @@ function blockSig(b){
   return (x >>> 0).toString(36);
 }
 
-/* Открыли проповедь: прочитать отметки редактора (спикеру они не нужны и недоступны) */
+/* Открыли проповедь: прочитать отметки редактора (автору они не нужны и недоступны) */
 async function loadFlags(id){
   flushFlags();
   Object.assign(fl, { id, map:{}, loaded:false, dirty:false });

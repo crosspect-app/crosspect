@@ -86,18 +86,7 @@ function fixOrphan(p){
   sp.n.parentNode.insertBefore(document.createElement('br'), after);
 }
 
-const NOISE = (() => {
-  try {
-    const z = 128, c = document.createElement('canvas'); c.width = c.height = z;
-    const x = c.getContext('2d'), d = x.createImageData(z, z);
-    for (let i = 0; i < d.data.length; i += 4){
-      const v = Math.random() * 255;
-      d.data[i] = Math.min(255, v + (Math.random() - .5) * 40); d.data[i + 1] = v; d.data[i + 2] = Math.min(255, v + (Math.random() - .5) * 40); d.data[i + 3] = 255;
-    }
-    x.putImageData(d, 0, 0); return 'url(' + c.toDataURL('image/png') + ')';
-  } catch(e){ return 'none'; }
-})();
-document.documentElement.style.setProperty('--noise', NOISE);
+/* Шум зерна (NOISE, --noise) — в background.js: теперь он одинаковый при каждом открытии */
 
 let FM = null;
 function fontMetrics(){
@@ -114,8 +103,9 @@ function fontMetrics(){
 
 function slideEl(b){
   // слайд всегда раскладывается в полном кадре 1920×1080 и только масштабируется — переносы как в итоговом JPEG
+  // фон: прежние пятна (.sl-glow) или картинка генератора (.sl-bg) — выбирают переменные из slideVars (background.js, bgVars)
   const kids = [h('div', { class:'sl-frame' }),
-    h('div', { class:'sl-panel' }, h('div', { class:'sl-glow' }), h('div', { class:'sl-grain' }), h('div', { class:'sl-vig' }))];
+    h('div', { class:'sl-panel' }, h('div', { class:'sl-glow' }), h('div', { class:'sl-bg' }), h('div', { class:'sl-grain' }), h('div', { class:'sl-vig' }))];
   if (!PREVIEW[b.type]){}   // картинка, видео, свободный: пустой слайд (рамка и фон) для JPEG
   else if (b.type === 'scripture') kids.push(h('div', { class:'sl-content' }), h('div', { class:'sl-tr' }));
   else if (b.type === 'splash') kids.push(
@@ -217,7 +207,10 @@ function layoutSplash(sl, b, px){
   const m = b.meta || state.meta, box = sl.querySelector('.sl-sp-box'), t = sl.querySelector('.sl-sp-title'), foot = sl.querySelector('.sl-sp-foot');
   sl.querySelector('.sl-sp-name').innerHTML = splashNameHTML(m);
   sl.querySelector('.sl-sp-date').textContent = splashDate(m.date);
-  box.style.bottom = (SL.H - foot.offsetTop + SPLASH.gap) + 'px';   // название — посередине над линией с именем и датой
+  // «Только название» (настройка слайдов, этап 7.3): линии, имени и даты нет, название — посередине всей области текста
+  const only = !!slidesCfg().kinds.splash.titleOnly;
+  foot.style.display = only ? 'none' : '';
+  box.style.bottom = only ? 'var(--sl-b)' : (SL.H - foot.offsetTop + SPLASH.gap) + 'px';   // иначе — посередине над линией с именем и датой
   const title = String(m.title || '').trim();
   t.classList.toggle('sl-empty', !title);
   t.textContent = typoText(title || 'Название проповеди');

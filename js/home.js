@@ -68,7 +68,6 @@ function renderHome(){
     h('div', { class:'home-top' },
       h('h1', { text:'Проповеди' }),
       h('div', { class:'grow' }),
-      h('button', { type:'button', class:'btn hide-sm', onclick:() => fileInput.click() }, ic('open'), 'Открыть файл'),
       h('button', { type:'button', class:'btn primary big', onclick:() => newSermon() }, ic('plus'), 'Новая проповедь')),
     h('div', { id:'home-list' })));
   renderHomeList();
@@ -84,10 +83,9 @@ function renderHomeList(){
   if (!all.length && !(on && ci.only.length)){
     box.append(h('div', { class:'empty' },
       h('div', { class:'empty-title', text:'Пока нет ни одной проповеди' }),
-      h('p', { class:'hint', text:on ? 'Создайте новую или откройте файл, который вы сохраняли раньше: при сохранении он попадёт в облако. Старые файлы форма откроет сама.' : 'Создайте новую или откройте файл, который вы сохраняли раньше. Старые файлы форма откроет сама.' }),
+      h('p', { class:'hint', text:'Нажмите «Новая проповедь», чтобы начать первый конспект.' }),
       h('div', { class:'chips' },
-        h('button', { type:'button', class:'btn primary', onclick:() => newSermon() }, ic('plus'), 'Новая проповедь'),
-        h('button', { type:'button', class:'btn', onclick:() => fileInput.click() }, ic('open'), 'Открыть файл'))));
+        h('button', { type:'button', class:'btn primary', onclick:() => newSermon() }, ic('plus'), 'Новая проповедь'))));
     return;
   }
   const list = all.filter(d => !q || haystack(d).includes(q)), today = isoToday();
@@ -100,7 +98,7 @@ function renderHomeList(){
   if (past.length) box.append(h('section', { class:'home-sec' },
     h('div', { class:'cap-row' }, h('div', { class:'cap', text:'Прошедшие' }), h('span')),
     h('div', { class:'ptable' },
-      h('div', { class:'prow phead' }, h('span', { text:'Дата' }), h('span', { text:'Название' }), h('span', { text:'Спикер' }), h('span', { text:'Слайдов' }), h('span', { text:'Статус' }), h('span')),
+      h('div', { class:'prow phead' }, h('span', { text:'Дата' }), h('span', { text:'Название' }), h('span', { text:'Автор' }), h('span', { text:'Слайдов' }), h('span', { text:'Статус' }), h('span')),
       past.map(sermonRow))));
   if (on && ci.only.length){
     const only = ci.only.filter(d => !q || haystack(d).includes(q)).sort((a, b) => b.updatedAt - a.updatedAt);
@@ -142,7 +140,7 @@ function sermonCard(d){
       h('div', { class:'scard-body' },
         h('div', { class:'scard-top' }, h('span', { text:fmtDay(m.date) || 'Дата не указана' }), h('span', { class:'stchip st-' + st.key, text:st.label })),
         h('div', { class:'scard-title' + (m.title ? '' : ' empty'), text:m.title || 'Без названия' }),
-        h('div', { class:'scard-by', text:preacherName(m) || 'Спикер не указан' }),
+        h('div', { class:'scard-by', text:preacherName(m) || 'Автор не указан' }),
         cloudMark(d), lockMark(d),
         h('div', { class:'scard-foot' },
           h('span', { text:slides.length ? slides.length + ' ' + plural(slides.length, 'слайд', 'слайда', 'слайдов') : 'Слайдов пока нет' }),
