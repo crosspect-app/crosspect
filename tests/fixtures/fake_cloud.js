@@ -1,21 +1,43 @@
 // Подмена облака для тестов формы: та же форма ответов, что у js/cloud-api.mjs, но «база» — в localStorage страницы.
-// Состояние: localStorage['fake-cloud'] = { members:{email:{spaceId,role,firstName,lastName}}, space:{id,name,settings}, sermons:{id:{...}}, clock }.
+// Состояние: localStorage['fake-cloud'] = { members:{email:{role,firstName,lastName}}, space:{id,name,settings}, sermons:{id:{...}}, clock,
+//   admins:[почта] — админы всей формы (этап 8), spaces:{ id: { space:{id,name,settings}, members, sermons, slides, flags } } — другие пространства }.
+// Первое пространство лежит прямо в корне (так его правят старые тесты: fakeCloud.db().sermons.s1), остальные — в spaces.
+// Список на главной (listen) отдаёт строки-сводки, как cloud-api.mjs (fromSummary): без слайдов, с их числом.
 // Замок (этап 6) — как в правилах: чужой живой замок не взять (редактор — с force), запись под чужим — 'lost-lock'.
 // localStorage['fake-offline'] = '1' — «нет сети»: запись и замок отвечают ошибкой unavailable.
 (function(){
   const KEY = 'fake-cloud';
-  const load = () => JSON.parse(localStorage.getItem(KEY) || '{"members":{},"space":{"id":"sp1","name":"Тест","settings":{}},"sermons":{},"clock":1000}');
+  const load = () => (rootDb = JSON.parse(localStorage.getItem(KEY) || '{"members":{},"space":{"id":"sp1","name":"Тест","settings":{}},"sermons":{},"clock":1000}'));
   const store = db => localStorage.setItem(KEY, JSON.stringify(db));
   const listeners = new Set();
   let cb = null;
   const tick = db => { db.clock += 1000; return Date.now() + db.clock; };
+  /* Пространство по id: первое — сам корень, остальные — db.spaces[id] (у них те же поля: space, members, sermons, slides, flags) */
+  const S = (db, space) => {
+    if (db.space && (!space || space === db.space.id)) return db;
+    const x = (db.spaces || {})[space];
+    if (!x) throw fail('permission-denied', 'Missing or insufficient permissions');
+    x.members = x.members || {}; x.sermons = x.sermons || {};
+    return x;
+  };
+  const allSp = db => (db.space ? [db] : []).concat(Object.values(db.spaces || {}));   // space: null — пространств нет совсем
   const view = (db, r) => ({ app:'swp-sermon', v:r.v, id:r.id, meta:r.meta, settings:r.settings, blocks:r.blocks, createdAt:r.createdAt, updatedAt:r.updatedAt,
     cloudSpace:db.space.id, cloudAt:r.updatedAt, cloudOwner:r.owner, cloudStatus:r.status, cloudBy:r.updatedBy, lock:r.lock || null });
+  /* Сводка, как summaryOf + fromSummary в cloud-api.mjs */
+  const row = (db, r) => {
+    const m = r.meta || {}, blocks = r.blocks || [], refs = [];
+    blocks.forEach(b => { if (b && b.type === 'scripture') (b.items || []).forEach(it => { if (it && it.ref) refs.push(it.ref); }); });
+    return { id:r.id, summary:true, meta:{ title:m.title || '', date:m.date || '', firstName:m.firstName || '', lastName:m.lastName || '' },
+      updatedAt:r.updatedAt, cloudSpace:db.space.id, cloudAt:r.updatedAt, cloudOwner:r.owner, cloudStatus:r.status, cloudBy:r.updatedBy,
+      lock:r.lock || null, slides:blocks.filter(b => b && b.type !== 'note').length, refs:refs.join(' · ') };
+  };
   const live = (db, l) => !!l && Date.now() < l.beat + ((db.space.settings || {}).lockMinutes || 10) * 60000;
   const fail = (code, message, extra) => Object.assign(new Error(message || code), { code }, extra);
   const offline = () => { if (localStorage.getItem('fake-offline') === '1') throw fail('unavailable', 'offline'); };
   const me = () => JSON.parse(localStorage.getItem('fake-user') || 'null');
-  const isEditor = (db, email) => { const m = db.members[email]; return !!m && m.role !== 'preacher'; };
+  let rootDb = null;   // корень базы для проверки админа, пока функция работает с одним пространством
+  const isAdmin = email => !!rootDb && (rootDb.admins || []).includes(email);
+  const isEditor = (db, email) => { if (isAdmin(email)) return true; const m = db.members[email]; return !!m && m.role !== 'preacher'; };
   // «У редактора» (этап 7.3), как в правилах: автор не правит, не берёт замок, не меняет статус и не удаляет; сам ставит только draft / submitted
   const denied = () => fail('permission-denied', 'Missing or insufficient permissions');
   const atEditor = r => !!r && (r.status === 'work' || r.status === 'done');
@@ -23,7 +45,7 @@
   function notify(){ listeners.forEach(f => f()); }
   window.fakeCloud = {   // для тестов: «другой человек» правит базу напрямую
     db: load, put(db){ store(db); notify(); },
-    calls: { save:0, lock:0, beat:0, release:0, flags:0 },
+    calls: { save:0, lock:0, beat:0, release:0, flags:0, list:0 },
   };
   const calls = window.fakeCloud.calls;
   window.CROSSPECT_AUTOSAVE_MS = 3000;   // в форме автосохранение раз в 30 секунд, тестам столько ждать незачем
@@ -32,109 +54,120 @@
     onUser(f){ cb = f; setTimeout(() => f(me()), 0); return () => {}; },
     async signIn(){ const u = JSON.parse(localStorage.getItem('fake-next-user') || '{"email":"admin@x.pl","name":"Админ"}'); localStorage.setItem('fake-user', JSON.stringify(u)); cb(u); },
     async signOut(){ localStorage.removeItem('fake-user'); cb(null); },
-    async spacesOf(email){ const db = load(), m = db.members[email]; return m ? [Object.assign({ spaceId:db.space.id, email }, m)] : []; },
-    async getSpace(){ const db = load(); return { name:db.space.name, settings:db.space.settings }; },
+    async spacesOf(email){
+      const out = [];
+      allSp(load()).forEach(x => { const m = x.members && x.members[email]; if (m) out.push(Object.assign({ spaceId:x.space.id, email }, m)); });
+      return out;
+    },
+    async getSpace(space){ const x = S(load(), space); return { name:x.space.name, settings:x.space.settings }; },
+    async isAdmin(email){ load(); return isAdmin(email); },
+    async allSpaces(){
+      const db = load(), u = me();
+      if (!u || !isAdmin(u.email)) throw fail('permission-denied', 'Missing or insufficient permissions');
+      return allSp(db).map(x => ({ id:x.space.id, name:x.space.name, settings:x.space.settings || {} }));
+    },
     listen(space, restrict, onList){
-      const f = () => { const db = load(); onList(Object.values(db.sermons).filter(r => !restrict || r.owner === restrict).sort((a, b) => b.updatedAt - a.updatedAt).map(r => view(db, r)), false); };
+      calls.list++;
+      const f = () => { const x = S(load(), space); onList(Object.values(x.sermons).filter(r => !restrict || r.owner === restrict).sort((a, b) => b.updatedAt - a.updatedAt).map(r => row(x, r)), false); };
       listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
     },
     watch(space, id, onDoc){
-      const f = () => { const db = load(), r = db.sermons[id]; onDoc(r ? view(db, r) : null, { fromCache:false }); };
+      const f = () => { const x = S(load(), space), r = x.sermons[id]; onDoc(r ? view(x, r) : null, { fromCache:false }); };
       listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
     },
-    async get(space, id){ const db = load(), r = db.sermons[id]; return r ? view(db, r) : null; },
+    async get(space, id){ const x = S(load(), space), r = x.sermons[id]; return r ? view(x, r) : null; },
     async save(space, s, who, opts){
       calls.save++; offline();
       if (localStorage.getItem('fake-quota') === '1') throw fail('resource-exhausted', 'Облако перегружено до 9:00');   // дневной запас базы исчерпан
       opts = opts || {};
-      const db = load(), cur = db.sermons[s.id], L = opts.lock || null, my = who.email;
-      if (authorBlocked(db, my, cur && (s.cloudAt || opts.force) ? cur : null, opts.status)) throw denied();
+      const db = load(), x = S(db, space), cur = x.sermons[s.id], L = opts.lock || null, my = who.email;
+      if (authorBlocked(x, my, cur && (s.cloudAt || opts.force) ? cur : null, opts.status)) throw denied();
       const body = JSON.parse(JSON.stringify({ v:s.v, meta:s.meta, settings:s.settings, blocks:(s.blocks || []).map(b => { const c = Object.assign({}, b); delete c.todo; delete c.done; return c; }) }));   // как content() в cloud-api.mjs
       if (cur && (s.cloudAt || opts.force)){
         const l = cur.lock || null, held = !!(L && L.at && l && l.email === my && l.at === L.at);
-        if (L && l && !held && live(db, l)) throw fail('lost-lock', 'Проповедь сейчас правит другой', { lock:l, remote:view(db, cur) });
+        if (L && l && !held && live(x, l)) throw fail('lost-lock', 'Проповедь сейчас правит другой', { lock:l, remote:view(x, cur) });
         const ownLater = held && cur.updatedAt >= l.at && cur.updatedBy === my;
-        if (!opts.force && cur.updatedAt !== s.cloudAt && !ownLater) throw fail('conflict', 'В облаке проповедь успели изменить', { remote:view(db, cur) });
+        if (!opts.force && cur.updatedAt !== s.cloudAt && !ownLater) throw fail('conflict', 'В облаке проповедь успели изменить', { remote:view(x, cur) });
         const at = tick(db);
         Object.assign(cur, body, { updatedAt:at, updatedBy:my });
         if (opts.status) cur.status = opts.status;
         if (L) cur.lock = L.release ? null : held ? Object.assign({}, l, { beat:at }) : { email:my, name:L.name || my, at, beat:at };
       } else if (cur){
-        throw fail('conflict', 'В облаке уже есть такая проповедь', { remote:view(db, cur) });
+        throw fail('conflict', 'В облаке уже есть такая проповедь', { remote:view(x, cur) });
       } else {
         const at = tick(db);
-        db.sermons[s.id] = Object.assign(body, { id:s.id, status:opts.status || 'draft', owner:opts.owner != null ? opts.owner : my, createdBy:my, createdAt:at, updatedAt:at, updatedBy:my,
+        x.sermons[s.id] = Object.assign(body, { id:s.id, status:opts.status || 'draft', owner:opts.owner != null ? opts.owner : my, createdBy:my, createdAt:at, updatedAt:at, updatedBy:my,
           lock:L && !L.release ? { email:my, name:L.name || my, at, beat:at } : null });
       }
-      store(db); notify(); return view(db, db.sermons[s.id]);
+      store(db); notify(); return view(x, x.sermons[s.id]);
     },
     async lock(space, id, who, name, opts){
       calls.lock++; offline();
       opts = opts || {};
-      const db = load(), cur = db.sermons[id], my = who.email;
+      const db = load(), x = S(db, space), cur = x.sermons[id], my = who.email;
       if (!cur) throw fail('missing', 'Этой проповеди уже нет в облаке');
-      if (authorBlocked(db, my, cur)) throw denied();
+      if (authorBlocked(x, my, cur)) throw denied();
       const l = cur.lock || null, same = !!(l && l.email === my && opts.at && l.at === opts.at);
-      if (l && !same && live(db, l)){
+      if (l && !same && live(x, l)){
         if (!opts.force) throw fail('locked', 'Проповедь сейчас правят', { lock:l });
-        if (l.email !== my && !isEditor(db, my)) throw fail('locked', 'Проповедь сейчас правят', { lock:l });
+        if (l.email !== my && !isEditor(x, my)) throw fail('locked', 'Проповедь сейчас правят', { lock:l });
       }
-      const at = tick(db), before = view(db, cur);
+      const at = tick(db), before = view(x, cur);
       cur.lock = { email:my, name:name || my, at:same ? l.at : at, beat:at };
       store(db);
       // как Firestore при открытом слушателе: перечитанная версия — ещё без нового замка, он приходит слушателю позже
       if (localStorage.getItem('fake-stale-lock') === '1'){ setTimeout(notify, 300); return before; }
-      notify(); return view(db, cur);
+      notify(); return view(x, cur);
     },
     async beat(space, id){
       calls.beat++; offline();
-      const db = load(), cur = db.sermons[id], u = me();
+      const db = load(), x = S(db, space), cur = x.sermons[id], u = me();
       if (!cur || !cur.lock || !u || cur.lock.email !== u.email) throw fail('permission-denied', 'Missing or insufficient permissions');
       cur.lock.beat = tick(db);
       store(db); notify();
     },
     async release(space, id, who, at){
       calls.release++; offline();
-      const db = load(), cur = db.sermons[id];
+      const db = load(), x = S(db, space), cur = x.sermons[id];
       if (cur && cur.lock && cur.lock.email === who.email && (!at || cur.lock.at === at)){ cur.lock = null; store(db); notify(); }
     },
     /* Отметки редактора: только редактор и админ, как в правилах */
     async getFlags(space, id){
-      const db = load(), u = me();
-      if (!u || !isEditor(db, u.email)) return {};
-      return JSON.parse(JSON.stringify((db.flags || {})[id] || {}));
+      const db = load(), x = S(db, space), u = me();
+      if (!u || !isEditor(x, u.email)) return {};
+      return JSON.parse(JSON.stringify((x.flags || {})[id] || {}));
     },
     async setFlags(space, id, who, flags){
       calls.flags++; offline();
-      const db = load();
-      if (!isEditor(db, who.email)) throw fail('permission-denied', 'Missing or insufficient permissions');
-      db.flags = db.flags || {}; db.flags[id] = JSON.parse(JSON.stringify(flags || {}));
+      const db = load(), x = S(db, space);
+      if (!isEditor(x, who.email)) throw fail('permission-denied', 'Missing or insufficient permissions');
+      x.flags = x.flags || {}; x.flags[id] = JSON.parse(JSON.stringify(flags || {}));
       store(db);
     },
     /* Настройки слайдов пространства: читают все, пишут редактор и админ */
     watchSlides(space, onCfg){
-      const f = () => { const db = load(); onCfg(db.slides ? JSON.parse(JSON.stringify(db.slides)) : null); };
+      const f = () => { const db = load(), x = S(db, space); onCfg(x.slides ? JSON.parse(JSON.stringify(x.slides)) : null); };
       listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
     },
-    async getSlides(space){ const db = load(); return db.slides ? JSON.parse(JSON.stringify(db.slides)) : null; },
+    async getSlides(space){ const db = load(), x = S(db, space); return x.slides ? JSON.parse(JSON.stringify(x.slides)) : null; },
     async setSlides(space, who, slides){
       calls.slides = (calls.slides || 0) + 1; offline();
-      const db = load();
-      if (!isEditor(db, who.email)) throw fail('permission-denied', 'Missing or insufficient permissions');
-      db.slides = JSON.parse(JSON.stringify(slides || {}));
+      const db = load(), x = S(db, space);
+      if (!isEditor(x, who.email)) throw fail('permission-denied', 'Missing or insufficient permissions');
+      x.slides = JSON.parse(JSON.stringify(slides || {}));
       store(db); notify();
     },
     /* Статус отдельно от содержимого (этап 7.2): замок свободен или мой; чужой истёкший — снимается */
     async setStatus(space, id, who, status){
       calls.status = (calls.status || 0) + 1; offline();
-      const db = load(), cur = db.sermons[id], my = who.email;
+      const db = load(), x = S(db, space), cur = x.sermons[id], my = who.email;
       if (!cur) throw fail('missing', 'Этой проповеди уже нет в облаке');
       const l = cur.lock || null;
-      if (l && l.email !== my && live(db, l)) throw fail('locked', 'Проповедь сейчас правят', { lock:l });
-      if (!isEditor(db, my) && (cur.owner !== my || atEditor(cur) || !['draft', 'submitted'].includes(status))) throw fail('permission-denied', 'Missing or insufficient permissions');
+      if (l && l.email !== my && live(x, l)) throw fail('locked', 'Проповедь сейчас правят', { lock:l });
+      if (!isEditor(x, my) && (cur.owner !== my || atEditor(cur) || !['draft', 'submitted'].includes(status))) throw fail('permission-denied', 'Missing or insufficient permissions');
       if (l && l.email !== my) cur.lock = null;
       Object.assign(cur, { status, updatedAt:tick(db), updatedBy:my });
-      store(db); notify(); return view(db, cur);
+      store(db); notify(); return view(x, cur);
     },
     /* Настройки экрана человека (этап 7.2): у каждой почты своя запись */
     async getPrefs(who){ offline(); const db = load(); const p = (db.prefs || {})[who.email]; return p ? JSON.parse(JSON.stringify(p)) : null; },
@@ -144,8 +177,8 @@
       store(db);
     },
     async remove(space, id){
-      const db = load(), u = me();
-      if (u && db.sermons[id] && !isEditor(db, u.email) && db.sermons[id].status !== 'draft') throw denied();   // автор удаляет только свой черновик
-      delete db.sermons[id]; if (db.flags) delete db.flags[id]; store(db); notify(); },
+      const db = load(), x = S(db, space), u = me();
+      if (u && x.sermons[id] && !isEditor(x, u.email) && x.sermons[id].status !== 'draft') throw denied();   // автор удаляет только свой черновик
+      delete x.sermons[id]; if (x.flags) delete x.flags[id]; store(db); notify(); },
   };
 })();

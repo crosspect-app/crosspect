@@ -7,7 +7,7 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import * as A from 'firebase/auth';
 import * as F from 'firebase/firestore';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { createCloudAPI, explain } from '../../js/cloud-api.mjs';
+import { createCloudAPI, explain, summaryOf } from '../../js/cloud-api.mjs';
 
 const PROJECT = 'demo-crosspect';
 const [fsHost, fsPort] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
@@ -22,8 +22,9 @@ before(async () => {
     const db = ctx.firestore();
     await db.doc('spaces/sp1').set({ name: 'Тест', settings: { lockMinutes: 10 } });
     await db.doc('spaces/closed').set({ name: 'Закрытое', settings: { preachersSeeAll: false } });
+    await db.doc('admins/admin@x.pl').set({ email: 'admin@x.pl' });   // админ всей формы (этап 8): в пространствах не участник
     for (const [sp, email, role, first, last] of [
-      ['sp1', 'admin@x.pl', 'admin', 'Ад', 'Мин'], ['sp1', 'ivan@x.pl', 'preacher', 'Иван', 'Петров'], ['sp1', 'petr@x.pl', 'preacher', 'Пётр', 'Сидоров'],
+      ['sp1', 'ivan@x.pl', 'preacher', 'Иван', 'Петров'], ['sp1', 'petr@x.pl', 'preacher', 'Пётр', 'Сидоров'],
       ['closed', 'ivan@x.pl', 'preacher', 'Иван', 'Петров'], ['closed', 'petr@x.pl', 'preacher', 'Пётр', 'Сидоров']])
       await db.doc(`spaces/${sp}/members/${email}`).set({ email, role, firstName: first, lastName: last });
   });
@@ -65,6 +66,17 @@ describe('вход', () => {
     assert.equal(mine.find((m) => m.spaceId === 'sp1').firstName, 'Иван');
     const stranger = await client('stranger@x.pl');
     assert.deepEqual(await stranger.spacesOf('stranger@x.pl'), []);
+  });
+  test('админ всей формы: isAdmin и все пространства; остальным — нет', async () => {
+    const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');
+    assert.equal(await admin.isAdmin('Admin@X.pl'), true);
+    assert.equal(await ivan.isAdmin('ivan@x.pl'), false);
+    assert.equal(await ivan.isAdmin('admin@x.pl'), false, 'чужую запись не прочитать: считается «не админ»');
+    const all = await admin.allSpaces();
+    assert.deepEqual(all.map((x) => x.id).sort(), ['closed', 'sp1']);
+    assert.equal(all.find((x) => x.id === 'closed').settings.preachersSeeAll, false);
+    await assert.rejects(ivan.allSpaces(), (e) => /permission-denied/.test(e.code));
+    assert.deepEqual(await admin.spacesOf('admin@x.pl'), []);
   });
   test('getSpace отдаёт название и настройки', async () => {
     const api = await client('admin@x.pl');
@@ -149,6 +161,13 @@ describe('список', () => {
     assert.ok(ids.includes('new1') && ids.includes('upd1'));
     for (let i = 1; i < items.length; i++) assert.ok(items[i - 1].updatedAt >= items[i].updatedAt);
     assert.ok(items.every((x) => x.cloudSpace === 'sp1' && x.cloudAt === x.updatedAt));
+    // в списке — сводки: без слайдов, с их числом
+    const one = items.find((x) => x.id === 'new1');
+    assert.equal(one.summary, true);
+    assert.equal(one.slides, 2);
+    assert.equal(one.blocks, undefined);
+    assert.equal(one.meta.title, 'Вера');
+    assert.equal(one.cloudOwner, 'ivan@x.pl');
   });
   test('в закрытом пространстве проповедник спрашивает только свои; общий запрос база отклоняет', async () => {
     const ivan = await client('ivan@x.pl'), petr = await client('petr@x.pl');
@@ -169,6 +188,78 @@ describe('список', () => {
     await ivan.save('sp1', sermon('live1', 'Живая'), me('ivan@x.pl'));
     await got;
     assert.ok(seen.length >= 1);
+  });
+});
+
+describe('сводки (этап 8)', () => {
+  const summary = (id, space = 'sp1') => env.withSecurityRulesDisabled(async (ctx) => {
+    const snap = await ctx.firestore().doc(`spaces/${space}/summaries/${id}`).get();
+    return snap.exists ? snap.data() : null;
+  });
+  const withRef = (id, title, extra = {}) => sermon(id, title, {
+    blocks: [{ id: 'b1', type: 'splash' }, { id: 'n', type: 'note', text: 'оператору' },
+      { id: 'b2', type: 'scripture', items: [{ kind: 'scripture', ref: 'Ин. 3:16', verses: [] }, { kind: 'scripture', ref: 'Рим. 5:8', verses: [] }] }],
+    ...extra,
+  });
+  test('summaryOf: число слайдов без заметок, места Писания, поля проповеди', () => {
+    const d = summaryOf({ meta: { title: 'Т', date: '2026-11-15' }, blocks: withRef('x', 'Т').blocks, status: 'draft', owner: 'a@b.c', updatedAt: 5, updatedBy: 'a@b.c' });
+    assert.deepEqual(d, { title: 'Т', date: '2026-11-15', firstName: '', lastName: '', status: 'draft', owner: 'a@b.c',
+      updatedAt: 5, updatedBy: 'a@b.c', lock: null, slides: 2, refs: 'Ин. 3:16 · Рим. 5:8' });
+  });
+  test('сводка пишется с каждой записью и совпадает с проповедью; удаление убирает её', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    const a = await ivan.save('sp1', withRef('sm1', 'Сводка'), me('ivan@x.pl'));
+    let s = await summary('sm1');
+    assert.equal(s.title, 'Сводка');
+    assert.equal(s.slides, 2);
+    assert.equal(s.refs, 'Ин. 3:16 · Рим. 5:8');
+    assert.equal(s.updatedAt.toMillis(), a.cloudAt);
+    // правка редактора меняет и сводку
+    const b = await admin.save('sp1', withRef('sm1', 'Правка', { cloudAt: a.cloudAt }), me('admin@x.pl'), { status: 'work' });
+    s = await summary('sm1');
+    assert.equal(s.title, 'Правка');
+    assert.equal(s.status, 'work');
+    assert.equal(s.updatedBy, 'admin@x.pl');
+    assert.equal(s.updatedAt.toMillis(), b.cloudAt);
+    await admin.remove('sp1', 'sm1');
+    assert.equal(await summary('sm1'), null);
+  });
+  test('замок попадает в сводку: взять, сигнал, отпустить; статус отдельно — тоже', async () => {
+    const ivan = await client('ivan@x.pl');
+    await ivan.save('sp1', sermon('sm2', 'Замок'), me('ivan@x.pl'));
+    const r = await ivan.lock('sp1', 'sm2', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    let s = await summary('sm2');
+    assert.equal(s.lock.email, 'ivan@x.pl');
+    assert.equal(s.lock.at.toMillis(), r.lock.at);
+    const before = s.lock.beat.toMillis();
+    await new Promise((res) => setTimeout(res, 20));
+    await ivan.beat('sp1', 'sm2');
+    s = await summary('sm2');
+    assert.ok(s.lock.beat.toMillis() > before);
+    assert.equal(s.lock.at.toMillis(), r.lock.at);
+    await ivan.release('sp1', 'sm2', me('ivan@x.pl'), r.lock.at);
+    s = await summary('sm2');
+    assert.equal(s.lock, null);
+    await ivan.setStatus('sp1', 'sm2', me('ivan@x.pl'), 'submitted');
+    assert.equal((await summary('sm2')).status, 'submitted');
+  });
+  test('живой список видит замок чужой правки', async () => {
+    const ivan = await client('ivan@x.pl'), petr = await client('petr@x.pl');
+    await ivan.save('sp1', sermon('sm3', 'Живой замок'), me('ivan@x.pl'));
+    const got = new Promise((res) => {
+      const off = petr.listen('sp1', null, (items) => {
+        const x = items.find((i) => i.id === 'sm3');
+        if (x && x.lock && x.lock.email === 'ivan@x.pl') { off(); res(x); }
+      }, () => {});
+    });
+    await ivan.lock('sp1', 'sm3', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    const x = await got;
+    assert.equal(x.lock.name, 'Иван');
+  });
+  test('автор в закрытом пространстве: новая проповедь со сводкой, список своих сводок', async () => {
+    const ivan = await client('ivan@x.pl');
+    await ivan.save('closed', sermon('sm4', 'Закрытая'), me('ivan@x.pl'));
+    assert.equal((await summary('sm4', 'closed')).owner, 'ivan@x.pl');
   });
 });
 

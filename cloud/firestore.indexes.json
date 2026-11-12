@@ -13,6 +13,8 @@
     { "collectionGroup": "sermons", "fieldPath": "blocks", "indexes": [] },
     { "collectionGroup": "sermons", "fieldPath": "settings", "indexes": [] },
     { "collectionGroup": "editor", "fieldPath": "flags", "indexes": [] },
-    { "collectionGroup": "shares", "fieldPath": "sermon", "indexes": [] }
+    { "collectionGroup": "shares", "fieldPath": "sermon", "indexes": [] },
+    { "collectionGroup": "summaries", "fieldPath": "refs", "indexes": [] },
+    { "collectionGroup": "summaries", "fieldPath": "lock", "indexes": [] }
   ]
 }

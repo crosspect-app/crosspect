@@ -524,13 +524,17 @@ async function saveSlidesCfg(next, btn, err, done){
   } finally { btn.textContent = 'Применить'; }   // активна ли кнопка дальше — решает окно (есть ли ещё неприменённые изменения)
 }
 /* Настройки пришли из облака (или их только что применили): запомнить в браузере и перерисовать слайды */
+/* Последняя копия настроек слайдов — у каждого пространства своя (swp-slides-cache:<id>, этап 8) */
+const slidesCacheKey = sp => 'swp-slides-cache:' + (sp || '');
 function slidesFromCloud(cfg){
-  LS.set('swp-slides-cache', JSON.stringify(cfg || null));
+  LS.set(slidesCacheKey(cloud.space), JSON.stringify(cfg || null));
   if (!setSlidesBase(cfg)) return;
   refreshSlides();
 }
-function loadSlidesCache(){
-  try { setSlidesBase(JSON.parse(LS.get('swp-slides-cache') || 'null')); } catch(e){ applySlides(); }
+/* sp — пространство; без него — то, где человек был в прошлый раз. Копия до этапа 8 (без пространства) годится, пока своей нет */
+function loadSlidesCache(sp){
+  sp = sp || LS.get('swp-space') || '';
+  try { setSlidesBase(JSON.parse(LS.get(slidesCacheKey(sp)) || LS.get('swp-slides-cache') || 'null')); } catch(e){ applySlides(); }
 }
 /* Перерисовать уже показанные слайды с новыми настройками, не трогая поля, где человек сейчас печатает */
 function refreshSlides(){

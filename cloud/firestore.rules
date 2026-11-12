@@ -5,13 +5,18 @@ rules_version = '2';
 // раздел «Модель данных». Тесты — cloud/tests/rules.test.mjs (идут в CI).
 //
 // Коротко:
+//   admins/{email}                   админы всей формы (этап 8). Пишет только служебный скрипт
+//                                    (cloud/scripts/admin.mjs); человек видит только свою запись
 //   spaces/{s}                       пространство (церковь). Создаёт и удаляет только
-//                                    служебный скрипт (cloud/scripts/admin.mjs), правит админ
-//   spaces/{s}/members/{email}       участник и роль: admin | editor | preacher
+//                                    служебный скрипт, правит админ; список всех видит админ
+//   spaces/{s}/members/{email}       участник и роль: editor | preacher (старая роль admin
+//                                    участника считается редактором); добавляет и меняет админ
 //   spaces/{s}/sermons/{id}          проповедь. Редактор и админ видят и правят всё,
 //                                    проповедник правит свои, видит все (если пространство
 //                                    разрешает) или только свои
 //   spaces/{s}/sermons/{id}/editor/state   отметки редактора; проповедник их не видит
+//   spaces/{s}/summaries/{id}        сводка проповеди для списка на главной (этап 8): пишется
+//                                    в одной записи с проповедью и совпадает с ней
 //   spaces/{s}/config/slides         настройки слайдов пространства: видят все, правят админ и редактор
 //   people/{email}/prefs/screen      раскладка экрана у человека: видит и правит только он сам
 //   shares/{key}                     снимок для оператора: читается по ключу без входа
@@ -41,13 +46,18 @@ service cloud.firestore {
       return /databases/$(database)/documents/spaces/$(s)/sermons/$(id);
     }
 
+    // Админ всей формы (этап 8): его почта лежит в admins/{email}. Видит все пространства
+    // и в каждом может всё, что редактор, плюс название, настройки и участники.
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(me()));
+    }
     function hasRole(s, roles) {
       return signedIn() && exists(memberPath(s)) && get(memberPath(s)).data.role in roles;
     }
-    function isMember(s)   { return hasRole(s, ['admin', 'editor', 'preacher']); }
-    function isEditor(s)   { return hasRole(s, ['admin', 'editor']); }  // админ — тоже редактор
-    function isAdmin(s)    { return hasRole(s, ['admin']); }
-    function isPreacher(s) { return hasRole(s, ['preacher']); }
+    // Роль admin у участника пространства — с этапа 8 просто редактор (перенос — admin.mjs migrate-8)
+    function isMember(s)   { return isAdmin() || hasRole(s, ['admin', 'editor', 'preacher']); }
+    function isEditor(s)   { return isAdmin() || hasRole(s, ['admin', 'editor']); }
+    function isPreacher(s) { return !isAdmin() && hasRole(s, ['preacher']); }
 
     function spaceSettings(s) {
       return get(spacePath(s)).data.get('settings', {});
@@ -85,10 +95,17 @@ service cloud.firestore {
         && (!('preachersSeeAll' in d.settings) || d.settings.preachersSeeAll is bool);
     }
 
+    // ---------- админы всей формы (этап 8) ----------
+    // Человек узнаёт, админ ли он, читая свою запись. Записывает только служебный скрипт.
+    match /admins/{email} {
+      allow get: if signedIn() && email == me();
+    }
+
     match /spaces/{s} {
       allow get: if isMember(s);
-      // Список всех пространств не читает никто: свои находятся через участников (ниже).
-      allow update: if isAdmin(s)
+      // Список всех пространств — только админу; остальные находят свои через участников (ниже).
+      allow list: if isAdmin();
+      allow update: if isAdmin()
         && validSpace(request.resource.data)
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null)
@@ -102,26 +119,27 @@ service cloud.firestore {
         return d.keys().hasAll(['email', 'role'])
           && d.keys().hasOnly(['email', 'role', 'firstName', 'lastName', 'addedBy', 'addedAt'])
           && d.email == email && isEmail(email)
-          && d.role in ['admin', 'editor', 'preacher']
+          && d.role in ['editor', 'preacher']
           && optStr(d, 'firstName', 100) && optStr(d, 'lastName', 100);
       }
 
       match /members/{email} {
         allow get: if isMember(s) || (signedIn() && email == me());
         allow list: if isMember(s);
-        allow create: if isAdmin(s)
+        allow create: if isAdmin()
           && validMember(email, request.resource.data)
           && request.resource.data.addedBy == me()
           && request.resource.data.addedAt == request.time;
-        // Админ правит других (себе роль не меняет — чтобы пространство не осталось без админа).
-        // Каждый может поправить своё имя и фамилию.
-        allow update: if validMember(email, request.resource.data)
-          && request.resource.data.get('addedBy', null) == resource.data.get('addedBy', null)
+        // Админ правит всех. Каждый может поправить своё имя и фамилию.
+        // Роль меняет только админ (старую роль admin у участника он может только заменить).
+        allow update: if request.resource.data.get('addedBy', null) == resource.data.get('addedBy', null)
           && request.resource.data.get('addedAt', null) == resource.data.get('addedAt', null)
-          && ((isAdmin(s) && email != me())
-              || (isMember(s) && email == me()
-                  && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName'])));
-        allow delete: if isAdmin(s) && email != me();
+          && (isAdmin()
+              ? validMember(email, request.resource.data)
+              : (isMember(s) && email == me()
+                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firstName', 'lastName'])
+                 && optStr(request.resource.data, 'firstName', 100) && optStr(request.resource.data, 'lastName', 100)));
+        allow delete: if isAdmin();
       }
 
       // ---------- настройки слайдов (этап 7.1) ----------
@@ -256,6 +274,41 @@ service cloud.firestore {
           // вместе с проповедью их может удалить и тот, кто удаляет проповедь
           allow delete: if isEditor(s) || (isMember(s) && !existsAfter(sermonPath(s, id)));
         }
+      }
+
+      // ---------- сводки для списка на главной (этап 8) ----------
+      // summaries/{id} — маленькая копия того, что нужно карточке: название, дата, автор, статус, хозяин,
+      // время правки, замок, число слайдов и места Писания для поиска. Форма пишет её в той же записи
+      // (транзакции или пачке), что и саму проповедь. База проверяет, что сводка совпадает с проповедью
+      // после записи и что проповедь в этой же записи изменилась (или удалена).
+      match /summaries/{id} {
+        function after() { return getAfter(sermonPath(s, id)).data; }
+        function validSummary(d, p) {
+          return d.keys().hasAll(['title', 'date', 'firstName', 'lastName', 'status', 'owner',
+                                  'updatedAt', 'updatedBy', 'lock', 'slides', 'refs'])
+            && d.keys().hasOnly(['title', 'date', 'firstName', 'lastName', 'status', 'owner',
+                                 'updatedAt', 'updatedBy', 'lock', 'slides', 'refs'])
+            && d.title == p.meta.get('title', '') && d.date == p.meta.get('date', '')
+            && d.firstName == p.meta.get('firstName', '') && d.lastName == p.meta.get('lastName', '')
+            && d.status == p.status && d.owner == p.owner
+            && d.updatedAt == p.updatedAt && d.updatedBy == p.updatedBy
+            && d.lock == p.get('lock', null)
+            && d.slides is int && d.slides >= 0 && d.slides <= 500
+            && str(d.refs, 2000);
+        }
+        // проповедь меняется в этой же записи: появилась, сменились время правки или замок
+        function sermonWritten() {
+          return !exists(sermonPath(s, id))
+            || get(sermonPath(s, id)).data.updatedAt != after().updatedAt
+            || get(sermonPath(s, id)).data.get('lock', null) != after().get('lock', null);
+        }
+        allow get, list: if isEditor(s)
+          || (isPreacher(s) && (resource.data.owner == me() || seeAll(s)));
+        allow create, update: if isMember(s)
+          && existsAfter(sermonPath(s, id))
+          && sermonWritten()
+          && validSummary(request.resource.data, after());
+        allow delete: if isMember(s) && !existsAfter(sermonPath(s, id));
       }
     }
 

@@ -47,13 +47,19 @@ function tree(dir) {
 
 describe('пространства', () => {
   let spaceId;
-  test('create-space заводит пространство и админа', () => {
+  test('create-space заводит пространство (и редактора, если указана почта)', async () => {
     const out = run('admin.mjs', 'create-space', '--name', 'Słowo Wiary Poznań',
-      '--email', 'Vitaly@Example.com', '--first', 'Виталий', '--last', 'Тестов');
-    spaceId = /: (\S+)\. Админ/.exec(out)[1];
+      '--email', 'Ed0@Example.com', '--first', 'Ред', '--last', 'Тестов');
+    spaceId = /создано: (\S+)\./.exec(out)[1];
     assert.ok(spaceId.length >= 10, 'id пространства выдаёт база');
+    const m = (await db.doc(`spaces/${spaceId}/members/ed0@example.com`).get()).data();
+    assert.equal(m.role, 'editor');
+    const bare = /создано: (\S+)\./.exec(run('admin.mjs', 'create-space', '--name', 'Без людей'))[1];
+    assert.equal((await db.collection(`spaces/${bare}/members`).get()).size, 0);
   });
-  test('админ из скрипта проходит правила', async () => {
+  test('set-admin: админ всей формы проходит правила, remove-admin снимает', async () => {
+    run('admin.mjs', 'set-admin', '--email', 'Vitaly@Example.com');
+    assert.ok((await db.doc('admins/vitaly@example.com').get()).exists);
     const fs = env.authenticatedContext('v', { email: 'vitaly@example.com', email_verified: true }).firestore();
     await assertSucceeds(getDoc(doc(fs, 'spaces', spaceId)));
     await assertSucceeds(updateDoc(doc(fs, 'spaces', spaceId), {
@@ -63,6 +69,10 @@ describe('пространства', () => {
     await assertSucceeds(setDoc(doc(fs, 'spaces', spaceId, 'members', 'ivan@example.com'), {
       email: 'ivan@example.com', role: 'preacher', addedBy: 'vitaly@example.com', addedAt: serverTimestamp(),
     }));
+    run('admin.mjs', 'set-admin', '--email', 'tmp@example.com');
+    run('admin.mjs', 'remove-admin', '--email', 'tmp@example.com');
+    assert.ok(!(await db.doc('admins/tmp@example.com').get()).exists);
+    assert.throws(() => run('admin.mjs', 'remove-admin', '--email', 'tmp@example.com'));
   });
   test('set-member добавляет и меняет роль, remove-member удаляет', async () => {
     run('admin.mjs', 'set-member', '--space', spaceId, '--email', 'ed@example.com', '--role', 'editor', '--first', 'Ред');
@@ -80,13 +90,46 @@ describe('пространства', () => {
   });
   test('ошибки ввода не пишут в базу', () => {
     assert.throws(() => run('admin.mjs', 'set-member', '--space', spaceId, '--email', 'x@y.z', '--role', 'owner'));
+    assert.throws(() => run('admin.mjs', 'set-member', '--space', spaceId, '--email', 'x@y.z', '--role', 'admin'));
     assert.throws(() => run('admin.mjs', 'set-member', '--space', 'nope', '--email', 'x@y.z', '--role', 'editor'));
-    assert.throws(() => run('admin.mjs', 'create-space', '--name', 'Без почты'));
+    assert.throws(() => run('admin.mjs', 'create-space'));
+    assert.throws(() => run('admin.mjs', 'set-admin', '--email', 'не почта'));
   });
-  test('list показывает пространства и участников', () => {
+  test('list показывает админов, пространства и участников', () => {
     const out = run('admin.mjs', 'list');
+    assert.match(out, /Админы всей формы: vitaly@example\.com/);
     assert.match(out, /Słowo Wiary Poznań/);
-    assert.match(out, /admin\s+vitaly@example\.com/);
+    assert.match(out, /editor\s+ed0@example\.com/);
+  });
+  test('migrate-8: роль admin → editor, сводки проповедей, лишние сводки убраны; повтор ничего не ломает', async () => {
+    await db.doc('spaces/m1').set({ name: 'Перенос', settings: {} });
+    await db.doc('spaces/m1/members/old@example.com').set({ email: 'old@example.com', role: 'admin', firstName: 'Старый' });
+    await db.doc('spaces/m1/members/pr@example.com').set({ email: 'pr@example.com', role: 'preacher' });
+    await db.doc('spaces/m1/sermons/s1').set({
+      v: 2, meta: { title: 'Вера', date: '2026-11-15', firstName: 'Иван', lastName: 'Петров' }, settings: {},
+      blocks: [{ id: 'a', type: 'splash' }, { id: 'n', type: 'note' }, { id: 'b', type: 'scripture', items: [{ kind: 'scripture', ref: 'Ин. 3:16' }] }],
+      status: 'submitted', owner: 'pr@example.com', createdBy: 'pr@example.com', createdAt: Timestamp.fromMillis(1000),
+      updatedAt: Timestamp.fromMillis(2000), updatedBy: 'pr@example.com', lock: null,
+    });
+    await db.doc('spaces/m1/summaries/gone').set({ title: 'Удалённая' });
+    for (let i = 0; i < 2; i++) {
+      const out = run('admin.mjs', 'migrate-8', '--email', 'boss@example.com');
+      assert.match(out, /Готово/);
+    }
+    assert.equal((await db.doc('spaces/m1/members/old@example.com').get()).data().role, 'editor');
+    assert.equal((await db.doc('spaces/m1/members/old@example.com').get()).data().firstName, 'Старый');
+    assert.equal((await db.doc('spaces/m1/members/pr@example.com').get()).data().role, 'preacher');
+    assert.ok((await db.doc('admins/boss@example.com').get()).exists);
+    const sm = (await db.doc('spaces/m1/summaries/s1').get()).data();
+    assert.equal(sm.title, 'Вера');
+    assert.equal(sm.slides, 2);
+    assert.equal(sm.refs, 'Ин. 3:16');
+    assert.equal(sm.updatedAt.toMillis(), 2000);
+    assert.equal(sm.lock, null);
+    assert.ok(!(await db.doc('spaces/m1/summaries/gone').get()).exists);
+    // сводка из скрипта читается по правилам и обновляется формой вместе с проповедью
+    const fs = env.authenticatedContext('p', { email: 'pr@example.com', email_verified: true }).firestore();
+    await assertSucceeds(getDoc(doc(fs, 'spaces', 'm1', 'summaries', 's1')));
   });
 });
 

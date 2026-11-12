@@ -1,5 +1,5 @@
-# Пространства и участники Crosspect — пока в форме нет своих настроек (этап 9)
-# и на случай, если в пространстве не осталось админа. Запускается вручную.
+# Пространства, участники и админы Crosspect — пока в форме нет своих настроек (этап 10).
+# Запускается вручную. Подробности о командах — в начале cloud/scripts/admin.mjs публичного репозитория.
 name: Пространства
 
 on:
@@ -8,18 +8,18 @@ on:
       action:
         description: 'Что сделать'
         type: choice
-        options: [list, set-member, remove-member, create-space]
+        options: [list, set-member, remove-member, create-space, set-admin, remove-admin, migrate-8]
         default: list
       space:
         description: 'id пространства (для set-member и remove-member; см. list)'
         required: false
       email:
-        description: 'Почта Google участника'
+        description: 'Почта Google (участника; для set-admin / remove-admin — админа; для create-space — первого редактора, можно пусто; для migrate-8 — кого сделать админом, можно пусто)'
         required: false
       role:
         description: 'Роль (для set-member)'
         type: choice
-        options: [preacher, editor, admin]
+        options: [preacher, editor]
         default: preacher
       first:
         description: 'Имя (необязательно)'

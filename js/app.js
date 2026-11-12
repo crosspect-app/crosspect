@@ -1,12 +1,14 @@
 'use strict';
 
 /* ========= Экраны, шапка, окно «О проповеди» =========
-   Адрес: пусто — главная; #s=<id> — проповедь в виде «Слайды»; #s=<id>&v=text — в виде «Текст». */
+   Адрес: пусто — главная; #s=<id>&sp=<пространство> — проповедь в виде «Слайды»; …&v=text — в виде «Текст».
+   sp (этап 8) — в каком пространстве проповедь: ссылка открывает её, даже если человек сейчас в другом.
+   Ссылка без sp (до этапа 8) открывает проповедь в текущем пространстве. */
 function navigate(hash){
   if ((location.hash || '') === hash || (!hash && !location.hash)) route();   // тот же адрес: события hashchange не будет
   else location.hash = hash;
 }
-const sermonHash = (id, v) => '#s=' + encodeURIComponent(id) + (v === 'text' ? '&v=text' : '');
+const sermonHash = (id, v) => '#s=' + encodeURIComponent(id) + (cloud.space ? '&sp=' + encodeURIComponent(cloud.space) : '') + (v === 'text' ? '&v=text' : '');
 
 function route(){
   const seq = ++routeSeq;
@@ -15,23 +17,24 @@ function route(){
   if (screen === 'sermon' && state) persistDraft();   // уходим с проповеди: черновик сохраняем сразу, не ждём паузы
   if (ed.id && ed.id !== id) endCloud();   // ушли с облачной проповеди: сохранить и отпустить замок
   if (cloudGate()){ screen = 'home'; renderAll(); return; }   // сначала вход; адрес остаётся, после входа откроется эта же проповедь
+  const sp = p.get('sp');
+  if (sp && sp !== cloud.space && !switchSpace(sp, true)){   // ссылка из другого пространства: переключаемся (cloud.js)
+    screen = 'home'; renderAll(); navigate(''); toast('Эта ссылка — из пространства, куда у вас нет доступа'); return;
+  }
   if (id){
-    if (!state || state.id !== id || (cloudOn() && ed.id !== id)){
-      const d = readDraft(id);
-      if (cloudOn()){
-        openCloudSermon(id, d, seq).then(r => {
-          if (!r) return;
-          if (r.missing){ screen = 'home'; renderAll(); navigate(''); toast(r.failed ? 'Нет связи с облаком, проповедь не открылась' : 'Эта проповедь не найдена'); return; }
-          state = r.state; selId = null;
-          beginCloud(r.remote, r.local, r.offline);   // просмотр или правка (замок)
-          persistDraft();   // в просмотре ничего не пишет
-          showSermon(p);
-          if (r.note) toast(r.note);
-        });
-        return;
-      }
-      if (!d){ screen = 'home'; renderAll(); navigate(''); toast('Эта проповедь не найдена в браузере. Откройте её файл'); return; }
-      state = normalize(d);
+    if (!state || state.id !== id || ed.id !== id){
+      let d = readDraft(id);
+      if (d && d.cloudSpace && d.cloudSpace !== cloud.space) d = null;   // черновик того же номера из другого пространства — не наш
+      openCloudSermon(id, d, seq).then(r => {
+        if (!r) return;
+        if (r.missing){ screen = 'home'; renderAll(); navigate(''); toast(r.failed ? 'Нет связи с облаком, проповедь не открылась' : 'Эта проповедь не найдена'); return; }
+        state = r.state; selId = null;
+        beginCloud(r.remote, r.local, r.offline);   // просмотр или правка (замок)
+        persistDraft();   // в просмотре ничего не пишет
+        showSermon(p);
+        if (r.note) toast(r.note);
+      });
+      return;
     }
     showSermon(p);
   } else { screen = 'home'; renderAll(); window.scrollTo(0, 0); }
@@ -54,9 +57,9 @@ function renderMain(){
   document.body.dataset.screen = screen;
   document.body.classList.toggle('ro', readOnly());
   if (screen === 'home' && cloudGate()){ document.title = 'Вход · Crosspect'; renderGate(); }
-  else if (screen === 'home'){ document.title = 'Проповеди · Слово веры'; renderHome(); }
+  else if (screen === 'home'){ document.title = 'Проповеди · ' + (cloud.spaceName || 'Crosspect'); renderHome(); }
   else {
-    document.title = (state.meta.title || 'Проповедь') + ' · Слово веры';
+    document.title = (state.meta.title || 'Проповедь') + ' · Crosspect';
     if (view === 'text') renderTextView(); else renderSlides();
   }
   updateStatus();
@@ -85,7 +88,7 @@ function renderTopbar(){
       oninput:e => { homeQuery = e.target.value; renderHomeList(); } });
     topbar.append(
       logoLockup('logo', { href:'#', title:'Проповеди' }),
-      h('span', { class:'org', text:cloudOn() && cloud.spaceName ? cloud.spaceName : 'Слово веры · Познань' }),
+      spacePicker(),
       h('div', { class:'grow' }),
       h('label', { class:'search' }, ic('search'), q),
       cloudOn() ? h('span', { class:'who hide-sm', title:cloud.user.email, text:(cloud.user.name || cloud.user.email) + ' · ' + (ROLE_NAMES[cloud.role] || '') }) : null,
@@ -114,6 +117,16 @@ function renderTopbar(){
   updateStatus();
 }
 
+/* Пространство в шапке главной: название, а у кого их несколько (и у админа) — выбор. Смена — сразу на главную нового */
+function spacePicker(){
+  if (!multiSpace()) return h('span', { class:'org', text:cloud.spaceName });
+  const sel = h('select', { class:'org-pick', 'aria-label':'Пространство', title:'Пространство: проповеди, люди и настройки слайдов у каждого свои',
+    onchange:e => switchSpace(e.target.value) },
+    cloud.spaces.map(sp => h('option', { value:sp.id, text:sp.name || sp.id })));
+  sel.value = cloud.space;
+  return h('label', { class:'org org-sel' }, sel, ic('down'));
+}
+
 /* Состояние сохранения в шапке и счётчики над лентой слайдов — обновляются на каждую правку */
 function updateStatus(){
   if (!state || screen !== 'sermon') return;
@@ -124,9 +137,7 @@ function updateStatus(){
       const [cls, text, click] = cloudStatusLine();
       s.className = 'hd-save ' + cls; s.textContent = text; s.onclick = click || null;
     }
-    else if (isDirty()){ s.className = 'hd-save warn'; s.textContent = '● Не сохранено в файл'; }
-    else if (state.savedAt){ s.className = 'hd-save ok'; s.textContent = '✓ Файл сохранён в ' + fmtTime(state.savedAt); }
-    else { s.className = 'hd-save'; s.textContent = 'Черновик хранится в этом браузере'; }
+    else { s.className = 'hd-save'; s.textContent = ''; s.onclick = null; }
   }
   const fc = $('#film-count');
   if (fc){
@@ -146,7 +157,7 @@ let metaOpen = false;
 function openMeta(){
   if (readOnly()){ roHint(); return; }
   const m = state.meta;
-  const upd = () => { change(); refreshSplash(); document.title = (m.title || 'Проповедь') + ' · Слово веры'; };
+  const upd = () => { change(); refreshSplash(); document.title = (m.title || 'Проповедь') + ' · Crosspect'; };
   const title = h('input', { class:'input', placeholder:'Название проповеди', value:m.title, autocomplete:'off', 'aria-label':'Название проповеди',
     oninput:e => { m.title = e.target.value; upd(); } });
   const date = h('input', { class:'input', type:'date', value:m.date || '', 'aria-label':'Дата', oninput:e => { m.date = e.target.value; upd(); } });

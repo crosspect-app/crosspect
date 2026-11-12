@@ -7,14 +7,44 @@
 //
 // Замок (этап 6): lock = { email, name, at — когда взят, beat — последний сигнал «я здесь» }, время ставит сервер.
 // Форма знает «свой» замок по паре почта + at: другая вкладка той же почты берёт замок заново, и at меняется.
+//
+// Сводки (этап 8): у каждой проповеди есть маленькая копия для списка на главной — spaces/{s}/summaries/{id}
+// (summaryOf ниже). Она пишется в той же записи (транзакции или пачке), что и сама проповедь, поэтому главная
+// слушает только сводки и не качает целые конспекты. Правила проверяют, что сводка совпадает с проповедью.
 
 const MAX_LIST = 200;               // сколько проповедей показывать на главной
 const MAX_BYTES = 900 * 1024;       // документ в Firestore — до 1 МиБ; предупреждаем заранее
+
+/* Сводка проповеди для списка: поля документа проповеди (после записи) → документ summaries/{id}.
+   Те же поля, что проверяют правила (validSummary в cloud/firestore.rules). Нужна и служебному скрипту
+   (cloud/scripts/admin.mjs migrate-8), поэтому не зависит от Firebase: время и замок копируются как есть. */
+export function summaryOf(d){
+  const m = d.meta || {}, blocks = Array.isArray(d.blocks) ? d.blocks : [];
+  const txt = v => (typeof v === 'string' ? v : '');
+  const refs = [];
+  blocks.forEach(b => {
+    if (b && b.type === 'scripture') (b.items || []).forEach(it => { if (it && typeof it.ref === 'string' && it.ref.trim()) refs.push(it.ref.trim()); });
+  });
+  return {
+    title: txt(m.title), date: txt(m.date), firstName: txt(m.firstName), lastName: txt(m.lastName),
+    status: d.status, owner: d.owner, updatedAt: d.updatedAt, updatedBy: d.updatedBy,
+    lock: d.lock || null,
+    slides: Math.min(500, blocks.filter(b => b && b.type !== 'note').length),   // заметка оператору — не слайд
+    refs: refs.join(' · ').slice(0, 2000),
+  };
+}
+/* Документ после update: поля из upd поверх прежних, 'lock.beat' — внутрь замка */
+function afterUpdate(cur, upd){
+  const d = Object.assign({}, cur, upd);
+  if ('lock.beat' in upd){ delete d['lock.beat']; d.lock = Object.assign({}, cur.lock || {}, { beat: upd['lock.beat'] }); }
+  return d;
+}
 
 export function createCloudAPI(fb){
   const { auth, db, A, F } = fb;
   const col = space => F.collection(db, 'spaces', space, 'sermons');
   const ref = (space, id) => F.doc(db, 'spaces', space, 'sermons', id);
+  const sumRef = (space, id) => F.doc(db, 'spaces', space, 'summaries', id);
   const lower = e => String(e || '').trim().toLowerCase();
   const ms = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : 0);
   const err = (code, message, extra) => Object.assign(new Error(message || code), { code }, extra);
@@ -45,6 +75,18 @@ export function createCloudAPI(fb){
       cloudSpace: space, cloudAt: ms(d.updatedAt), cloudOwner: d.owner || '',
       cloudStatus: d.status || 'draft', cloudBy: d.updatedBy || '',
       lock: lockOf(d.lock),
+    };
+  }
+  /* Сводка → строка списка на главной (как проповедь, но без слайдов: slides — их число, refs — места Писания) */
+  function fromSummary(space, snap, opt){
+    const d = snap.data(opt);
+    return {
+      id: snap.id, summary: true,
+      meta: { title: d.title || '', date: d.date || '', firstName: d.firstName || '', lastName: d.lastName || '' },
+      updatedAt: ms(d.updatedAt),
+      cloudSpace: space, cloudAt: ms(d.updatedAt), cloudOwner: d.owner || '',
+      cloudStatus: d.status || 'draft', cloudBy: d.updatedBy || '',
+      lock: lockOf(d.lock), slides: d.slides || 0, refs: d.refs || '',
     };
   }
   /* Проповедь формы → поля документа: без undefined и без лишнего (Firestore не принимает undefined) */
@@ -81,16 +123,28 @@ export function createCloudAPI(fb){
       const snap = await F.getDoc(F.doc(db, 'spaces', space));
       return snap.exists() ? snap.data() : null;
     },
+    /* Админ всей формы (этап 8): его почта лежит в admins/{почта}; свою запись может прочитать каждый */
+    async isAdmin(email){
+      try { return (await F.getDoc(F.doc(db, 'admins', lower(email)))).exists(); }
+      catch (e) { if (denied(e)) return false; throw e; }
+    },
+    /* Все пространства — только админу (остальным база откажет): [{ id, name, settings }] */
+    async allSpaces(){
+      const snap = await F.getDocs(F.collection(db, 'spaces'));
+      return snap.docs.map(d => ({ id: d.id, name: d.data().name || '', settings: d.data().settings || {} }));
+    },
 
     /* ----- проповеди ----- */
-    /* Живой список. restrictTo — почта: проповедник, которому не открыты чужие проповеди, спрашивает только свои
-       (иначе база отклонит весь запрос). Возвращает функцию «перестать слушать». */
+    /* Живой список — по сводкам (этап 8): строки без слайдов (fromSummary). restrictTo — почта: автор, которому
+       не открыты чужие проповеди, спрашивает только свои (иначе база отклонит весь запрос).
+       Возвращает функцию «перестать слушать». */
     listen(space, restrictTo, onList, onError){
+      const c = F.collection(db, 'spaces', space, 'summaries');
       const q = restrictTo
-        ? F.query(col(space), F.where('owner', '==', lower(restrictTo)), F.limit(MAX_LIST))
-        : F.query(col(space), F.orderBy('updatedAt', 'desc'), F.limit(MAX_LIST));
+        ? F.query(c, F.where('owner', '==', lower(restrictTo)), F.limit(MAX_LIST))
+        : F.query(c, F.orderBy('updatedAt', 'desc'), F.limit(MAX_LIST));
       return F.onSnapshot(q, snap => {
-        onList(snap.docs.filter(d => d.data().updatedAt).map(d => fromDoc(space, d, { serverTimestamps: 'estimate' })), snap.metadata.fromCache);
+        onList(snap.docs.filter(d => d.data({ serverTimestamps: 'estimate' }).updatedAt).map(d => fromSummary(space, d, { serverTimestamps: 'estimate' })), snap.metadata.fromCache);
       }, onError);
     },
     async get(space, id){
@@ -129,7 +183,7 @@ export function createCloudAPI(fb){
         // проповедь уже в облаке: обновляем, если с тех пор её никто не менял (или человек велел заменить)
         await F.runTransaction(db, async tx => {
           const cur = await tx.get(r);
-          if (!cur.exists()) { tx.set(r, fresh()); return; }
+          if (!cur.exists()) { const f = fresh(); tx.set(r, f); tx.set(sumRef(space, s.id), summaryOf(f)); return; }
           const d = cur.data(), at = ms(d.updatedAt), l = lockOf(d.lock);
           before = at;
           const held = !!(L && L.at && l && l.email === my && l.at === L.at);   // замок взят этой вкладкой и всё ещё её
@@ -144,6 +198,7 @@ export function createCloudAPI(fb){
             else upd.lock = newLock();   // замка нет или он истёк: берём заново
           }
           tx.update(r, upd);
+          tx.set(sumRef(space, s.id), summaryOf(afterUpdate(d, upd)));
         });
       } else {
         // новая или из файла: если такая уже есть — не затираем. Чтение несуществующей проповеди проповеднику в закрытом
@@ -152,7 +207,10 @@ export function createCloudAPI(fb){
         try { cur = await F.getDocFromServer(r); }
         catch (e) { if (!denied(e)) throw e; }
         if (cur && cur.exists()) throw err('conflict', 'В облаке уже есть такая проповедь', { remote: fromDoc(space, cur) });
-        await F.setDoc(r, fresh());
+        const f = fresh(), b = F.writeBatch(db);
+        b.set(r, f);
+        b.set(sumRef(space, s.id), summaryOf(f));
+        await b.commit();
       }
       const back = await readBack(r, snap => snap.exists() && ms(snap.data().updatedAt) > before);   // время ставит сервер: читаем его обратно
       return fromDoc(space, back);
@@ -172,7 +230,9 @@ export function createCloudAPI(fb){
           const raw = cur.data().lock || null, l = seen = lockOf(raw);
           const same = !!(l && l.email === my && opts.at && l.at === opts.at);
           if (l && !same && live(l, opts.minutes) && !opts.force) throw err('locked', 'Проповедь сейчас правят', { lock: l });
-          tx.update(r, { lock: { email: my, name: String(name || my).slice(0, 200), at: same ? raw.at : ts, beat: ts } });
+          const upd = { lock: { email: my, name: String(name || my).slice(0, 200), at: same ? raw.at : ts, beat: ts } };
+          tx.update(r, upd);
+          tx.set(sumRef(space, id), summaryOf(afterUpdate(cur.data(), upd)));
         });
       } catch (e) {
         if (denied(e) && seen && seen.email !== my) throw err('locked', 'Проповедь сейчас правят', { lock: seen });
@@ -182,9 +242,16 @@ export function createCloudAPI(fb){
       return fromDoc(space, await readBack(r, snap => { const l = snap.exists() && lockOf(snap.data().lock); return !!l && l.email === my && l.beat > was; }));
     },
 
-    /* Сигнал «я здесь»: продлить свой замок. Если замок забрали, база откажет (permission-denied) */
-    beat(space, id){
-      return F.updateDoc(ref(space, id), { 'lock.beat': F.serverTimestamp() });
+    /* Сигнал «я здесь»: продлить свой замок (и замок в сводке). Если замок забрали, база откажет (permission-denied) */
+    async beat(space, id){
+      const r = ref(space, id);
+      await F.runTransaction(db, async tx => {
+        const cur = await tx.get(r);
+        if (!cur.exists()) throw err('missing', 'Этой проповеди уже нет в облаке');
+        const upd = { 'lock.beat': F.serverTimestamp() };
+        tx.update(r, upd);
+        if (cur.data().lock) tx.set(sumRef(space, id), summaryOf(afterUpdate(cur.data(), upd)));   // замка нет — база всё равно откажет
+      });
     },
 
     /* Отпустить свой замок (at — какой именно: чужой или взятый в другой вкладке не трогаем) */
@@ -194,7 +261,10 @@ export function createCloudAPI(fb){
         const cur = await tx.get(r);
         if (!cur.exists()) return;
         const l = lockOf(cur.data().lock);
-        if (l && l.email === my && (!at || l.at === at)) tx.update(r, { lock: null });
+        if (l && l.email === my && (!at || l.at === at)){
+          tx.update(r, { lock: null });
+          tx.set(sumRef(space, id), summaryOf(afterUpdate(cur.data(), { lock: null })));
+        }
       });
     },
 
@@ -215,6 +285,7 @@ export function createCloudAPI(fb){
         const upd = { status, updatedAt: ts, updatedBy: my };
         if (l && l.email !== my) upd.lock = null;   // чужой истёкший замок
         tx.update(r, upd);
+        tx.set(sumRef(space, id), summaryOf(afterUpdate(d, upd)));
       });
       const back = await readBack(r, snap => snap.exists() && ms(snap.data().updatedAt) > before);
       return fromDoc(space, back);
@@ -260,10 +331,11 @@ export function createCloudAPI(fb){
         { slides: JSON.parse(JSON.stringify(slides || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
     },
 
-    /* Удалить проповедь (и отметки редактора, если они есть) */
+    /* Удалить проповедь (и её сводку, и отметки редактора, если они есть) */
     async remove(space, id){
       const b = F.writeBatch(db);
       b.delete(F.doc(db, 'spaces', space, 'sermons', id, 'editor', 'state'));
+      b.delete(sumRef(space, id));
       b.delete(ref(space, id));
       await b.commit();
     },
@@ -277,7 +349,7 @@ export function explain(e){
   if (/resource-exhausted/.test(c)) return 'Облако перегружено до 9:00: бесплатный дневной запас базы закончился. Правки лежат в этом браузере и уйдут в облако сами, когда запас обновится.';
   if (c === 'lost-lock' || c === 'locked') return 'Проповедь сейчас правит другой человек.';
   if (c === 'missing') return 'Этой проповеди уже нет в облаке.';
-  if (c === 'too-big') return 'Проповедь слишком большая для облака (больше 900 КБ). Уберите лишнее или сохраните файл.';
+  if (c === 'too-big') return 'Проповедь слишком большая для облака (больше 900 КБ). Уберите лишнее или скачайте файл: «⋯ → Скачать файл».';
   if (/permission-denied/.test(c)) return 'Нет прав на это действие. Проверьте, что вы вошли под своей почтой.';
   if (/unavailable|network|deadline|failed-precondition/.test(c) || /offline|network/i.test(String(e && e.message))) return 'Нет связи с облаком. Проверьте интернет и попробуйте ещё раз.';
   if (/popup-closed-by-user|cancelled-popup-request/.test(c)) return '';

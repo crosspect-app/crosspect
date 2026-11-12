@@ -7,13 +7,15 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, collectionGroup,
-  query, where, serverTimestamp, writeBatch, Timestamp,
+  query, where, serverTimestamp, writeBatch, Timestamp, runTransaction,
 } from 'firebase/firestore';
 
 const PROJECT = 'demo-crosspect';
 let env;
 
 // Пространство «sw»: проповедники видят всё. «closed»: только свои. «fast»: замок 1 минута.
+// admin — админ всей формы (admins/{почта}, этап 8), ни в одном пространстве не участник.
+// stranger — участник «other» со старой ролью admin: с этапа 8 это просто редактор «other».
 const PEOPLE = {
   admin: 'admin@example.com',
   ed: 'ed@example.com',
@@ -89,13 +91,14 @@ async function seed() {
     const member = (s, who, role) => setDoc(doc(db, 'spaces', s, 'members', PEOPLE[who]), {
       email: PEOPLE[who], role, firstName: who, lastName: 'Тестов',
     });
+    await setDoc(doc(db, 'admins', PEOPLE.admin), { email: PEOPLE.admin, addedAt: minutesAgo(1000) });
     for (const s of ['sw', 'closed', 'fast']) {
-      await member(s, 'admin', 'admin');
       await member(s, 'ed', 'editor');
       await member(s, 'ivan', 'preacher');
       await member(s, 'petr', 'preacher');
     }
     await member('other', 'stranger', 'admin');
+    await setDoc(doc(db, 'spaces', 'other', 'sermons', 'o1'), sermonData(''));
 
     for (const s of ['sw', 'closed', 'fast']) {
       await setDoc(doc(db, 'spaces', s, 'sermons', 'ivan1'), sermonData(PEOPLE.ivan));
@@ -158,17 +161,22 @@ describe('вход', () => {
 });
 
 describe('пространство', () => {
-  test('участник читает, список всех пространств закрыт', async () => {
+  test('участник читает; список всех пространств — только админу', async () => {
     await assertSucceeds(getDoc(doc(as('ivan'), 'spaces', 'sw')));
-    await assertFails(getDocs(collection(as('admin'), 'spaces')));
+    const all = await assertSucceeds(getDocs(collection(as('admin'), 'spaces')));
+    assertEqual(all.size, 4);
+    await assertFails(getDocs(collection(as('ed'), 'spaces')));
+    await assertFails(getDocs(collection(as('stranger'), 'spaces')));
   });
   test('правит только админ', async () => {
-    const upd = (who) => updateDoc(doc(as(who), 'spaces', 'sw'), {
+    const upd = (who, s = 'sw') => updateDoc(doc(as(who), 'spaces', s), {
       name: 'Słowo Wiary Poznań', 'settings.lockMinutes': 15, updatedAt: serverTimestamp(), updatedBy: PEOPLE[who],
     });
     await assertSucceeds(upd('admin'));
+    await assertSucceeds(upd('admin', 'other'));
     await assertFails(upd('ed'));
     await assertFails(upd('ivan'));
+    await assertFails(upd('stranger', 'other'));   // старая роль admin участника — уже не админ
   });
   test('неправильные настройки не записываются', async () => {
     const db = as('admin');
@@ -217,14 +225,29 @@ describe('участники', () => {
     await assertFails(add('admin', 'new@example.com', { role: 'owner' }));
     await assertFails(add('admin', 'new@example.com', { extra: 1 }));
     await assertFails(add('admin', 'not-an-email'));
+    await assertFails(add('admin', 'new@example.com', { role: 'admin' }));   // роли admin у участника больше нет
     await assertSucceeds(add('admin'));
+    await assertSucceeds(setDoc(doc(as('admin'), 'spaces', 'other', 'members', 'new@example.com'), {
+      email: 'new@example.com', role: 'editor', addedBy: PEOPLE.admin, addedAt: serverTimestamp(),
+    }));
+    await assertFails(setDoc(doc(as('stranger'), 'spaces', 'other', 'members', 'x@example.com'), {
+      email: 'x@example.com', role: 'preacher', addedBy: PEOPLE.stranger, addedAt: serverTimestamp(),
+    }));
   });
-  test('админ меняет роли других, себе — нет', async () => {
+  test('админ меняет роли и удаляет участников в любом пространстве', async () => {
     const db = as('admin');
     await assertSucceeds(updateDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'editor' }));
-    await assertFails(updateDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.admin), { role: 'preacher' }));
-    await assertFails(deleteDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.admin)));
+    await assertFails(updateDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'admin' }));
     await assertSucceeds(deleteDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.petr)));
+    await assertSucceeds(updateDoc(doc(db, 'spaces', 'other', 'members', PEOPLE.stranger), { role: 'editor' }));
+    await assertFails(updateDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'editor' }));
+    await assertFails(deleteDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan)));
+  });
+  test('со старой ролью admin своё имя поправить можно, роль — нет', async () => {
+    const me = doc(as('stranger'), 'spaces', 'other', 'members', PEOPLE.stranger);
+    await assertSucceeds(updateDoc(me, { firstName: 'Новое' }));
+    await assertFails(updateDoc(me, { role: 'editor' }));
+    await assertFails(deleteDoc(me));
   });
   test('каждый правит своё имя, но не роль', async () => {
     const db = as('ivan');
@@ -626,6 +649,149 @@ describe('ссылка для оператора', () => {
   test('удалить может тот, кто может править', async () => {
     await assertFails(deleteDoc(doc(as('petr'), 'shares', KEY)));
     await assertSucceeds(deleteDoc(doc(as('ivan'), 'shares', KEY)));
+  });
+});
+
+describe('админ всей формы (этап 8)', () => {
+  test('свою запись в admins видит только сам человек; записать её из браузера нельзя', async () => {
+    await assertSucceeds(getDoc(doc(as('admin'), 'admins', PEOPLE.admin)));
+    await assertSucceeds(getDoc(doc(as('ivan'), 'admins', PEOPLE.ivan)));   // записи нет — но спросить про себя можно
+    await assertFails(getDoc(doc(as('ivan'), 'admins', PEOPLE.admin)));
+    await assertFails(getDocs(collection(as('admin'), 'admins')));
+    await assertFails(getDoc(doc(anon(), 'admins', PEOPLE.admin)));
+    await assertFails(setDoc(doc(as('ivan'), 'admins', PEOPLE.ivan), { email: PEOPLE.ivan }));
+    await assertFails(setDoc(doc(as('admin'), 'admins', PEOPLE.ivan), { email: PEOPLE.ivan }));
+    await assertFails(deleteDoc(doc(as('admin'), 'admins', PEOPLE.admin)));
+  });
+  test('почта с заглавными буквами — тот же админ', async () => {
+    await assertSucceeds(getDocs(collection(as('admin', { email: 'Admin@Example.com' }), 'spaces')));
+  });
+  test('админ без участия в пространстве видит и правит всё, как редактор', async () => {
+    const db = as('admin');
+    for (const s of ['sw', 'closed', 'other']) {
+      await assertSucceeds(getDoc(doc(db, 'spaces', s)));
+      await assertSucceeds(getDocs(collection(db, 'spaces', s, 'members')));
+      await assertSucceeds(getDocs(collection(db, 'spaces', s, 'sermons')));
+    }
+    await assertSucceeds(getDoc(doc(db, 'spaces', 'sw', 'sermons', 'ivan1', 'editor', 'state')));
+    await assertSucceeds(updateDoc(sermon(db, 'other', 'o1'), edit('admin', { status: 'work' })));
+    await assertSucceeds(setDoc(sermon(db, 'closed', 'n1'), newSermon('admin', { owner: PEOPLE.ivan })));
+    await assertSucceeds(setDoc(doc(db, 'spaces', 'other', 'config', 'slides'),
+      { slides: {}, updatedAt: serverTimestamp(), updatedBy: PEOPLE.admin }));
+    await setLock('sw', 'ivan1', 'ivan', 1);
+    await assertSucceeds(updateDoc(sermon(db, 'sw', 'ivan1'), takeLock('admin')));   // забрать правку, как редактор
+    // своих пространств через участников у него нет: их он видит списком всех
+    const mine = await assertSucceeds(getDocs(query(collectionGroup(db, 'members'), where('email', '==', PEOPLE.admin))));
+    assertEqual(mine.size, 0);
+  });
+  test('старая роль admin участника — это редактор своего пространства', async () => {
+    const db = as('stranger');
+    await assertSucceeds(getDocs(collection(db, 'spaces', 'other', 'sermons')));
+    await assertSucceeds(updateDoc(sermon(db, 'other', 'o1'), edit('stranger', { status: 'work' })));
+    await assertSucceeds(setDoc(doc(db, 'spaces', 'other', 'config', 'slides'),
+      { slides: {}, updatedAt: serverTimestamp(), updatedBy: PEOPLE.stranger }));
+    await assertFails(getDoc(doc(db, 'spaces', 'sw')));
+  });
+});
+
+describe('сводки для списка (этап 8)', () => {
+  const sum = (s, id) => (db) => doc(db, 'spaces', s, 'summaries', id);
+  // сводка так, как её пишет форма (cloud-api.mjs, summaryOf): поля проповеди после записи
+  const summary = (d, extra = {}) => ({
+    title: d.meta.title || '', date: d.meta.date || '', firstName: d.meta.firstName || '', lastName: d.meta.lastName || '',
+    status: d.status, owner: d.owner, updatedAt: d.updatedAt, updatedBy: d.updatedBy, lock: d.lock ?? null,
+    slides: 0, refs: '', ...extra,
+  });
+  const edited = (who, base, title = 'Исправлено') => summary({
+    ...base, meta: { ...base.meta, title }, updatedAt: serverTimestamp(), updatedBy: PEOPLE[who],
+  }, { slides: 1, refs: 'Ин. 3:16' });
+
+  test('новая проповедь вместе со сводкой', async () => {
+    const db = as('ivan'), b = writeBatch(db), d = newSermon('ivan');
+    b.set(sermon(db, 'sw', 'n1'), d);
+    b.set(sum('sw', 'n1')(db), summary(d));
+    await assertSucceeds(b.commit());
+  });
+  test('правка проповеди вместе со сводкой; сводка без правки проповеди — нет', async () => {
+    const db = as('ivan');
+    const b = writeBatch(db);
+    b.update(sermon(db, 'sw', 'ivan1'), edit('ivan'));
+    b.set(sum('sw', 'ivan1')(db), edited('ivan', sermonData(PEOPLE.ivan)));
+    await assertSucceeds(b.commit());
+    // сама по себе, даже совпадающая с проповедью, сводка не пишется
+    const cur = (await getDoc(sermon(db, 'sw', 'ivan1'))).data();
+    await assertFails(setDoc(sum('sw', 'ivan1')(db), summary(cur, { slides: 99 })));
+  });
+  test('сводка должна совпадать с проповедью', async () => {
+    const db = as('ed'), base = sermonData(PEOPLE.ivan);
+    const tryWith = (extra) => {
+      const b = writeBatch(db);
+      b.update(sermon(db, 'sw', 'ivan1'), edit('ed'));
+      b.set(sum('sw', 'ivan1')(db), { ...edited('ed', base), ...extra });
+      return b.commit();
+    };
+    await assertFails(tryWith({ title: 'Другое' }));
+    await assertFails(tryWith({ status: 'draft' }));
+    await assertFails(tryWith({ owner: PEOPLE.petr }));
+    await assertFails(tryWith({ updatedBy: PEOPLE.ivan }));
+    await assertFails(tryWith({ slides: 501 }));
+    await assertFails(tryWith({ refs: 'x'.repeat(2001) }));
+    await assertFails(tryWith({ extra: 1 }));
+    await assertSucceeds(tryWith({}));
+  });
+  test('сигнал замка обновляет замок и в сводке', async () => {
+    await setLock('sw', 'ivan1', 'ivan', 1);
+    const db = as('ivan');
+    await assertSucceeds(runTransaction(db, async (tx) => {
+      const cur = (await tx.get(sermon(db, 'sw', 'ivan1'))).data();
+      tx.update(sermon(db, 'sw', 'ivan1'), { 'lock.beat': serverTimestamp() });
+      tx.set(sum('sw', 'ivan1')(db), summary(cur, { lock: { ...cur.lock, beat: serverTimestamp() } }));
+    }));
+    // замок в сводке — чужой или не тот: не проходит
+    await assertFails(runTransaction(db, async (tx) => {
+      const cur = (await tx.get(sermon(db, 'sw', 'ivan1'))).data();
+      tx.update(sermon(db, 'sw', 'ivan1'), { 'lock.beat': serverTimestamp() });
+      tx.set(sum('sw', 'ivan1')(db), summary(cur, { lock: null }));
+    }));
+  });
+  test('чужую сводку не записать: проповедь не пускает', async () => {
+    const db = as('ivan'), b = writeBatch(db);
+    b.update(sermon(db, 'sw', 'petr1'), edit('ivan'));
+    b.set(sum('sw', 'petr1')(db), edited('ivan', sermonData(PEOPLE.petr, { status: 'draft' })));
+    await assertFails(b.commit());
+    const s = as('stranger'), d = newSermon('stranger'), b2 = writeBatch(s);
+    b2.set(sum('sw', 'x')(s), summary(d));
+    await assertFails(b2.commit());
+  });
+  test('читают те же, кто видит проповедь', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      for (const sp of ['sw', 'closed']) {
+        await setDoc(doc(db, 'spaces', sp, 'summaries', 'ivan1'), summary(sermonData(PEOPLE.ivan)));
+        await setDoc(doc(db, 'spaces', sp, 'summaries', 'petr1'), summary(sermonData(PEOPLE.petr, { status: 'draft' })));
+      }
+    });
+    const ivan = as('ivan');
+    await assertSucceeds(getDocs(collection(ivan, 'spaces', 'sw', 'summaries')));
+    await assertSucceeds(getDoc(sum('closed', 'ivan1')(ivan)));
+    await assertFails(getDoc(sum('closed', 'petr1')(ivan)));
+    await assertFails(getDocs(collection(ivan, 'spaces', 'closed', 'summaries')));
+    await assertSucceeds(getDocs(query(collection(ivan, 'spaces', 'closed', 'summaries'), where('owner', '==', PEOPLE.ivan))));
+    await assertSucceeds(getDocs(collection(as('ed'), 'spaces', 'closed', 'summaries')));
+    await assertSucceeds(getDocs(collection(as('admin'), 'spaces', 'closed', 'summaries')));
+    await assertFails(getDocs(collection(as('stranger'), 'spaces', 'sw', 'summaries')));
+    await assertFails(getDoc(sum('sw', 'ivan1')(anon())));
+  });
+  test('удаляется вместе с проповедью, отдельно — нет', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'spaces', 'sw', 'summaries', 'petr1'), summary(sermonData(PEOPLE.petr, { status: 'draft' })));
+    });
+    const db = as('petr');
+    await assertFails(deleteDoc(sum('sw', 'petr1')(db)));
+    const b = writeBatch(db);
+    b.delete(sermon(db, 'sw', 'petr1'));
+    b.delete(sum('sw', 'petr1')(db));
+    await assertSucceeds(b.commit());
   });
 });
 

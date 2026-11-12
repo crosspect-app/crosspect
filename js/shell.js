@@ -6,16 +6,19 @@
 const app = $('#app');
 const topbar = h('header', { class:'topbar' });
 const mainEl = h('main', { class:'app-main', id:'main' });
-const fileInput = $('#fileInput');
 
 const menuItem = (icon, label, fn) => h('button', { type:'button', onclick:() => { closeMenu(); fn(); } }, ic(icon), label);
 const menuEl = h('div', { class:'menu', id:'menu' });
 /* Меню зависит от экрана: выгрузка — только внутри проповеди; «Настройки слайдов» — только админу и редактору.
-   «Открыть файл» (этап 7.3) из меню и с главной убран; код открытия файлов (files.js, #fileInput) пока остаётся — до этапа 8 */
+   Открыть файл в форме нельзя (с этапа 8 проповеди только в облаке); «Скачать файл» — копия на компьютер */
 function fillMenu(){
   menuEl.innerHTML = '';
+  if (!cloudOn()){   // экран входа: из меню — только выйти, если вошли не той почтой
+    if (cloud.user) menuEl.append(h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
+    return;
+  }
   menuEl.append(menuItem('newdoc', 'Новая проповедь', () => newSermon()));
-  if (cloudOn() && screen === 'sermon') menuEl.append(menuItem('save', 'Скачать файл', () => saveFile()));
+  if (screen === 'sermon') menuEl.append(menuItem('save', 'Скачать файл', () => saveFile()));
   if (cloudOn() && screen === 'sermon' && authorWaits()) menuEl.append(menuItem('dup', 'Сделать копию', () => saveAsCopy()));   // конспект у редактора: копия — новый черновик автора
   if (screen === 'sermon') menuEl.append(
     h('div', { class:'menu-sep' }),
@@ -23,8 +26,7 @@ function fillMenu(){
     menuItem('phone', 'PDF для оператора', () => operatorPDF()));
   if (screen === 'sermon' && wideScreen()) menuEl.append(menuItem('reset', 'Сбросить настройки экрана', () => resetLayout()));   // ширина и порядок панелей
   if (canEditSlidesCfg()) menuEl.append(h('div', { class:'menu-sep' }), menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));   // общие для пространства: админ и редактор
-  if (cloudOn()) menuEl.append(h('div', { class:'menu-sep' }), h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
-  else if (localMode()) menuEl.append(h('div', { class:'menu-sep' }), menuItem('check', 'Войти в облако', () => leaveLocalMode()));
+  menuEl.append(h('div', { class:'menu-sep' }), h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
 }
 
 /* выбор типа слайда: плитки парами одинакового размера, порядок — как в TYPES */

@@ -166,6 +166,26 @@ def test_lock_taken_away_saves_unsaved_as_copy(browser, base_url):
     ctx.close()
 
 
+def test_offline_copy_shows_on_home_and_goes_to_cloud(browser, base_url):
+    """Замок забрали, а сети нет: копия лежит в браузере, видна на главной пространства и уходит в облако, когда её откроют с сетью."""
+    ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": rec("s1", "Вера", owner="ivan@x.pl")})
+    wait_home(page)
+    open_sermon(page, "s1")
+    start_edit(page)
+    page.evaluate("localStorage.setItem('fake-offline', '1'); state.meta.title = 'Без сети'; change()")
+    db_eval(page, "r.lock = { email:'admin@x.pl', name:'Админ', at:Date.now() + 999999, beat:Date.now() + 999999 }")
+    page.wait_for_selector(".sheet[aria-label='Правку забрали']")
+    assert "откройте её на главной" in page.inner_text(".sheet[aria-label='Правку забрали']")
+    page.evaluate("closeSettings(); navigate('')")
+    page.wait_for_function("screen === 'home'")
+    card = page.locator(".card-wrap", has_text="Без сети (копия)")
+    assert "Не сохранено в облако" in card.inner_text()
+    page.evaluate("localStorage.removeItem('fake-offline')")
+    card.locator("a.scard").click()
+    page.wait_for_function("Object.values(fakeCloud.db().sermons).some(r => r.meta.title === 'Без сети (копия)')", timeout=10000)
+    ctx.close()
+
+
 def test_lock_taken_without_unsaved_no_copy(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": rec("s1", "Вера")})
     wait_home(page)

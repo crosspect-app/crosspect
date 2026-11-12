@@ -193,6 +193,13 @@ body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--
 .logo-mark[data-lg="2"] .lg-a,.logo-mark[data-lg="3"] .lg-a,.logo-mark[data-lg="4"] .lg-a,
 .logo-mark[data-lg="3"] .lg-b,.logo-mark[data-lg="4"] .lg-b,.logo-mark[data-lg="4"] .lg-c{fill:var(--lg-on)}
 .org{color:var(--muted);font-size:13px}
+/* переключатель пространств (этап 8): у кого их несколько */
+.org-sel{position:relative;display:inline-flex;align-items:center;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);color:var(--text)}
+.org-sel:hover{border-color:#4a4230}
+.org-sel:focus-within{border-color:var(--accent)}
+.org-pick{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-size:13px;padding:6px 30px 6px 11px;max-width:260px;text-overflow:ellipsis;cursor:pointer;outline:none}
+.org-pick option{background:var(--surface-2);color:var(--text)}
+.org-sel .ic{position:absolute;right:8px;width:15px;height:15px;color:var(--muted);pointer-events:none}
 .vsep{width:1px;height:26px;background:var(--line-2)}
 .hd-title{display:flex;flex-direction:column;gap:4px;align-items:flex-start;min-width:0;border:0;background:transparent;padding:3px 8px;margin:-3px -8px;border-radius:8px;text-align:left;color:inherit}
 .hd-title:hover{background:var(--surface-2)}
@@ -225,7 +232,6 @@ body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--
 .gate-text{margin:0;font-size:14px;line-height:1.6;color:var(--muted)}
 .gate-mail{color:var(--text);text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
 .gate-warn{margin:0;font-size:12px;line-height:1.6;color:var(--warn);background:var(--warn-bg);border-radius:12px;padding:10px 12px}
-.gate-note{margin-top:2px}
 .who{font-size:12px;color:var(--muted);white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
 .menu-who{padding:6px 12px 2px;font-size:11px;color:var(--faint);overflow:hidden;text-overflow:ellipsis}
 .cloud-mark{display:inline-block;align-self:flex-start;margin:4px 0 0 0;padding:2px 8px;border-radius:999px;font-size:11px;color:var(--warn);background:var(--warn-bg)}
@@ -236,7 +242,6 @@ body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--
 body.ro .side .bbody,body.ro .speech .rich,body.ro .tv .prose{opacity:.8;cursor:default}
 .ro-note{margin:0;padding:10px 12px;border-radius:12px;background:var(--surface-2);color:var(--muted);font-size:12px;line-height:1.5}
 .hd-save.pick{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.card-up{margin-top:10px}
 .home-warn{color:var(--warn)}
 .sheet-foot.wrap{justify-content:flex-end}
 .scard{display:flex;flex-direction:column;gap:12px;padding:12px 12px 16px;border-radius:18px;background:var(--surface);border:1px solid var(--line);text-decoration:none;color:var(--text);transition:.15s}
@@ -461,6 +466,8 @@ a.prow:hover{background:var(--surface)}
   .home-top h1{font-size:24px}
   .search{min-width:0;flex:1}
   .org{display:none}
+  .org.org-sel{display:inline-flex}
+  .org-pick{max-width:34vw}
   .prow{grid-template-columns:90px minmax(0,1fr) 40px}
   .prow > :nth-child(3),.prow > :nth-child(5),.prow > :nth-child(6){display:none}
   .sv{grid-template-columns:1fr}

@@ -2,21 +2,24 @@
 
 /* ========= Облако: вход Google и сохранение проповедей =========
    Связь с Firebase — в cloud-api.mjs (подключается по требованию). Здесь — состояние входа, экран входа,
-   список проповедей из облака и сохранение. Если человек выбрал «Продолжить без входа» (или облако недоступно),
-   форма работает как раньше: проповеди в этом браузере и в файлах.
+   пространства, список проповедей из облака и сохранение. С этапа 8 без входа форма не работает:
+   все проповеди — в облаке, в браузере лежат только черновики несохранённых правок.
+   Админ всей формы (admins/{почта} в базе) видит все пространства; остальные — те, куда их добавили.
+   Кто состоит в нескольких пространствах (и админ), переключается между ними в шапке главной.
    Замок, правка и автосохранение — в lock.js. */
 const BUILD_ID = (document.currentScript && /[?&]v=([^&]+)/.exec(document.currentScript.src || '') || [])[1] || 'dev';
 const FIREBASE_VERSION = '13.1.0';
 const ROLE_NAMES = { admin:'админ', editor:'редактор', preacher:'автор' };   // в данных и правилах роль автора — preacher
 
-/* mode: wait — подключаемся, out — не вошли, noaccess — почты нет в пространстве, error — не вышло, in — всё есть */
-const cloud = { mode:'wait', api:null, user:null, space:'', spaceName:'', role:'', member:null, settings:{}, list:null, fromCache:false,
-  listError:'', error:'', unsub:null, norm:new Map(), started:false };
+/* mode: wait — подключаемся, out — не вошли, noaccess — почты нет ни в одном пространстве, nospaces — админ, но пространств
+   ещё нет, error — не вышло, in — всё есть.
+   spaces — куда можно войти: [{ id, name, settings, role, member }]; role — admin (админ всей формы), editor или preacher (автор).
+   list — живой список проповедей текущего пространства: Map id → строка-сводка (cloud-api.mjs, fromSummary) */
+const cloud = { mode:'wait', api:null, user:null, admin:false, spaces:[], space:'', spaceName:'', role:'', member:null, settings:{},
+  list:null, fromCache:false, listError:'', error:'', unsub:null, started:false };
 const cloudOn = () => cloud.mode === 'in';
-const localMode = () => { try { return sessionStorage.getItem('swp-local') === '1'; } catch(e){ return false; } };
-const setLocalMode = on => { try { if (on) sessionStorage.setItem('swp-local', '1'); else sessionStorage.removeItem('swp-local'); } catch(e){} };
 /* Что показывать вместо главной и проповеди: null — ничего, можно работать */
-const cloudGate = () => (localMode() || cloudOn()) ? null : cloud.mode;
+const cloudGate = () => cloudOn() ? null : cloud.mode;
 const inAppBrowser = () => /Telegram|Instagram|FBAN|FBAV|Line\//i.test(navigator.userAgent || '');
 
 async function loadFirebaseAPI(){
@@ -47,17 +50,16 @@ async function initCloud(){
 
 async function cloudUser(user){
   stopListen(); resetCloud();
-  cloud.user = user; cloud.list = null; cloud.space = ''; cloud.role = ''; cloud.member = null; cloud.error = '';
+  Object.assign(cloud, { user, admin:false, spaces:[], list:null, space:'', spaceName:'', role:'', member:null, settings:{}, error:'' });
   if (!user){ cloud.mode = 'out'; cloudChanged(); return; }
-  setLocalMode(false);   // вошли — значит, работаем с облаком
   cloud.mode = 'wait'; cloudChanged();
   try {
-    const mine = await cloud.api.spacesOf(user.email);
-    if (!mine.length){ cloud.mode = 'noaccess'; cloudChanged(); return; }
-    const m = mine[0];   // несколько пространств у одной почты пока не различаем: берём первое (выбор — этап 9)
-    const sp = await cloud.api.getSpace(m.spaceId);
-    cloud.space = m.spaceId; cloud.member = m; cloud.role = m.role;
-    cloud.spaceName = (sp && sp.name) || ''; cloud.settings = (sp && sp.settings) || {};
+    cloud.spaces = await spacesFor(user.email);
+    if (cloud.user !== user) return;   // пока ждали, вошли под другой почтой или вышли
+    if (!cloud.spaces.length){ cloud.mode = cloud.admin ? 'nospaces' : 'noaccess'; cloudChanged(); return; }
+    // пространство: из ссылки (#…&sp=…), иначе то, где человек был в прошлый раз, иначе первое по алфавиту
+    const want = new URLSearchParams(location.hash.slice(1)).get('sp') || LS.get('swp-space');
+    useSpace(cloud.spaces.find(x => x.id === want) || cloud.spaces[0]);
     cloud.mode = 'in';
     startListen();
     loadLayoutPrefs();   // раскладка экрана у человека (layout.js)
@@ -66,6 +68,42 @@ async function cloudUser(user){
   }
   cloudChanged();
 }
+/* Куда можно войти. Админ всей формы — во все пространства (роль admin), остальные — туда, где они участники.
+   Старая роль admin у участника (до этапа 8) — это редактор */
+async function spacesFor(email){
+  cloud.admin = cloud.api.isAdmin ? await cloud.api.isAdmin(email) : false;
+  const mine = await cloud.api.spacesOf(email);
+  let list;
+  if (cloud.admin){
+    const all = await cloud.api.allSpaces();
+    list = all.map(sp => ({ id:sp.id, name:sp.name || '', settings:sp.settings || {}, role:'admin', member:mine.find(m => m.spaceId === sp.id) || null }));
+  } else {
+    list = (await Promise.all(mine.map(async m => {
+      let sp = null;
+      try { sp = await cloud.api.getSpace(m.spaceId); } catch(e){ if (!/permission-denied/.test((e && e.code) || '')) throw e; }
+      return sp ? { id:m.spaceId, name:sp.name || '', settings:sp.settings || {}, role:m.role === 'admin' ? 'editor' : m.role, member:m } : null;
+    }))).filter(Boolean);
+  }
+  return list.sort((a, b) => a.name.localeCompare(b.name, 'ru') || a.id.localeCompare(b.id));
+}
+/* Сделать пространство текущим (слушатели запускает и останавливает вызывающий) */
+function useSpace(sp){
+  Object.assign(cloud, { space:sp.id, spaceName:sp.name, settings:sp.settings || {}, role:sp.role, member:sp.member, list:null, listError:'', fromCache:false });
+  LS.set('swp-space', sp.id);
+  loadSlidesCache(sp.id);   // настройки слайдов этого пространства — последняя копия, пока не пришли из облака
+}
+/* Переключатель пространств в шапке главной. Правку (если была) сохраняем и отпускаем, потом — на главную нового пространства */
+function switchSpace(id, keepRoute){
+  const sp = cloud.spaces.find(x => x.id === id);
+  if (!sp || !cloudOn() || id === cloud.space) return !!sp;
+  endCloud();
+  stopListen();
+  useSpace(sp);
+  startListen();
+  if (!keepRoute){ if (location.hash) navigate(''); else renderAll(); }
+  return true;
+}
+const multiSpace = () => cloudOn() && cloud.spaces.length > 1;
 function cloudExplain(e){ return cloud.api && cloud.api.explain ? cloud.api.explain(e) : String((e && e.message) || e); }
 
 /* Вход или выход сменили экран: перерисовать то, что показано (и открыть проповедь по ссылке, если вошли) */
@@ -89,7 +127,6 @@ function stopListen(){
 }
 
 async function cloudSignIn(){
-  setLocalMode(false);
   if (!cloud.started) await initCloud();
   if (!cloud.api) return;
   try { await cloud.api.signIn(); }
@@ -100,35 +137,33 @@ async function cloudSignOut(){
   try { await cloud.api.signOut(); } catch(e){}
   stopListen();
 }
-function useLocalOnly(){ setLocalMode(true); stopListen(); renderAll(); }
-function leaveLocalMode(){ setLocalMode(false); if (!cloud.started) initCloud(); cloudChanged(); }
 
 /* ----- Экран входа ----- */
 function renderGate(){
   const mode = cloudGate();
-  const local = h('button', { type:'button', class:'btn ghost', onclick:() => useLocalOnly() }, 'Продолжить без входа');
-  const note = h('p', { class:'hint gate-note', text:'Без входа проповеди хранятся только в этом браузере и пересылаются файлами.' });
+  const other = () => h('button', { type:'button', class:'btn primary', onclick:() => cloudSignOut().then(() => cloudSignIn()) }, 'Войти другой почтой');
   let body;
-  if (mode === 'wait') body = [h('h1', { text:'Подключаюсь к облаку…' }), h('p', { class:'gate-text', text:'Это занимает несколько секунд.' }), local];
+  if (mode === 'wait') body = [h('h1', { text:'Подключаюсь к облаку…' }), h('p', { class:'gate-text', text:'Это занимает несколько секунд.' })];
   else if (mode === 'noaccess') body = [
     h('h1', { text:'Вас нет в списке' }),
     h('p', { class:'gate-text' }, 'Вы вошли как ' + (cloud.user ? cloud.user.email : '') + ', но этой почты нет среди участников. Чтобы получить доступ, напишите на\u00a0',
       h('a', { class:'gate-mail', href:'mailto:' + CONTACT_EMAIL, text:CONTACT_EMAIL }), ' или войдите другой почтой.'),
+    h('div', { class:'chips' }, other())];
+  else if (mode === 'nospaces') body = [
+    h('h1', { text:'Пространств пока нет' }),
+    h('p', { class:'gate-text', text:'Вы админ, но в облаке ещё нет ни одного пространства. Заведите первое: crosspect-backup → Actions → «Пространства» → create-space.' }),
     h('div', { class:'chips' },
-      h('button', { type:'button', class:'btn primary', onclick:() => cloudSignOut().then(() => cloudSignIn()) }, 'Войти другой почтой'),
-      local)];
+      h('button', { type:'button', class:'btn primary', onclick:() => cloudUser(cloud.user) }, 'Обновить'), other())];
   else if (mode === 'error') body = [
     h('h1', { text:'Облако недоступно' }),
     h('p', { class:'gate-text', text:cloud.error }),
     h('div', { class:'chips' },
-      h('button', { type:'button', class:'btn primary', onclick:() => { if (cloud.user) cloudUser(cloud.user); else { cloud.started = false; initCloud(); } } }, 'Повторить'),
-      local)];
+      h('button', { type:'button', class:'btn primary', onclick:() => { if (cloud.user) cloudUser(cloud.user); else { cloud.started = false; initCloud(); } } }, 'Повторить'))];
   else body = [
     h('h1', { text:'Проповеди церкви' }),
     h('p', { class:'gate-text', text:'Войдите через Google. Нужна та почта, которую вам добавил админ церкви.' }),
-    h('div', { class:'chips' }, h('button', { type:'button', class:'btn primary big', onclick:() => cloudSignIn() }, 'Войти через Google'), local),
-    inAppBrowser() ? h('p', { class:'gate-warn', text:'Похоже, страница открыта внутри Telegram или другого приложения. Google не даёт войти отсюда: откройте ссылку в Chrome или Safari.' }) : null,
-    note];
+    h('div', { class:'chips' }, h('button', { type:'button', class:'btn primary big', onclick:() => cloudSignIn() }, 'Войти через Google')),
+    inAppBrowser() ? h('p', { class:'gate-warn', text:'Похоже, страница открыта внутри Telegram или другого приложения. Google не даёт войти отсюда: откройте ссылку в Chrome или Safari.' }) : null];
   mainEl.append(h('div', { class:'gate' }, h('div', { class:'gate-card' }, logoLockup('gate-logo'), body)));
 }
 
@@ -148,9 +183,9 @@ const AT_EDITOR_MSG = 'Конспект у редактора: если нужн
 const isUnsaved = d => d.updatedAt > (d.savedAt || 0) && (d.blocks.length > 0 || !!d.meta.title);
 
 /* ----- Сохранение ----- */
-/* Облачная проповедь сохраняется сама (lock.js): Ctrl+S и кнопка — «сохранить сейчас». Без входа — файл */
+/* Проповедь сохраняется в облако сама (lock.js): Ctrl+S и кнопка — «сохранить сейчас» */
 function saveSermon(){
-  if (!cloudOn()){ saveFile(); return; }
+  if (!cloudOn() || screen !== 'sermon') return;
   if (!cloudSermon()) beginCloud(null);
   saveNow();
 }
@@ -181,6 +216,7 @@ function saveAsCopy(){
   endCloud({ discard:true });   // замок оригинала отпускаем, его несохранённые правки уходят в копию
   state.id = uid(); state.meta.title = (state.meta.title || 'Проповедь') + ' (копия)';
   CLOUD_FIELDS.forEach(k => delete state[k]);
+  state.cloudSpace = cloud.space;
   state.savedAt = 0; state.updatedAt = Date.now();
   try { localStorage.removeItem('swp-sermon:' + old); } catch(e){}
   if (cloudOn()) beginCloud(null);
@@ -191,7 +227,7 @@ function saveAsCopy(){
   if (cloudOn()) saveNow();
 }
 
-/* ----- Удаление и перенос ----- */
+/* ----- Удаление ----- */
 async function deleteCloudSermon(d){
   const t = d.meta.title ? '«' + d.meta.title + '»' : 'эту проповедь';
   const r = cloud.list && cloud.list.get(d.id), l = r && r.lock;
@@ -211,27 +247,6 @@ async function deleteCloudSermon(d){
     if (state && state.id === d.id) state = blank();
     toast('Проповедь удалена');
   } catch(e){ toast(cloudExplain(e) || 'Не удалось удалить'); }
-}
-/* Проповедь из браузера или файла — в облако, не открывая её */
-async function uploadToCloud(d){
-  try {
-    const r = await cloud.api.save(cloud.space, Object.assign({}, d, { cloudAt:0 }), cloud.user, {});
-    const s = Object.assign({}, d, { cloudSpace:r.cloudSpace, cloudAt:r.cloudAt, cloudOwner:r.cloudOwner, cloudStatus:r.cloudStatus, cloudBy:r.cloudBy, savedAt:d.updatedAt });
-    LS.set('swp-sermon:' + s.id, JSON.stringify(s));
-    if (state && state.id === s.id) state = normalize(s);
-    return true;
-  } catch(e){
-    if (e && e.code === 'conflict') return 'exists';
-    throw e;
-  }
-}
-async function uploadOne(d){
-  try {
-    const ok = await uploadToCloud(d);
-    if (ok === 'exists') toast('Такая проповедь уже есть в облаке. Откройте её и сохраните: форма спросит, чью версию оставить.');
-    else toast('Проповедь теперь в облаке');
-  } catch(e){ toast(cloudExplain(e) || 'Не удалось перенести'); }
-  if (screen === 'home') renderHomeList();
 }
 
 /* ----- Открыть проповедь из облака (адрес #s=<id>) ----- */

@@ -77,7 +77,7 @@ def test_speaker_gets_cloud_settings(browser, base_url):
     page.wait_for_selector(".home-top")
     page.wait_for_function("SLIDES_BASE.margins.side === 120")
     assert page.evaluate("SLIDES_BASE.verses.align") == "right"
-    assert "120" in page.evaluate("localStorage.getItem('swp-slides-cache')")   # без сети и без входа — последняя копия
+    assert "120" in page.evaluate("localStorage.getItem('swp-slides-cache:sp1')")   # без сети — последняя копия, у каждого пространства своя
     ctx.close()
 
 

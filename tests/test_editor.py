@@ -318,8 +318,13 @@ def test_no_synced_flags_for_speaker_even_if_stored(browser, base_url):
 
 # ---------- автосохранение и запас базы ----------
 
-def test_autosave_default_is_thirty_seconds(page):
-    assert page.evaluate("AUTOSAVE_MS") == 30000   # у обычной страницы тестовой подмены нет
+def test_autosave_default_is_thirty_seconds(browser, base_url):
+    ctx = browser.new_context()   # без подмены облака: форма как у людей
+    pg = ctx.new_page()
+    pg.goto(base_url + "/index.html")
+    pg.wait_for_selector(".topbar")
+    assert pg.evaluate("AUTOSAVE_MS") == 30000
+    ctx.close()
 
 
 def test_quota_exhausted_keeps_edits_in_browser(browser, base_url):

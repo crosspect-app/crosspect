@@ -29,58 +29,51 @@ def test_page_loads_without_errors(page):
     assert page.locator(".topbar").count() == 1
 
 
-def test_open_json_file(page, sermon):
+def test_open_sermon_from_cloud(page, sermon):
+    """Проповедь в старом формате (v1), лежащая в облаке, открывается и переводится на новую модель."""
     open_sermon(page, sermon)
-    assert page.evaluate("state.blocks.length") == len(sermon["blocks"])
     assert page.evaluate("state.meta.title") == sermon["meta"]["title"]
-    assert page.locator(".film .st").count() == len(sermon["blocks"])
+    assert page.evaluate("state.v") == 2
+    assert page.locator(".film .st").count() == page.evaluate("state.blocks.filter(b => TYPES[b.type].slide || b.type === 'note').length")
     assert page.errors == []
 
 
-def test_open_old_html_file(page, sermon):
-    """Файл, сохранённый старой формой: HTML, в котором проповедь лежит в <script id=sermon-data>."""
-    data = json.dumps(sermon, ensure_ascii=False).replace("<", "\\u003c")
-    old = ('<!DOCTYPE html>\n<html><head><title>Проповедь</title></head><body><div id="app"></div>'
-           f'<script id="sermon-data" type="application/json">{data}</script><script>/* форма */</script></body></html>')
-    page.set_input_files("#fileInput", {"name": "2026-11-15 Тест формы.html", "mimeType": "text/html",
-                                        "buffer": old.encode("utf-8")})
-    page.wait_for_function("state.blocks.length > 0")
-    assert page.evaluate("state.meta.title") == sermon["meta"]["title"]
-    assert page.errors == []
+def test_no_file_opening_and_no_local_mode(page):
+    """Этап 8: файл в форме не открыть, работы без входа нет."""
+    assert page.locator("#fileInput").count() == 0
+    assert page.evaluate("typeof parseSermonFile") == "undefined"
+    assert page.evaluate("typeof localMode") == "undefined"
+    page.locator(".topbar .icon-btn[aria-label='Ещё']").click()
+    menu = page.inner_text("#menu")
+    assert "Открыть файл" not in menu and "Войти в облако" not in menu
+    assert page.locator("text=Продолжить без входа").count() == 0
 
 
-def test_file_without_sermon_is_rejected(page):
-    page.set_input_files("#fileInput", {"name": "x.json", "mimeType": "application/json", "buffer": b'{"a":1}'})
-    page.wait_for_selector(".toast.show")
-    assert "нет проповеди" in page.inner_text(".toast")
-    assert page.evaluate("state.blocks.length") == 0
-
-
-def test_save_writes_json_and_reopens(page, sermon):
+def test_download_file_is_a_copy(page, sermon):
     open_sermon(page, sermon)
+    page.evaluate("state.meta.title = 'Тест формы'; change()")
+    page.locator(".topbar .icon-btn[aria-label='Ещё']").click()
     with page.expect_download() as dl:
-        page.get_by_role("button", name="Сохранить").click()
+        page.locator("#menu button", has_text="Скачать файл").click()
     d = dl.value
     assert d.suggested_filename == "2026-11-15 Тест формы.json"
     saved = json.loads(open(d.path(), encoding="utf-8").read())
     assert saved["app"] == "swp-sermon"
-    assert [b["type"] for b in saved["blocks"]] == page.evaluate("state.blocks.map(b => b.type)")
     assert saved["v"] == 2
-    assert saved["savedAt"] > 0
-    # сохранённый файл открывается заново и даёт ту же проповедь
-    page.evaluate("state = blank(); renderAll()")
-    page.set_input_files("#fileInput", {"name": d.suggested_filename, "mimeType": "application/json",
-                                        "buffer": open(d.path(), "rb").read()})
-    page.wait_for_function("state.blocks.length > 0")
-    assert page.evaluate("state.blocks.length") == len(sermon["blocks"])
+    assert [b["type"] for b in saved["blocks"]] == page.evaluate("state.blocks.map(b => b.type)")
+    assert not any(k.startswith("cloud") for k in saved), "метки облака в файл не идут"
+    # файл — копия: несохранённая правка по-прежнему ждёт отправки в облако
+    assert page.evaluate("isDirty()")
+    page.keyboard.press("Control+s")
+    page.wait_for_function("fakeCloud.db().sermons[state.id].meta.title === 'Тест формы'")
     assert page.errors == []
 
 
-def test_ctrl_s_saves(page, sermon):
+def test_ctrl_s_saves_to_cloud(page, sermon):
     open_sermon(page, sermon)
-    with page.expect_download() as dl:
-        page.keyboard.press("Control+s")
-    assert dl.value.suggested_filename.endswith(".json")
+    page.evaluate("state.meta.title = 'Сразу'; change()")
+    page.keyboard.press("Control+s")
+    page.wait_for_function("fakeCloud.db().sermons[state.id].meta.title === 'Сразу'", timeout=5000)
 
 
 def test_draft_survives_reload(page, sermon, base_url):

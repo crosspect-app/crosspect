@@ -353,6 +353,7 @@ async function rescueCopy(s){
   const c = JSON.parse(JSON.stringify(s));
   c.id = uid(); c.meta.title = (c.meta.title || 'Проповедь') + ' (копия)';
   CLOUD_FIELDS.forEach(k => delete c[k]);
+  c.cloudSpace = cloud.space;   // копия того же пространства: без сети она видна на его главной
   c.savedAt = 0; c.updatedAt = Date.now();
   LS.set('swp-sermon:' + c.id, JSON.stringify(c));
   try { localStorage.removeItem('swp-sermon:' + s.id); } catch(e){}   // правки теперь в копии: оригинал откроется из облака
@@ -377,7 +378,7 @@ function lostSheet(l, copy, onOpen){
   const what = onOpen ? 'В браузере оставались несохранённые правки: ' : 'То, что не успело сохраниться, ';
   const tail = copy
     ? (copy.cloud ? what + (onOpen ? 'они ' : '') + 'сохранены отдельной копией «' + copy.title + '».'
-      : what + (onOpen ? 'они ' : '') + 'лежат отдельной копией «' + copy.title + '» в этом браузере. В облако копия уйдёт, когда появится сеть: кнопка «В облако» на главной.')
+      : what + (onOpen ? 'они ' : '') + 'лежат отдельной копией «' + copy.title + '» в этом браузере. В облако копия уйдёт, когда появится сеть: откройте её на главной, и она сохранится сама.')
     : 'Все ваши правки успели сохраниться.';
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Правку забрали' },

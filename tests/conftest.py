@@ -39,29 +39,29 @@ def sermon():
     return json.loads((FIXTURES / "sermon.json").read_text(encoding="utf-8"))
 
 
+FAKE_CLOUD = (FIXTURES / "fake_cloud.js").read_text(encoding="utf-8")
+ME = {"email": "admin@x.pl", "name": "Админ"}   # кто входит в обычной фикстуре page: админ всей формы
+
+
 @pytest.fixture
 def page(browser, base_url):
-    """Чистая страница формы; ошибки скриптов собираются в page.errors."""
-    ctx = browser.new_context(viewport={"width": 1280, "height": 900}, accept_downloads=True)
-    ctx.add_init_script("sessionStorage.setItem('swp-local', '1')")   # эти тесты — про форму без входа; облако проверяет test_cloud.py
-    pg = ctx.new_page()
-    pg.errors = []
-    pg.on("pageerror", lambda e: pg.errors.append(str(e)))
-    pg.on("console", lambda m: pg.errors.append(m.text) if m.type == "error" and "Failed to load resource" not in m.text else None)
-    pg.goto(base_url + "/index.html")
-    pg.wait_for_selector(".topbar")
+    """Форма после входа (облако подменено, вошёл админ), открыта главная; ошибки скриптов собираются в page.errors.
+    С этапа 8 без входа форма не работает, поэтому и тесты редактора, файлов и выгрузки идут «в облаке»."""
+    ctx, pg = cloud_page(browser, base_url, user=ME, members={"admin@x.pl": {"role": "editor"}})
+    pg.wait_for_selector(".home-top")
     yield pg
     ctx.close()
 
 
-FAKE_CLOUD = (FIXTURES / "fake_cloud.js").read_text(encoding="utf-8")
-
-
-def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, settings=None):
+def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, settings=None, admins=("admin@x.pl",), spaces=None, no_spaces=False):
     """Страница формы с подменённым облаком. user — кто входит ({email, name}), members — {почта: {role, firstName, lastName}},
-    sermons — проповеди, уже лежащие в «облаке» ({id: запись}). Возвращает (контекст, страница)."""
+    sermons — проповеди, уже лежащие в «облаке» ({id: запись}), admins — админы всей формы (этап 8; по умолчанию admin@x.pl),
+    spaces — другие пространства ({id: {space:{id,name,settings}, members, sermons}}). Возвращает (контекст, страница)."""
     ctx = browser.new_context(viewport={"width": 1280, "height": 900}, accept_downloads=True)
-    db = {"members": members or {}, "space": {"id": "sp1", "name": "Слово веры · тест", "settings": settings or {}}, "sermons": sermons or {}, "clock": 1000}
+    db = {"members": members or {}, "space": {"id": "sp1", "name": "Слово веры · тест", "settings": settings or {}}, "sermons": sermons or {}, "clock": 1000,
+          "admins": list(admins or []), "spaces": spaces or {}}
+    if no_spaces:
+        db["space"] = None   # в базе нет ни одного пространства
     ctx.add_init_script("if (!localStorage.getItem('fake-cloud')) localStorage.setItem('fake-cloud', %s);" % json.dumps(json.dumps(db)))
     if user:
         ctx.add_init_script("if (!localStorage.getItem('fake-user')) localStorage.setItem('fake-user', %s);" % json.dumps(json.dumps(user)))
@@ -74,14 +74,31 @@ def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, sett
     return ctx, pg
 
 
-def open_sermon(page, sermon):
-    """Открывает проповедь так же, как это делает человек: «Открыть» → файл."""
-    page.set_input_files("#fileInput", {
-        "name": "sermon.json",
-        "mimeType": "application/json",
-        "buffer": json.dumps(sermon, ensure_ascii=False).encode("utf-8"),
-    })
-    page.wait_for_function("state.blocks.length > 0")
+def open_sermon(page, sermon, edit=True):
+    """Кладёт проповедь (в любом формате, в том числе старом v1) в подменённое облако, открывает её
+    и, если edit, нажимает «Редактировать». Возвращает id."""
+    id = page.evaluate("""s => {
+      const db = fakeCloud.db(), id = s.id || ('t' + Date.now()), me = (JSON.parse(localStorage.getItem('fake-user') || 'null') || {}).email || '';
+      db.clock += 1000;
+      db.sermons[id] = Object.assign({}, s, { id, status:s.status || 'draft', owner:me, createdBy:me, createdAt:1000,
+        updatedAt:Date.now() + db.clock, updatedBy:me, lock:null });
+      fakeCloud.put(db);
+      try { localStorage.removeItem('swp-sermon:' + id); } catch(e){}
+      navigate(sermonHash(id));
+      return id;
+    }""", sermon)
+    page.wait_for_function("id => state && state.id === id && screen === 'sermon' && ed.id === id && !ed.busy", arg=id)
+    if edit:
+        page.locator("#app").get_by_role("button", name="Редактировать").click()
+        page.wait_for_function("ed.mode === 'edit' && !ed.busy")
+    return id
+
+
+def download_file(page):
+    """«⋯ → Скачать файл»: возвращает скачанный файл проповеди (Playwright Download)."""
+    with page.expect_download() as dl:
+        page.evaluate("saveFile()")
+    return dl.value
 
 
 def start_blank(page):

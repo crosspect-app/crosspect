@@ -40,7 +40,7 @@ def test_old_file_meta_and_quote(page, sermon):
     assert not any(k in scr for k in ("caps", "flow", "frame", "align", "valign", "showTr"))
 
 
-def test_new_file_roundtrip_keeps_model(page, sermon):
+def test_cloud_roundtrip_keeps_model(page, sermon):
     open_sermon(page, sermon)
     page.evaluate("""() => {
       const s = state.blocks.find(b => b.type === 'scripture');
@@ -49,10 +49,15 @@ def test_new_file_roundtrip_keeps_model(page, sermon):
       state.blocks.find(b => b.type === 'quote').caption = 'Письма';
       Object.assign(state.meta, { firstName:'Андрей', lastName:'Ковальчук' });
     }""")
-    data = page.evaluate("JSON.stringify(state)")
-    page.evaluate("state = blank(); renderAll()")
-    page.set_input_files("#fileInput", {"name": "x.json", "mimeType": "application/json", "buffer": data.encode("utf-8")})
-    page.wait_for_function("state.blocks.length > 0")
+    # в облако и обратно: сохранить, уйти на главную, забыть черновик браузера, открыть снова из облака
+    page.evaluate("change()")
+    page.get_by_role("button", name="Сохранить", exact=True).click()
+    page.wait_for_function("ed.mode === 'view' && !isDirty()")
+    id = page.evaluate("state.id")
+    page.evaluate("id => { navigate(''); localStorage.removeItem('swp-sermon:' + id); state = blank(); }", id)
+    page.wait_for_function("screen === 'home'")
+    page.evaluate("id => navigate(sermonHash(id))", id)
+    page.wait_for_function("id => state.id === id && screen === 'sermon' && state.blocks.length > 0", arg=id)
     s = page.evaluate("state.blocks.find(b => b.type === 'scripture')")
     assert s["speech"] == "Текст <b>к слайду</b>"
     assert page.evaluate("state.blocks.find(b => b.type === 'thesis').parts[0].frame") is True

@@ -34,7 +34,7 @@ def test_gate_then_sign_in(browser, base_url):
     ctx, page = cloud_page(browser, base_url, members=MEMBERS, sermons={"s1": rec("s1", "Вера")})
     page.wait_for_selector(".gate")
     assert page.get_by_role("button", name="Войти через Google").is_visible()
-    assert page.get_by_role("button", name="Продолжить без входа").is_visible()
+    assert not page.get_by_role("button", name="Продолжить без входа").count()   # с этапа 8 без входа не работаем
     assert not page.locator(".home-top").count()
     page.get_by_role("button", name="Войти через Google").click()
     wait_home(page)
@@ -65,17 +65,18 @@ def test_not_a_member(browser, base_url):
     ctx.close()
 
 
-def test_without_sign_in_works_as_before(browser, base_url):
-    ctx, page = cloud_page(browser, base_url, members=MEMBERS)
+def test_without_sign_in_only_gate(browser, base_url):
+    """Этап 8: без входа — только экран входа; ни главной, ни проповеди по ссылке, ни новой проповеди."""
+    ctx, page = cloud_page(browser, base_url, members=MEMBERS, sermons={"s1": rec("s1", "Вера")})
     page.wait_for_selector(".gate")
-    page.get_by_role("button", name="Продолжить без входа").click()
-    wait_home(page)
-    assert not page.locator(".who").count()
     page.evaluate("newSermon()")
-    page.wait_for_selector(".sheet[aria-label='О проповеди']")
-    page.evaluate("closeSettings(); addBlock('splash', 0)")
-    page.wait_for_function("document.getElementById('hd-save').textContent.includes('Не сохранено в файл')")
-    page.evaluate("menuEl.querySelector('button')")   # меню строится без ошибок
+    page.evaluate("navigate('#s=s1')")
+    page.wait_for_timeout(300)
+    assert page.locator(".gate").count() == 1
+    assert not page.locator(".home-top").count() and not page.locator(".film").count()
+    assert page.evaluate("screen") == "home"
+    page.locator(".topbar .icon-btn[aria-label='Ещё']").click()
+    assert "Новая проповедь" not in page.inner_text("#menu")
     assert not page.errors, page.errors
     ctx.close()
 
@@ -159,31 +160,28 @@ OTHER_EDIT = """(() => { const db = fakeCloud.db(), r = db.sermons.s1; r.lock = 
   r.updatedAt += 5000; r.updatedBy = 'petr@x.pl'; fakeCloud.put(db); })()"""
 
 
-def test_local_only_draft_goes_to_cloud(browser, base_url):
-    ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS)
-    wait_home(page)
-    d = {"app": "swp-sermon", "v": 2, "id": "loc1", "createdAt": 1, "updatedAt": 2, "savedAt": 0, "meta": {"title": "Из браузера", "date": "2099-02-01"},
-         "blocks": [{"id": "b1", "type": "splash"}]}
-    page.evaluate("d => { localStorage.setItem('swp-sermon:loc1', JSON.stringify(d)); renderHomeList(); }", d)
-    page.wait_for_selector("text=Только в этом браузере")
-    assert "Не в облаке" in page.inner_text(".home")
-    page.get_by_role("button", name="В облако").click()
-    page.wait_for_function("fakeCloud.db().sermons.loc1")
-    assert page.evaluate("fakeCloud.db().sermons.loc1.meta.title") == "Из браузера"
-    page.wait_for_function("!document.body.innerText.includes('Только в этом браузере')")
-    ctx.close()
-
-
-def test_import_several_files(browser, base_url, sermon):
+def test_browser_drafts_on_home(browser, base_url):
+    """На главной — только облако; несохранённый черновик этого пространства (новая проповедь, не успевшая уйти) виден
+    с пометкой и удаляется; старые черновики без пространства (до облака) и черновики других пространств не видны."""
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": rec("s1", "Вера")})
     wait_home(page)
     page.wait_for_selector(".scard")
-    a = dict(sermon, id="imp1"); b = dict(sermon, id="imp2"); dup = dict(sermon, id="s1")
-    files = [{"name": f"{i}.json", "mimeType": "application/json", "buffer": json.dumps(x, ensure_ascii=False).encode()} for i, x in enumerate([a, b, dup])]
-    page.set_input_files("#fileInput", files)
-    page.wait_for_function("document.querySelector('.toast').textContent.includes('Перенос')")   # итог — когда обработаны все файлы
-    assert len(page.evaluate("fakeCloud.db().sermons")) == 3
-    assert "уже были в облаке: 1" in page.inner_text(".toast")
+    old = {"app": "swp-sermon", "v": 2, "id": "old1", "createdAt": 1, "updatedAt": 2, "savedAt": 0, "meta": {"title": "Старый черновик", "date": "2099-02-01"},
+           "blocks": [{"id": "b1", "type": "splash"}]}
+    new = dict(old, id="new1", meta={"title": "Новая, не в облаке", "date": "2099-02-01"}, cloudSpace="sp1", cloudAt=0)
+    other = dict(old, id="oth1", meta={"title": "Из другого пространства", "date": "2099-02-01"}, cloudSpace="sp2", cloudAt=0)
+    page.evaluate("ds => { ds.forEach(d => localStorage.setItem('swp-sermon:' + d.id, JSON.stringify(d))); renderHomeList(); }", [old, new, other])
+    body = page.inner_text(".home")
+    assert "Старый черновик" not in body and "Из другого пространства" not in body
+    assert "Только в этом браузере" not in body and not page.get_by_role("button", name="В облако").count()
+    card = page.locator(".card-wrap", has_text="Новая, не в облаке")
+    assert "Не сохранено в облако" in card.inner_text()
+    page.on("dialog", lambda d: d.accept())
+    card.locator(".card-del").click(force=True)
+    page.wait_for_function("!localStorage.getItem('swp-sermon:new1')")
+    assert "Новая, не в облаке" not in page.inner_text(".home")
+    assert page.locator(".scard").count() == 1
+    assert not page.errors, page.errors
     ctx.close()
 
 

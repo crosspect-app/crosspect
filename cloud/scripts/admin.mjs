@@ -1,16 +1,21 @@
 // Служебные действия с пространствами — в обход правил, ключом сервисного аккаунта.
-// Нужны, пока в форме нет настроек пространства (этап 9), и на случай, если
-// в пространстве не осталось админа. Запускаются из приватного репозитория
-// (workflow «Пространства»), чтобы почты не попадали в публичные логи.
+// Нужны, пока в форме нет настроек пространства (этап 10). Запускаются из приватного
+// репозитория (workflow «Пространства»), чтобы почты не попадали в публичные логи.
 //
-//   node scripts/admin.mjs create-space --name "Słowo Wiary Poznań" --email a@b.c [--first Имя] [--last Фамилия] [--id свой-id]
-//   node scripts/admin.mjs set-member --space <id> --email a@b.c --role admin|editor|preacher [--first Имя] [--last Фамилия]
+//   node scripts/admin.mjs create-space --name "Słowo Wiary Poznań" [--email редактор@почта] [--first Имя] [--last Фамилия] [--id свой-id]
+//   node scripts/admin.mjs set-member --space <id> --email a@b.c --role editor|preacher [--first Имя] [--last Фамилия]
 //   node scripts/admin.mjs remove-member --space <id> --email a@b.c
+//   node scripts/admin.mjs set-admin --email a@b.c        админ всей формы (этап 8): видит все пространства
+//   node scripts/admin.mjs remove-admin --email a@b.c
+//   node scripts/admin.mjs migrate-8 [--email a@b.c]      перенос данных этапа 8 (можно запускать сколько угодно раз):
+//                                                         роль admin у участников → editor, сводки для списка,
+//                                                         --email — сразу сделать эту почту админом всей формы
 //   node scripts/admin.mjs list
 import { FieldValue } from 'firebase-admin/firestore';
 import { connect, args, fail } from './lib.mjs';
+import { summaryOf } from '../../js/cloud-api.mjs';
 
-const ROLES = ['admin', 'editor', 'preacher'];
+const ROLES = ['editor', 'preacher'];   // роль admin у участника пространства убрана на этапе 8
 const SPACE_DEFAULTS = { lockMinutes: 10, preachersSeeAll: true };
 
 const a = args();
@@ -38,28 +43,34 @@ async function spaceRef() {
   if (!(await ref.get()).exists) fail(`Пространства «${id}» нет`);
   return ref;
 }
+async function setAdmin(e) {
+  const ref = db.collection('admins').doc(e);
+  const old = await ref.get();
+  if (!old.exists) await ref.set({ email: e, addedAt: FieldValue.serverTimestamp() });
+  return !old.exists;
+}
 
 if (cmd === 'create-space') {
   const name = opt('name');
   if (!name || name.length > 100) fail('Укажите --name (до 100 знаков)');
-  const admin = email();
+  const ed = opt('email') ? email() : '';
   const ref = opt('id') ? db.collection('spaces').doc(opt('id')) : db.collection('spaces').doc();
   const batch = db.batch();
   batch.create(ref, {
     name, settings: SPACE_DEFAULTS,
-    createdAt: FieldValue.serverTimestamp(), createdBy: admin,
+    createdAt: FieldValue.serverTimestamp(), createdBy: 'admin-script',
   });
-  batch.create(ref.collection('members').doc(admin), {
-    email: admin, role: 'admin', ...names(),
+  if (ed) batch.create(ref.collection('members').doc(ed), {
+    email: ed, role: 'editor', ...names(),
     addedBy: 'admin-script', addedAt: FieldValue.serverTimestamp(),
   });
   await batch.commit();
-  console.log(`Пространство «${name}» создано: ${ref.id}. Админ: ${admin}`);
+  console.log(`Пространство «${name}» создано: ${ref.id}.` + (ed ? ` Редактор: ${ed}` : ''));
 } else if (cmd === 'set-member') {
   const ref = await spaceRef();
   const e = email();
   const role = opt('role');
-  if (!ROLES.includes(role)) fail(`Роль — одна из: ${ROLES.join(', ')}`);
+  if (!ROLES.includes(role)) fail(`Роль — одна из: ${ROLES.join(', ')} (админ всей формы — команда set-admin)`);
   const m = ref.collection('members').doc(e);
   const old = await m.get();
   await m.set({
@@ -74,7 +85,45 @@ if (cmd === 'create-space') {
   if (!(await m.get()).exists) fail(`Участника ${e} нет`);
   await m.delete();
   console.log(`Участник ${e} удалён`);
+} else if (cmd === 'set-admin') {
+  const e = email();
+  console.log((await setAdmin(e)) ? `${e} теперь админ всей формы` : `${e} уже админ`);
+} else if (cmd === 'remove-admin') {
+  const e = email();
+  const ref = db.collection('admins').doc(e);
+  if (!(await ref.get()).exists) fail(`${e} не админ`);
+  await ref.delete();
+  console.log(`${e} больше не админ`);
+} else if (cmd === 'migrate-8') {
+  if (opt('email')) {
+    const e = email();
+    console.log((await setAdmin(e)) ? `Админ всей формы: ${e}` : `Админ всей формы: ${e} (уже был)`);
+  }
+  let roles = 0, sums = 0, orphans = 0;
+  for (const s of (await db.collection('spaces').get()).docs) {
+    for (const m of (await s.ref.collection('members').where('role', '==', 'admin').get()).docs) {
+      await m.ref.update({ role: 'editor' });
+      roles++;
+      console.log(`${s.id}: ${m.id} — роль admin → editor`);
+    }
+    const sermons = await s.ref.collection('sermons').get();
+    const ids = new Set();
+    let batch = db.batch(), n = 0;
+    for (const d of sermons.docs) {
+      ids.add(d.id);
+      batch.set(s.ref.collection('summaries').doc(d.id), summaryOf(d.data()));
+      sums++;
+      if (++n === 400) { await batch.commit(); batch = db.batch(); n = 0; }
+    }
+    for (const d of (await s.ref.collection('summaries').get()).docs) {
+      if (!ids.has(d.id)) { batch.delete(d.ref); orphans++; if (++n === 400) { await batch.commit(); batch = db.batch(); n = 0; } }
+    }
+    if (n) await batch.commit();
+  }
+  console.log(`Готово. Роль admin → editor: ${roles}; сводок записано: ${sums}; лишних сводок удалено: ${orphans}`);
 } else if (cmd === 'list') {
+  const admins = await db.collection('admins').get();
+  console.log('Админы всей формы: ' + (admins.empty ? 'нет' : admins.docs.map((d) => d.id).join(', ')));
   const spaces = await db.collection('spaces').get();
   if (spaces.empty) console.log('Пространств пока нет');
   for (const s of spaces.docs) {
@@ -87,5 +136,5 @@ if (cmd === 'create-space') {
     }
   }
 } else {
-  fail('Команда: create-space | set-member | remove-member | list (подробности в начале файла)');
+  fail('Команда: create-space | set-member | remove-member | set-admin | remove-admin | migrate-8 | list (подробности в начале файла)');
 }

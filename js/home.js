@@ -1,8 +1,9 @@
 'use strict';
 
 /* ========= Главная: список проповедей =========
-   Без входа список — это черновики из этого браузера (`swp-sermon:<id>`). После входа — проповеди церкви из облака,
-   а то, чего в облаке ещё нет, показывается отдельно: «Только в этом браузере». */
+   Проповеди пространства из облака — по сводкам (cloud.list, строки без слайдов). Если в браузере есть несохранённые
+   правки проповеди этого пространства (`swp-sermon:<id>`, в том числе новой, ещё не записанной), показывается она,
+   с пометкой «Не сохранено в облако». Старые черновики без пространства (до облака) не показываются. */
 let homeQuery = '';
 
 /* Черновики из браузера. Пустые (ни слайдов, ни названия) — это брошенные «Новые проповеди»: убираем */
@@ -26,30 +27,31 @@ function draftList(){
   } catch(e){}
   return out;
 }
-/* Что показать на главной после входа: проповеди из облака (если в браузере есть несохранённые правки — они) и те, которых в облаке нет */
+/* Строка списка (сводка из облака) → то, что рисуют карточка и строка таблицы: как проповедь, но без слайдов */
+function rowItem(r){
+  return { id:r.id, meta:r.meta, blocks:null, slides:r.slides || 0, refs:r.refs || '', updatedAt:r.updatedAt, savedAt:r.updatedAt,
+    cloudSpace:r.cloudSpace, cloudAt:r.cloudAt, cloudOwner:r.cloudOwner, cloudStatus:r.cloudStatus, cloudBy:r.cloudBy };
+}
+/* Что показать на главной: проповеди из облака; если в браузере есть несохранённые правки — их версию (и новые, ещё не записанные) */
 function cloudItems(){
-  const loc = new Map(draftList().map(d => [d.id, d]));
-  const inCloud = [];
+  const loc = new Map(draftList().filter(d => d.cloudSpace === cloud.space).map(d => [d.id, d]));
+  const items = [];
   if (cloud.list) cloud.list.forEach((r, id) => {
     const l = loc.get(id);
-    if (l && l.cloudSpace === cloud.space && isUnsaved(l)){ inCloud.push(l); return; }
-    let c = cloud.norm.get(id);
-    if (!c || c.at !== r.cloudAt){ c = { at:r.cloudAt, d:normalize(r) }; c.d.savedAt = c.d.updatedAt; cloud.norm.set(id, c); }
-    inCloud.push(c.d);
+    items.push(l && isUnsaved(l) ? l : rowItem(r));
   });
-  const only = [];
-  loc.forEach((d, id) => { if (!cloud.list || !cloud.list.has(id)) only.push(d); });
+  loc.forEach((d, id) => { if (cloud.list && !cloud.list.has(id) && isUnsaved(d)) items.push(d); });
   // чистые копии облачных проповедей в браузере больше не нужны: откроются из облака
   loc.forEach((d, id) => {
-    if (d.cloudSpace === cloud.space && cloud.list && cloud.list.has(id) && !isUnsaved(d) && (!state || state.id !== id)){
+    if (cloud.list && cloud.list.has(id) && !isUnsaved(d) && (!state || state.id !== id)){
       try { localStorage.removeItem('swp-sermon:' + id); } catch(e){}
     }
   });
-  return { inCloud, only };
+  return items;
 }
 const isoToday = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
 function haystack(d){
-  const refs = d.blocks.filter(b => b.type === 'scripture').map(b => b.items.map(it => it.ref || '').join(' ')).join(' ');
+  const refs = d.blocks ? d.blocks.filter(b => b.type === 'scripture').map(b => b.items.map(it => it.ref || '').join(' ')).join(' ') : d.refs || '';
   return [d.meta.title, preacherName(d.meta), preacherKey(d.meta), refs].join(' ').toLowerCase().replace(/ё/g, 'е');
 }
 /* «только что», «сегодня», «вчера», «5 ноября» */
@@ -74,13 +76,12 @@ function renderHome(){
 }
 
 function renderHomeList(){
-  const box = $('#home-list'); if (!box) return;
+  const box = $('#home-list'); if (!box || !cloudOn()) return;
   box.innerHTML = '';
-  const on = cloudOn(), ci = on ? cloudItems() : null;
-  if (on && cloud.listError) box.append(h('p', { class:'hint home-warn', text:cloud.listError }));
-  if (on && !cloud.list && !cloud.listError && !ci.only.length){ box.append(h('p', { class:'hint', text:'Загружаю проповеди…' })); return; }
-  const all = on ? ci.inCloud : draftList(), q = homeQuery.trim().toLowerCase().replace(/ё/g, 'е');
-  if (!all.length && !(on && ci.only.length)){
+  if (cloud.listError) box.append(h('p', { class:'hint home-warn', text:cloud.listError }));
+  if (!cloud.list && !cloud.listError){ box.append(h('p', { class:'hint', text:'Загружаю проповеди…' })); return; }
+  const all = cloudItems(), q = homeQuery.trim().toLowerCase().replace(/ё/g, 'е');
+  if (!all.length){
     box.append(h('div', { class:'empty' },
       h('div', { class:'empty-title', text:'Пока нет ни одной проповеди' }),
       h('p', { class:'hint', text:'Нажмите «Новая проповедь», чтобы начать первый конспект.' }),
@@ -100,39 +101,21 @@ function renderHomeList(){
     h('div', { class:'ptable' },
       h('div', { class:'prow phead' }, h('span', { text:'Дата' }), h('span', { text:'Название' }), h('span', { text:'Автор' }), h('span', { text:'Слайдов' }), h('span', { text:'Статус' }), h('span')),
       past.map(sermonRow))));
-  if (on && ci.only.length){
-    const only = ci.only.filter(d => !q || haystack(d).includes(q)).sort((a, b) => b.updatedAt - a.updatedAt);
-    if (only.length) box.append(h('section', { class:'home-sec' },
-      h('div', { class:'cap', text:'Только в этом браузере' }),
-      h('p', { class:'hint', text:'Этих проповедей ещё нет в облаке. Нажмите «В облако» или откройте проповедь и сохраните её.' }),
-      h('div', { class:'cards' }, only.map(sermonCard))));
-  }
-  box.append(h('p', { class:'hint home-note', text:on
-    ? 'Проповеди хранятся в облаке церкви и видны на любом устройстве после входа. Чтобы править проповедь, откройте её и нажмите «Редактировать»: пока вы правите, другие её только смотрят, а правки уходят в облако сами.'
-    : 'Проповеди хранятся в этом браузере. Чтобы отправить проповедь или перенести её на другой компьютер, нажмите «Сохранить» внутри проповеди и перешлите файл.' }));
+  box.append(h('p', { class:'hint home-note', text:'Проповеди хранятся в облаке и видны на любом устройстве после входа. Чтобы править проповедь, откройте её и нажмите «Редактировать»: пока вы правите, другие её только смотрят, а правки уходят в облако сами.' }));
 }
 
-const slideCount = d => d.blocks.filter(b => TYPES[b.type].slide).length;
+const slideCount = d => (d.blocks ? d.blocks.filter(b => TYPES[b.type].slide).length : d.slides || 0);
 
-/* Пометка у карточки после входа: чего с проповедью не хватает */
+/* Пометка у карточки: правки из этого браузера ещё не в облаке */
 function cloudMark(d){
-  if (!cloudOn()) return null;
-  if (!cloud.list || !cloud.list.has(d.id)) return h('span', { class:'cloud-mark', text:'Не в облаке' });
-  if (isUnsaved(d)) return h('span', { class:'cloud-mark', text:'Не сохранено в облако' });
-  return null;
-}
-function cardAction(d){
-  if (cloudOn() && (!cloud.list || !cloud.list.has(d.id)))
-    return h('div', { class:'card-up' }, h('button', { type:'button', class:'btn', onclick:e => { e.preventDefault(); e.stopPropagation(); uploadOne(d); } }, 'В облако'));
-  return null;
+  return isUnsaved(d) ? h('span', { class:'cloud-mark', text:'Не сохранено в облако' }) : null;
 }
 function removeBtn(d, cls){
-  const remote = cloudOn() && cloud.list && cloud.list.has(d.id);
-  return iconBtn('trash', remote ? 'Удалить из облака' : 'Убрать из браузера', e => { e.stopPropagation(); remote ? deleteCloudSermon(d).then(() => renderHomeList()) : deleteDraft(d); }, 'danger ' + cls);
+  const remote = cloud.list && cloud.list.has(d.id);
+  return iconBtn('trash', remote ? 'Удалить из облака' : 'Удалить черновик', e => { e.stopPropagation(); remote ? deleteCloudSermon(d).then(() => renderHomeList()) : deleteDraft(d); }, 'danger ' + cls);
 }
 function sermonCard(d){
-  const m = d.meta, st = sermonStatus(d), slides = d.blocks.filter(b => TYPES[b.type].slide);
-  const todo = canFlag() && !cloudOn() ? slides.filter(b => b.todo).length : 0;   // в облаке отметки лежат отдельно и в списке не видны
+  const m = d.meta, st = sermonStatus(d), n = slideCount(d);
   return h('div', { class:'card-wrap' },
     h('a', { class:'scard st-' + st.key, href:sermonHash(d.id) },
       h('div', { class:'mini' }, h('div', { class:'mini-fr' }, h('div', { class:'mini-pn' },
@@ -143,9 +126,8 @@ function sermonCard(d){
         h('div', { class:'scard-by', text:preacherName(m) || 'Автор не указан' }),
         cloudMark(d), lockMark(d),
         h('div', { class:'scard-foot' },
-          h('span', { text:slides.length ? slides.length + ' ' + plural(slides.length, 'слайд', 'слайда', 'слайдов') : 'Слайдов пока нет' }),
-          todo ? h('span', { class:'film-todo', text:todo + ' доработать' }) : h('span', { text:'изменено ' + fmtAgo(d.updatedAt) })))),
-    cardAction(d),
+          h('span', { text:n ? n + ' ' + plural(n, 'слайд', 'слайда', 'слайдов') : 'Слайдов пока нет' }),
+          h('span', { text:'изменено ' + fmtAgo(d.updatedAt) })))),
     removeBtn(d, 'card-del'));
 }
 function sermonRow(d){
@@ -161,11 +143,13 @@ function sermonRow(d){
     removeBtn(d, 'row-del'));
 }
 
+/* Черновик, которого в облаке нет (новая проповедь, не успевшая сохраниться): лежит только в этом браузере */
 function deleteDraft(d){
   const t = d.meta.title ? '«' + d.meta.title + '»' : 'эту проповедь';
-  if (!confirm('Убрать ' + t + ' из браузера? Если вы сохраняли файл, он останется на месте. Без файла проповедь пропадёт.')) return;
+  if (!confirm('Удалить черновик ' + t + '? В облаке его нет, он пропадёт совсем.')) return;
   try { localStorage.removeItem('swp-sermon:' + d.id); if (LS.get('swp-sermon:last') === d.id) localStorage.removeItem('swp-sermon:last'); } catch(e){}
+  if (ed.id === d.id) resetCloud();
   if (state && state.id === d.id) state = blank();
   renderHomeList();
-  toast('Проповедь убрана из браузера');
+  toast('Черновик удалён');
 }
