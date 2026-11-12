@@ -37,6 +37,7 @@ def test_settings_window_for_editor_only(browser, base_url):
         assert gone not in text, gone
     for there in ("Общие настройки", "Настройки для видов слайдов", "Место Писания", "Шрифт для греческого", "С новой строки"):
         assert there in text, there
+    page.wait_for_selector(".scfg-slide .sl")
     assert page.locator(".scfg-slide .sl").count() == 1   # живой пример слайда
     assert not page.errors, page.errors
     ctx.close()

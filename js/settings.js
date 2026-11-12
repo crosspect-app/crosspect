@@ -132,9 +132,9 @@ function openSlidesCfg(){
   const drawTabs = () => { tabs.replaceChildren(...[['splash', 'Заставка'], ['scripture', 'Писание'], ['thesis', 'Тезис'], ['quote', 'Цитата']].map(([k, l]) =>
     h('button', { type:'button', class:k === sample ? 'on' : '', onclick:() => setSample(k) }, l))); };
   /* Пример перерисовывается с текущими значениями окна; сами настройки не меняются, пока не нажали «Применить» */
-  function paint(){
+  function paint(now){
     cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => {
+    const draw = () => {
       SLIDES_TRY = mergeSlides(SLIDES_DEFAULT, tmp);
       try {
         const b = CFG_SAMPLES[sample](), sl = slideEl(b);
@@ -145,7 +145,8 @@ function openSlidesCfg(){
         info.textContent = r == null ? '' : sample === 'splash' ? 'название ' + Math.round(r * c.splash.size) + ' px'
           : 'текст ' + (Math.round(r * 100) >= 100 ? '100%' : 'уменьшен до ' + Math.round(r * 100) + '%') + ' · ' + Math.round(r * (sample === 'scripture' ? c.scripture.size : c[sample].size) * 10) / 10 + ' px';
       } finally { SLIDES_TRY = null; }
-    });
+    };
+    if (now) draw(); else raf = requestAnimationFrame(draw);
   }
   /* Поле с единицами внутри: «52,8 px», «70 %», «−0,04 em» */
   const num = (obj, key, o) => {
@@ -236,7 +237,7 @@ function openSlidesCfg(){
       err,
       h('div', { style:'display:flex;gap:8px;align-items:center;margin-left:auto' }, done, h('button', { type:'button', class:'btn', onclick:closeSettings }, 'Закрыть'), apply))));
   settingsOverlay.classList.add('open');
-  paint();
+  paint(true);   // пример — сразу, без кадра пустоты
 }
 /* «Применить»: записать в облако; окно остаётся открытым, у кнопки — короткое «Применено» */
 async function saveSlidesCfg(tmp, btn, err, done){
