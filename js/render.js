@@ -1,21 +1,60 @@
 'use strict';
 
 /* Проповедник: из списка («Фамилия Имя») или вручную — имя и фамилия отдельно (на заставке «Имя ФАМИЛИЯ») */
+/* Автор (этап 7.8). Список авторов пространства (пока — preachers из config.json, на этапе 10 — таблица людей):
+   • список есть: «Выберите автора» → имена → линия → «Ввести вручную»; «Имя» и «Фамилия» видны только при «Ввести вручную»;
+   • списка нет: поле «Ввести вручную» не раскрывается, под ним сразу «Имя» и «Фамилия».
+   Данные из аккаунта Google не берём: только список или ручной ввод */
 function preacherField(){
-  const m = state.meta, key = preacherKey(m), known = !key || PREACHERS.includes(key);
+  const m = state.meta, key = preacherKey(m), list = PREACHERS.slice();
   const upd = () => { change(); refreshSplash(); };
-  const first = h('input', { class:'input', placeholder:'Имя', 'aria-label':'Имя', autocomplete:'off', value:known ? '' : m.firstName || '', oninput:e => { m.firstName = e.target.value; upd(); } });
-  const last = h('input', { class:'input', placeholder:'Фамилия', 'aria-label':'Фамилия', autocomplete:'off', value:known ? '' : m.lastName || '', oninput:e => { m.lastName = e.target.value; upd(); } });
-  const other = h('div', { class:'grid-2', style:known ? 'display:none;margin-top:8px' : 'margin-top:8px' }, first, last);
-  const sel = h('select', { class:'input', 'aria-label':'Автор', onchange:e => {
-    if (e.target.value === '__other'){ m.firstName = ''; m.lastName = ''; first.value = ''; last.value = ''; other.style.display = ''; first.focus(); }
-    else { Object.assign(m, splitPreacher(e.target.value)); other.style.display = 'none'; }
-    upd();
-  } },
-    h('option', { value:'' }, 'Выберите…'),
-    PREACHERS.map(p => h('option', { value:p, selected:p === key }, p)),
-    h('option', { value:'__other', selected:!known }, 'Другой — ввести вручную'));
-  return h('div', { class:'field' }, h('span', { class:'lbl', text:'Автор' }), sel, other);
+  const manualNow = !list.length || (!!key && !list.includes(key));
+  const first = h('input', { class:'input', placeholder:'Имя', 'aria-label':'Имя', autocomplete:'off', value:manualNow ? m.firstName || '' : '', oninput:e => { m.firstName = e.target.value; upd(); } });
+  const last = h('input', { class:'input', placeholder:'Фамилия', 'aria-label':'Фамилия', autocomplete:'off', value:manualNow ? m.lastName || '' : '', oninput:e => { m.lastName = e.target.value; upd(); } });
+  const names = h('div', { class:'grid-eq author-names', style:manualNow ? '' : 'display:none' }, first, last);
+  const label = k => preacherName(splitPreacher(k));
+  if (!list.length){
+    return h('div', { class:'field' }, h('span', { class:'lbl', text:'Автор' }),
+      h('div', { class:'dfield fixed', 'aria-disabled':'true', title:'Списка авторов в пространстве пока нет: имя вводится вручную' }, 'Ввести вручную'), names);
+  }
+  const text = h('span', { class:'dtext' });
+  const show = mode => {
+    const k = preacherKey(m);
+    if (mode === 'manual'){ text.textContent = 'Ввести вручную'; text.classList.remove('ph'); names.style.display = ''; }
+    else if (k && list.includes(k)){ text.textContent = label(k); text.classList.remove('ph'); names.style.display = 'none'; }
+    else { text.textContent = 'Выберите автора'; text.classList.add('ph'); names.style.display = 'none'; }
+  };
+  const trig = h('button', { type:'button', class:'dfield', 'aria-haspopup':'listbox', 'aria-label':'Автор', onclick:() => dropdown(trig, [
+      ...list.map(k => ({ label:label(k), on:k === preacherKey(m) && names.style.display === 'none', pick:() => { Object.assign(m, splitPreacher(k)); upd(); show(); } })),
+      { sep:true },
+      { label:'Ввести вручную', cls:'man', on:names.style.display !== 'none', pick:() => { m.firstName = ''; m.lastName = ''; first.value = ''; last.value = ''; upd(); show('manual'); first.focus(); } }]) },
+    text, ic('down'));
+  show(manualNow ? 'manual' : '');
+  return h('div', { class:'field' }, h('span', { class:'lbl', text:'Автор' }), trig, names);
+}
+/* Выпадающий список в стиле формы (линия-разделитель — { sep:true }). Esc и щелчок мимо — закрыть */
+let ddEl = null;
+function closeDropdown(){ if (ddEl){ ddEl.remove(); ddEl = null; } }
+function dropdown(anchor, items){
+  if (ddEl){ closeDropdown(); return; }
+  ddEl = h('div', { class:'dd-list', role:'listbox' }, items.map(it => it.sep ? h('hr') :
+    h('button', { type:'button', role:'option', class:(it.cls || '') + (it.on ? ' on' : ''), 'aria-selected':String(!!it.on), onclick:() => { closeDropdown(); it.pick(); anchor.focus(); } }, it.label)));
+  document.body.append(ddEl);
+  const r = anchor.getBoundingClientRect();
+  ddEl.style.left = r.left + 'px'; ddEl.style.width = r.width + 'px';
+  const below = r.bottom + 6, hgt = ddEl.offsetHeight;
+  ddEl.style.top = (below + hgt > innerHeight - 8 ? Math.max(8, r.top - hgt - 6) : below) + 'px';
+  ddEl.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const bs = [...ddEl.querySelectorAll('button')], i = bs.indexOf(document.activeElement);
+    bs[(i + (e.key === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length].focus();
+  });
+  setTimeout(() => {
+    const away = e => { if (!ddEl){ document.removeEventListener('pointerdown', away, true); return; } if (!ddEl.contains(e.target) && !anchor.contains(e.target)){ closeDropdown(); document.removeEventListener('pointerdown', away, true); } };
+    document.addEventListener('pointerdown', away, true);
+  }, 0);
+  (ddEl.querySelector('button.on') || ddEl.querySelector('button')).focus({ preventScroll:true });
 }
 /* Шапка поменялась — заставки перерисовываются */
 function refreshSplash(){ state.blocks.forEach(b => { if (b.type === 'splash') schedulePreview(b); }); }

@@ -21,7 +21,7 @@ const canPickStatus = key => key !== 'work' || cloud.role !== 'preacher';
 function setSermonStatus(key){
   if (!cloudSermon() || !STATUS_LABELS[key]) return;
   if (!editing()){ roHint(); return; }
-  if (!canPickStatus(key) || statusKey(state.cloudStatus) === key) return;
+  if (!statusOpt(key, statusKey(state.cloudStatus)).can || statusKey(state.cloudStatus) === key) return;
   state.cloudStatus = key;
   state.updatedAt = Math.max(Date.now(), state.updatedAt + 1);   // как change(), но без истории отмены: статус в неё не входит
   persistDraft();
@@ -42,10 +42,24 @@ function statusSwitch(){
   const live = editing();
   return h('div', { class:'stswitch st-' + cur + (live ? '' : ' view'), role:'radiogroup', 'aria-label':'Статус конспекта' },
     STATUS_KEYS.map(k => {
-      const can = canPickStatus(k);
+      const o = statusOpt(k, cur);
       return h('button', { type:'button', role:'radio', class:'sw-opt st-' + k + (k === cur ? ' on' : ''), 'aria-checked':String(k === cur),
-        disabled:!can, title:can ? STATUS_TIPS[k] : STATUS_TIPS.workAuthor, onclick:() => setSermonStatus(k) }, STATUS_LABELS[k]);
+        disabled:!o.can, title:o.tip, onclick:() => setSermonStatus(k) }, STATUS_LABELS[k]);
     }));
+}
+/* Можно ли выбрать статус и что написать во всплывающей подписи. Пока в конспекте нет ни одного слайда, дальше «Черновика»
+   не уйти (этап 7.8): «Готов к вёрстке» и «У редактора» неактивны */
+const noSlides = () => !state.blocks.some(b => TYPES[b.type] && TYPES[b.type].slide);
+function statusOpt(k, cur){
+  if (!canPickStatus(k)) return { can:false, tip:STATUS_TIPS.workAuthor };
+  if (k !== cur && k !== 'draft' && noSlides()) return { can:false, tip:'Сначала добавьте слайды' };
+  return { can:true, tip:STATUS_TIPS[k] };
+}
+/* Слайды добавили или удалили все: доступность положений переключателя — без перерисовки шапки (зовёт updateStatus) */
+function syncStatusSwitch(){
+  const sw = document.querySelector('.topbar .stswitch'); if (!sw || !state) return;
+  const cur = statusKey(state.cloudStatus);
+  sw.querySelectorAll('.sw-opt').forEach(b => { const k = STATUS_KEYS.find(x => b.classList.contains('st-' + x)), o = statusOpt(k, cur); b.disabled = !o.can; b.title = o.tip; });
 }
 
 /* ----- Доработать ----- */

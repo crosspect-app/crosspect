@@ -144,13 +144,15 @@ def test_duplicate_does_not_copy_speech(page, sermon):
 
 def test_preacher_by_hand(page):
     page.wait_for_function("CONFIG.loadedAt > 0 || CONFIG.error !== ''", timeout=15000)   # список проповедников из настроек уже пришёл
-    page.get_by_role("button", name="Новая проповедь").first.click()   # окно «О проповеди» открывается само
-    page.wait_for_selector(".sheet[aria-label='О проповеди'] select")
-    page.select_option(".sheet select", "__other")
+    page.get_by_role("button", name="Новый конспект").first.click()   # окно «О проповеди» открывается само
+    page.wait_for_selector(".sheet[aria-label='О проповеди'] .dfield")
+    page.locator(".sheet .dfield").click()   # этап 7.8: свой список вместо select
+    page.locator(".dd-list .man").click()
     page.fill(".sheet input[aria-label='Имя']", "Андрей")
     page.fill(".sheet input[aria-label='Фамилия']", "Ковальчук")
     assert page.evaluate("[state.meta.firstName, state.meta.lastName]") == ["Андрей", "Ковальчук"]
-    page.select_option(".sheet select", "Шода Евгений")
+    page.locator(".sheet .dfield").click()
+    page.locator(".dd-list button", has_text="Евгений Шода").click()
     assert page.evaluate("[state.meta.firstName, state.meta.lastName]") == ["Евгений", "Шода"]
 
 

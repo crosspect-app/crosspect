@@ -40,7 +40,7 @@ function syncSlides(){
 
 function emptyState(){
   return h('div', { class:'home' }, h('div', { class:'empty' },
-    h('div', { class:'empty-title', text:'Соберите проповедь из слайдов' }),
+    h('div', { class:'empty-title', text:'Соберите конспект из слайдов' }),
     h('ol', null,
       h('li', null, 'Добавляйте слайды по ходу проповеди: места Писания, тезисы, цитаты, картинки.'),
       h('li', null, 'У каждого слайда есть «Текст к слайду»: что вы говорите, пока он на экране. На экран этот текст не выводится, его видит оператор.'),
@@ -140,12 +140,16 @@ function syncFilm(){
     let box = old.get(b.id);
     if (box){ old.delete(b.id); updateItem(box, b, nums[b.id]); }
     else box = filmItem(b, nums[b.id]);
-    if (arrange){ const g = box._gap || (box._gap = filmGap()); g.dataset.at = String(i); want.push(g); }   // «+» между слайдами: вставить сюда
+    if (arrange){ const g = box._gap || (box._gap = filmGap()); g.dataset.at = String(i); g.classList.toggle('first', !want.length); want.push(g); }   // «+» между слайдами: вставить сюда; перед первым — виден всегда
     want.push(box);
   });
   if (!ro){
-    let add = filmEl.querySelector(':scope > .film-add');
-    if (!add) add = h('button', { type:'button', class:'film-add', onclick:() => openSheet(state.blocks.length) }, ic('plus'), 'Добавить в конец');
+    // «+» после последнего слайда (этап 7.8, вместо кнопки «Добавить в конец»): виден всегда, не только при наведении
+    let add = filmEl.querySelector(':scope > .film-end');
+    if (!add){
+      add = h('div', { class:'film-end' });
+      add.append(h('button', { type:'button', class:'film-ins', title:'Добавить слайд в конец', 'aria-label':'Добавить слайд в конец', onclick:() => openSheet(state.blocks.length) }, ic('plus')));
+    }
     add.dataset.at = String(state.blocks.length);
     want.push(add);
   }
@@ -413,7 +417,7 @@ function renderSide(){
   const body = h('div', { class:'bbody' }), ro = readOnly();
   BODY[b.type](b, body, n);
   if (ro){
-    const why = authorWaits() ? AT_EDITOR_MSG + '.' : !canEditCloud() ? 'Только просмотр: это проповедь другого автора.' : 'Только просмотр. Чтобы менять слайды, нажмите «Редактировать».';
+    const why = authorWaits() ? AT_EDITOR_MSG + '.' : !canEditCloud() ? 'Только просмотр: это конспект другого автора.' : 'Только просмотр. Чтобы менять слайды, нажмите «Редактировать».';
     body.inert = true; sideEl.append(h('p', { class:'ro-note', text:why }));
   }
   const capTip = b.type !== 'scripture' ? '' : canEditSlidesCfg()

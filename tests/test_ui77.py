@@ -265,7 +265,7 @@ def test_open_sermon_slides_in_and_back_slides_out(browser, base_url):
     page.wait_for_function("window.__anims.some(a => a[0] === 'main')")
     assert any("translateX(56px)" in k for _, k in page.evaluate("window.__anims"))
     page.evaluate("window.__anims = []")
-    page.locator("a.btn.ghost", has_text="Проповеди").click()
+    page.locator("a.btn.ghost", has_text="Конспекты").click()
     page.wait_for_selector(".home-top")
     assert any(c == "leave-ghost" and "translateX(72px)" in k for c, k in page.evaluate("window.__anims"))   # прежний экран уезжает поверх списка
     page.wait_for_function("!document.querySelector('.leave-ghost')", timeout=2000)
@@ -344,33 +344,11 @@ def test_home_one_table_default_order_and_counts(browser, base_url):
     ctx, page = list_page(browser, base_url)
     assert page.locator(".ptable").count() == 1 and page.locator(".cards").count() == 0
     assert home_rows(page) == ["Без даты", "Будущая", "Скоро", "Прошлая", "Давняя"]   # без даты — сверху, дальше от новых к старым
-    assert [t.replace("\n", "") for t in page.locator(".srow.shead [role=columnheader]").all_inner_texts()[:5]] == ["Дата↓", "Название", "Автор↕", "Слайдов", "Статус↕"]
+    assert [t.replace("\n", "") for t in page.locator(".srow.shead [role=columnheader]").all_inner_texts()[:5]] == ["Дата", "Название", "Автор", "Слайдов", "Статус"]   # сортировки по заголовкам нет с этапа 7.8
     assert page.locator(".scard.next .scard-title").inner_text() == "Скоро"   # ближайшая предстоящая выделена
     row = page.locator(".card-wrap", has_text="Будущая")
     assert row.locator(".c-slides .c-n").inner_text() == "4"
     assert page.locator(".card-wrap", has_text="Скоро").locator(".c-slides .c-n").inner_text() == "0"   # только заставка
-    ctx.close()
-
-
-def test_home_sorting_both_ways_and_remembered(browser, base_url):
-    ctx, page = list_page(browser, base_url)
-    sort = lambda k: page.locator(".srow.shead .sort[data-k='%s']" % k).click()
-    sort("date")
-    assert home_rows(page) == ["Без даты", "Давняя", "Прошлая", "Скоро", "Будущая"]
-    sort("date")
-    assert home_rows(page) == ["Без даты", "Будущая", "Скоро", "Прошлая", "Давняя"]
-    sort("author")   # Ковальская, Петров (новые сверху), Сидоров
-    assert home_rows(page) == ["Давняя", "Без даты", "Будущая", "Скоро", "Прошлая"]
-    assert page.locator(".sort[data-k='author'] .sort-ar").inner_text() == "↑"
-    sort("author")
-    assert home_rows(page) == ["Прошлая", "Без даты", "Будущая", "Скоро", "Давняя"]
-    sort("status")   # Черновик → Готов к вёрстке → У редактора
-    assert home_rows(page) == ["Без даты", "Прошлая", "Скоро", "Давняя", "Будущая"]
-    sort("status")
-    assert home_rows(page) == ["Будущая", "Скоро", "Давняя", "Без даты", "Прошлая"]
-    page.reload()
-    page.wait_for_selector(".scard")
-    assert home_rows(page) == ["Будущая", "Скоро", "Давняя", "Без даты", "Прошлая"]   # выбор помнится в этом браузере
     ctx.close()
 
 

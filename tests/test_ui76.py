@@ -57,7 +57,7 @@ def test_reduced_motion_zeroes_everything(browser, base_url):
     # главная: фон и зерно стоят
     page.evaluate("navigate('')")
     page.wait_for_selector(".home-bg")
-    assert page.evaluate("getComputedStyle(document.querySelector('.home-bg')).animationName") == "none"
+    assert page.evaluate("getComputedStyle(document.querySelector('.hb-haze')).animationName") == "none"
     assert not page.errors, page.errors
     ctx.close()
 
@@ -79,7 +79,8 @@ def test_gate_logo_assembles_and_grain_moves(browser, base_url):
     assert page.evaluate("document.querySelectorAll('.gate-logo.intro .logo-mark path').length") == 3
     assert page.evaluate("[...document.querySelectorAll('.gate-logo.intro path')].every(p => p.getAnimations().length === 1)")
     # три части по очереди: задержки 0 / 200 / 400 мс, вместе ≈ 900 мс
-    delays = page.evaluate("[...document.querySelectorAll('.gate-logo.intro path')].map(p => p.getAnimations()[0].effect.getComputedTiming().delay + p.getAnimations()[0].effect.getComputedTiming().duration)")
+    # этап 7.8: порядок — жёлтый клин (lg-c), потом lg-a и lg-b
+    delays = page.evaluate("['.lg-c', '.lg-a', '.lg-b'].map(c => { const p = document.querySelector('.gate-logo.intro ' + c); return p.getAnimations()[0].effect.getComputedTiming().delay + p.getAnimations()[0].effect.getComputedTiming().duration; })")
     done = page.evaluate("parseFloat(getComputedStyle(document.querySelector('.gate-logo')).getPropertyValue('--el')) || 0")   # перерисовка в первую секунду продолжает сборку
     assert 850 <= max(delays) + done <= 950 and delays == sorted(delays), (delays, done)
     # зерно: та же текстура, что у слайдов, сдвигается рывками (steps), слабая прозрачность
@@ -352,39 +353,34 @@ def test_home_skeleton_then_cards_reveal(browser, base_url):
     assert page.evaluate("document.getAnimations().some(a => a.animationName === 'sk-shine')")   # серые заготовки мерцают
     assert page.evaluate("getComputedStyle(document.querySelector('.sk-card'), '::after').animationDuration") == "1.2s"
     page.evaluate("cloud.list = new Map(); renderHomeList()")   # проповедей нет — обычный пустой экран
-    assert page.locator(".sk-card").count() == 0 and "Пока нет ни одной проповеди" in page.inner_text("#home-list")
+    assert page.locator(".sk-card").count() == 0 and "Пока нет ни одного конспекта" in page.inner_text("#home-list")
     assert page.evaluate("document.querySelector('#home-list').classList.contains('reveal')")   # заготовки сменились проявлением
     assert not page.errors, page.errors
     ctx.close()
 
 
 def test_home_background_drifts_and_text_stays_readable(browser, base_url):
-    """С этапа 7.7 фон ярче и размыт меньше (видны цвета формата), а текст читается: строки, фильтры и подсказка — на своей
-    подложке, крупный заголовок над фоном — с контрастом не хуже 3 : 1 (крупный текст) к самому светлому месту фона"""
+    """С этапа 7.8 фон главной — стена слайдов с библейскими названиями (цвета формата по умолчанию), затемнённая, с зерном;
+    тёмная дымка с «окном» медленно плывёт. Строки, фильтры — на своей подложке"""
     ctx, page = cloud_page(browser, base_url, user=ED, members=MEMBERS_ED, sermons={"s1": three_slides()}, **MOVE)
     page.wait_for_selector(".scard")
-    page.wait_for_function("!document.querySelector('.gate-ghost')")
-    page.evaluate("document.querySelectorAll('.home-bg, .home, .home *').forEach(e => e.getAnimations().forEach(a => { if (a.effect && a.effect.getComputedTiming().iterations !== Infinity) a.finish(); }))")
-    css = page.evaluate("(() => { const s = getComputedStyle(document.querySelector('.home-bg')); return [s.animationName, s.animationIterationCount, parseFloat(s.animationDuration), s.backgroundImage.slice(0, 9), parseFloat(s.opacity), s.filter]; })()")
-    assert css[0] == "home-drift" and css[1] == "infinite" and 20 <= css[2] <= 30 and css[3].startswith("url(\"data"), css
-    assert 0.45 <= css[4] <= 0.7 and "blur(14px)" in css[5], css   # этап 7.7: ярче и чётче, чем было (0,3 и 36 px)
-    ratio = page.evaluate("""async () => {
-      const bg = getComputedStyle(document.querySelector('.home-bg')), op = parseFloat(bg.opacity);
-      const url = bg.backgroundImage.slice(5, -2), img = new Image(); img.src = url; await img.decode();
-      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const x = c.getContext('2d'); x.drawImage(img, 0, 0);
-      const d = x.getImageData(0, 0, c.width, c.height).data; let max = [0, 0, 0], best = -1;
-      for (let i = 0; i < d.length; i += 16){ const l = d[i] + d[i + 1] + d[i + 2]; if (l > best){ best = l; max = [d[i], d[i + 1], d[i + 2]]; } }
-      const base = [14, 14, 14], mix = max.map((v, k) => Math.min(255, v * op * 1.2 + base[k] * (1 - op)));   // 1,2 — запас на насыщенность и контраст фильтра
-      const lum = rgb => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]); };
-      const t = getComputedStyle(document.querySelector('.home-top h1')).color.match(/\\d+/g).slice(0, 3).map(Number);
-      const a = lum(t), b = lum(mix); return (a + 0.05) / (b + 0.05);
-    }""")
-    assert ratio >= 3, ratio
-    # строки таблицы, фильтры и подсказка — на сплошной подложке, фон под ними почти не просвечивает
+    page.wait_for_selector(".hb-wall.ready")
+    n = page.evaluate("document.querySelectorAll('.hb-wall .sl').length")
+    assert n >= 40
+    assert page.evaluate("[...document.querySelectorAll('.hb-wall .sl-sp-title')].every(t => t.textContent.trim().length > 0)")
+    titles = set(page.evaluate("[...document.querySelectorAll('.hb-wall .sl-sp-title')].map(t => t.textContent.trim())"))
+    assert {"Свет миру", "Світло світу", "Sól ziemi", "Let There Be Light"} & titles
+    css = page.evaluate("(() => { const w = getComputedStyle(document.querySelector('.hb-wall')), z = getComputedStyle(document.querySelector('.hb-haze')); return [w.filter, z.animationName, z.animationIterationCount, parseFloat(z.animationDuration)]; })()")
+    assert "brightness(0.51)" in css[0] and css[1] == "home-haze" and css[2] == "infinite" and css[3] >= 40, css
+    # слайды стены не мешают проповеди: без data-id, масштаб большого слайда не трогают
+    assert page.evaluate("document.querySelectorAll('.hb-wall .sl[data-id]').length") == 0
     alpha = "sel => { const c = getComputedStyle(document.querySelector(sel)).backgroundColor; const m = c.match(/[\\d.]+/g); return m.length > 3 ? +m[3] : 1; }"
-    for sel in (".scard", ".hf-sel", ".hf-status", ".home-note"):
+    for sel in (".scard", ".hf-sel", ".hf-status"):
         assert page.evaluate(alpha, sel) >= 0.85, sel
     assert page.evaluate("getComputedStyle(document.querySelector('.home')).position") == "relative"
+    # стена собирается один раз: на главную снова — тот же узел
+    page.evaluate("window.__wall = document.querySelector('.hb-wall'); renderMain()")
+    assert page.evaluate("document.querySelector('.hb-wall') === window.__wall")
     ctx.close()
 
 
@@ -392,7 +388,7 @@ def test_infinite_animations_pause_in_background_tab(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ED, members=MEMBERS_ED, sermons={"s1": three_slides()}, **MOVE)
     page.wait_for_selector(".home-bg")
     page.evaluate("document.documentElement.classList.add('page-hidden')")   # то же, что делает visibilitychange
-    assert page.evaluate("getComputedStyle(document.querySelector('.home-bg')).animationPlayState") == "paused"
+    assert page.evaluate("getComputedStyle(document.querySelector('.hb-haze')).animationPlayState") == "paused"
     ctx.close()
 
 

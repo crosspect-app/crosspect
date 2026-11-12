@@ -17,7 +17,7 @@ function fillMenu(){
     if (cloud.user) menuEl.append(h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
     return;
   }
-  menuEl.append(menuItem('newdoc', 'Новая проповедь', () => newSermon()));
+  menuEl.append(menuItem('newdoc', 'Новый конспект', () => newSermon()));
   if (screen === 'sermon') menuEl.append(menuItem('save', 'Скачать файл', () => saveFile()));
   if (cloudOn() && screen === 'sermon' && authorWaits()) menuEl.append(menuItem('dup', 'Сделать копию', () => saveAsCopy()));   // конспект у редактора: копия — новый черновик автора
   if (screen === 'sermon') menuEl.append(
@@ -26,6 +26,7 @@ function fillMenu(){
     menuItem('phone', 'PDF для оператора', () => operatorPDF()));
   if (screen === 'sermon' && wideScreen()) menuEl.append(menuItem('reset', 'Сбросить настройки экрана', () => resetLayout()));   // ширина и порядок панелей
   if (canEditSlidesCfg()) menuEl.append(h('div', { class:'menu-sep' }), menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));   // общие для пространства: админ и редактор
+  if (screen !== 'help') menuEl.append(h('div', { class:'menu-sep' }), menuItem('help', 'Как пользоваться', () => openHelp()));   // инструкция (этап 7.8 — пока пустая страница)
   menuEl.append(h('div', { class:'menu-sep' }), h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
 }
 

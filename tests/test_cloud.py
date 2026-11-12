@@ -76,7 +76,7 @@ def test_without_sign_in_only_gate(browser, base_url):
     assert not page.locator(".home-top").count() and not page.locator(".film").count()
     assert page.evaluate("screen") == "home"
     page.locator(".topbar .icon-btn[aria-label='Ещё']").click()
-    assert "Новая проповедь" not in page.inner_text("#menu")
+    assert "Новый конспект" not in page.inner_text("#menu")
     assert not page.errors, page.errors
     ctx.close()
 
@@ -121,7 +121,7 @@ def test_open_cloud_sermon_edit_and_unsaved_recovery(browser, base_url):
     page.wait_for_function("fakeCloud.db().sermons.s1.meta.title === 'Вера и дела'", timeout=10000)
     page.evaluate("state.meta.title = 'Вера и дела 2'; change(); saveNow()")
     page.wait_for_function("fakeCloud.db().sermons.s1.meta.title === 'Вера и дела 2'")
-    assert not page.locator(".sheet[aria-label='Проповедь уже изменили']").count()   # свои записи до перезагрузки — не конфликт
+    assert not page.locator(".sheet[aria-label='Конспект уже изменили']").count()   # свои записи до перезагрузки — не конфликт
     ctx.close()
 
 
@@ -132,7 +132,7 @@ def test_conflict_replace_and_copy(browser, base_url):
     # замок за это время пропал (истёк, его сняли), и «другой человек» сохранил свою версию
     page.evaluate(OTHER_EDIT)
     page.evaluate("state.meta.title = 'Моя версия'; change(); saveNow()")
-    page.wait_for_selector(".sheet[aria-label='Проповедь уже изменили']")
+    page.wait_for_selector(".sheet[aria-label='Конспект уже изменили']")
     assert page.evaluate("fakeCloud.db().sermons.s1.meta.title") == "Чужая версия"    # молча ничего не затёрто
     page.get_by_role("button", name="Сохранить копией").click()
     page.wait_for_function("Object.keys(fakeCloud.db().sermons).length === 2")
@@ -149,7 +149,7 @@ def test_conflict_force_replace(browser, base_url):
     open_edit(page, "s1")
     page.evaluate(OTHER_EDIT)
     page.evaluate("state.meta.title = 'Моя версия'; change(); saveNow()")
-    page.wait_for_selector(".sheet[aria-label='Проповедь уже изменили']")
+    page.wait_for_selector(".sheet[aria-label='Конспект уже изменили']")
     assert "другая версия" in page.inner_text("#hd-save")   # пока не выбрали, в облако ничего не уходит
     page.get_by_role("button", name="Заменить облачную").click()
     page.wait_for_function("fakeCloud.db().sermons.s1.meta.title === 'Моя версия'")
@@ -220,19 +220,21 @@ def test_preacher_sees_all_but_edits_own(browser, base_url):
 
 
 def test_new_sermon_defaults_to_me_and_can_be_changed(browser, base_url):
+    """Этап 7.8: автор по умолчанию — из таблицы участников, если он есть в списке авторов; имя из аккаунта Google не берётся"""
     members = dict(MEMBERS, **{"admin@x.pl": {"role": "admin"}})
-    for user, want in [(IVAN, ["Иван", "Петров"]), ({"email": "admin@x.pl", "name": "Виталий Бисюков"}, ["Виталий", "Бисюков"])]:
+    for user, want in [(IVAN, ["Иван", "Петров"]), ({"email": "admin@x.pl", "name": "Виталий Бисюков"}, ["", ""])]:
         ctx, page = cloud_page(browser, base_url, user=user, members=members)
         wait_home(page)
+        page.evaluate("PREACHERS.length = 0; PREACHERS.push('Петров Иван', 'Сидоров Пётр')")
         page.evaluate("newSermon()")
         page.wait_for_selector(".sheet[aria-label='О проповеди']")
         assert page.evaluate("[state.meta.firstName, state.meta.lastName]") == want
-        # заменить на другого можно
-        page.select_option("select[aria-label='Автор']", "__other")
+        # заменить на другого можно: «Ввести вручную»
+        page.locator(".sheet .dfield").click()
+        page.locator(".dd-list .man").click()
         page.fill("input[aria-label='Имя']", "Пётр")
         assert page.evaluate("state.meta.firstName") == "Пётр"
         ctx.close()
-
 
 def test_preacher_closed_space_lists_only_own(browser, base_url):
     sermons = {"mine": rec("mine", "Моя", owner="ivan@x.pl"), "other": rec("other", "Чужая", owner="petr@x.pl")}

@@ -115,7 +115,7 @@ function startListen(){
     cloud.list = new Map(items.map(r => [r.id, r])); cloud.fromCache = !!fromCache; cloud.listError = '';
     if (screen === 'home' && cloudOn()) renderHomeList();
   }, e => {
-    cloud.listError = cloudExplain(e) || 'Не удалось загрузить список проповедей.';
+    cloud.listError = cloudExplain(e) || 'Не удалось загрузить список конспектов.';
     if (screen === 'home' && cloudOn()) renderHomeList();
   });
   // настройки слайдов пространства (этап 7.1): приходят сразу и при каждом изменении, у всех участников
@@ -161,7 +161,7 @@ function renderGate(){
     h('div', { class:'chips' },
       h('button', { type:'button', class:'btn primary', onclick:() => { if (cloud.user) cloudUser(cloud.user); else { cloud.started = false; initCloud(); } } }, 'Повторить'))];
   else body = [
-    h('h1', { text:'Проповеди церкви' }),
+    h('h1', { text:'Конспекты проповедей' }),
     h('p', { class:'gate-text', text:'Войдите через Google. Нужна та почта, которую вам добавил админ церкви.' }),
     h('div', { class:'chips' }, h('button', { type:'button', class:'btn primary big', onclick:() => cloudSignIn() }, 'Войти через Google')),
     inAppBrowser() ? h('p', { class:'gate-warn', text:'Похоже, страница открыта внутри Telegram или другого приложения. Google не даёт войти отсюда: откройте ссылку в Chrome или Safari.' }) : null];
@@ -169,7 +169,7 @@ function renderGate(){
   const lg = logoLockup('gate-logo'), el = Date.now() - (MOTION.gateAt || (MOTION.gateAt = Date.now()));
   if (el < 1000){ lg.classList.add('intro'); lg.style.setProperty('--el', el + 'ms'); }
   mainEl.append(h('div', { class:'gate-fx', 'aria-hidden':'true' }, h('div', { class:'gate-grain' })),
-    h('div', { class:'gate' }, h('div', { class:'gate-card' + (mode === 'wait' ? ' splash' : '') }, lg, body)));
+    h('div', { class:'gate' + (mode === 'wait' ? ' full' : '') }, h('div', { class:'gate-card' + (mode === 'wait' ? ' splash' : '') }, lg, body)));
 }
 
 /* ----- Права ----- */
@@ -199,8 +199,8 @@ function saveSermon(){
 function conflictSheet(remote){
   const when = remote && remote.cloudAt ? fmtTime(remote.cloudAt) : '', by = remote && remote.cloudBy ? ' (' + remote.cloudBy + ')' : '';
   settingsOverlay.innerHTML = '';
-  settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Проповедь уже изменили' },
-    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Проповедь уже изменили' }), iconBtn('close', 'Закрыть', closeSettings)),
+  settingsOverlay.append(h('div', { class:'sheet', role:'dialog', 'aria-label':'Конспект уже изменили' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Конспект уже изменили' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('p', { class:'hint', style:'font-size:12px;margin-bottom:16px', text:'В облаке есть версия' + (when ? ' от ' + when : '') + by + ', которой нет у вас. Если заменить её вашей, те правки пропадут. Можно сохранить вашу версию отдельной копией или взять облачную, тогда пропадут ваши несохранённые правки. Пока вы не выберете, ваши правки в облако не уходят.' }),
     h('div', { class:'sheet-foot wrap' },
       h('button', { type:'button', class:'btn', onclick:() => { closeSettings(); takeRemote(remote); } }, 'Взять облачную'),
@@ -234,23 +234,23 @@ function saveAsCopy(){
 
 /* ----- Удаление ----- */
 async function deleteCloudSermon(d){
-  const t = d.meta.title ? '«' + d.meta.title + '»' : 'эту проповедь';
+  const t = d.meta.title ? '«' + d.meta.title + '»' : 'этот конспект';
   const r = cloud.list && cloud.list.get(d.id), l = r && r.lock;
   if (l && lockLive(l) && !(ed.id === d.id && lockHere(l))){
-    toast(l.email === myEmail() ? 'Вы правите её в другой вкладке или на другом устройстве. Закройте правку там и удалите ещё раз' : 'Сейчас её правит ' + lockWho(l) + '. Удалить можно, когда правка закончится');
+    toast(l.email === myEmail() ? 'Вы правите его в другой вкладке или на другом устройстве. Закройте правку там и удалите ещё раз' : 'Сейчас его правит ' + lockWho(l) + '. Удалить можно, когда правка закончится');
     return;
   }
   if (cloud.role === 'preacher' && r && statusKey(r.cloudStatus) !== 'draft'){   // автор удаляет только свой черновик (так решает и база)
     toast(atEditor(r) ? AT_EDITOR_MSG : 'Удалить можно только черновик. Откройте конспект, нажмите «Редактировать» и переключите статус на «Черновик»');
     return;
   }
-  if (!confirm('Удалить ' + t + ' из облака? Она пропадёт у всех, вернуть её нельзя.')) return;
+  if (!confirm('Удалить ' + t + ' из облака? Конспект пропадёт у всех, вернуть его нельзя.')) return;
   try {
     await cloud.api.remove(cloud.space, d.id);
     if (ed.id === d.id) resetCloud();
     try { localStorage.removeItem('swp-sermon:' + d.id); if (LS.get('swp-sermon:last') === d.id) localStorage.removeItem('swp-sermon:last'); } catch(e){}
     if (state && state.id === d.id) state = blank();
-    toast('Проповедь удалена');
+    toast('Конспект удалён');
   } catch(e){ toast(cloudExplain(e) || 'Не удалось удалить'); }
 }
 
@@ -268,7 +268,7 @@ async function openCloudSermon(id, local, seq){
     if (!local || !unsaved) pick = remote;
     else if (local.cloudAt === remote.cloudAt) pick = local;
     else if (remote.lock && remote.lock.email === myEmail() && remote.lock.at === recallAt(id) && remote.cloudBy === myEmail()) pick = local;   // облачная новее из-за нашей же записи (перезагрузили посреди правки)
-    else pick = confirm('В браузере остались несохранённые правки этой проповеди, а в облаке она уже новее. Оставить ваши правки? («Отмена» откроет облачную версию.)') ? local : remote;
+    else pick = confirm('В браузере остались несохранённые правки этого конспекта, а в облаке он уже новее. Оставить ваши правки? («Отмена» откроет облачную версию.)') ? local : remote;
   } else if (local){ pick = local; if (failed) note = 'Нет связи с облаком: открыта копия из браузера'; }
   if (!pick) return { missing:true, failed };
   const s = applyFlags(normalize(pick));

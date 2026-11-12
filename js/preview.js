@@ -299,7 +299,7 @@ function layoutBox(sl, b, px){
 function fitSlide(sl, b){
   const w = sl.clientWidth; if (!w) return null;
   sl.style.setProperty('--s', w / SL.W);
-  if (w < SL.W && !sl.closest('.film, .scfg')) lastScale = w / SL.W;   // масштаб берём с крупных слайдов, не с миниатюр
+  if (w < SL.W && !sl.closest('.film, .scfg, .hb-wall')) lastScale = w / SL.W;   // масштаб берём с крупных слайдов, не с миниатюр
   const fit = b.type === 'scripture' ? layoutAt : b.type === 'splash' ? layoutSplash : layoutBox;
   if (!PREVIEW[b.type]) return 1;   // пустой слайд (картинка, видео, свободный): только рамка и фон
   const base = b.type === 'scripture' ? scrPx() : b.type === 'splash' ? splashBase(b) : basePx(b.type) * blkScale(b) / 100;

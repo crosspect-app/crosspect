@@ -40,7 +40,7 @@ def test_opens_read_only_and_edit_takes_lock(browser, base_url):
     assert "Только просмотр" in status(page)
     assert page.evaluate("readOnly()")
     assert page.evaluate("document.querySelector('.side .bbody').inert")
-    assert not page.locator(".film-add").count()
+    assert not page.locator(".film-end").count()
     assert "null" not in page.inner_text("#film-count")
     # правка в просмотре не проходит и подсказывает про «Редактировать»
     page.evaluate("state.meta.title = 'Тайком'; change()")
@@ -52,7 +52,7 @@ def test_opens_read_only_and_edit_takes_lock(browser, base_url):
     assert lock["email"] == "admin@x.pl" and lock["name"] == "Админ"
     assert page.get_by_role("button", name="Сохранить", exact=True).is_visible()
     assert not page.evaluate("document.querySelector('.side .bbody').inert")
-    assert page.locator(".film-add").count() == 1
+    assert page.locator(".film-end").count() == 1
     assert not page.errors, page.errors
     ctx.close()
 
@@ -276,7 +276,7 @@ def test_leaving_sermon_saves_and_releases(browser, base_url):
     open_sermon(page, "s1")
     start_edit(page)
     page.evaluate("state.meta.title = 'Ушёл'; change()")
-    page.get_by_role("link", name="Проповеди").click()
+    page.get_by_role("link", name="Конспекты").click()
     wait_home(page)
     page.wait_for_function("(() => { const r = fakeCloud.db().sermons.s1; return r.meta.title === 'Ушёл' && r.lock === null; })()")
     ctx.close()
@@ -328,7 +328,7 @@ def test_delete_blocked_while_someone_edits(browser, base_url):
     wait_home(page)
     page.wait_for_selector(".scard")
     page.locator(".card-del").first.click(force=True)
-    assert "Сейчас её правит Иван" in page.inner_text(".toast")
+    assert "Сейчас его правит Иван" in page.inner_text(".toast")
     assert "s1" in page.evaluate("fakeCloud.db().sermons")
     ctx.close()
 

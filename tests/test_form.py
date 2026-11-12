@@ -127,7 +127,7 @@ def test_back_button_returns_to_home_and_reload_keeps_sermon(page, sermon, base_
 
 
 def test_new_sermon_from_home(page):
-    page.get_by_role("button", name="Новая проповедь").first.click()
+    page.get_by_role("button", name="Новый конспект").first.click()
     page.wait_for_function("screen === 'sermon'")
     assert page.locator(".sheet[aria-label='О проповеди']").count() == 1   # сразу спрашиваем название, проповедника и дату
     page.evaluate("closeSettings()")

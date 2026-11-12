@@ -68,25 +68,25 @@ function fmtAgo(ts){
 function renderHome(){
   mainEl.append(homeBg(), h('div', { class:'home' },
     h('div', { class:'home-top' },
-      h('h1', { text:'Проповеди' }),
+      h('h1', { text:'Конспекты' }),
       h('div', { class:'grow' }),
-      h('button', { type:'button', class:'btn primary big', onclick:() => newSermon() }, ic('plus'), 'Новая проповедь')),
+      h('button', { type:'button', class:'btn primary big', onclick:() => newSermon() }, ic('plus'), 'Новый конспект')),
     h('div', { id:'home-list' })));
+  layoutWall();   // стена слайдов на фоне — разложить, когда она уже на странице (motion.js)
   renderHomeList();
 }
 
-/* ----- Список: одна таблица, сортировка и фильтры (этап 7.7) -----
+/* ----- Список: одна таблица и фильтры (этап 7.7; сортировка по заголовкам убрана на этапе 7.8 — порядок всегда по дате) -----
    Колонки и фильтры описаны таблицами HOME_COLS и homeFilters: колонку «Серия» и фильтр по серии (этап 10) добавить
-   одной записью в каждую. Выбор сортировки и фильтров хранится в этом браузере (swp-home-view), без облака. */
+   одной записью в каждую. Выбор фильтров хранится в этом браузере (swp-home-view), без облака. */
 const STATUS_ORDER = { draft:0, submitted:1, work:2 };   // «Черновик → Готов к вёрстке → У редактора»
-const HOME_VIEW_DEFAULT = { sort:{ key:'date', dir:-1 }, f:{ date:'all', from:'', to:'', author:'', status:[] } };
+const HOME_VIEW_DEFAULT = { f:{ date:'all', from:'', to:'', author:'', status:[] } };
 let homeView = (() => {
   let v = null; try { v = JSON.parse(LS.get('swp-home-view') || 'null'); } catch(e){}
   const D = JSON.parse(JSON.stringify(HOME_VIEW_DEFAULT));
   if (!v || typeof v !== 'object') return D;
-  const s = v.sort || {}, f = v.f || {};
-  return { sort:{ key:['date', 'author', 'status'].includes(s.key) ? s.key : 'date', dir:s.dir === 1 ? 1 : -1 },
-    f:{ date:['all', 'up', 'past', 'range'].includes(f.date) ? f.date : 'all', from:/^\d{4}-\d{2}-\d{2}$/.test(f.from) ? f.from : '', to:/^\d{4}-\d{2}-\d{2}$/.test(f.to) ? f.to : '',
+  const f = v.f || {};
+  return { f:{ date:['all', 'up', 'past', 'range'].includes(f.date) ? f.date : 'all', from:/^\d{4}-\d{2}-\d{2}$/.test(f.from) ? f.from : '', to:/^\d{4}-\d{2}-\d{2}$/.test(f.to) ? f.to : '',
       author:typeof f.author === 'string' ? f.author : '', status:Array.isArray(f.status) ? f.status.filter(k => STATUS_KEYS.includes(k)) : [] } };
 })();
 let homeFiltersOpen = false;   // узкий экран: фильтры под кнопкой «Фильтры»
@@ -99,21 +99,20 @@ function rowDate(s){
   const t = fmtDay(s); if (!t) return '';
   return s.slice(0, 4) === String(new Date().getFullYear()) ? t : t + ' ' + s.slice(0, 4);
 }
-/* Колонки: key — для сортировки (sortable), cell — содержимое ячейки */
+/* Колонки: cell — содержимое ячейки */
 const HOME_COLS = [
-  { key:'date', label:'Дата', sortable:true, cls:'c-date', cell:d => h('span', { class:'muted', text:rowDate(d.meta.date) || 'Без даты' }) },
+  { key:'date', label:'Дата', cls:'c-date', cell:d => h('span', { class:'muted', text:rowDate(d.meta.date) || 'Без даты' }) },
   { key:'title', label:'Название', cls:'c-title', cell:d => h('span', { class:'pt' },
     h('span', { class:'scard-title' + (d.meta.title ? '' : ' empty'), text:d.meta.title || 'Без названия' }), d._next ? ' ' : null, d._next ? h('span', { class:'next-mark', text:'ближайшая' }) : null, cloudMark(d), lockMark(d)) },
-  { key:'author', label:'Автор', sortable:true, cls:'c-author', cell:d => h('span', { class:'muted2', text:preacherName(d.meta) || '—' }) },
+  { key:'author', label:'Автор', cls:'c-author', cell:d => h('span', { class:'muted2', text:preacherName(d.meta) || '—' }) },
   { key:'slides', label:'Слайдов', cls:'c-slides', title:'Сколько слайдов, без заставок', cell:d => { const n = slideCount(d); return h('span', null, h('span', { class:'c-n', text:String(n) }), h('span', { class:'c-lbl', text:' ' + plural(n, 'слайд', 'слайда', 'слайдов') })); } },
-  { key:'status', label:'Статус', sortable:true, cls:'c-status', cell:d => { const st = sermonStatus(d); return h('span', null, h('span', { class:'stchip st-' + st.key, text:st.label })); } }
+  { key:'status', label:'Статус', cls:'c-status', cell:d => { const st = sermonStatus(d); return h('span', null, h('span', { class:'stchip st-' + st.key, text:st.label })); } }
 ];
-/* Сравнение для сортировки. Проповеди без даты — всегда сверху (обычно это свежие черновики) */
-function homeCompare(key, dir){
-  const newest = (a, b) => { const x = a.meta.date || '', y = b.meta.date || ''; if (!x !== !y) return x ? 1 : -1; return (x < y ? 1 : x > y ? -1 : 0) || (b.updatedAt || 0) - (a.updatedAt || 0); };
-  if (key === 'author') return (a, b) => { const x = authorKey(a), y = authorKey(b); if (!x !== !y) return x ? -1 : 1; return dir * x.localeCompare(y, 'ru') || newest(a, b); };
-  if (key === 'status') return (a, b) => dir * (STATUS_ORDER[statusKey(a.cloudStatus)] - STATUS_ORDER[statusKey(b.cloudStatus)]) || newest(a, b);
-  return (a, b) => { const x = a.meta.date || '', y = b.meta.date || ''; if (!x !== !y) return x ? 1 : -1; return dir * (x < y ? -1 : x > y ? 1 : 0) || (b.updatedAt || 0) - (a.updatedAt || 0); };
+/* Порядок всегда по дате: проповеди без даты — сверху (обычно это свежие черновики), дальше от новых к старым */
+function homeOrder(a, b){
+  const x = a.meta.date || '', y = b.meta.date || '';
+  if (!x !== !y) return x ? 1 : -1;
+  return (x < y ? 1 : x > y ? -1 : 0) || (b.updatedAt || 0) - (a.updatedAt || 0);
 }
 function homeFilter(d, today){
   const f = homeView.f, dt = d.meta.date || '';
@@ -138,17 +137,17 @@ function renderHomeList(){
   const all = cloudItems(), q = homeQuery.trim().toLowerCase().replace(/ё/g, 'е');
   if (!all.length){
     box.append(h('div', { class:'empty' },
-      h('div', { class:'empty-title', text:'Пока нет ни одной проповеди' }),
-      h('p', { class:'hint', text:'Нажмите «Новая проповедь», чтобы начать первый конспект.' }),
+      h('div', { class:'empty-title', text:'Пока нет ни одного конспекта' }),
+      h('p', { class:'hint', text:'Нажмите «Новый конспект», чтобы начать первый.' }),
       h('div', { class:'chips' },
-        h('button', { type:'button', class:'btn primary', onclick:() => newSermon() }, ic('plus'), 'Новая проповедь'))));
+        h('button', { type:'button', class:'btn primary', onclick:() => newSermon() }, ic('plus'), 'Новый конспект'))));
     return;
   }
   const today = isoToday();
   // ближайшая предстоящая — чуть выделена
   const next = all.filter(d => d.meta.date && d.meta.date >= today).sort((a, b) => a.meta.date.localeCompare(b.meta.date))[0];
   all.forEach(d => { d._next = d === next; });
-  const S = homeView.sort, list = all.filter(d => (!q || haystack(d).includes(q)) && homeFilter(d, today)).sort(homeCompare(S.key, S.dir));
+  const list = all.filter(d => (!q || haystack(d).includes(q)) && homeFilter(d, today)).sort(homeOrder);
   box.append(homeFilters(all));
   if (!list.length){
     const why = q && filtersOn() ? 'По запросу «' + homeQuery.trim() + '» с выбранными фильтрами ничего не нашлось.'
@@ -157,29 +156,12 @@ function renderHomeList(){
       h('p', { class:'hint', text:why + (filtersOn() ? ' Попробуйте сбросить фильтры.' : ' Проверьте, как написано, или поищите по автору и месту Писания.') }),
       filtersOn() ? h('div', { class:'chips' }, h('button', { type:'button', class:'btn', onclick:() => resetHomeFilters() }, 'Сбросить фильтры')) : null));
   } else {
-    box.append(h('div', { class:'ptable', role:'table', 'aria-label':'Проповеди' },
+    box.append(h('div', { class:'ptable', role:'table', 'aria-label':'Конспекты' },
       h('div', { class:'srow shead', role:'row' }, HOME_COLS.map(c => homeHead(c)), h('span', { role:'columnheader', 'aria-label':'Действия' })),
       list.map(sermonRow)));
   }
-  box.append(h('p', { class:'hint home-note', text:'Проповеди хранятся в облаке и видны на любом устройстве после входа. Чтобы править проповедь, откройте её и нажмите «Редактировать»: пока вы правите, другие её только смотрят, а правки уходят в облако сами.' }));
 }
-/* Заголовок колонки: у сортируемых — кнопка; повторный щелчок — обратный порядок; стрелка — направление */
-function homeHead(c){
-  if (!c.sortable) return h('span', { class:c.cls, role:'columnheader', title:c.title || null, text:c.label });
-  const S = homeView.sort, on = S.key === c.key;
-  const tip = c.key === 'date' ? (on && S.dir < 0 ? 'Сейчас: от новых к старым. Нажмите — от старых к новым' : on ? 'Сейчас: от старых к новым. Нажмите — от новых к старым' : 'Сортировать по дате')
-    : c.key === 'status' ? (on && S.dir > 0 ? 'Сейчас: «Черновик» сверху. Нажмите — «У редактора» сверху' : on ? 'Сейчас: «У редактора» сверху. Нажмите — «Черновик» сверху' : 'Сортировать по статусу')
-    : (on && S.dir > 0 ? 'Сейчас: от А до Я. Нажмите — от Я до А' : on ? 'Сейчас: от Я до А. Нажмите — от А до Я' : 'Сортировать по автору');
-  return h('span', { class:c.cls, role:'columnheader', 'aria-sort':on ? (S.dir > 0 ? 'ascending' : 'descending') : 'none' },
-    h('button', { type:'button', class:'sort' + (on ? ' on' : ''), 'data-k':c.key, title:tip, onclick:() => setHomeSort(c.key) },
-      c.label, h('span', { class:'sort-ar', 'aria-hidden':'true', text:on ? (S.dir > 0 ? '↑' : '↓') : '↕' })));
-}
-function setHomeSort(key){
-  const S = homeView.sort;
-  if (S.key === key) S.dir = -S.dir;
-  else { S.key = key; S.dir = key === 'date' ? -1 : 1; }   // дата — сначала новые; автор — от А до Я; статус — с «Черновика»
-  saveHomeView(); renderHomeList();
-}
+function homeHead(c){ return h('span', { class:c.cls, role:'columnheader', title:c.title || null, text:c.label }); }
 /* Фильтры над таблицей: дата, автор, статус; «Сбросить», когда что-то выбрано. Работают вместе с поиском в шапке */
 function homeFilters(all){
   const f = homeView.f;
@@ -197,7 +179,7 @@ function homeFilters(all){
   const authorSel = sel('Автор', f.author, [['', 'Все авторы']].concat([...authors].sort((a, b) => a[0].localeCompare(b[0], 'ru')).map(([k, n]) => [k, n])), v => set('author', v));
   const stat = h('div', { class:'hf-status', role:'group', 'aria-label':'Статус' }, STATUS_KEYS.map(k => {
     const on = f.status.includes(k);
-    return h('button', { type:'button', class:'hf-chip st-' + k + (on ? ' on' : ''), 'aria-pressed':String(on), title:on ? 'Убрать из фильтра' : 'Показать проповеди с этим статусом (можно выбрать несколько)',
+    return h('button', { type:'button', class:'hf-chip st-' + k + (on ? ' on' : ''), 'aria-pressed':String(on), title:on ? 'Убрать из фильтра' : 'Показать конспекты с этим статусом (можно выбрать несколько)',
       onclick:() => set('status', on ? f.status.filter(x => x !== k) : STATUS_KEYS.filter(x => x === k || f.status.includes(x))) }, STATUS_LABELS[k]);
   }));
   const reset = filtersOn() ? h('button', { type:'button', class:'btn ghost small hf-reset', onclick:() => resetHomeFilters() }, ic('close'), 'Сбросить') : null;
@@ -231,7 +213,7 @@ function sermonRow(d){
 
 /* Черновик, которого в облаке нет (новая проповедь, не успевшая сохраниться): лежит только в этом браузере */
 function deleteDraft(d){
-  const t = d.meta.title ? '«' + d.meta.title + '»' : 'эту проповедь';
+  const t = d.meta.title ? '«' + d.meta.title + '»' : 'этот конспект';
   if (!confirm('Удалить черновик ' + t + '? В облаке его нет, он пропадёт совсем.')) return;
   try { localStorage.removeItem('swp-sermon:' + d.id); if (LS.get('swp-sermon:last') === d.id) localStorage.removeItem('swp-sermon:last'); } catch(e){}
   if (ed.id === d.id) resetCloud();

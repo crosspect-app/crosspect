@@ -130,8 +130,8 @@ def test_insert_between_slides(browser, base_url):
     assert "после Слайда 1" in page.inner_text(".overlay.open .sheet-title")
     page.locator(".overlay.open .type.t-quote").click()
     assert page.evaluate("state.blocks.map(b => b.type)") == ["splash", "quote", "thesis", "thesis"]
-    # «Добавить в конец» — в конец
-    page.locator(".film-add").click()
+    # «+» после последнего слайда — в конец (этап 7.8)
+    page.locator(".film-end .film-ins").click()
     page.locator(".overlay.open .type.t-free").click()
     assert page.evaluate("state.blocks[state.blocks.length - 1].type") == "free"
     ctx.close()

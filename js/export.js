@@ -115,7 +115,7 @@ async function exportOne(b){
 async function exportMany(){
   if (exporting) return;
   const list = state.blocks.filter(b => PREVIEW[b.type]);
-  if (!list.length){ toast('В проповеди нет слайдов, которые форма собирает сама'); return; }
+  if (!list.length){ toast('В конспекте нет слайдов, которые форма собирает сама'); return; }
   if (!checkNames()) return;
   if (list.length === 1){ exportOne(list[0]); return; }
   exporting = true; motionPause();

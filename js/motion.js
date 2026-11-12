@@ -244,12 +244,52 @@ function motionFlare(){
 
 /* ----- Главная: заготовки карточек и плывущий фон ----- */
 function skeletonCards(){   // с этапа 7.7 — строки таблицы
-  return h('div', { class:'ptable sk-table', role:'status', 'aria-label':'Загружаю проповеди…', 'aria-busy':'true' },
+  return h('div', { class:'ptable sk-table', role:'status', 'aria-label':'Загружаю конспекты…', 'aria-busy':'true' },
     [0, 1, 2, 3].map(() => h('div', { class:'sk-card sk-row' }, h('div', { class:'sk-line w1' }), h('div', { class:'sk-line w2' }), h('div', { class:'sk-line w3' }))));
 }
-/* Размытая картинка из генератора фона (7.3/7.5) в цветах формата по умолчанию; у System Template — ползунки прежнего фона. Одна картинка, анимируется только transform */
+/* Фон главной (этап 7.8): стена из слайдов-заставок с библейскими названиями на русском, украинском, польском и английском —
+   в цветах формата по умолчанию, затемнённая, с зерном. Поверх — тёмная дымка с одним «окном», которое очень медленно
+   плывёт по экрану и открывает разные части стены. Стена собирается один раз (кеш по формату), дальше узел переиспользуется.
+   «Уменьшить движение» — дымка стоит */
+const WALL_TITLES = ['Если я не имею любви', 'Вера без дел мертва', 'Свет миру', 'Хлеб жизни', 'Не бойся, только веруй', 'Любовь долготерпит',
+  'Сила в немощи', 'Плоды Духа', 'Мир оставляю вам', 'Добрый пастырь', 'Соль земли', 'Новое творение', 'Благодать и истина', 'Да будет свет',
+  'Встань и иди', 'Я есмь путь', 'Світло світу', 'Хліб життя', 'Не бійся, тільки віруй', 'Добрий пастир', 'Сіль землі', 'Віра без діл мертва',
+  'Любов довготерпить', 'Światło świata', 'Chleb życia', 'Miłość cierpliwa jest', 'Dobry pasterz', 'Nie lękaj się', 'Sól ziemi', 'Nowe stworzenie',
+  'Łaska i prawda', 'Light of the World', 'Bread of Life', 'Love Is Patient', 'The Good Shepherd', 'Do Not Be Afraid', 'Salt of the Earth',
+  'Grace and Truth', 'Let There Be Light'];
+const WALL = { key:'', el:null, cols:8, rows:6 };
 function homeBg(){
-  const el = h('div', { class:'home-bg', 'aria-hidden':'true' });
-  try { const cfg = slidesCfg(); el.style.backgroundImage = bgImage(formatBg(cfg.defaultFormat, cfg) || BG_START); } catch(e){}
+  const el = h('div', { class:'home-bg', 'aria-hidden':'true' }, h('div', { class:'hb-grain' }), h('div', { class:'hb-haze' }));
+  let cfg = null, bg = null;
+  try { cfg = slidesCfg(); bg = formatBg(cfg.defaultFormat, cfg); } catch(e){}
+  const key = JSON.stringify(bg);
+  if (!WALL.el || WALL.key !== key){ WALL.key = key; WALL.el = null; WALL.fresh = true; }
+  if (!WALL.el){
+    WALL.el = h('div', { class:'hb-wall' });
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;   // повторяемо: у всех одна и та же стена
+    const list = WALL_TITLES.slice().sort(() => rnd() - .5), vars = bgVars(bg);
+    for (let i = 0; i < WALL.cols * WALL.rows; i++){
+      const b = { id:'wall' + i, type:'splash', meta:{ title:list[i % list.length], date:'', firstName:'', lastName:'' } };
+      const sl = slideEl(b); sl.removeAttribute('data-id');   // не слайд проповеди: раскладка проповеди его не трогает
+      const st = sl.querySelector('.sl-stage'); Object.keys(vars).forEach(k => st.style.setProperty(k, vars[k]));
+      sl._b = b;
+      WALL.el.append(h('div', { class:'hb-cell' }, sl));
+    }
+  }
+  el.prepend(WALL.el);
   return el;
+}
+/* Разложить стену (один раз, когда она уже на странице): только название посередине, как «Заставка: только название» */
+function layoutWall(){
+  if (!WALL.el) return;
+  if (!WALL.fresh){ WALL.el.classList.add('ready'); return; }
+  setTimeout(() => {   // после списка: главная показывается сразу, стена (~0,1 с работы) проявляется следом
+    if (!WALL.fresh || !WALL.el || !WALL.el.isConnected) return;
+    WALL.fresh = false;
+    const keep = SLIDES_TRY;
+    SLIDES_TRY = mergeSlides(slidesCfg(), { kinds:{ splash:{ titleOnly:true } } });
+    try { WALL.el.querySelectorAll('.sl').forEach(sl => fitSlide(sl, sl._b)); }
+    finally { SLIDES_TRY = keep; }
+    WALL.el.classList.add('ready');
+  }, 0);
 }

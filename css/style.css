@@ -24,7 +24,7 @@ body.light{
   --topbar:#f7f6f3; --mark:rgba(255,222,89,.6); --shadow:0 18px 50px rgba(60,40,20,.15);
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;overflow-x:clip}   /* въезд экрана сбоку не даёт горизонтальной прокрутки (этап 7.8) */
 body{
   margin:0; min-height:100vh; background:var(--bg); color:var(--text);
   font-family:'Inter','Segoe UI',Arial,sans-serif; font-weight:400; font-size:14px;
@@ -273,11 +273,6 @@ button.film-todo.on{text-decoration:none;border-bottom:1px solid var(--todo)}
 .srow{display:grid;grid-template-columns:160px minmax(0,1fr) 200px 76px 140px 40px;gap:16px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--text);font-size:14px;background:rgba(20,20,20,.9)}
 .ptable .card-wrap:last-child .srow{border-bottom:0}
 .srow.shead{color:var(--muted);font-size:12px;padding:10px 16px;background:rgba(14,14,14,.92)}
-.srow .sort{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;padding:4px 6px;margin:-4px -6px;border-radius:8px;color:inherit;font:inherit;cursor:pointer}
-.srow .sort:hover{color:var(--text);background:var(--surface-2)}
-.srow .sort.on{color:var(--text);font-weight:600}
-.sort-ar{font-size:12px;opacity:.55;width:10px;text-align:center}
-.sort.on .sort-ar{opacity:1;color:var(--accent)}
 a.srow:hover{background:#1b1b1b}
 a.srow.next{box-shadow:inset 3px 0 0 var(--accent)}
 .srow .pt{font-weight:600;min-width:0}
@@ -343,30 +338,31 @@ a.srow.next{box-shadow:inset 3px 0 0 var(--accent)}
 .ph-thumb span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .st.t-note{padding-top:2px;padding-bottom:2px}
 .mini-note{padding:7px 9px;border-radius:7px;background:#ffde59;color:#141414;font:800 10px/1.3 'Inter',sans-serif;text-transform:uppercase;max-height:58px;overflow:hidden}
-.film-add{display:flex;align-items:center;justify-content:center;gap:8px;height:36px;border-radius:999px;border:1px dashed #3a3a3a;background:transparent;color:var(--text);font:500 13px 'Inter',sans-serif;flex:none}
 /* Лента: «+» между слайдами и перетаскивание (slides.js) */
 .film.arrange{gap:0}
 .film.arrange > .film-head{margin-bottom:4px}
-.film.arrange > .film-add{margin-top:10px}
 .film.arrange .st{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
 .film-gap{position:relative;height:12px;flex:none}
 .film-ins{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;padding:0;display:grid;place-items:center;
   border:1px solid var(--line-2);background:var(--surface);color:var(--muted);opacity:0;transition:opacity .12s;z-index:2}
 .film-ins .ic{width:13px;height:13px}
+/* «+» перед первым и после последнего слайда видны всегда (этап 7.8) */
+.film-gap.first .film-ins,.film-end .film-ins{opacity:1}
+.film-gap.first{height:30px}
+.film-end{position:relative;height:52px;flex:none}
+.film-end .film-ins{width:30px;height:30px;border-style:dashed;color:var(--text)}
+.film-end .film-ins:hover{border-style:solid}
+.film-end .film-ins .ic{width:16px;height:16px}
 .film-gap:hover .film-ins,.film-ins:focus-visible{opacity:1}
 .film-ins:hover{color:var(--accent);border-color:var(--accent)}
 @media (hover:none){ .film-ins{opacity:.75} }
 .film.dragging .film-ins{opacity:0;pointer-events:none}
-.film-gap.drop::before,.film-add.drop::before{content:"";position:absolute;left:4px;right:4px;top:50%;height:3px;margin-top:-1.5px;border-radius:2px;background:var(--accent)}
-.film-add{position:relative}
-.film-add.drop::before{top:-6px}
+.film-gap.drop::before{content:"";position:absolute;left:4px;right:4px;top:50%;height:3px;margin-top:-1.5px;border-radius:2px;background:var(--accent)}
 /* Перетаскивание (этап 7.7): слайд приподнят и идёт за указателем, соседи плавно раздвигаются */
 .st-box.lifted{z-index:5;transition:none;will-change:transform}
 .st-box.lifted > .st{background:var(--surface-2);box-shadow:0 0 0 2px var(--accent),0 14px 34px rgba(0,0,0,.55)}
 .st-box.shifting{transition:transform var(--motion-slow) var(--ease-out)}
 .film.dragging{cursor:grabbing}
-.film-add:hover{background:var(--surface-2)}
-.film-add .ic{width:16px;height:16px}
 
 .stage{display:flex;flex-direction:column;gap:12px;padding:14px 28px 20px;min-width:0;overflow-y:auto}
 .stage-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
@@ -511,10 +507,10 @@ a.srow.next{box-shadow:inset 3px 0 0 var(--accent)}
   .film{grid-row:auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;max-height:none;position:relative;border-right:0;border-bottom:1px solid var(--line);padding:10px}
   .film-head{display:none}
   .st-box{width:150px}
-  .film-add{width:110px;align-self:center}
+  .film-end{width:52px;height:auto;align-self:stretch}
+  .film-gap.first{width:30px;height:auto}
   .film-gap{height:auto;width:16px}
   .film-gap.drop::before{left:50%;right:auto;top:8px;bottom:8px;width:3px;height:auto;margin:0 0 0 -1.5px}
-  .film.arrange > .film-add{margin:0 0 0 8px}
   .stage{padding:12px 14px 16px}
   .side{grid-column:1;padding:16px 14px 28px}
   .input,.rich{font-size:16px}
@@ -874,9 +870,10 @@ body.light .size button:hover{background:var(--surface-3)}
 .reveal{animation:fade-in var(--motion) var(--ease-out) both}
 /* Экран входа: логотип собирается (три части по очереди, ~900 мс), живое зерно как у плёнки (~8 кадров в секунду) */
 .gate-logo.intro .logo-mark path{animation:lg-in 500ms var(--ease-out) both}
-.gate-logo.intro .logo-mark .lg-a{--fx:-14px;--fy:0px;animation-delay:calc(0ms - var(--el,0ms))}
-.gate-logo.intro .logo-mark .lg-b{--fx:0px;--fy:-14px;animation-delay:calc(200ms - var(--el,0ms))}
-.gate-logo.intro .logo-mark .lg-c{--fx:12px;--fy:12px;animation-delay:calc(400ms - var(--el,0ms))}
+/* этап 7.8: сначала свет — жёлтый клин, потом тени — две кремовые части */
+.gate-logo.intro .logo-mark .lg-c{--fx:12px;--fy:12px;animation-delay:calc(0ms - var(--el,0ms))}
+.gate-logo.intro .logo-mark .lg-a{--fx:-14px;--fy:0px;animation-delay:calc(200ms - var(--el,0ms))}
+.gate-logo.intro .logo-mark .lg-b{--fx:0px;--fy:-14px;animation-delay:calc(400ms - var(--el,0ms))}
 @keyframes lg-in{from{opacity:0;transform:translate(var(--fx),var(--fy))}to{opacity:1;transform:none}}
 .gate{position:relative;z-index:1}
 .gate-fx{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
@@ -885,10 +882,22 @@ body.light .size button:hover{background:var(--surface-3)}
 @keyframes grain{
   0%{transform:translate(0,0)}12.5%{transform:translate(-37px,29px)}25%{transform:translate(52px,-61px)}37.5%{transform:translate(-90px,-18px)}
   50%{transform:translate(23px,84px)}62.5%{transform:translate(-64px,47px)}75%{transform:translate(71px,12px)}87.5%{transform:translate(-12px,-95px)}}
-/* Главная: очень медленно плывущий размытый фон из генератора (формат по умолчанию), приглушён: карточки на сплошной подложке */
-.home-bg{position:fixed;inset:-12%;z-index:0;pointer-events:none;background-size:cover;background-position:center;opacity:.55;filter:blur(14px) saturate(1.3) contrast(1.1);
-  animation:home-drift 25s ease-in-out infinite alternate}
-@keyframes home-drift{from{transform:translate(-3%,-2%) rotate(-3deg) scale(1.1)}to{transform:translate(3%,2%) rotate(3deg) scale(1.1)}}
+/* Главная (этап 7.8): стена слайдов с библейскими названиями, затемнённая и мягкая, с зерном; поверх — тёмная дымка
+   с одним «окном», которое медленно плывёт (только transform). Параметры стены — в --wall-filter */
+.home-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;--wall-filter:brightness(.51) contrast(.8) saturate(.85)}
+.hb-wall{position:absolute;left:-14%;top:-34%;display:grid;grid-template-columns:repeat(8,340px);gap:22px;transform:rotate(-9deg);transform-origin:0 0;filter:var(--wall-filter)}
+.hb-cell .sl{width:340px}
+.hb-wall{opacity:0;transition:opacity .6s ease-out}
+.hb-wall.ready{opacity:1}
+.hb-grain{position:absolute;inset:0;background:var(--noise);background-size:128px;mix-blend-mode:overlay;opacity:.1}
+.hb-haze{position:absolute;left:-100vw;top:-100vh;width:300vw;height:300vh;
+  background:radial-gradient(ellipse 21% 25% at 50% 50%, rgba(14,14,14,0) 0%, rgba(14,14,14,.55) 45%, rgba(14,14,14,.93) 75%, #0e0e0e 100%);
+  transform:translate(35vw,-25vh);animation:home-haze 70s ease-in-out infinite alternate}
+@keyframes home-haze{
+  0%{transform:translate(35vw,-25vh)}
+  33%{transform:translate(28vw,30vh)}
+  66%{transform:translate(-20vw,35vh)}
+  100%{transform:translate(10vw,-15vh)}}
 .home{position:relative;z-index:1}
 /* Пример в «Настройках слайдов»: старый фон гаснет поверх нового */
 .scfg-slide{position:relative}
@@ -896,6 +905,8 @@ body.light .size button:hover{background:var(--surface-3)}
 
 /* Этап 7.7: заставка входа расплывается в список; экран проповеди уезжает вправо; заготовка экрана проповеди */
 /* Заставка при открытии: знак крупно, без карточки; строка про облако — только если ждать дольше ~1,5 с */
+.topbar.is-splash{display:none}
+.gate.full{min-height:100vh}   /* заставка при открытии — без шапки (этап 7.8) */
 .gate-card.splash{background:transparent;border-color:transparent;align-items:center;gap:22px;text-align:center}
 .gate-card.splash .gate-logo{font-size:30px;gap:16px}
 .gate-card.splash .gate-logo .logo-mark{height:46px}
@@ -914,7 +925,7 @@ body.light .size button:hover{background:var(--surface-3)}
 .sk-thumb::after,.sk-stage::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(236,223,207,.07),transparent);animation:sk-shine 1.2s linear infinite}
 
 /* Фоновая вкладка: бесконечные анимации стоят */
-html.page-hidden .gate-grain,html.page-hidden .home-bg,html.page-hidden .sk-card::after,html.page-hidden .sk-thumb::after,html.page-hidden .sk-stage::after{animation-play-state:paused}
+html.page-hidden .gate-grain,html.page-hidden .hb-haze,html.page-hidden .sk-card::after,html.page-hidden .sk-thumb::after,html.page-hidden .sk-stage::after{animation-play-state:paused}
 /* На время снятия JPEG и ZIP движение выключено */
 html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{animation:none!important;transition:none!important}
 
@@ -924,7 +935,56 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
   :root{--motion-fast:0ms;--motion:0ms;--motion-slow:0ms}
   *,*::before,*::after{transition-duration:0s!important;transition-delay:0s!important;animation-duration:0s!important;animation-delay:0s!important;scroll-behavior:auto!important}
   .logo-mark path{transition-duration:.3s!important}
-  .gate-grain,.home-bg,.sk-card::after,.sk-thumb::after,.sk-stage::after{animation:none!important}
+  .gate-grain,.hb-haze,.sk-card::after,.sk-thumb::after,.sk-stage::after{animation:none!important}
   .toast-bar{display:none}
   .st.hl::after,.blk.hl::after{animation:none!important}
 }
+
+/* ---------- Окно «О проповеди» (этап 7.8): воскресенья кнопками, свой календарь, список авторов ---------- */
+.meta-sheet .set-grid{display:flex;flex-direction:column;gap:16px}
+.date-chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;border:1px solid var(--line-2);background:var(--surface);color:var(--text);font:500 13px 'Inter',sans-serif;white-space:nowrap;cursor:pointer}
+.chip:hover{border-color:#4a4230}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#141414;font-weight:700}
+.chip small{font-size:11px;font-weight:500;opacity:.7}
+.chip .ic{width:15px;height:15px}
+.date-other .ic{color:var(--accent)}
+.dfield{display:flex;align-items:center;gap:10px;width:100%;min-height:46px;padding:0 14px;border-radius:13px;background:var(--surface-2);border:1px solid var(--line-2);color:var(--text);font:500 14px 'Inter',sans-serif;text-align:left;cursor:pointer}
+.dfield:hover{border-color:#4a4230}
+.dfield:focus-visible,.dfield[aria-expanded=true]{border-color:var(--accent);outline:none}
+.dfield .dtext{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dfield .dtext.ph{color:var(--muted)}
+.dfield .ic{width:15px;height:15px;color:var(--muted)}
+.dfield.fixed{cursor:default;color:var(--muted)}
+.dfield.fixed:hover{border-color:var(--line-2)}
+.grid-eq{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.author-names{margin-top:8px}
+.dd-list{position:fixed;z-index:80;padding:6px;border-radius:16px;background:#1a1a1a;border:1px solid var(--line-2);box-shadow:0 18px 50px rgba(0,0,0,.6);max-height:min(360px, 60vh);overflow:auto;display:flex;flex-direction:column}
+.dd-list button{border:0;background:transparent;text-align:left;padding:10px 12px;border-radius:10px;font:500 14px 'Inter',sans-serif;color:#d8cdbd;cursor:pointer}
+.dd-list button:hover,.dd-list button:focus-visible{background:var(--surface-2);color:var(--text);outline:none}
+.dd-list button.on{background:var(--surface-3);color:var(--text)}
+.dd-list hr{border:0;height:1px;background:var(--line-2);margin:6px 4px;flex:none}
+.dd-list .man{color:var(--accent)}
+.cal{position:fixed;z-index:80;width:300px;padding:14px;border-radius:18px;background:#1a1a1a;border:1px solid var(--line-2);box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font:600 14px 'Unbounded',sans-serif;letter-spacing:-.01em}
+.cal-nav{display:flex;gap:4px}
+.cal-nav .icon-btn{width:28px;height:28px;border-radius:8px;border:1px solid var(--line-2)}
+.cal-nav .icon-btn .ic{width:14px;height:14px}
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.cal-g .wd{font:600 10px 'Inter',sans-serif;letter-spacing:.08em;color:var(--muted);padding:4px 0 6px}
+.cal-g .wd.sun{color:var(--accent)}
+.cal-g .d{position:relative;height:34px;display:grid;place-items:center;border:0;border-radius:10px;background:transparent;font:500 13px 'Inter',sans-serif;color:#d8cdbd;cursor:pointer}
+.cal-g .d:hover,.cal-g .d:focus-visible{background:var(--surface-2);outline:none}
+.cal-g .d.out{color:#4d4943}
+.cal-g .d.sun{color:var(--accent);font-weight:700}
+.cal-g .d.today{box-shadow:inset 0 0 0 1px var(--line-2)}
+.cal-g .d.sel{background:var(--accent);color:#141414;font-weight:700}
+.cal-g .d.has::after{content:"";position:absolute;bottom:4px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#5ad17a}
+.cal-g .d.sel.has::after{background:#141414}
+.cal-f{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.cal-f .chip{padding:7px 11px;font-size:12px}
+.cal-legend{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted)}
+.cal-legend i{width:6px;height:6px;border-radius:50%;background:#5ad17a}
+@media (max-width:520px){ .grid-eq{grid-template-columns:1fr} }
+/* «Как пользоваться» (этап 7.8) */
+.hd-help .ic{width:17px;height:17px}

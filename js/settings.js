@@ -6,7 +6,8 @@ let settingsGuard = null;
 function closeSettings(force){
   if (force !== true && settingsGuard && !settingsGuard()) return;
   settingsGuard = null;
-  settingsOverlay.classList.remove('open'); if (metaOpen){ metaOpen = false; afterMeta(); }
+  settingsOverlay.classList.remove('open'); closeCalendar(); closeDropdown();   // календарь и список автора (этап 7.8) — вместе с окном
+  if (metaOpen){ metaOpen = false; afterMeta(); }
 }
 
 /* ========= Настройки из репозитория (data/config.json): переводы Библии, список авторов, подпись перевода =========

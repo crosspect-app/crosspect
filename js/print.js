@@ -57,7 +57,7 @@ function buildOperatorPrint(){
   wrapScripts(printEl);
 }
 function operatorPDF(){
-  if (!state.blocks.length){ toast('В проповеди пока нет блоков'); return; }
+  if (!state.blocks.length){ toast('В конспекте пока нет слайдов'); return; }
   if (!checkNames()) return;
   buildOperatorPrint();
   const title = document.title;
