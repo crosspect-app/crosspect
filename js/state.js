@@ -1,7 +1,7 @@
 'use strict';
 
 /* ========= Состояние ========= */
-let state, sheetAt = 0, toastTimer = null, draftTimer = null;
+let state, sheetAt = 0, draftTimer = null;
 /* Экран: главная со списком проповедей или сама проповедь (вид «Слайды» или «Текст»). Адрес: #s=<id>&v=text */
 let screen = 'home', view = 'slides';
 let selId = null, speechOpen = false;   // выбранный слайд в ленте; «Текст к слайду» развёрнут во всю высоту

@@ -153,6 +153,7 @@ function openSlidesCfg(){
     apply.title = same ? CFG_TIPS.applyOff : CFG_TIPS.apply;
   };
   const host = h('div', { class:'scfg-slide', title:CFG_TIPS.sample }), info = h('div', { class:'scfg-info' });
+  let fadeBg = false;   // следующая перерисовка примера — «Другой вариант» или смена формата: старый фон плавно перетекает в новый (этап 7.6); ползунки — без анимации
   const tabs = h('div', { class:'toggle scfg-tabs' });
   const setSample = k => { if (k === sample) return; sample = k; drawTabs(); paint(); };
   const drawTabs = () => { tabs.replaceChildren(...[['splash', 'Заставка'], ['scripture', 'Писание'], ['thesis', 'Тезис'], ['quote', 'Цитата']].map(([k, l]) =>
@@ -164,9 +165,15 @@ function openSlidesCfg(){
       SLIDES_TRY = mergeSlides(SLIDES_DEFAULT, tmp);
       BG_TRY = fe.bg ? normBg(fe.bg) : null;   // пример — с форматом, который выбран (и правится) в блоке «Фон»
       try {
-        const b = CFG_SAMPLES[sample](), sl = slideEl(b);
+        const b = CFG_SAMPLES[sample](), sl = slideEl(b), fade = fadeBg && host.firstElementChild; fadeBg = false;
         if (guide) sl.querySelector('.sl-stage').append(h('div', { class:'sl-guide', text:'Область текста' }));
         host.replaceChildren(sl);
+        if (fade && !MOTION.off()){   // две картинки друг на друге: прежний слайд гаснет поверх нового (~250 мс), только в примере окна
+          fade.classList.add('scfg-old'); host.append(fade);
+          const a = motionAnimate(fade, [{ opacity:1 }, { opacity:0 }], MOTION.ms('--motion-slow', 250), { fill:'forwards' });
+          if (a) a.addEventListener('finish', () => fade.remove()); else fade.remove();
+          setTimeout(() => fade.remove(), 700);
+        }
         const r = fitSlide(sl, b);
         const c = SLIDES_TRY.kinds;
         info.textContent = r == null ? '' : sample === 'splash' ? 'название ' + Math.round(r * c.splash.size) + ' px'
@@ -340,7 +347,7 @@ function openSlidesCfg(){
       h('div', { class:'scfg-g3' },
         rng('Яркость основы', 'base', 0, 40), rng('Затемнение краёв', 'vignette', 0, 100),
         h('div', { class:'scfg-bgbtns' },
-          h('button', { type:'button', class:'btn', title:CFG_TIPS.seed, onclick:() => bgSet('seed', bgVal().seed % 9999 + 1) }, 'Другой вариант'))));
+          h('button', { type:'button', class:'btn', title:CFG_TIPS.seed, onclick:() => { fadeBg = true; bgSet('seed', bgVal().seed % 9999 + 1); } }, 'Другой вариант'))));
     // System Template не меняется: всё серое, объяснение — во всплывающей подписи
     bgBox.classList.toggle('locked', locked);
     bgBox.title = locked ? CFG_TIPS.fmtSys : '';
@@ -379,7 +386,7 @@ function openSlidesCfg(){
     defBtn.title = isDraft() ? CFG_TIPS.fmtDefNew : isDef ? CFG_TIPS.fmtDefOn : dirty ? CFG_TIPS.fmtDefDirty : CFG_TIPS.fmtDef;
   }
   function refreshFmt(focusName){
-    drawFmt(); drawBg(); paint();
+    fadeBg = true; drawFmt(); drawBg(); paint();
     if (focusName && nameInp){ nameInp.focus(); nameInp.select(); }
   }
   const openFormat = id => { pickFormat(id); refreshFmt(); };

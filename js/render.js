@@ -648,8 +648,8 @@ function closeSheet(){ sheetOverlay.classList.remove('open'); }
 function addBlock(type, at){
   const nb = newBlock(type);
   state.blocks.splice(at, 0, nb);
-  closeSheet(); selId = nb.id; change(); renderMain();
-  flash(nb.id);
+  closeSheet(); selId = nb.id;
+  motionFilm(() => { change(); renderMain(); flash(nb.id); }, { add:nb.id });   // новая миниатюра проявляется, промежуток раздвигается (motion.js)
   // тезис и цитата: курсор сразу в текст (название тезиса сформируется из него само)
   const f = (type === 'thesis' || type === 'quote') ? sideEl.querySelector('.bbody .rich') : type === 'splash' ? stageEl.querySelector('.speech .rich') : sideEl.querySelector('.bbody input, .bbody textarea, .bbody .rich');
   if (f && window.matchMedia('(pointer:fine)').matches) f.focus({ preventScroll:true });
@@ -679,8 +679,8 @@ function continueScripture(b){
     nb.items = [it];
   }
   state.blocks.splice(state.blocks.indexOf(b) + 1, 0, nb);
-  selId = nb.id; change(); renderMain();
-  flash(nb.id);
+  selId = nb.id;
+  motionFilm(() => { change(); renderMain(); flash(nb.id); }, { add:nb.id });
   toast('Новый слайд с тем же местом');
 }
 function move(b, dir){
@@ -688,8 +688,8 @@ function move(b, dir){
   const j = dir === -Infinity ? 0 : dir === Infinity ? last : i + dir;   // ±Infinity — в самый верх или низ
   if (j < 0 || j > last || j === i) return;
   state.blocks.splice(i, 1); state.blocks.splice(j, 0, b);
-  selId = b.id; change(); renderMain();
-  flash(b.id);
+  selId = b.id;
+  motionFilm(() => { change(); renderMain(); flash(b.id); });   // соседи плавно отъезжают, слайд доезжает на место
 }
 /* Перетащили в ленте: поставить слайд перед блоком с номером at (at = длина — в конец) */
 function moveTo(b, at){
@@ -697,15 +697,17 @@ function moveTo(b, at){
   const j = at > i ? at - 1 : at;
   if (j === i) return;
   state.blocks.splice(i, 1); state.blocks.splice(j, 0, b);
-  selId = b.id; change(); renderMain();
-  flash(b.id);
+  selId = b.id;
+  motionFilm(() => { change(); renderMain(); flash(b.id); });
 }
 function duplicate(b){
   const c = JSON.parse(JSON.stringify(b)); c.id = uid();
   const had = TYPES[b.type].slide && plain(b.speech).trim();
   if (TYPES[b.type].slide) c.speech = '';   // текст к слайду не копируется: иначе он окажется в проповеди дважды
   state.blocks.splice(state.blocks.indexOf(b) + 1, 0, c);
-  selId = c.id; change(); renderMain(); flash(c.id); toast(had ? 'Слайд скопирован без текста к нему' : 'Блок скопирован');
+  selId = c.id;
+  motionFilm(() => { change(); renderMain(); flash(c.id); }, { add:c.id, hl:c.id });   // копия проявляется и ~0,6 с светится жёлтой рамкой
+  toast(had ? 'Слайд скопирован без текста к нему' : 'Блок скопирован');
 }
 /* Удаление слайда: его «Текст к слайду» не пропадает, а переходит к слайду перед ним (или после, если это первый) */
 function removeBlock(b){
@@ -718,12 +720,13 @@ function removeBlock(b){
   }
   state.blocks.splice(i, 1);
   if (wasSel){ const nb = state.blocks[Math.min(i, state.blocks.length - 1)]; selId = nb ? nb.id : null; }
-  change(); renderMain();
+  motionFilm(() => { change(); renderMain(); }, { remove:b.id });   // миниатюра гаснет и схлопывается, остальные подъезжают
   const msg = heir ? 'Слайд удалён, текст к нему перенесён к слайду ' + slideNums()[heir.id] : TYPES[b.type].slide ? 'Слайд удалён' : 'Заметка удалена';
   toast(msg, 'Вернуть', () => {
     if (heir) heir.speech = heirOld;
     state.blocks.splice(Math.min(i, state.blocks.length), 0, b);
-    selId = b.id; change(); renderMain(); flash(b.id);
+    selId = b.id;
+    motionFilm(() => { change(); renderMain(); flash(b.id); }, { add:b.id });
   });
 }
 /* Короткая подсветка миниатюры в ленте: слайд добавлен, перенесён, скопирован */

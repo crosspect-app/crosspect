@@ -98,6 +98,7 @@ const ICONS = {
   next:'<path d="m9 18 6-6-6-6"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/>',
+  lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   frameDash:'<rect x="4" y="6" width="16" height="12" rx="2" stroke-dasharray="2.6 2.2"/>',
   undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   redo:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',

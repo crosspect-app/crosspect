@@ -55,10 +55,12 @@ function histApply(e){
   hist.applying = true;
   try { change(); } finally { hist.applying = false; }
   hist.key = null;
-  const fs = filmEl && filmEl.isConnected ? filmEl.scrollTop : 0;
-  renderAll();
-  if (filmEl && filmEl.isConnected) filmEl.scrollTop = fs;
-  if (inSlides()) flash(selId);
+  motionFilm(() => {   // отмена и возврат двигают миниатюры так же, как обычные правки (в просмотре и без ленты — просто перерисовка)
+    const fs = filmEl && filmEl.isConnected ? filmEl.scrollTop : 0;
+    renderAll();
+    if (filmEl && filmEl.isConnected) filmEl.scrollTop = fs;
+    if (inSlides()) flash(selId);
+  });
 }
 function undo(){
   if (!histOn() || hist.id !== state.id || !hist.undo.length) return false;

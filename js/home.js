@@ -66,7 +66,7 @@ function fmtAgo(ts){
 }
 
 function renderHome(){
-  mainEl.append(h('div', { class:'home' },
+  mainEl.append(homeBg(), h('div', { class:'home' },
     h('div', { class:'home-top' },
       h('h1', { text:'Проповеди' }),
       h('div', { class:'grow' }),
@@ -79,7 +79,12 @@ function renderHomeList(){
   const box = $('#home-list'); if (!box || !cloudOn()) return;
   box.innerHTML = '';
   if (cloud.listError) box.append(h('p', { class:'hint home-warn', text:cloud.listError }));
-  if (!cloud.list && !cloud.listError){ box.append(h('p', { class:'hint', text:'Загружаю проповеди…' })); return; }
+  // ждём список из облака — серые заготовки карточек; пришёл — карточки проявляются (этап 7.6). Пустой список — обычный пустой экран
+  const waiting = !cloud.list && !cloud.listError;
+  box.classList.remove('reveal');
+  if (!waiting && MOTION.skel){ void box.offsetWidth; box.classList.add('reveal'); }
+  MOTION.skel = waiting;
+  if (waiting){ box.append(skeletonCards()); return; }
   const all = cloudItems(), q = homeQuery.trim().toLowerCase().replace(/ё/g, 'е');
   if (!all.length){
     box.append(h('div', { class:'empty' },

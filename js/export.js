@@ -104,13 +104,13 @@ async function exportOne(b){
     const f = sideEl && sideEl.querySelector('.namebox input'); if (f) f.focus();
     toast('Сначала напишите название слайда'); return;
   }
-  exporting = true; toast('Готовлю JPEG…');
+  exporting = true; motionPause(); toast('Готовлю JPEG…');   // на время снятия JPEG движение выключено: снимок всегда со статичного слайда (motion.js)
   try {
     const name = slideName(b, slideNums()[b.id]) + '.jpg';
     download(await renderJPEG(b), name);
     toast('Скачано: ' + name);
   } catch(e){ toast('Не получилось собрать JPEG: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
-  finally { exporting = false; }
+  finally { exporting = false; motionResume(); }
 }
 async function exportMany(){
   if (exporting) return;
@@ -118,7 +118,7 @@ async function exportMany(){
   if (!list.length){ toast('В проповеди нет слайдов, которые форма собирает сама'); return; }
   if (!checkNames()) return;
   if (list.length === 1){ exportOne(list[0]); return; }
-  exporting = true;
+  exporting = true; motionPause();
   const nums = slideNums(), folder = folderName(), files = [{ name:folder + '/', dir:true }], used = {};
   try {
     for (let i = 0; i < list.length; i++){
@@ -132,6 +132,6 @@ async function exportMany(){
     const rest = state.blocks.filter(b => b.type === 'image' || b.type === 'video' || b.type === 'free').length;
     toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео и свободные слайды делаются вручную' : ''));
   } catch(e){ toast('Не получилось собрать слайды: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
-  finally { exporting = false; }
+  finally { exporting = false; motionResume(); }
 }
 

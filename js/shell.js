@@ -63,8 +63,8 @@ const fmtEl = h('div', { class:'fmtbar', id:'fmtbar' },
   fbtn('1.', 'Нумерованный список', () => toggleList('1'), 'lst'),
   h('span', { class:'fsep' }),
   fbtn(ic('clear'), 'Убрать оформление', () => clearFmt()));
-const toastEl = h('div', { class:'toast', role:'status' });
+const toastBox = h('div', { class:'toasts', 'aria-live':'polite' });   // стопка уведомлений (misc.js, toast)
 
 app.append(topbar, mainEl);
-document.body.append(sheetOverlay, settingsOverlay, toastEl);   // панель оформления встаёт над полем, где печатают (render.js, dockFmt)
+document.body.append(sheetOverlay, settingsOverlay, toastBox);   // панель оформления встаёт над полем, где печатают (render.js, dockFmt)
 try { document.execCommand('styleWithCSS', false, false); } catch(e){}

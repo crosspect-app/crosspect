@@ -40,11 +40,16 @@ function route(){
   } else { screen = 'home'; renderAll(); window.scrollTo(0, 0); }
 }
 function showSermon(p){
+  const was = screen === 'sermon' && state && hist.id === state.id ? view : '';   // с какого вида пришли (пусто — открыли проповедь заново)
   screen = 'sermon'; view = p.get('v') === 'text' ? 'text' : 'slides';
   if (hist.id !== state.id) histReset();   // «Слайды» ↔ «Текст» историю не сбрасывают
   LS.set('swp-sermon:last', state.id);
-  renderAll();
-  window.scrollTo(0, 0);
+  if (was && was !== view){   // переход «Слайды» ↔ «Текст» (этап 7.6): растворение, выбранная миниатюра «перетекает» в свой блок и обратно
+    const sel = selId, toText = view === 'text';
+    const thumb = () => document.querySelector(toText ? '.film .st[data-id="' + sel + '"] .st-thumb' : '.tv-thumb[data-id="' + sel + '"]');
+    const thumbNew = () => document.querySelector(toText ? '.tv-thumb[data-id="' + sel + '"]' : '.film .st[data-id="' + sel + '"] .st-thumb');
+    viewTransition(() => { renderAll(); if (toText) tvReveal(sel); else window.scrollTo(0, 0); }, { from:thumb, to:thumbNew });
+  } else { renderAll(); window.scrollTo(0, 0); }
   if (editing() && isDirty()) scheduleSave(1000);
 }
 window.addEventListener('hashchange', route);
@@ -73,9 +78,11 @@ function setView(v){
 /* ----- Шапка ----- */
 function renderTopbar(){
   fillMenu();
+  motionBeforeTopbar();   // запомнить, где стоял статус, чтобы подложка переехала (motion.js)
   topbar.innerHTML = '';
   const more = h('div', { class:'actions' },
     iconBtn('more', 'Ещё', e => { e.stopPropagation(); menuEl.classList.toggle('open'); }), menuEl);
+  if (screen === 'home') MOTION.ui.id = '';   // на главной и экране входа анимации шапки проповеди забываются
   if (screen === 'home' && cloudGate()){
     topbar.className = 'topbar is-home';
     topbar.append(logoLockup('logo', { href:'#', title:'Crosspect' }), h('div', { class:'grow' }), more);
@@ -111,10 +118,12 @@ function renderTopbar(){
       h('button', { type:'button', class:view === 'text' ? 'on' : '', onclick:() => setView('text') }, 'Текст')),
     h('div', { class:'grow' }),
     histTools() || '',   // ↶ ↷ — пока проповедь правится (history.js)
+    checkEl(),   // галочка автосохранения (motion.js)
     h('span', { id:'hd-save', class:'hd-save' }),
     headAction(),   // «Сохранить»; в облаке — «Редактировать» / «Сохранить» (закончить правку, lock.js)
     more);
   updateStatus();
+  motionAfterTopbar();   // подложка статуса, замок, вспышка клина, галочка (motion.js)
 }
 
 /* Пространство в шапке главной: название, а у кого их несколько (и у админа) — выбор. Смена — сразу на главную нового */

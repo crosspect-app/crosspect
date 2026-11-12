@@ -20,6 +20,14 @@ function renderTextView(){
   state.blocks.forEach(b => { if (PREVIEW[b.type]) schedulePreview(b); });
 }
 
+/* Пришли в «Текст» из «Слайдов»: прокрутить к блоку выбранного слайда и на ~0,5 с подсветить его (этап 7.6).
+   Первый слайд и пустой выбор — как раньше, с начала страницы */
+function tvReveal(id){
+  const t = id && document.querySelector('.tv-thumb[data-id="' + id + '"]'), blk = t && t.closest('.blk');
+  if (!blk || blk === document.querySelector('.tv .blk')){ window.scrollTo(0, 0); return; }
+  blk.scrollIntoView({ block:'center', behavior:'auto' });
+  motionHL(blk, 500);
+}
 function tvBlock(b, n){
   if (b.type === 'note'){
     if (!(b.text || '').trim()) return null;   // заметки видны всегда, даже в режиме «Только слайды»
@@ -30,7 +38,7 @@ function tvBlock(b, n){
   const sl = PREVIEW[b.type] ? slideEl(b) : null;
   if (sl && previewRO) previewRO.observe(sl);
   const open = () => { selId = b.id; navigate(sermonHash(state.id)); };
-  const thumb = h('button', { type:'button', class:'tv-thumb' + (sl ? '' : ' none'), title:'Открыть в виде «Слайды»', onclick:open }, sl);
+  const thumb = h('button', { type:'button', class:'tv-thumb' + (sl ? '' : ' none'), 'data-id':b.id, title:'Открыть в виде «Слайды»', onclick:open }, sl);
   const mark = todoOn(b) ? h('span', { class:'tv-todo', text:'доработать' }) : null;
   const gut = h('div', { class:'gut' }, h('span', { class:'num', text:String(n) }), b.type === 'splash' ? h('span', { class:'cap', text:TYPES.splash.label }) : null, thumb, mark);
   const cont = h('div', { class:'cont' });

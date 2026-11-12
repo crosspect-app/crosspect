@@ -185,17 +185,17 @@ function scheduleSave(ms){
   if (ed.saveT || ed.conflict) return;
   ed.saveT = setTimeout(autoSave, ms == null ? AUTOSAVE_MS : ms);
 }
-function autoSave(){
+function autoSave(manual){
   ed.saveT = null;
   if (!editing() || ed.conflict || ed.denied || !isDirty()) return;
   if (ed.saving) return;   // по окончании текущей записи проверим ещё раз
   if (ed.quota && Date.now() - ed.quotaAt < QUOTA_RETRY_MS){ retryLater(QUOTA_RETRY_MS - (Date.now() - ed.quotaAt)); return; }   // запас базы исчерпан: пробуем раз в несколько минут
-  ed.pending = cloudWrite(state, { at:ed.myAt });
+  ed.pending = cloudWrite(state, { at:ed.myAt, manual:manual === true });   // manual — «Сохранить» / Ctrl+S: знак играет анимацию; автосохранение — тихая галочка (motion.js)
 }
 /* «Заменить облачную» в окне конфликта */
 function forceSave(){
   ed.conflict = null; clearTimeout(ed.saveT); ed.saveT = null;
-  ed.pending = cloudWrite(state, { at:ed.myAt, force:true });
+  ed.pending = cloudWrite(state, { at:ed.myAt, force:true, manual:true });
 }
 /* Ctrl+S и «Сохранить» во время правки: сразу, не дожидаясь паузы */
 function saveNow(){
@@ -203,7 +203,7 @@ function saveNow(){
   clearTimeout(ed.saveT); ed.saveT = null;
   if (ed.conflict){ conflictSheet(ed.conflict); return; }
   ed.denied = false; ed.quotaAt = 0;   // Ctrl+S — попробовать сразу, даже если запас был исчерпан
-  if (isDirty()) autoSave();
+  if (isDirty()) autoSave(true);
   else updateStatus();
 }
 function retryLater(ms){
@@ -217,18 +217,23 @@ async function cloudWrite(s, o){
   o = o || {};
   const here = () => state === s && ed.id === s.id;
   const sent = s.updatedAt;
-  if (here()){ ed.saving = true; persistDraft(); logoTo(2); }   // левая часть знака: черновик записан в браузере (persistDraft обновляет и шапку)
+  // Анимация знака — при «Сохранить» (7.6) и пока знак застрял на полпути после неудачного сохранения (запись дойдёт — он доиграет);
+  // обычное автосохранение — тихая галочка у статуса
+  const useLogo = !!o.manual || LG.level > 0 || LG.want > 0;
+  const lg = n => { if (useLogo && here()) logoTo(n); };
+  if (here()){ ed.saving = true; persistDraft(); lg(2); }   // левая часть знака: черновик записан в браузере (persistDraft обновляет и шапку)
   const slow = setTimeout(() => { if (here()){ ed.slow = true; updateStatus(); } }, SLOW_MS);
   let res = 'ok';
   try {
     const sending = cloud.api.save(cloud.space, s, cloud.user, { force:!!o.force, status:s.cloudStatus || 'draft', lock:{ name:myLockName(), at:o.at || 0, release:!!o.release, minutes:lockMins() } });
-    if (here()) logoTo(3);   // верхняя правая часть: запрос ушёл
+    lg(3);   // верхняя правая часть: запрос ушёл
     const r = await sending;
     Object.assign(s, cloudMarks(r)); s.savedAt = Math.max(sent, s.savedAt || 0);
     resyncFlags(s);   // у слайдов без отметки редактора подпись содержимого — по сохранённому
     if (here()){
       ed.remote = r; ed.offline = false; ed.quota = false; ed.lastBeat = Date.now();
-      logoTo(4);   // клин: сервер подтвердил
+      lg(4);   // клин: сервер подтвердил
+      if (!useLogo && !o.release) motionCheck();   // автосохранение: тихая галочка рядом со статусом (ошибка — без галочки)
       if (!o.release && r.lock && r.lock.email === myEmail()){ if (!o.at) ed.adoptUntil = Date.now() + ADOPT_MS; ed.myAt = r.lock.at; rememberAt(s.id, ed.myAt); }
       persistDraft();
       if (!ed.unsub) startWatch();
@@ -248,10 +253,10 @@ async function cloudWrite(s, o){
       if (here()){ ed.conflict = e.remote; conflictSheet(e.remote); }
     } else if (/resource-exhausted/.test(code)){
       res = 'quota';   // дневной запас бесплатной базы закончился (обновится в 9:00): правки ждут в браузере
-      if (here()){ logoTo(2); const first = !ed.quota; ed.quota = true; ed.quotaAt = Date.now(); persistDraft(); retryLater(QUOTA_RETRY_MS); if (first) toast(cloudExplain(e)); }
+      if (here()){ lg(2); const first = !ed.quota; ed.quota = true; ed.quotaAt = Date.now(); persistDraft(); retryLater(QUOTA_RETRY_MS); if (first) toast(cloudExplain(e)); }
     } else if (netErr(e)){
       res = 'offline';
-      if (here()){ ed.offline = true; persistDraft(); retryLater(); logoTo(2); }   // правки ждут в черновике браузера
+      if (here()){ ed.offline = true; persistDraft(); retryLater(); lg(2); }   // правки ждут в черновике браузера
     } else if (deniedErr(e) && here() && ed.mode === 'edit'){
       res = 'denied';
       await checkLock(true);
@@ -313,7 +318,7 @@ async function closeEdit(reason){
   clearTimeout(ed.saveT); ed.saveT = null;
   const at = ed.myAt;
   let res = 'ok';
-  if (isUnsaved(s) || !s.cloudAt) res = await (ed.pending = cloudWrite(s, { release:true, at }));
+  if (isUnsaved(s) || !s.cloudAt) res = await (ed.pending = cloudWrite(s, { release:true, at, manual:reason === 'button' }));
   else if (at){ try { await cloud.api.release(cloud.space, s.id, cloud.user, at); } catch(e){ res = netErr(e) ? 'offline' : 'error'; } }
   if (state !== s || ed.mode !== 'edit') return res === 'ok' ? 'none' : res;
   if (res !== 'ok'){
@@ -426,13 +431,17 @@ function headAction(){
   if (!cloudSermon()) return b('primary', 'save', 'Сохранить', () => saveSermon(), { title:'Ctrl+S' });
   if (ed.busy) return b('primary', null, 'Открываю правку…', null, { disabled:true });
   if (ed.mode === 'edit') return b('primary', 'done', 'Сохранить', () => closeEdit('button'), { title:'Сохранить и закончить правку: тогда проповедь смогут править другие (Ctrl+S — сохранить и продолжить)' });
-  if (authorWaits()) return b('primary', 'edit', 'Редактировать', null, { disabled:true, title:AT_EDITOR_MSG + '. Чтобы взять конспект за основу, сделайте копию: «⋯ → Сделать копию»' });
+  if (authorWaits()){   // конспект у редактора: на кнопке проявляется значок замка (motion.js); у редактора и админа замка нет — кнопка работает
+    const btn = b('primary hd-edit', 'edit', 'Редактировать', null, { disabled:true, title:AT_EDITOR_MSG + '. Чтобы взять конспект за основу, сделайте копию: «⋯ → Сделать копию»' });
+    btn.append(h('span', { class:'lockbadge', 'aria-hidden':'true' }, ic('lock')));
+    return btn;
+  }
   if (!canEditCloud()) return b('', 'dup', 'Сделать копию', () => saveAsCopy(), { title:'Копия станет вашей проповедью, её можно править' });
   const l = otherLock();
   if (l && l.email === myEmail()) return b('primary', 'edit', 'Править здесь', () => takeOver(l));
   if (l && cloud.role !== 'preacher') return b('', 'edit', 'Забрать правку', () => takeOver(l), { title:'Сейчас правит ' + lockWho(l) });
-  if (l) return b('primary', 'edit', 'Редактировать', null, { disabled:true, title:'Сейчас правит ' + lockWho(l) + '. Когда правка закончится, кнопка заработает' });
-  return b('primary', 'edit', 'Редактировать', () => startEdit());
+  if (l) return b('primary hd-edit', 'edit', 'Редактировать', null, { disabled:true, title:'Сейчас правит ' + lockWho(l) + '. Когда правка закончится, кнопка заработает' });
+  return b('primary hd-edit', 'edit', 'Редактировать', () => startEdit());
 }
 /* Строка состояния в шапке: [класс, текст, по щелчку] */
 function cloudStatusLine(){

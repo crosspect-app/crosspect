@@ -26,6 +26,7 @@ function setSermonStatus(key){
   state.updatedAt = Math.max(Date.now(), state.updatedAt + 1);   // как change(), но без истории отмены: статус в неё не входит
   persistDraft();
   onEdit();
+  MOTION.ui.flare = key === 'submitted';   // «Готов к вёрстке»: клин знака один раз вспыхивает — только когда человек сам переключил (7.6)
   renderTopbar();
 }
 const STATUS_TIPS = {

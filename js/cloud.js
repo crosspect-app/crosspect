@@ -164,7 +164,11 @@ function renderGate(){
     h('p', { class:'gate-text', text:'Войдите через Google. Нужна та почта, которую вам добавил админ церкви.' }),
     h('div', { class:'chips' }, h('button', { type:'button', class:'btn primary big', onclick:() => cloudSignIn() }, 'Войти через Google')),
     inAppBrowser() ? h('p', { class:'gate-warn', text:'Похоже, страница открыта внутри Telegram или другого приложения. Google не даёт войти отсюда: откройте ссылку в Chrome или Safari.' }) : null];
-  mainEl.append(h('div', { class:'gate' }, h('div', { class:'gate-card' }, logoLockup('gate-logo'), body)));
+  // этап 7.6: логотип собирается (~900 мс, один раз при открытии экрана; перерисовка в первую секунду продолжает, а не начинает заново), на фоне живое зерно
+  const lg = logoLockup('gate-logo'), el = Date.now() - (MOTION.gateAt || (MOTION.gateAt = Date.now()));
+  if (el < 1000){ lg.classList.add('intro'); lg.style.setProperty('--el', el + 'ms'); }
+  mainEl.append(h('div', { class:'gate-fx', 'aria-hidden':'true' }, h('div', { class:'gate-grain' })),
+    h('div', { class:'gate' }, h('div', { class:'gate-card' }, lg, body)));
 }
 
 /* ----- Права ----- */
