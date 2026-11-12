@@ -143,7 +143,7 @@ def test_side_panel_without_move_and_todo(browser, base_url):
     start_edit(page)
     side = page.locator(".side")
     assert side.get_by_role("button", name="Выше").count() == 0 and side.get_by_role("button", name="Ниже").count() == 0
-    assert side.get_by_role("button", name="Дублировать").count() == 1
+    assert side.get_by_role("button", name="Дублировать").count() == 0   # с этапа 7.4 — значками на миниатюре (test_ui74.py)
     assert page.locator(".side .editor-box").count() == 0
     assert page.locator(".stage-bar .btn.todo").count() == 1   # «Доработать» — над слайдом
     ctx.close()

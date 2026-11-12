@@ -109,8 +109,12 @@ const CFG_TIPS = {
   vignette:'Насколько темнеют края слайда. 0 — не темнеют',
   seed:'Другое расположение пятен и полос при тех же настройках. У всех участников фон будет одинаковый',
   bgReset:'Вернуть прежний фон, какой был до настроек',
-  sample:'Пример меняется сразу, а проповеди — только после «Применить»'
+  sample:'Пример меняется сразу, а проповеди — только после «Применить»',
+  panels:'В каком порядке стоят панели экрана «Слайды» у тех, кто не переставлял их у себя. Каждый может переставить панели у себя, перетащив за заголовок; «⋯ → Сбросить настройки экрана» возвращает порядок, заданный здесь. На узком экране порядок не меняется',
+  panelDrag:'Перетащите плашку мышью или пальцем. Можно и стрелками ← → на клавиатуре'
 };
+const PANEL_NAMES = { film:'Миниатюры', stage:'Слайд', side:'Редактор' };
+const PANEL_TIPS = { film:'Лента слайдов с миниатюрами', stage:'Выбранный слайд и «Текст к слайду»', side:'Панель справа: настройки выбранного слайда' };
 function openSlidesCfg(){
   if (!canEditSlidesCfg()){ toast('Настройки слайдов меняют админ и редактор'); return; }
   const tmp = JSON.parse(JSON.stringify(SLIDES_BASE));
@@ -168,6 +172,55 @@ function openSlidesCfg(){
       tipField('Поля по бокам', num(tmp.margins, 'side', { min:0, max:400, step:2, unit:'px', label:'Поля по бокам', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins),
       tipField('Поля сверху', num(tmp.margins, 'top', { min:0, max:400, step:2, unit:'px', label:'Поля сверху', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins),
       tipField('Поля снизу', num(tmp.margins, 'bottom', { min:0, max:400, step:2, unit:'px', label:'Поля снизу', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins)));
+
+  /* Расположение панелей по умолчанию (этап 7.4): три плашки в ряд; перетащить мышью или пальцем, а с клавиатуры — стрелки ← → */
+  const panelRow = h('div', { class:'scfg-panels', role:'list', 'aria-label':'Порядок панелей', title:CFG_TIPS.panelDrag });
+  const setPanels = (order, focusKey) => {
+    tmp.panels = order; drawPanels(); syncApply();
+    if (focusKey){ const t = panelRow.querySelector('[data-k="' + focusKey + '"]'); if (t) t.focus(); }
+  };
+  const shiftPanel = (k, d) => {
+    const o = normPanels(tmp.panels), i = o.indexOf(k), j = i + d;
+    if (j < 0 || j >= o.length) return;
+    o.splice(i, 1); o.splice(j, 0, k); setPanels(o, k);
+  };
+  function drawPanels(){
+    const order = normPanels(tmp.panels);
+    panelRow.replaceChildren(...order.map((k, i) => {
+      const tile = h('div', { class:'scfg-panel', role:'listitem', tabindex:'0', 'data-k':k, title:PANEL_TIPS[k] + '. ' + CFG_TIPS.panelDrag,
+        onkeydown:e => { if (e.target !== tile) return; if (e.key === 'ArrowLeft'){ e.preventDefault(); shiftPanel(k, -1); } else if (e.key === 'ArrowRight'){ e.preventDefault(); shiftPanel(k, 1); } },
+        onpointerdown:e => startPanelDrag(e, tile, k) },
+        h('button', { type:'button', class:'icon-btn', title:'Левее', 'aria-label':PANEL_NAMES[k] + ': левее', disabled:i === 0, onclick:() => shiftPanel(k, -1) }, ic('back')),
+        h('span', { class:'scfg-pname', text:PANEL_NAMES[k] }),
+        h('button', { type:'button', class:'icon-btn', title:'Правее', 'aria-label':PANEL_NAMES[k] + ': правее', disabled:i === order.length - 1, onclick:() => shiftPanel(k, 1) }, ic('next')));
+      return tile;
+    }));
+  }
+  function startPanelDrag(e, tile, k){
+    if (e.button > 0 || e.target.closest('button')) return;
+    const x0 = e.clientX; let on = false, to = null;
+    const move = ev => {
+      if (!on){ if (Math.abs(ev.clientX - x0) < 6) return; on = true; panelRow.classList.add('dragging'); tile.classList.add('drag'); }
+      ev.preventDefault();
+      to = null;
+      panelRow.querySelectorAll('.scfg-panel').forEach(t => {
+        t.classList.remove('drop');
+        const r = t.getBoundingClientRect();
+        if (t !== tile && ev.clientX >= r.left && ev.clientX <= r.right){ to = t.dataset.k; t.classList.add('drop'); }
+      });
+    };
+    const up = () => {
+      document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+      panelRow.classList.remove('dragging'); tile.classList.remove('drag');
+      panelRow.querySelectorAll('.drop').forEach(t => t.classList.remove('drop'));
+      if (!on || !to) return;
+      const o = normPanels(tmp.panels), i = o.indexOf(k), j = o.indexOf(to);
+      o.splice(i, 1); o.splice(j, 0, k); setPanels(o);
+    };
+    document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
+  }
+  drawPanels();
+  const panelsSec = h('section', { class:'scfg-sec', title:CFG_TIPS.panels }, h('div', { class:'scfg-cap', text:'Расположение панелей' }), panelRow);
 
   /* Виды слайдов: размер, диапазон, расстояния, лимит символов */
   const K = tmp.kinds, footCells = [], grid = h('div', { class:'scfg-kinds', role:'table' },
@@ -270,7 +323,7 @@ function openSlidesCfg(){
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Настройки слайдов' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('div', { class:'scfg-body' },
       h('div', { class:'scfg-preview' }, tabs, host, info),
-      h('div', { class:'scfg-form' }, general, background, kinds, verses)),
+      h('div', { class:'scfg-form' }, general, panelsSec, background, kinds, verses)),
     h('div', { class:'sheet-foot' },
       err,
       h('div', { style:'display:flex;gap:8px;align-items:center;margin-left:auto' }, done, apply))));   // закрыть — крестиком или Esc: неприменённое не применяется
@@ -306,4 +359,8 @@ function refreshSlides(){
   const v = slideVars(slidesCfg());
   document.querySelectorAll('.sl-stage').forEach(st => { if (!st.closest('.scfg')) Object.keys(v).forEach(k => st.style.setProperty(k, v[k])); });
   if (state && screen === 'sermon') state.blocks.forEach(b => { if (PREVIEW[b.type]) schedulePreview(b); });
+  if (inSlides()){
+    applyLayout();   // порядок панелей пространства мог измениться (этап 7.4)
+    const cur = curBlock(); if (cur && cur.type === 'splash') renderSide();   // у заставки справа видно, показывается ли низ слайда
+  }
 }

@@ -560,12 +560,15 @@ const BODY = {
   },
   splash(b, body, n){
     const m = state.meta, from = 'Берётся из проповеди: «О проповеди» в шапке';
+    // три строки только для показа (этап 7.4): серые, без рамки поля, чтобы было видно, что здесь ничего не вводят
     const row = (lbl, val, ph, tip, extra) => h('div', { class:'info-row' }, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:lbl }), extra || null),
       h('div', { class:'info-val' + (val ? '' : ' empty'), text:val || ph, title:tip || '' }));
+    const titleOnly = slidesCfg().kinds.splash.titleOnly;   // «Заставка: только название» (этап 7.3): низ не рисуется
     body.append(
       row('Название для Holyrics', slideName(b, n), '', 'Имя файла JPEG. Длинное название проповеди обрезается по длине названия слайда'),
       row('Название на слайде', m.title, 'Без названия', from, splashStepper()),
-      row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Автор и дата не указаны', from),
+      titleOnly ? row('Внизу слайда', 'Не показывается: включено «Заставка: только название»', '', 'Это настройка слайдов всего пространства: «⋯ → Настройки слайдов» (её меняют админ и редактор)')
+        : row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Автор и дата не указаны', from),
       h('button', { type:'button', class:'btn', style:'justify-content:center', onclick:() => openMeta() }, ic('settings'), 'Изменить название, дату, автора'));
   },
   thesis(b, body, n){

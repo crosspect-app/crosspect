@@ -34,6 +34,7 @@ function writeFile(data){
   document.body.append(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   persistDraft();
+  if (!cloudSermon()) logoTo(4);   // без входа «Сохранить» — это файл: знак проходит все стадии подряд
   toast('Файл сохранён: ' + fileName());
   if (cloudOn()) updateStatus();
 }

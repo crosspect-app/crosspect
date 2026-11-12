@@ -217,15 +217,18 @@ async function cloudWrite(s, o){
   o = o || {};
   const here = () => state === s && ed.id === s.id;
   const sent = s.updatedAt;
-  if (here()){ ed.saving = true; updateStatus(); }
+  if (here()){ ed.saving = true; persistDraft(); logoTo(2); }   // левая часть знака: черновик записан в браузере (persistDraft обновляет и шапку)
   const slow = setTimeout(() => { if (here()){ ed.slow = true; updateStatus(); } }, SLOW_MS);
   let res = 'ok';
   try {
-    const r = await cloud.api.save(cloud.space, s, cloud.user, { force:!!o.force, status:s.cloudStatus || 'draft', lock:{ name:myLockName(), at:o.at || 0, release:!!o.release, minutes:lockMins() } });
+    const sending = cloud.api.save(cloud.space, s, cloud.user, { force:!!o.force, status:s.cloudStatus || 'draft', lock:{ name:myLockName(), at:o.at || 0, release:!!o.release, minutes:lockMins() } });
+    if (here()) logoTo(3);   // верхняя правая часть: запрос ушёл
+    const r = await sending;
     Object.assign(s, cloudMarks(r)); s.savedAt = Math.max(sent, s.savedAt || 0);
     resyncFlags(s);   // у слайдов без отметки редактора подпись содержимого — по сохранённому
     if (here()){
       ed.remote = r; ed.offline = false; ed.quota = false; ed.lastBeat = Date.now();
+      logoTo(4);   // клин: сервер подтвердил
       if (!o.release && r.lock && r.lock.email === myEmail()){ if (!o.at) ed.adoptUntil = Date.now() + ADOPT_MS; ed.myAt = r.lock.at; rememberAt(s.id, ed.myAt); }
       persistDraft();
       if (!ed.unsub) startWatch();
@@ -245,10 +248,10 @@ async function cloudWrite(s, o){
       if (here()){ ed.conflict = e.remote; conflictSheet(e.remote); }
     } else if (/resource-exhausted/.test(code)){
       res = 'quota';   // дневной запас бесплатной базы закончился (обновится в 9:00): правки ждут в браузере
-      if (here()){ const first = !ed.quota; ed.quota = true; ed.quotaAt = Date.now(); persistDraft(); retryLater(QUOTA_RETRY_MS); if (first) toast(cloudExplain(e)); }
+      if (here()){ logoTo(2); const first = !ed.quota; ed.quota = true; ed.quotaAt = Date.now(); persistDraft(); retryLater(QUOTA_RETRY_MS); if (first) toast(cloudExplain(e)); }
     } else if (netErr(e)){
       res = 'offline';
-      if (here()){ ed.offline = true; persistDraft(); retryLater(); }   // правки ждут в черновике браузера
+      if (here()){ ed.offline = true; persistDraft(); retryLater(); logoTo(2); }   // правки ждут в черновике браузера
     } else if (deniedErr(e) && here() && ed.mode === 'edit'){
       res = 'denied';
       await checkLock(true);

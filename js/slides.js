@@ -63,13 +63,17 @@ function thumbBody(b, n){
 }
 function filmItem(b, n){
   const T = TYPES[b.type];
-  return h('button', { type:'button', 'data-id':b.id, style:'--tc:var(--c-' + b.type + ')', onclick:() => { if (!dragClick) selectBlock(b.id); },
+  const btn = h('button', { type:'button', 'data-id':b.id, style:'--tc:var(--c-' + b.type + ')', onclick:() => { if (!dragClick) selectBlock(b.id); },
     onkeydown:e => { if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && canArrange()){ e.preventDefault(); move(b, e.key === 'ArrowUp' ? -1 : 1); } },   // Alt+↑/↓ — переставить с клавиатуры
     class:'st t-' + b.type + (b.id === selId ? ' on' : '') + (todoOn(b) ? ' todo' : '') + (isMissing(b) ? ' missing' : '') },
     h('div', { class:'st-thumb' }, thumbBody(b, n), h('span', { class:'fl', text:'доработать' })),
     h('div', { class:'st-cap' },
       T.slide ? h('span', { class:'st-n', text:String(n) }) : h('span', { class:'st-n' }, ic('note')),
       h('span', { class:'st-name', text:thumbName(b, n) })));
+  // «Дублировать» и «Удалить» (этап 7.4): значки на миниатюре — при наведении и при фокусе; на телефоне и планшете у выбранной видны всегда. Не вложены в кнопку слайда
+  return h('div', { class:'st-box', 'data-box':b.id }, btn, readOnly() ? null : h('div', { class:'st-acts' },
+    iconBtn('dup', 'Дублировать', () => duplicate(b)),
+    iconBtn('trash', 'Удалить', () => removeBlock(b), 'danger')));
 }
 function renderFilm(){
   filmEl.innerHTML = '';
@@ -256,12 +260,8 @@ function renderSide(){
     ? 'Как выглядят стихи (в строку или с новой строки, рамка, выравнивание), задано для всех слайдов: меню «⋯» → «Настройки слайдов»'
     : 'Как выглядят стихи, одинаково для всех слайдов: это задаёт редактор';
   sideEl.append(h('div', { class:'cap side-head', text:'Настройки · ' + T.label.toLowerCase(), title:capTip }), body);
-  // «доработать» — кнопкой над слайдом (stageBar); переставляют слайды в ленте слева
-  if (ro){ growAll(sideEl); return; }
-  sideEl.append(h('div', { class:'side-actions' },
-    h('button', { type:'button', class:'btn', onclick:() => duplicate(b) }, ic('dup'), 'Дублировать'),
-    h('button', { type:'button', class:'btn danger', onclick:() => removeBlock(b) }, ic('trash'), 'Удалить')));
-  growAll(sideEl);
+  // «доработать» — кнопкой над слайдом (stageBar); переставляют, дублируют и удаляют слайды в ленте слева
+  growAll(sideEl);   // «Дублировать» и «Удалить» — значками на миниатюре в ленте (этап 7.4)
 }
 
 /* ----- Обновление после правки ----- */

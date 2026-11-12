@@ -224,7 +224,13 @@ function mergeSlides(base, over){
     align:oneOf(v.align, ['left', 'center', 'right'], 'center'), valign:oneOf(v.valign, ['top', 'center', 'bottom'], 'top'),
     gap:clampF(v.gap, 0, 2, D.verses.gap), refGap:clampF(v.refGap, 0, 3, D.verses.refGap) };
   r.bg = normBg('bg' in o ? o.bg : r.bg);   // фон: null — прежний (background.js)
+  r.panels = normPanels('panels' in o ? o.panels : r.panels);
   return r;
+}
+/* Порядок панелей: ровно те три, каждая один раз; иначе — по умолчанию (этап 7.4) */
+function normPanels(p){
+  const keys = SLIDES_DEFAULT.panels;
+  return Array.isArray(p) && p.length === keys.length && keys.every(k => p.includes(k)) ? p.slice() : keys.slice();
 }
 function slidesCfg(){ return SLIDES_TRY || SLIDES_BASE; }
 /* Новые настройки из облака (или из кеша): применить и перерисовать слайды */

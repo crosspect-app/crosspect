@@ -129,7 +129,7 @@ function renderGate(){
     h('div', { class:'chips' }, h('button', { type:'button', class:'btn primary big', onclick:() => cloudSignIn() }, 'Войти через Google'), local),
     inAppBrowser() ? h('p', { class:'gate-warn', text:'Похоже, страница открыта внутри Telegram или другого приложения. Google не даёт войти отсюда: откройте ссылку в Chrome или Safari.' }) : null,
     note];
-  mainEl.append(h('div', { class:'gate' }, h('div', { class:'gate-card' }, h('div', { class:'gate-logo', text:'Crosspect' }), body)));
+  mainEl.append(h('div', { class:'gate' }, h('div', { class:'gate-card' }, logoLockup('gate-logo'), body)));
 }
 
 /* ----- Права ----- */

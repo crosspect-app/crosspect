@@ -75,15 +75,16 @@ function renderTopbar(){
     iconBtn('more', 'Ещё', e => { e.stopPropagation(); menuEl.classList.toggle('open'); }), menuEl);
   if (screen === 'home' && cloudGate()){
     topbar.className = 'topbar is-home';
-    topbar.append(h('a', { class:'logo', href:'#', title:'Crosspect' }, 'Crosspect'), h('div', { class:'grow' }), more);
+    topbar.append(logoLockup('logo', { href:'#', title:'Crosspect' }), h('div', { class:'grow' }), more);
     return;
   }
   if (screen === 'home'){
     topbar.className = 'topbar is-home';
+    logoReset();   // на главной знак всегда обычный: незаконченная анимация сохранения относилась к проповеди
     const q = h('input', { type:'search', placeholder:'Название, автор, место Писания', 'aria-label':'Поиск', value:homeQuery,
       oninput:e => { homeQuery = e.target.value; renderHomeList(); } });
     topbar.append(
-      h('a', { class:'logo', href:'#', title:'Проповеди' }, 'Crosspect'),
+      logoLockup('logo', { href:'#', title:'Проповеди' }),
       h('span', { class:'org', text:cloudOn() && cloud.spaceName ? cloud.spaceName : 'Слово веры · Познань' }),
       h('div', { class:'grow' }),
       h('label', { class:'search' }, ic('search'), q),
@@ -94,6 +95,7 @@ function renderTopbar(){
   topbar.className = 'topbar';
   const m = state.meta, st = sermonStatus(state);
   topbar.append(
+    h('a', { class:'logo logo-only', href:'#', title:'Crosspect: к списку проповедей', 'aria-label':'Crosspect: к списку проповедей' }, logoMark()),   // здесь знак мигает при сохранении (logo.js)
     h('a', { class:'btn ghost', href:'#', title:'К списку проповедей' }, ic('back'), 'Проповеди'),
     h('span', { class:'vsep' }),
     h('button', { type:'button', class:'hd-title', title:'Изменить название, дату, автора', onclick:() => openMeta() },

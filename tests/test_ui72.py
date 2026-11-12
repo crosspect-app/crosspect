@@ -196,7 +196,7 @@ def test_panels_resize_swap_saved_in_cloud(browser, base_url):
     # «Сбросить настройки экрана» — как было
     assert "Сбросить настройки экрана" in menu_items(page)
     page.evaluate("resetLayout()")
-    assert page.evaluate("layout.order") == ["film", "stage", "side"]
+    assert page.evaluate("layout.order") is None and page.evaluate("curOrder()") == ["film", "stage", "side"]   # своего порядка нет: порядок пространства
     page.wait_for_function("JSON.stringify(fakeCloud.db().prefs['admin@x.pl']) === '{}'")
     assert not page.errors, page.errors
     ctx.close()
@@ -237,7 +237,8 @@ def test_undo_redo_slide_actions(browser, base_url):
     assert undo_b.is_disabled() and redo_b.is_disabled()   # отменять нечего
     # удалить слайд — Ctrl+Z возвращает
     page.evaluate("selectBlock('b2')")
-    page.locator(".side").get_by_role("button", name="Удалить").click()
+    page.locator(".st-box[data-box='b2']").hover()
+    page.locator(".st-box[data-box='b2'] .st-acts").get_by_role("button", name="Удалить").click()   # значок на миниатюре (этап 7.4)
     assert order(page) == ["b1", "b3"]
     assert undo_b.is_enabled()
     page.evaluate("document.activeElement && document.activeElement.blur()")

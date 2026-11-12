@@ -178,8 +178,21 @@ body.light .stswitch .sw-opt.on.st-work,body.light .stchip.st-work{background:#d
   background:var(--topbar);border-bottom:1px solid var(--line);
 }
 .topbar.is-home{padding:14px max(32px, env(safe-area-inset-right)) 14px max(32px, env(safe-area-inset-left));gap:14px}
-.logo{font:700 17px/1 'Unbounded',sans-serif;color:#ffde59;text-decoration:none;letter-spacing:-.01em}
+.logo{display:inline-flex;align-items:center;gap:9px;font:700 17px/1 'Unbounded',sans-serif;text-transform:uppercase;color:#ffde59;text-decoration:none;letter-spacing:-.01em}
 body.light .logo{color:var(--text)}
+.logo .logo-mark{height:24px}
+.logo.logo-only .logo-mark{height:26px}
+/* Знак (logo.js, этап 7.4): цвета — переменными; `data-lg` ≥ 1 — анимация сохранения: погасли, потом по очереди зелёные */
+.logo-mark{display:inline-flex;flex:none;--lg-cream:#ecdfcf;--lg-yellow:#ffde59;--lg-off:#2e2e2e;--lg-on:#5ad17a}
+body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--lg-on:#2fae5b}
+.logo-mark svg{height:100%;width:auto;display:block}
+.logo-mark path{transition:fill .3s}
+.logo-mark .lg-a,.logo-mark .lg-b{fill:var(--lg-cream)}
+.logo-mark .lg-c{fill:var(--lg-yellow)}
+.logo-mark:not([data-lg="0"]) path{fill:var(--lg-off)}
+.logo-mark[data-lg="2"] .lg-a,.logo-mark[data-lg="3"] .lg-a,.logo-mark[data-lg="4"] .lg-a,
+.logo-mark[data-lg="3"] .lg-b,.logo-mark[data-lg="4"] .lg-b,.logo-mark[data-lg="4"] .lg-c{fill:var(--lg-on)}
+@media (prefers-reduced-motion:reduce){ .logo-mark path{transition:none} }
 .org{color:var(--muted);font-size:13px}
 .vsep{width:1px;height:26px;background:var(--line-2)}
 .hd-title{display:flex;flex-direction:column;gap:4px;align-items:flex-start;min-width:0;border:0;background:transparent;padding:3px 8px;margin:-3px -8px;border-radius:8px;text-align:left;color:inherit}
@@ -207,7 +220,8 @@ body.light .logo{color:var(--text)}
 /* Облако: вход, пометки у карточек */
 .gate{min-height:calc(100vh - 80px);display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .gate-card{width:100%;max-width:460px;padding:32px 28px;border-radius:24px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:14px}
-.gate-logo{font:700 15px/1 'Unbounded',sans-serif;color:var(--accent);letter-spacing:-.01em}
+.gate-logo{display:flex;align-items:center;gap:9px;font:700 15px/1 'Unbounded',sans-serif;text-transform:uppercase;color:var(--accent);letter-spacing:-.01em}
+.gate-logo .logo-mark{height:22px}
 .gate-card h1{margin:0;font:600 26px/1.15 'Unbounded',sans-serif;letter-spacing:-.02em}
 .gate-text{margin:0;font-size:14px;line-height:1.6;color:var(--muted)}
 .gate-mail{color:var(--text);text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
@@ -278,7 +292,15 @@ a.prow:hover{background:var(--surface)}
 .st{display:flex;flex-direction:column;gap:6px;width:100%;padding:6px;border-radius:10px;border:0;background:transparent;color:var(--text);text-align:left;position:relative;flex:none}
 .st:hover{background:var(--surface)}
 .st.on{background:#1f1a0a;box-shadow:0 0 0 2px var(--accent)}
+.st-box{position:relative;flex:none;width:100%}
 .st-thumb{position:relative;border-radius:7px;overflow:hidden}
+/* «Дублировать» и «Удалить» на миниатюре (этап 7.4): внизу справа, в строке с названием, чтобы не закрывать номер и «доработать» */
+.st-acts{position:absolute;right:8px;bottom:5px;display:flex;gap:4px;z-index:3;opacity:0;pointer-events:none;transition:opacity .12s}
+.st-box:hover .st-acts,.st-box:focus-within .st-acts{opacity:1;pointer-events:auto}
+@media (hover:none){ .st.on + .st-acts{opacity:1;pointer-events:auto} }   /* телефон и планшет: наведения нет, у выбранной миниатюры значки видны всегда */
+.st-acts .icon-btn{width:24px;height:24px;border-radius:7px;background:var(--surface-2);border:1px solid var(--line-2)}
+.st-acts .icon-btn .ic{width:14px;height:14px}
+.film.dragging .st-acts{display:none}
 .st-cap{display:flex;gap:6px;align-items:center;font:500 12px/1.2 'Inter',sans-serif;min-width:0}
 .st-n{font-weight:700;color:var(--muted);flex:0 0 16px;display:inline-flex}
 .st-n .ic{width:14px;height:14px}
@@ -351,13 +373,11 @@ a.prow:hover{background:var(--surface)}
 .side .trp-panel{width:100%}
 .info-row{display:grid;gap:6px}
 .info-row .lbl{margin:0}
-.info-val{padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:13px}
-.info-val.empty{color:var(--muted)}
+.info-val{padding:2px 0 0;border:0;background:none;color:var(--muted);font-size:13px;line-height:1.45;cursor:default;overflow-wrap:anywhere}   /* только для показа: не похоже на поле ввода (этап 7.4) */
+.info-val.empty{color:var(--faint);font-style:italic}
 .editor-box{padding:14px;border-radius:14px;background:#1a130d;border:1px solid #3a2414;display:grid;gap:10px}
 .eb-head{display:flex;flex-direction:column;gap:2px;font-size:13px}
 .eb-head span{font-size:11px;color:var(--muted)}
-.side-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto}
-.side-actions .btn{justify-content:center}
 
 /* ---------- Вид «Текст» (светлый) ---------- */
 .tv{display:flex;flex-wrap:wrap;gap:40px;max-width:1360px;margin:0 auto;padding:28px max(40px, env(safe-area-inset-right)) 64px}
@@ -447,7 +467,7 @@ a.prow:hover{background:var(--surface)}
   .sv{grid-template-columns:1fr}
   .film{grid-row:auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;max-height:none;position:static;border-right:0;border-bottom:1px solid var(--line);padding:10px}
   .film-head{display:none}
-  .st{width:150px}
+  .st-box{width:150px}
   .film-add{width:110px;align-self:center}
   .film-gap{height:auto;width:16px}
   .film-gap.drop::before{left:50%;right:auto;top:8px;bottom:8px;width:3px;height:auto;margin:0 0 0 -1.5px}
@@ -656,6 +676,13 @@ body.light .fmtbar{box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .scfg-form{display:grid;gap:16px;min-width:0}
 .scfg-sec{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:16px;min-width:0}
 .scfg-cap{font-size:10.5px;color:var(--faint);margin:-2px 0 0 2px}
+.scfg-panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.scfg-panel{display:flex;align-items:center;justify-content:space-between;gap:2px;padding:8px 4px;border:1px solid var(--line-2);border-radius:12px;background:var(--surface);cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;min-width:0}
+.scfg-panel:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.scfg-pname{flex:1;min-width:0;text-align:center;font:600 13px/1.2 'Inter',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scfg-panel.drag{opacity:.45}
+.scfg-panel.drop{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.scfg-panels.dragging{cursor:grabbing}
 .scfg-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .scfg-g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .scfg-kinds{display:grid;grid-template-columns:minmax(96px,1fr) repeat(6,minmax(70px,1fr));gap:6px;align-items:center;overflow-x:auto}

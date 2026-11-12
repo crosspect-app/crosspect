@@ -4,21 +4,30 @@
    Лента, слайд и боковая панель. Границы между ними можно тянуть (соседняя панель сужается), панели — менять местами,
    перетащив за заголовок. Раскладка запоминается у человека: в облаке (people/{почта}/prefs/screen, одинаково на всех
    компьютерах), без входа — в этом браузере. «⋯ → Сбросить настройки экрана» — как было.
+   Порядок панелей по умолчанию — общий для пространства (SLIDES_BASE.panels, «Настройки слайдов → Расположение панелей», этап 7.4):
+   свой порядок есть только у того, кто сам переставил панели (layout.order), у остальных панели стоят, как задано в пространстве;
+   «Сбросить настройки экрана» убирает свой порядок и возвращает порядок пространства.
    На узком экране (≤ 1100 px) тянуть и менять местами нельзя: раскладка как раньше, из CSS. */
-const LAYOUT_DEFAULT = { order:['film', 'stage', 'side'], film:214, side:400 };
+const LAYOUT_DEFAULT = { order:['film', 'stage', 'side'], film:214, side:400 };   // order — порядок из прежних версий; у пространства свой (SLIDES_DEFAULT.panels)
 const LAY_MIN = { film:150, side:300, stage:380 }, LAY_MAX = { film:420, side:680 };
 const LAYOUT_SAVE_MS = 1500;
 const wideScreen = () => window.matchMedia('(min-width:1101px)').matches;
+/* Своя раскладка: order — свой порядок панелей или null (тогда порядок пространства); v:2 — версия записи. В записях без v (до 7.4)
+   порядок по умолчанию 'film, stage, side' всегда лежал в браузере, хотя человек его не выбирал: он не считается своим */
 function normLayout(o){
   o = o && typeof o === 'object' ? o : {};
   const keys = LAYOUT_DEFAULT.order;
-  const order = Array.isArray(o.order) && o.order.length === 3 && keys.every(k => o.order.includes(k)) ? o.order.slice() : keys.slice();
+  const ok = Array.isArray(o.order) && o.order.length === 3 && keys.every(k => o.order.includes(k));
+  const order = ok && (o.v === 2 || o.order.join() !== keys.join()) ? o.order.slice() : null;
   const w = (k) => { const v = Math.round(+o[k]); return isFinite(v) && v > 0 ? Math.min(LAY_MAX[k], Math.max(LAY_MIN[k], v)) : LAYOUT_DEFAULT[k]; };
-  return { order, film:w('film'), side:w('side') };
+  return { v:2, order, film:w('film'), side:w('side') };
 }
+/* Порядок панелей на экране: свой или, если его нет, общий для пространства */
+const curOrder = () => layout.order || normPanels(SLIDES_BASE.panels);
 let layout = (() => { try { return normLayout(JSON.parse(LS.get('swp-layout') || 'null')); } catch(e){ return normLayout(null); } })();
 let layoutTimer = null;
 const isDefaultLayout = l => JSON.stringify(l) === JSON.stringify(normLayout(null));
+const cloudLayout = () => { const o = Object.assign({}, layout); if (!o.order) delete o.order; return o; };   // пустого порядка в облако не пишем
 
 /* Раскладка из облака (после входа) или сброс */
 function setLayout(o){
@@ -31,7 +40,7 @@ function saveLayout(){
   clearTimeout(layoutTimer);
   if (!cloudOn() || !cloud.api.setPrefs) return;
   const who = cloud.user;
-  layoutTimer = setTimeout(() => { cloud.api.setPrefs(who, isDefaultLayout(layout) ? {} : layout).catch(() => {}); }, LAYOUT_SAVE_MS);   // запас базы общий: пишем после паузы
+  layoutTimer = setTimeout(() => { cloud.api.setPrefs(who, isDefaultLayout(layout) ? {} : cloudLayout()).catch(() => {}); }, LAYOUT_SAVE_MS);   // запас базы общий: пишем после паузы
 }
 async function loadLayoutPrefs(){
   if (!cloudOn() || !cloud.api.getPrefs) return;
@@ -57,15 +66,15 @@ function applyLayout(){
     return;
   }
   sv.classList.add('lay');
-  sv.style.gridTemplateColumns = layout.order.map(k => k === 'stage' ? 'minmax(0,1fr)' : layout[k] + 'px').join(' ');
-  panels.forEach(p => { p.style.order = String(layout.order.indexOf(panelKey(p))); });
+  sv.style.gridTemplateColumns = curOrder().map(k => k === 'stage' ? 'minmax(0,1fr)' : layout[k] + 'px').join(' ');
+  panels.forEach(p => { p.style.order = String(curOrder().indexOf(panelKey(p))); });
   if (!sv.querySelector('.sv-resize')) [0, 1].forEach(i => sv.append(h('div', { class:'sv-resize', 'data-i':String(i), role:'separator', 'aria-orientation':'vertical',
     title:'Потяните, чтобы изменить ширину' })));
   placeHandles(sv);
 }
 function placeHandles(sv){
   const left = sv.getBoundingClientRect().left;
-  const byOrder = layout.order.map(k => ({ film:filmEl, stage:stageEl, side:sideEl })[k]);
+  const byOrder = curOrder().map(k => ({ film:filmEl, stage:stageEl, side:sideEl })[k]);
   sv.querySelectorAll('.sv-resize').forEach(hd => {
     const p = byOrder[+hd.dataset.i]; if (!p) return;
     hd.style.left = (p.getBoundingClientRect().right - left) + 'px';
@@ -77,7 +86,7 @@ window.addEventListener('resize', () => { if (inSlides()) applyLayout(); });
 mainEl.addEventListener('pointerdown', e => {
   const hd = e.target.closest && e.target.closest('.sv-resize'); if (!hd || e.button > 0) return;
   e.preventDefault();
-  const sv = hd.closest('.sv'), i = +hd.dataset.i, a = layout.order[i], b = layout.order[i + 1];
+  const sv = hd.closest('.sv'), i = +hd.dataset.i, ord = curOrder(), a = ord[i], b = ord[i + 1];
   const x0 = e.clientX, w0 = { film:layout.film, side:layout.side }, total = sv.clientWidth;
   hd.setPointerCapture(e.pointerId); sv.classList.add('resizing');
   const move = ev => {
@@ -128,7 +137,7 @@ mainEl.addEventListener('pointerdown', e => {
   document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
 });
 function swapPanels(a, b){
-  const o = layout.order.slice(), i = o.indexOf(a), j = o.indexOf(b);
+  const o = curOrder().slice(), i = o.indexOf(a), j = o.indexOf(b);
   if (i < 0 || j < 0 || i === j) return;
   o[i] = b; o[j] = a; layout.order = o;
   applyLayout(); saveLayout();
