@@ -988,3 +988,44 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 @media (max-width:520px){ .grid-eq{grid-template-columns:1fr} }
 /* «Как пользоваться» (этап 7.8) */
 .hd-help .ic{width:17px;height:17px}
+
+/* Ссылка для оператора и страница оператора (этап 9, js/operator.js) */
+.tv-card2 .btn.wide + .btn.wide{margin-top:8px}
+.oplink .oplink-url{width:100%;margin:12px 0 4px;text-overflow:ellipsis}
+.oplink .sheet-foot{margin-top:14px;gap:8px}
+.oplink .sheet-foot .btn.danger{margin-right:auto}
+/* страница оператора: тёмная, под телефон; шапки формы нет */
+body[data-screen="op"] .topbar{display:none}
+body[data-screen="op"] .app-main{min-height:100vh}
+.opv{--ops:1;max-width:680px;margin:0 auto;padding:18px 14px 96px;font-size:calc(16px * var(--ops));line-height:1.5}
+.opv-head{padding:6px 2px 14px;border-bottom:1px solid var(--line-2)}
+.opv-kick{font:600 11px/1.2 'Inter',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.opv-title{margin:6px 0 0;font:600 calc(22px * var(--ops))/1.2 'Unbounded','Inter',sans-serif;letter-spacing:-.03em}
+.opv-meta{margin-top:8px;font-size:13px;color:var(--muted)}
+.opv-upd{margin-top:2px;font-size:12px;color:var(--faint)}
+.opv-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;background:linear-gradient(var(--bg) 78%,transparent)}
+.opv-bar .toggle button{padding:9px 14px;font-size:13px}
+.opv-list{display:flex;flex-direction:column;gap:12px}
+.opv-slide{padding:12px 14px 14px;border:1px solid var(--line-2);border-left:5px solid var(--tc);border-radius:14px;background:var(--surface)}
+.opv-slide.cover{padding-bottom:10px}
+.opv-row{display:flex;align-items:baseline;gap:12px}
+.opv-slide:not(.cover) .opv-row{margin-bottom:8px}
+.opv-num{font:700 calc(28px * var(--ops))/1 'Unbounded','Inter',sans-serif;letter-spacing:-.04em;color:var(--tc)}
+.opv-type{font:600 11px/1.2 'Inter',sans-serif;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+.opv-p + .opv-p{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line-2)}
+.opv-ref{font-weight:600;color:var(--accent)}
+.opv-tr{margin-left:8px;font-size:.75em;font-weight:400;color:var(--faint)}
+.opv-verses{margin-top:2px}
+.opv-verses sup{font-size:.62em;font-weight:700;color:var(--accent);vertical-align:.45em}
+.opv-thesis{font-weight:600;line-height:1.35;white-space:pre-wrap}
+.opv-author{margin-top:6px;font-size:.85em;color:var(--muted)}
+.opv-name{font-weight:600;line-height:1.3}
+.opv-play{margin-top:6px;font-size:.9em;color:var(--muted)}
+.opv-speech{margin:10px 2px 4px;padding-left:12px;border-left:3px solid var(--line-2);white-space:pre-wrap;font-weight:300;font-size:.92em;line-height:1.6;color:var(--muted)}
+.opv-note{padding:12px 14px 14px;border-radius:12px;background:#ffde59;color:#141414;border:1px solid #e0b300}
+.opv-note-tag{font:700 11px/1.2 'Inter',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#7a5a00;margin-bottom:6px}
+.opv-note-body{white-space:pre-wrap;text-transform:uppercase;font-weight:700;line-height:1.35}
+.opv mark{background:var(--mark);color:inherit;padding:0 2px;border-radius:3px}
+.opv-empty,.opv-text{color:var(--muted)}
+.opv-msg{padding-top:18vh}
+.opv-msg .btn{margin-top:18px}

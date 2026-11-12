@@ -16,7 +16,7 @@ const ROLE_NAMES = { admin:'админ', editor:'редактор', preacher:'а
    spaces — куда можно войти: [{ id, name, settings, role, member }]; role — admin (админ всей формы), editor или preacher (автор).
    list — живой список проповедей текущего пространства: Map id → строка-сводка (cloud-api.mjs, fromSummary) */
 const cloud = { mode:'wait', api:null, user:null, admin:false, spaces:[], space:'', spaceName:'', role:'', member:null, settings:{},
-  list:null, fromCache:false, listError:'', error:'', unsub:null, started:false };
+  list:null, fromCache:false, listError:'', error:'', unsub:null, started:false, authOn:false };
 const cloudOn = () => cloud.mode === 'in';
 /* Что показывать вместо главной и проповеди: null — ничего, можно работать */
 const cloudGate = () => cloudOn() ? (introHold() ? 'wait' : null) : cloud.mode;   // при открытии формы заставка держится ~1,5 с (motion.js)
@@ -45,6 +45,13 @@ async function initCloud(){
     cloud.mode = 'error'; cloud.error = 'Не удалось подключиться к облаку. Проверьте интернет.'; cloud.started = false;
     cloudChanged(); return;
   }
+  if (opMode()){ route(); return; }   // страница оператора (этап 9): вход не нужен, лишнего не читаем; вход начнётся, когда уйдут со страницы (closeOperator)
+  startAuth();
+}
+/* Следить за входом. Один раз за страницу */
+function startAuth(){
+  if (cloud.authOn || !cloud.api) return;
+  cloud.authOn = true;
   cloud.api.onUser(u => cloudUser(u));
 }
 

@@ -580,3 +580,155 @@ test('explain: понятные тексты для людей', () => {
   assert.equal(explain({ code: 'auth/popup-closed-by-user' }), '');
   assert.match(explain({ code: 'auth/popup-blocked' }), /заблокировал/);
 });
+
+describe('ссылка для оператора (этап 9)', () => {
+  const KEY = (c) => c.repeat(24);
+  const snap = (title) => ({ v: 1, title, date: '2026-11-15', author: 'Иван Петров', total: 1, blocks: [{ t: 'thesis', n: 1, html: 'Тезис' }] });
+  /* прочитать документ в обход правил */
+  const raw = async (path) => {
+    let out = null;
+    await env.withSecurityRulesDisabled(async (ctx) => { const s = await F.getDoc(F.doc(ctx.firestore(), path)); out = s.exists() ? s.data() : null; });
+    return out;
+  };
+  const save = (api, who, id, title, opts) => api.save('sp1', sermon(id, title), me(who), opts);
+
+  test('автор создаёт ссылку: снимок читает кто угодно без входа, ключ — в конспекте и в сводке время правки', async () => {
+    const ivan = await client('ivan@x.pl'), anon = await client(null);
+    const a = await save(ivan, 'ivan@x.pl', 'op1', 'Со ссылкой');
+    const r = await ivan.shareOn('sp1', 'op1', me('ivan@x.pl'), KEY('a'), snap('Со ссылкой'));
+    assert.equal(r.key, KEY('a'));
+    assert.equal(r.remote.cloudShare, KEY('a'));
+    assert.ok(r.remote.cloudAt > a.cloudAt, 'запись ключа — новая версия конспекта');
+    const sh = await raw('shares/' + KEY('a'));
+    assert.equal(sh.spaceId, 'sp1'); assert.equal(sh.sermonId, 'op1'); assert.equal(sh.createdBy, 'ivan@x.pl');
+    assert.equal(sh.sermon.title, 'Со ссылкой');
+    const s = await raw('spaces/sp1/summaries/op1');
+    assert.equal(s.updatedAt.toMillis(), r.remote.cloudAt);   // сводка совпадает с конспектом, правила это проверяют
+    // без входа снимок читается
+    const got = await new Promise((res, rej) => { const off = anon.watchShare(KEY('a'), (d) => { off(); res(d); }, rej); });
+    assert.equal(got.sermon.title, 'Со ссылкой'); assert.ok(got.updatedAt > 0);
+    // и ничего другого без входа не прочитать
+    await assert.rejects(anon.get('sp1', 'op1'), (e) => /permission-denied/.test(e.code));
+  });
+  test('повторное нажатие даёт ту же ссылку и не меняет конспект, а снимок обновляет', async () => {
+    const ivan = await client('ivan@x.pl');
+    await save(ivan, 'ivan@x.pl', 'op2', 'Повтор');
+    const a = await ivan.shareOn('sp1', 'op2', me('ivan@x.pl'), KEY('b'), snap('Повтор'));
+    const b = await ivan.shareOn('sp1', 'op2', me('ivan@x.pl'), KEY('z'), snap('Повтор 2'));
+    assert.equal(b.key, KEY('b'));
+    assert.equal(b.remote.cloudAt, a.remote.cloudAt, 'конспект при этом не записывается');
+    assert.equal((await raw('shares/' + KEY('b'))).sermon.title, 'Повтор 2');
+    assert.equal(await raw('shares/' + KEY('z')), null);
+  });
+  test('если снимок пропал, а ключ остался, повторное нажатие создаёт его заново под тем же ключом', async () => {
+    const ivan = await client('ivan@x.pl');
+    await save(ivan, 'ivan@x.pl', 'op3', 'Потерянный снимок');
+    await ivan.shareOn('sp1', 'op3', me('ivan@x.pl'), KEY('c'), snap('Потерянный снимок'));
+    await env.withSecurityRulesDisabled(async (ctx) => { await F.deleteDoc(F.doc(ctx.firestore(), 'shares/' + KEY('c'))); });
+    const r = await ivan.shareOn('sp1', 'op3', me('ivan@x.pl'), KEY('y'), snap('Потерянный снимок'));
+    assert.equal(r.key, KEY('c'));
+    assert.equal((await raw('shares/' + KEY('c'))).sermon.title, 'Потерянный снимок');
+  });
+  test('чужой автор ссылку не делает, редактор и админ — любому конспекту', async () => {
+    const ivan = await client('ivan@x.pl'), petr = await client('petr@x.pl'), admin = await client('admin@x.pl'), anon = await client(null);
+    await save(ivan, 'ivan@x.pl', 'op4', 'Ивана');
+    await assert.rejects(petr.shareOn('sp1', 'op4', me('petr@x.pl'), KEY('d'), snap('x')), (e) => /permission-denied/.test(e.code));
+    await assert.rejects(anon.shareOn('sp1', 'op4', me('x@x.pl'), KEY('d'), snap('x')), (e) => /permission-denied/.test(e.code));
+    assert.equal(await raw('shares/' + KEY('d')), null);
+    const r = await admin.shareOn('sp1', 'op4', me('admin@x.pl'), KEY('e'), snap('Ивана'));
+    assert.equal(r.key, KEY('e'));
+    assert.equal((await raw('shares/' + KEY('e'))).createdBy, 'admin@x.pl');
+  });
+  test('«У редактора»: автор новую ссылку не делает и ссылку не отключает; редактор — да', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    await save(ivan, 'ivan@x.pl', 'op5', 'У редактора');
+    await ivan.shareOn('sp1', 'op5', me('ivan@x.pl'), KEY('f'), snap('У редактора'));
+    await save(ivan, 'ivan@x.pl', 'op5b', 'У редактора без ссылки');
+    await admin.setStatus('sp1', 'op5', me('admin@x.pl'), 'work');
+    await admin.setStatus('sp1', 'op5b', me('admin@x.pl'), 'work');
+    // запись конспекта автору закрыта, а ссылка пишется вместе с ним одной транзакцией: не получается ни то, ни другое
+    await assert.rejects(ivan.shareOff('sp1', 'op5', me('ivan@x.pl')), (e) => /permission-denied/.test(e.code));
+    assert.ok(await raw('shares/' + KEY('f')), 'снимок при отказе остаётся');
+    assert.equal((await raw('spaces/sp1/sermons/op5')).shareKey, KEY('f'));
+    await assert.rejects(ivan.shareOn('sp1', 'op5b', me('ivan@x.pl'), KEY('g'), snap('x')), (e) => /permission-denied/.test(e.code));
+    assert.equal(await raw('shares/' + KEY('g')), null, 'и снимок без ссылки в конспекте не появляется');
+    await admin.shareOff('sp1', 'op5', me('admin@x.pl'));
+    assert.equal(await raw('shares/' + KEY('f')), null);
+    const r = await admin.shareOn('sp1', 'op5b', me('admin@x.pl'), KEY('g'), snap('У редактора без ссылки'));
+    assert.equal(r.key, KEY('g'));
+  });
+  test('под чужим живым замком ссылку не создать и не отключить (locked), под своим — можно, замок остаётся', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    await save(ivan, 'ivan@x.pl', 'op6', 'Замок');
+    const l = await ivan.lock('sp1', 'op6', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    await assert.rejects(admin.shareOn('sp1', 'op6', me('admin@x.pl'), KEY('h'), snap('x'), { minutes: 10 }), (e) => e.code === 'locked' && e.lock.email === 'ivan@x.pl');
+    assert.equal(await raw('shares/' + KEY('h')), null);
+    const r = await ivan.shareOn('sp1', 'op6', me('ivan@x.pl'), KEY('h'), snap('Замок'), { minutes: 10 });
+    assert.equal(r.remote.lock.at, l.lock.at);
+    // автор правит дальше: свою же запись ключа конспект-конфликтом не считает
+    const next = await ivan.save('sp1', sermon('op6', 'Замок 2', { cloudAt: l.cloudAt }), me('ivan@x.pl'), { lock: { name: 'Иван', at: l.lock.at, minutes: 10 } });
+    assert.equal(next.cloudShare, KEY('h'), 'ключ не стирается обычным сохранением');
+    await assert.rejects(admin.shareOff('sp1', 'op6', me('admin@x.pl'), { minutes: 10 }), (e) => e.code === 'locked');
+  });
+  test('shareSync обновляет снимок: хозяин и редактор могут, чужой автор и аноним — нет', async () => {
+    const ivan = await client('ivan@x.pl'), petr = await client('petr@x.pl'), admin = await client('admin@x.pl'), anon = await client(null);
+    await save(ivan, 'ivan@x.pl', 'op7', 'Синхронизация');
+    await ivan.shareOn('sp1', 'op7', me('ivan@x.pl'), KEY('i'), snap('Синхронизация'));
+    const before = (await raw('shares/' + KEY('i'))).updatedAt.toMillis();
+    await new Promise((res) => setTimeout(res, 20));
+    await ivan.shareSync(KEY('i'), snap('Новое название'));
+    const a = await raw('shares/' + KEY('i'));
+    assert.equal(a.sermon.title, 'Новое название'); assert.ok(a.updatedAt.toMillis() > before);
+    assert.equal(a.createdBy, 'ivan@x.pl');
+    await admin.shareSync(KEY('i'), snap('От редактора'));
+    assert.equal((await raw('shares/' + KEY('i'))).createdBy, 'ivan@x.pl', 'создатель не меняется');
+    await assert.rejects(petr.shareSync(KEY('i'), snap('Чужое')), (e) => /permission-denied/.test(e.code));
+    await assert.rejects(anon.shareSync(KEY('i'), snap('Чужое')), (e) => /permission-denied/.test(e.code));
+    assert.equal((await raw('shares/' + KEY('i'))).sermon.title, 'От редактора');
+    // снимка нет — запись не создаёт его «из воздуха»
+    await assert.rejects(ivan.shareSync(KEY('q'), snap('x')));
+  });
+  test('отключить: снимок удаляется, ключ стирается, сводка совпадает; слушатель получает null; повторно — ничего не делает', async () => {
+    const ivan = await client('ivan@x.pl'), anon = await client(null);
+    await save(ivan, 'ivan@x.pl', 'op8', 'Отключение');
+    await ivan.shareOn('sp1', 'op8', me('ivan@x.pl'), KEY('j'), snap('Отключение'));
+    const seen = [];
+    const gone = new Promise((res) => { const off = anon.watchShare(KEY('j'), (d) => { seen.push(d); if (!d) { off(); res(); } }, () => {}); });
+    const r = await ivan.shareOff('sp1', 'op8', me('ivan@x.pl'));
+    await gone;
+    assert.equal(r.cloudShare, '');
+    assert.equal(await raw('shares/' + KEY('j')), null);
+    assert.equal((await raw('spaces/sp1/sermons/op8')).shareKey, undefined);
+    assert.equal((await raw('spaces/sp1/summaries/op8')).updatedAt.toMillis(), r.cloudAt);
+    assert.equal(seen[seen.length - 1], null);
+    const again = await ivan.shareOff('sp1', 'op8', me('ivan@x.pl'));
+    assert.equal(again.cloudAt, r.cloudAt);
+    // потом можно сделать новую
+    const n = await ivan.shareOn('sp1', 'op8', me('ivan@x.pl'), KEY('k'), snap('Отключение'));
+    assert.equal(n.key, KEY('k'));
+  });
+  test('удаление конспекта убирает и ссылку; битый ключ удалению не мешает', async () => {
+    const ivan = await client('ivan@x.pl');
+    await save(ivan, 'ivan@x.pl', 'op9', 'Удаление');
+    await ivan.shareOn('sp1', 'op9', me('ivan@x.pl'), KEY('l'), snap('Удаление'));
+    await ivan.remove('sp1', 'op9');
+    assert.equal(await raw('shares/' + KEY('l')), null);
+    assert.equal(await ivan.get('sp1', 'op9'), null);
+    // ключ есть, снимка уже нет (его стёрли руками): конспект всё равно удаляется
+    await save(ivan, 'ivan@x.pl', 'op10', 'Битый ключ');
+    await ivan.shareOn('sp1', 'op10', me('ivan@x.pl'), KEY('m'), snap('Битый ключ'));
+    await env.withSecurityRulesDisabled(async (ctx) => { await F.deleteDoc(F.doc(ctx.firestore(), 'shares/' + KEY('m'))); });
+    await ivan.remove('sp1', 'op10');
+    assert.equal(await ivan.get('sp1', 'op10'), null);
+  });
+  test('конспект без ссылки удаляется, как раньше; чужой снимок при этом не трогается', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    await save(ivan, 'ivan@x.pl', 'op11', 'Без ссылки');
+    await save(ivan, 'ivan@x.pl', 'op12', 'Другой');
+    await ivan.shareOn('sp1', 'op12', me('ivan@x.pl'), KEY('n'), snap('Другой'));
+    await ivan.remove('sp1', 'op11');
+    assert.ok(await raw('shares/' + KEY('n')));
+    await admin.remove('sp1', 'op12');
+    assert.equal(await raw('shares/' + KEY('n')), null);
+  });
+});
