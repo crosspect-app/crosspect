@@ -359,6 +359,61 @@ describe('статус отдельно от содержимого (этап 7.
   });
 });
 
+describe('«У редактора» (этап 7.3)', () => {
+  const st = (who, status, extra = {}) => ({ status, updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra });
+  // поставить статус в обход правил
+  async function setStatus(s, id, status) {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'spaces', s, 'sermons', id), { status });
+    });
+  }
+  test('автор сам «У редактора» не ставит — ни правкой, ни отдельно', async () => {
+    const ref = sermon(as('petr'), 'sw', 'petr1');
+    await assertFails(updateDoc(ref, st('petr', 'work')));
+    await assertFails(updateDoc(ref, edit('petr', { status: 'work' })));
+    await assertFails(setDoc(sermon(as('petr'), 'sw', 'new1'), newSermon('petr', { status: 'work' })));
+  });
+  test('пока конспект у редактора, автор его не правит, не берёт замок, не меняет статус и не удаляет', async () => {
+    await setStatus('sw', 'petr1', 'work');
+    const ref = sermon(as('petr'), 'sw', 'petr1');
+    await assertSucceeds(getDoc(ref));   // смотреть можно
+    await assertFails(updateDoc(ref, edit('petr')));
+    await assertFails(updateDoc(ref, takeLock('petr')));
+    await assertFails(updateDoc(ref, st('petr', 'draft')));
+    await assertFails(updateDoc(ref, st('petr', 'submitted')));
+    await assertFails(deleteDoc(ref));
+  });
+  test('старое «done» для автора — так же закрыто', async () => {
+    await setStatus('sw', 'petr1', 'done');
+    const ref = sermon(as('petr'), 'sw', 'petr1');
+    await assertFails(updateDoc(ref, edit('petr')));
+    await assertFails(updateDoc(ref, takeLock('petr')));
+    await assertFails(updateDoc(ref, st('petr', 'draft')));
+  });
+  test('свой замок, взятый до «У редактора», автору тоже не помогает', async () => {
+    await setLock('sw', 'petr1', 'petr', 1);
+    await setStatus('sw', 'petr1', 'work');
+    const ref = sermon(as('petr'), 'sw', 'petr1');
+    await assertFails(updateDoc(ref, edit('petr')));
+    await assertFails(updateDoc(ref, { 'lock.beat': serverTimestamp() }));
+  });
+  test('редактор ставит «У редактора» и правит; вернул «Черновик» — автор снова правит', async () => {
+    const edRef = sermon(as('ed'), 'sw', 'petr1');
+    await assertSucceeds(updateDoc(edRef, takeLock('ed', 'Редактор')));
+    await assertSucceeds(updateDoc(edRef, edit('ed', { status: 'work' })));
+    await assertSucceeds(updateDoc(edRef, edit('ed', { 'meta.title': 'Правит редактор' })));
+    await assertSucceeds(updateDoc(edRef, edit('ed', { status: 'draft', lock: null })));
+    const ref = sermon(as('petr'), 'sw', 'petr1');
+    await assertSucceeds(updateDoc(ref, takeLock('petr')));
+    await assertSucceeds(updateDoc(ref, edit('petr', { status: 'submitted' })));
+  });
+  test('админ тоже ставит и снимает «У редактора»', async () => {
+    const ref = sermon(as('admin'), 'sw', 'ivan1');
+    await assertSucceeds(updateDoc(ref, st('admin', 'work')));
+    await assertSucceeds(updateDoc(ref, st('admin', 'draft')));
+  });
+});
+
 describe('замок', () => {
   test('взять свободный, продлить сигналом, править, отпустить', async () => {
     const db = as('ivan');

@@ -393,6 +393,31 @@ describe('статус отдельно от содержимого (этап 7.
   });
 });
 
+describe('«У редактора» (этап 7.3)', () => {
+  const L = (at, extra = {}) => ({ name: 'Я', at, minutes: 10, ...extra });
+  test('редактор ставит «У редактора» правкой под замком; автор не берёт замок и не пишет; редактор вернул «Черновик» — автор правит', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    const a = await ivan.save('sp1', sermon('ue1', 'Автор'), me('ivan@x.pl'), { status: 'submitted' });
+    // автор сам «У редактора» не ставит
+    await assert.rejects(ivan.save('sp1', sermon('ue1', 'Автор', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { status: 'work' }), (e) => /permission-denied/.test(e.code));
+    const l = await admin.lock('sp1', 'ue1', me('admin@x.pl'), 'Админ', { minutes: 10 });
+    const b = await admin.save('sp1', sermon('ue1', 'Правит редактор', { cloudAt: l.cloudAt }), me('admin@x.pl'), { status: 'work', lock: L(l.lock.at, { release: true }) });
+    assert.equal(b.cloudStatus, 'work');
+    assert.equal(b.lock, null);
+    // замок свободен, но конспект у редактора: автору база не даёт ни замок, ни запись
+    await assert.rejects(ivan.lock('sp1', 'ue1', me('ivan@x.pl'), 'Иван', { minutes: 10 }), (e) => /permission-denied/.test(e.code));
+    await assert.rejects(ivan.save('sp1', sermon('ue1', 'Взлом', { cloudAt: b.cloudAt }), me('ivan@x.pl'), { status: 'draft', lock: L(0) }), (e) => /permission-denied/.test(e.code));
+    assert.equal((await ivan.get('sp1', 'ue1')).meta.title, 'Правит редактор', 'смотреть автору можно');
+    // редактор вернул «Черновик» — автор снова правит
+    const c = await admin.save('sp1', sermon('ue1', 'Правит редактор', { cloudAt: b.cloudAt }), me('admin@x.pl'), { status: 'draft' });
+    assert.equal(c.cloudStatus, 'draft');
+    const l2 = await ivan.lock('sp1', 'ue1', me('ivan@x.pl'), 'Иван', { minutes: 10 });
+    const d = await ivan.save('sp1', sermon('ue1', 'Снова автор', { cloudAt: l2.cloudAt }), me('ivan@x.pl'), { status: 'submitted', lock: L(l2.lock.at) });
+    assert.equal(d.cloudStatus, 'submitted');
+    assert.equal(d.meta.title, 'Снова автор');
+  });
+});
+
 describe('настройки экрана человека (этап 7.2)', () => {
   test('пишет и читает сам человек, общие для всех пространств; чужие закрыты', async () => {
     const ivan = await client('Ivan@X.pl'), petr = await client('petr@x.pl');

@@ -143,8 +143,13 @@ service cloud.firestore {
         function canRead(d) {
           return isEditor(s) || (isPreacher(s) && (d.owner == me() || seeAll(s)));
         }
+        // «У редактора» (этап 7.3): статус work (и старое done) — конспект взял редактор,
+        // автор (проповедник) его не правит, не берёт замок, не меняет статус и не удаляет
+        function atEditor(d) {
+          return d.status in ['work', 'done'];
+        }
         function canEdit(d) {
-          return isEditor(s) || (isPreacher(s) && d.owner == me());
+          return isEditor(s) || (isPreacher(s) && d.owner == me() && !atEditor(d));
         }
         function changed() {
           return request.resource.data.diff(resource.data).affectedKeys();
@@ -223,7 +228,7 @@ service cloud.firestore {
           && validSermon(request.resource.data)
           && request.resource.data.createdBy == resource.data.createdBy
           && request.resource.data.createdAt == resource.data.createdAt
-          // проповедник не отдаёт проповедь другому и не ставит «в работе» / «готово»
+          // проповедник не отдаёт проповедь другому и сам ставит только «Черновик» / «Готов к вёрстке»
           && (isEditor(s) || request.resource.data.owner == resource.data.owner)
           && (isEditor(s)
               || request.resource.data.status == resource.data.status
@@ -234,7 +239,7 @@ service cloud.firestore {
                   && request.resource.data.updatedBy == me()))
           && lockOk(resource.data.get('lock', null), request.resource.data.get('lock', null), changed());
 
-        // Проповедник удаляет только свой черновик. Под чужим живым замком не удаляет никто.
+        // Проповедник удаляет только свой черновик («У редактора» — тем более нет). Под чужим живым замком не удаляет никто.
         allow delete: if (isEditor(s)
               || (isPreacher(s) && resource.data.owner == me() && resource.data.status == 'draft'))
           && (!lockLive(resource.data.get('lock', null)) || lockMine(resource.data.get('lock', null)));
