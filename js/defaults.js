@@ -23,7 +23,8 @@ const CONTACT_EMAIL = 'swpoznan.media@gmail.com';
      генератора (background.js, normBg); defaultFormat — формат по умолчанию: <id> или 'system' (встроенный System Template,
      прежний фон; в облаке не хранится). Фон этапа 7.3 (раздел bg) при чтении переносится в формат «Фон пространства»;
    panels — расположение панелей экрана «Слайды» по умолчанию для всего пространства (этап 7.4): порядок слева направо из
-     'film' (миниатюры), 'stage' (слайд), 'side' (редактор); у кого нет своей раскладки (layout.js), панели стоят так */
+     'film' (миниатюры), 'stage' (слайд), 'side' (редактор); у кого нет своей раскладки (layout.js), панели стоят так;
+   pickFormat — «Выбирать формат фона в проповеди» (этап 10): включено — в «О проповеди» есть поле «Формат фона» */
 const SLIDES_DEFAULT = {
   margins:{ side:60, top:60, bottom:60 },
   names:{ maxLength:35 },
@@ -38,7 +39,8 @@ const SLIDES_DEFAULT = {
   verses:{ flow:'inline', frame:false, caps:true, showTr:true, align:'center', valign:'top', gap:0.3, refGap:0.85 },
   formats:{},
   defaultFormat:'system',
-  panels:['film', 'stage', 'side']
+  panels:['film', 'stage', 'side'],
+  pickFormat:false
 };
 /* Шрифты в списках — только те, что форма загружает и встраивает в JPEG (см. EXPORT_FONTS в export.js) */
 const SLIDE_FONTS = {
@@ -49,6 +51,7 @@ const SLIDE_FONTS = {
 const PANEL_INSET = 44;   // панель отступает от края кадра на 44 px
 
 const ICONS = {
+  people:'<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><path d="M15.5 5.2a3 3 0 0 1 0 5.6"/><path d="M17 14.2a5 5 0 0 1 3.5 5.3"/>',
   edit:'<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   book:'<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19"/><path d="M9 7.5h6"/>',
   split:'<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 12h17"/>',

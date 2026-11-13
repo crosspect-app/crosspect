@@ -29,7 +29,7 @@
   const row = (db, r) => {
     const m = r.meta || {}, blocks = r.blocks || [], refs = [];
     blocks.forEach(b => { if (b && b.type === 'scripture') (b.items || []).forEach(it => { if (it && it.ref) refs.push(it.ref); }); });
-    return { id:r.id, summary:true, meta:{ title:m.title || '', date:m.date || '', firstName:m.firstName || '', lastName:m.lastName || '' },
+    return { id:r.id, summary:true, meta:{ title:m.title || '', date:m.date || '', firstName:m.firstName || '', lastName:m.lastName || '', ...(m.series ? { series:m.series } : {}) },
       updatedAt:r.updatedAt, cloudSpace:db.space.id, cloudAt:r.updatedAt, cloudOwner:r.owner, cloudStatus:r.status, cloudBy:r.updatedBy,
       lock:r.lock || null, deletedAt:r.deletedAt || 0, deletedBy:r.deletedBy || '', slides:blocks.filter(b => b && b.type !== 'note' && b.type !== 'splash').length, refs:refs.join(' · ') };
   };
@@ -148,6 +148,68 @@
       if (!isEditor(x, who.email)) throw fail('permission-denied', 'Missing or insufficient permissions');
       x.flags = x.flags || {}; x.flags[id] = JSON.parse(JSON.stringify(flags || {}));
       store(db);
+    },
+    /* Пространства, люди и серии (этап 10): заводит пространства и правит людей админ, серии — редактор и админ */
+    async createSpace(who, name){
+      calls.space = (calls.space || 0) + 1; offline();
+      const db = load();
+      if (!isAdmin(who.email)) throw denied();
+      const id = 'sp' + (Object.keys(db.spaces || {}).length + 2) + 'n';
+      db.spaces = db.spaces || {};
+      db.spaces[id] = { space:{ id, name, settings:{ lockMinutes:10, preachersSeeAll:true } }, members:{}, sermons:{} };
+      store(db); notify();
+      return { id, name, settings:{ lockMinutes:10, preachersSeeAll:true } };
+    },
+    async updateSpace(space, who, fields){
+      offline();
+      const db = load(), x = S(db, space);
+      if (!isAdmin(who.email)) throw denied();
+      if (fields.name != null) x.space.name = fields.name;
+      if (fields.lockMinutes != null) x.space.settings = Object.assign({}, x.space.settings, { lockMinutes:fields.lockMinutes });
+      store(db); notify();
+    },
+    watchMembers(space, onList){
+      const f = () => { const x = S(load(), space); onList(Object.keys(x.members).map(email => { const m = x.members[email];
+        return { email, role:m.role === 'admin' ? 'editor' : m.role, firstName:m.firstName || '', lastName:m.lastName || '', seen:!!m.seenAt }; })); };
+      listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
+    },
+    async addMember(space, who, p){
+      offline();
+      const db = load(), x = S(db, space);
+      if (!isAdmin(who.email)) throw denied();
+      if (x.members[p.email]) throw fail('exists', 'Человек с такой почтой уже есть');
+      x.members[p.email] = { role:p.role, firstName:p.firstName || '', lastName:p.lastName || '' };
+      store(db); notify();
+    },
+    async updateMember(space, email, fields){
+      offline();
+      const db = load(), x = S(db, space), u = me();
+      if (!u || !isAdmin(u.email) || !x.members[email]) throw denied();
+      Object.assign(x.members[email], fields);
+      store(db); notify();
+    },
+    async removeMember(space, email){
+      offline();
+      const db = load(), x = S(db, space), u = me();
+      if (!u || !isAdmin(u.email)) throw denied();
+      delete x.members[email];
+      store(db); notify();
+    },
+    async markSeen(space, email){
+      calls.seen = (calls.seen || 0) + 1;
+      const db = load(), x = S(db, space);
+      if (x.members[email] && !x.members[email].seenAt){ x.members[email].seenAt = Date.now(); store(db); notify(); }
+    },
+    watchSeries(space, onSeries){
+      const f = () => { const x = S(load(), space); onSeries(JSON.parse(JSON.stringify(x.series || {}))); };
+      listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
+    },
+    async setSeries(space, who, series){
+      calls.series = (calls.series || 0) + 1; offline();
+      const db = load(), x = S(db, space);
+      if (!isEditor(x, who.email)) throw denied();
+      x.series = JSON.parse(JSON.stringify(series || {}));
+      store(db); notify();
     },
     /* Настройки слайдов пространства: читают все, пишут редактор и админ */
     watchSlides(space, onCfg){

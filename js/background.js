@@ -209,11 +209,14 @@ function formatBg(id, cfg){
   const f = id !== SYSTEM_FORMAT && cfg.formats[id];
   return f ? f.bg : null;
 }
-/* Какой формат у проповеди. Порядок сразу такой, как нужен этапу 10: формат, выбранный в самой проповеди → формат её серии →
-   формат по умолчанию пространства. До этапа 10 выбора в проповеди и серий нет, поэтому работает только последнее.
-   Этапу 10 остаётся заполнить sermonOwnFormat и seriesFormat. Формат, которого уже нет, пропускается */
-const sermonOwnFormat = (sermon, cfg) => null;   // этап 10: формат из «О проповеди», если в пространстве включено «Выбирать формат фона в проповеди»
-const seriesFormat = (sermon, cfg) => null;      // этап 10: формат серии проповеди («По умолчанию» — null)
+/* Серии проповедей пространства (этап 10, облако: config/series, space.js): { <id>: { name, active, format } }.
+   format — id формата фона или '' («По умолчанию»). «Свободная тема» встроена и не хранится: у проповеди без серии */
+let SERIES = {};
+/* Какой формат у проповеди: формат, выбранный в самой проповеди → формат её серии → формат по умолчанию пространства.
+   Свой формат проповеди действует, только пока в пространстве включено «Выбирать формат фона в проповеди» (выключили —
+   выбор не стирается, но не действует). Формат, которого уже нет (удалили), пропускается */
+const sermonOwnFormat = (sermon, cfg) => (cfg.pickFormat && sermon && sermon.meta && sermon.meta.format) || null;
+const seriesFormat = (sermon, cfg) => { const id = sermon && sermon.meta && sermon.meta.series, x = id && SERIES[id]; return (x && x.format) || null; };
 function sermonFormatId(sermon, cfg){
   cfg = cfg || slidesCfg();
   for (const id of [sermonOwnFormat(sermon, cfg), seriesFormat(sermon, cfg)])

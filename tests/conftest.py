@@ -53,14 +53,14 @@ def page(browser, base_url):
     ctx.close()
 
 
-def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, settings=None, admins=("admin@x.pl",), spaces=None, no_spaces=False, reduced_motion="reduce", shares=None, hash=""):
+def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, settings=None, series=None, admins=("admin@x.pl",), spaces=None, no_spaces=False, reduced_motion="reduce", shares=None, hash=""):
     """Страница формы с подменённым облаком. user — кто входит ({email, name}), members — {почта: {role, firstName, lastName}},
     sermons — проповеди, уже лежащие в «облаке» ({id: запись}), admins — админы всей формы (этап 8; по умолчанию admin@x.pl),
     spaces — другие пространства ({id: {space:{id,name,settings}, members, sermons}}). reduced_motion — «reduce» по умолчанию (анимации выключены), тесты движения передают «no-preference» (этап 7.6).
     Возвращает (контекст, страница)."""
     ctx = browser.new_context(viewport={"width": 1280, "height": 900}, accept_downloads=True, reduced_motion=reduced_motion)
     db = {"members": members or {}, "space": {"id": "sp1", "name": "Слово веры · тест", "settings": settings or {}}, "sermons": sermons or {}, "clock": 1000,
-          "admins": list(admins or []), "spaces": spaces or {}, "shares": shares or {}}
+          "admins": list(admins or []), "spaces": spaces or {}, "shares": shares or {}, "series": series or {}}
     if no_spaces:
         db["space"] = None   # в базе нет ни одного пространства
     ctx.add_init_script("if (!localStorage.getItem('fake-cloud')) localStorage.setItem('fake-cloud', %s);" % json.dumps(json.dumps(db)))

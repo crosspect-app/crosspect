@@ -285,9 +285,10 @@ function updateStatus(){
   }
 }
 
-/* ----- Окно «О проповеди»: название, дата, автор (раскладка и выбор даты — этап 7.8) -----
+/* ----- Окно «О проповеди»: название, дата, автор (раскладка и выбор даты — этап 7.8), серия и формат фона (этап 10) -----
    Одна колонка: название; дата — три ближайших воскресенья кнопками и «Другая дата…» (свой календарь); автор — список
-   (preacherField в render.js), «Имя» и «Фамилия» под ним только при «Ввести вручную» */
+   (preacherField в render.js), «Имя» и «Фамилия» под ним только при «Ввести вручную»; серия проповедей и (если в пространстве
+   включено «Выбирать формат фона в проповеди») формат фона — space.js. Серия и формат меняют фон слайдов сразу */
 let metaOpen = false;
 function openMeta(){
   if (readOnly()){ roHint(); return; }
@@ -295,13 +296,16 @@ function openMeta(){
   const upd = () => { change(); refreshSplash(); document.title = (m.title || 'Проповедь') + ' · Crosspect'; };
   const title = h('input', { class:'input', placeholder:'Название проповеди', value:m.title, autocomplete:'off', 'aria-label':'Название проповеди',
     oninput:e => { m.title = e.target.value; upd(); } });
+  const fmt = formatField(m, () => { upd(); refreshSlides(); });
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet meta-sheet', role:'dialog', 'aria-label':'О проповеди' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'О проповеди' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('div', { class:'set-grid', title:'Название, автор и дата попадают на заставку' },
       field('Название', title),
       dateField(m, upd),
-      preacherField()),
+      preacherField(),
+      seriesField(m, () => { upd(); refreshSlides(); if (fmt && fmt._refresh) fmt._refresh(); }),
+      fmt),
     h('div', { class:'sheet-foot' }, h('span'), h('button', { type:'button', class:'btn primary', onclick:closeSettings }, 'Готово'))));
   metaOpen = true;
   settingsOverlay.classList.add('open');

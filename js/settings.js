@@ -10,14 +10,14 @@ function closeSettings(force){
   if (metaOpen){ metaOpen = false; afterMeta(); }
 }
 
-/* ========= Настройки из репозитория (data/config.json): переводы Библии, список авторов, подпись перевода =========
+/* ========= Настройки из репозитория (data/config.json): переводы Библии и подпись перевода (список авторов — с этапа 10 из людей пространства) =========
    Форма всегда берёт файл по ссылке CONFIG_URL_DEFAULT; сменить её больше нельзя (этап 7.3: окно «Источник настроек» убрано).
    Свою ссылку, сохранённую раньше (swp-config-url), форма забывает */
 const CONFIG = { url:'', version:'', loadedAt:0, error:'', source:'встроенные списки' };
 const configUrl = () => CONFIG_URL_DEFAULT;
 try { localStorage.removeItem('swp-config-url'); } catch(e){}
 function applyConfig(cfg, url){
-  if (!cfg || typeof cfg !== 'object' || (!Array.isArray(cfg.translations) && !Array.isArray(cfg.preachers))) return false;
+  if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.translations)) return false;
   const abs = u => { try { return new URL(u, url).href; } catch(e){ return u; } };
   if (Array.isArray(cfg.translations) && cfg.translations.length){
     const next = {};
@@ -37,10 +37,7 @@ function applyConfig(cfg, url){
   if (Array.isArray(cfg.groups) && cfg.groups.length){ TR_GROUPS.length = 0; cfg.groups.forEach(g => TR_GROUPS.push(g)); }
   if (cfg.bibleBase) BIBLE_SRC[0] = cfg.bibleBase;
   if (typeof cfg.scriptureFooter === 'string' && cfg.scriptureFooter.includes('{name}')) TR_FOOTER = cfg.scriptureFooter.replace(/^\s*\*\s*/, '· ');   // со звёздочкой — прежний вид: теперь точка (этап 7.2)
-  if (Array.isArray(cfg.preachers) && cfg.preachers.length){
-    PREACHERS.length = 0;
-    cfg.preachers.map(String).sort((a, b) => a.localeCompare(b, 'ru')).forEach(x => PREACHERS.push(x));
-  }
+  // список авторов (preachers) с этапа 10 берётся из людей пространства (space.js), а не отсюда
   // разделы "limits" и "slides" больше не действуют: лимиты и настройки слайдов — общие для пространства, в облаке
   CONFIG.version = cfg.version || '';
   return true;
@@ -420,7 +417,7 @@ function openSlidesCfg(){
     if (fe.kind !== 'saved' || !confirm('Удалить формат «' + fe.name + '»?' + (id === def ? ' Он стоит по умолчанию: во всех проповедях будет System Template.' : '') + ' Вернуть его не получится.')) return;
     const formats = JSON.parse(JSON.stringify(BF().formats));
     delete formats[id];
-    if (await writeFormats(formats, id === def ? SYSTEM_FORMAT : def, '✓ Удалено')) openFormat(BF().defaultFormat);
+    if (await writeFormats(formats, id === def ? SYSTEM_FORMAT : def, '✓ Удалено')){ openFormat(BF().defaultFormat); seriesFormatGone(id); }   // у серий с ним — «По умолчанию» (этап 10)
   }
   async function makeDefault(){
     const id = fe.id;

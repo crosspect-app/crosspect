@@ -30,7 +30,9 @@ function fillMenu(){
     menuItem('phone', 'PDF для оператора', () => operatorPDF()));
   if (screen === 'sermon' && canEditCloud()) menuEl.append(menuItem('link', 'Ссылка для оператора', () => openOpLink()));   // этап 9: тому, кто может править конспект
   const resetItem = screen === 'sermon' && wideScreen();   // «Сбросить настройки экрана» — ширина и порядок панелей; стоит сразу под «Настройки слайдов»
-  if (canEditSlidesCfg()) menuEl.append(h('div', { class:'menu-sep' }), menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));   // общие для пространства: админ и редактор
+  if (canEditSlidesCfg()) menuEl.append(h('div', { class:'menu-sep' }),
+    menuItem('people', 'Пространство', () => openSpace()),   // люди, серии, название и настройки (этап 10, space.js)
+    menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));   // общие для пространства: админ и редактор
   if (resetItem){
     if (!canEditSlidesCfg()) menuEl.append(h('div', { class:'menu-sep' }));   // у автора «Настроек слайдов» нет: пункт стоит один
     menuEl.append(menuItem('reset', 'Сбросить настройки экрана', () => resetLayout()));

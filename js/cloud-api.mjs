@@ -41,6 +41,7 @@ export function summaryOf(d){
   });
   return {
     title: txt(m.title), date: txt(m.date), firstName: txt(m.firstName), lastName: txt(m.lastName),
+    ...(txt(m.series) ? { series: txt(m.series) } : {}),   // серия (этап 10): для колонки «Серия» и фильтра; «Свободная тема» — без поля
     status: d.status, owner: d.owner, updatedAt: d.updatedAt, updatedBy: d.updatedBy,
     lock: d.lock || null,
     // корзина (этап 9.1): пометки — только у проповеди в корзине (у остальных этих полей нет совсем)
@@ -100,7 +101,7 @@ export function createCloudAPI(fb){
     const d = snap.data(opt);
     return {
       id: snap.id, summary: true,
-      meta: { title: d.title || '', date: d.date || '', firstName: d.firstName || '', lastName: d.lastName || '' },
+      meta: { title: d.title || '', date: d.date || '', firstName: d.firstName || '', lastName: d.lastName || '', ...(d.series ? { series: d.series } : {}) },
       updatedAt: ms(d.updatedAt),
       cloudSpace: space, cloudAt: ms(d.updatedAt), cloudOwner: d.owner || '',
       cloudStatus: d.status || 'draft', cloudBy: d.updatedBy || '',
@@ -113,7 +114,9 @@ export function createCloudAPI(fb){
     const m = s.meta || {};
     return JSON.parse(JSON.stringify({
       v: s.v || 2,
-      meta: { title: m.title || '', date: m.date || '', firstName: m.firstName || '', lastName: m.lastName || '' },
+      meta: { title: m.title || '', date: m.date || '', firstName: m.firstName || '', lastName: m.lastName || '',
+        // серия и свой формат фона (этап 10): пусто — «Свободная тема» и «По умолчанию», поля тогда нет
+        ...(m.series ? { series: String(m.series) } : {}), ...(m.format ? { format: String(m.format) } : {}) },
       settings: s.settings || {},
       // отметки «доработать» и «готово» в проповедь не пишем: «доработать» лежит в закрытом документе editor/state (этап 7)
       blocks: (s.blocks || []).map(b => { const c = Object.assign({}, b); delete c.todo; delete c.done; return c; }),
@@ -155,6 +158,60 @@ export function createCloudAPI(fb){
       try { return (await F.getDoc(F.doc(db, 'admins', lower(email)))).exists(); }
       catch (e) { if (denied(e)) return false; throw e; }
     },
+    /* Новое пространство (этап 10) — только админу: id случайный, участников пока нет. Возвращает { id, name, settings } */
+    async createSpace(me, name){
+      const r = F.doc(F.collection(db, 'spaces')), settings = { lockMinutes: 10, preachersSeeAll: true };
+      await F.setDoc(r, { name: String(name || '').trim().slice(0, 100), settings,
+        createdAt: F.serverTimestamp(), createdBy: lower(me.email), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
+      return { id: r.id, name: String(name || '').trim().slice(0, 100), settings };
+    },
+    /* Название и настройки пространства (этап 10) — только админу. fields: { name?, lockMinutes? } */
+    async updateSpace(space, me, fields){
+      const upd = { updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) };
+      if (fields.name != null) upd.name = String(fields.name).trim().slice(0, 100);
+      if (fields.lockMinutes != null) upd['settings.lockMinutes'] = Math.round(+fields.lockMinutes);
+      await F.updateDoc(F.doc(db, 'spaces', space), upd);
+    },
+
+    /* ----- люди пространства (этап 10): spaces/{s}/members/{почта} ----- */
+    /* Живой список: [{ email, role, firstName, lastName, seen }]; seen — входил ли человек (seenAt) */
+    watchMembers(space, onList, onError){
+      return F.onSnapshot(F.collection(db, 'spaces', space, 'members'), snap => {
+        onList(snap.docs.map(d => { const x = d.data(); return { email: d.id, role: x.role === 'admin' ? 'editor' : x.role || 'preacher',
+          firstName: x.firstName || '', lastName: x.lastName || '', seen: !!x.seenAt }; }));
+      }, onError);
+    },
+    async addMember(space, me, p){
+      const email = lower(p.email);
+      const r = F.doc(db, 'spaces', space, 'members', email);
+      if ((await F.getDoc(r)).exists()) throw err('exists', 'Человек с такой почтой уже есть');
+      await F.setDoc(r, { email, role: p.role, firstName: String(p.firstName || '').trim(), lastName: String(p.lastName || '').trim(),
+        addedBy: lower(me.email), addedAt: F.serverTimestamp() });
+    },
+    async updateMember(space, email, fields){
+      const upd = {};
+      ['role', 'firstName', 'lastName'].forEach(k => { if (fields[k] != null) upd[k] = k === 'role' ? fields[k] : String(fields[k]).trim(); });
+      await F.updateDoc(F.doc(db, 'spaces', space, 'members', lower(email)), upd);
+    },
+    async removeMember(space, email){ await F.deleteDoc(F.doc(db, 'spaces', space, 'members', lower(email))); },
+    /* «Входил»: человек сам отмечает первый вход (время сервера). Уже отмечено — ничего не пишем */
+    async markSeen(space, email){
+      const r = F.doc(db, 'spaces', space, 'members', lower(email));
+      const snap = await F.getDoc(r);
+      if (snap.exists() && !snap.data().seenAt) await F.updateDoc(r, { seenAt: F.serverTimestamp() });
+    },
+
+    /* ----- серии проповедей (этап 10): spaces/{s}/config/series, series = { <id>: { name, active, format } } ----- */
+    watchSeries(space, onSeries, onError){
+      return F.onSnapshot(F.doc(db, 'spaces', space, 'config', 'series'), snap => {
+        onSeries(snap.exists() ? (snap.data().series || {}) : {});
+      }, onError);
+    },
+    async setSeries(space, me, series){
+      await F.setDoc(F.doc(db, 'spaces', space, 'config', 'series'),
+        { series: JSON.parse(JSON.stringify(series || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
+    },
+
     /* Все пространства — только админу (остальным база откажет): [{ id, name, settings }] */
     async allSpaces(){
       const snap = await F.getDocs(F.collection(db, 'spaces'));

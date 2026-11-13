@@ -1,7 +1,7 @@
 'use strict';
 
 /* Проповедник: из списка («Фамилия Имя») или вручную — имя и фамилия отдельно (на заставке «Имя ФАМИЛИЯ») */
-/* Автор (этап 7.8). Список авторов пространства (пока — preachers из config.json, на этапе 10 — таблица людей):
+/* Автор (этап 7.8). Список авторов пространства — люди из таблицы «Пространство» → «Люди» (этап 10, space.js):
    • список есть: «Выберите автора» → имена → линия → «Ввести вручную»; «Имя» и «Фамилия» видны только при «Ввести вручную»;
    • списка нет: поле «Ввести вручную» не раскрывается, под ним сразу «Имя» и «Фамилия».
    Данные из аккаунта Google не берём: только список или ручной ввод */
@@ -14,7 +14,7 @@ function preacherField(){
   const names = h('div', { class:'grid-eq author-names', style:manualNow ? '' : 'display:none' }, first, last);
   const label = k => preacherName(splitPreacher(k));
   if (!list.length){
-    return h('div', { class:'field' }, h('span', { class:'lbl', text:'Автор' }),
+    return h('div', { class:'field author-field' }, h('span', { class:'lbl', text:'Автор' }),
       h('div', { class:'dfield fixed', 'aria-disabled':'true', title:'Списка авторов в пространстве пока нет: имя вводится вручную' }, 'Ввести вручную'), names);
   }
   const text = h('span', { class:'dtext' });
@@ -30,7 +30,7 @@ function preacherField(){
       { label:'Ввести вручную', cls:'man', on:names.style.display !== 'none', pick:() => { m.firstName = ''; m.lastName = ''; first.value = ''; last.value = ''; upd(); show('manual'); first.focus(); } }]) },
     text, ic('down'));
   show(manualNow ? 'manual' : '');
-  return h('div', { class:'field' }, h('span', { class:'lbl', text:'Автор' }), trig, names);
+  return h('div', { class:'field author-field' }, h('span', { class:'lbl', text:'Автор' }), trig, names);
 }
 /* Выпадающий список в стиле формы (линия-разделитель — { sep:true }). Esc и щелчок мимо — закрыть */
 let ddEl = null;

@@ -886,3 +886,66 @@ describe('ссылка для оператора (этап 9)', () => {
     assert.equal(await raw('shares/' + KEY('n')), null);
   });
 });
+
+describe('пространства, люди и серии (этап 10)', () => {
+  const raw = async (path) => {
+    let out = null;
+    await env.withSecurityRulesDisabled(async (ctx) => { const snap = await F.getDoc(F.doc(ctx.firestore(), path)); out = snap.exists() ? snap.data() : null; });
+    return out;
+  };
+  const once = (watch) => new Promise((res) => { const off = watch((x) => { off(); res(x); }); });
+  test('админ заводит пространство, переименовывает, меняет время правки; редактору нельзя', async () => {
+    const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');
+    const sp = await admin.createSpace(me('admin@x.pl'), '  Для отца ');
+    assert.equal(sp.name, 'Для отца');
+    const d = await raw('spaces/' + sp.id);
+    assert.equal(d.name, 'Для отца');
+    assert.equal(d.createdBy, 'admin@x.pl');
+    await admin.updateSpace(sp.id, me('admin@x.pl'), { name: 'Отец', lockMinutes: 20 });
+    const e = await raw('spaces/' + sp.id);
+    assert.equal(e.name, 'Отец');
+    assert.equal(e.settings.lockMinutes, 20);
+    await assert.rejects(ivan.createSpace(me('ivan@x.pl'), 'Своё'));
+    await assert.rejects(ivan.updateSpace('sp1', me('ivan@x.pl'), { name: 'Чужое' }));
+  });
+  test('люди: админ добавляет, правит, убирает; человек сам отмечает «входил»; список видят участники', async () => {
+    const admin = await client('admin@x.pl');
+    await admin.addMember('sp1', me('admin@x.pl'), { email: 'Anna@X.pl', role: 'preacher', firstName: ' Анна ', lastName: 'Ковальская' });
+    await assert.rejects(admin.addMember('sp1', me('admin@x.pl'), { email: 'anna@x.pl', role: 'editor' }), (e) => e.code === 'exists');
+    const anna = await client('anna@x.pl');
+    let list = await once((f) => anna.watchMembers('sp1', f));
+    let a = list.find((p) => p.email === 'anna@x.pl');
+    assert.deepEqual(a, { email: 'anna@x.pl', role: 'preacher', firstName: 'Анна', lastName: 'Ковальская', seen: false });
+    await anna.markSeen('sp1', 'anna@x.pl');
+    await anna.markSeen('sp1', 'anna@x.pl');   // второй раз ничего не пишет
+    list = await once((f) => anna.watchMembers('sp1', f));
+    assert.equal(list.find((p) => p.email === 'anna@x.pl').seen, true);
+    await admin.updateMember('sp1', 'anna@x.pl', { role: 'editor', lastName: 'Новак' });
+    a = await raw('spaces/sp1/members/anna@x.pl');
+    assert.equal(a.role, 'editor');
+    assert.equal(a.lastName, 'Новак');
+    assert.ok(a.seenAt);   // правка админа «входил» не трогает
+    await assert.rejects(anna.updateMember('sp1', 'ivan@x.pl', { firstName: 'X' }));
+    await assert.rejects(anna.removeMember('sp1', 'ivan@x.pl'));
+    await admin.removeMember('sp1', 'anna@x.pl');
+    assert.equal(await raw('spaces/sp1/members/anna@x.pl'), null);
+  });
+  test('серии: пишет админ, автор читает и ставит серию в свой конспект; серия — в сводке', async () => {
+    const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');
+    await admin.setSeries('sp1', me('admin@x.pl'), { a1: { name: 'Псалмы', active: true, format: '' } });
+    assert.deepEqual(await once((f) => ivan.watchSeries('sp1', f)), { a1: { name: 'Псалмы', active: true, format: '' } });
+    await assert.rejects(ivan.setSeries('sp1', me('ivan@x.pl'), {}));
+    const s = sermon('ser1', 'С серией');
+    s.meta.series = 'a1'; s.meta.format = 'f9';
+    const r = await ivan.save('sp1', s, me('ivan@x.pl'));
+    const d = await raw('spaces/sp1/sermons/ser1');
+    assert.equal(d.meta.series, 'a1');
+    assert.equal(d.meta.format, 'f9');
+    assert.equal((await raw('spaces/sp1/summaries/ser1')).series, 'a1');
+    // «Свободная тема»: поля нет ни в конспекте, ни в сводке
+    delete s.meta.series;
+    await ivan.save('sp1', Object.assign(s, { cloudAt: r.cloudAt }), me('ivan@x.pl'));
+    assert.equal((await raw('spaces/sp1/sermons/ser1')).meta.series, undefined);
+    assert.equal((await raw('spaces/sp1/summaries/ser1')).series, undefined);
+  });
+});

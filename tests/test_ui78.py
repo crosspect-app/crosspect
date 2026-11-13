@@ -126,7 +126,7 @@ def test_author_list_and_manual(page):
     page.evaluate("PREACHERS.length = 0; PREACHERS.push('Петров Иван', 'Шух Валентин')")
     start_blank(page)
     page.evaluate("openMeta()")
-    trig = page.locator(".sheet .dfield")
+    trig = page.locator(".sheet .author-field .dfield")
     assert trig.inner_text().strip() == "Выберите автора"   # в списке есть авторы: без «Имя» и «Фамилия»
     assert not page.locator(".author-names").is_visible()
     trig.click()
@@ -143,25 +143,30 @@ def test_author_list_and_manual(page):
     assert page.evaluate("preacherName(state.meta)") == "Анна Ковальская"
     # без списка авторов: поле «Ввести вручную» не раскрывается, имя и фамилия видны сразу
     page.evaluate("closeSettings(); PREACHERS.length = 0; openMeta()")
-    fixed = page.locator(".sheet .dfield.fixed")
+    fixed = page.locator(".sheet .author-field .dfield.fixed")
     assert fixed.inner_text().strip() == "Ввести вручную" and page.locator(".author-names").is_visible()
     assert page.locator(".author-names input").first.input_value() == "Анна"
 
 
 def test_new_outline_author_from_table_not_google(browser, base_url):
-    # участник с именем из списка авторов — подставляется; имени Google нет нигде
-    members = {"admin@x.pl": {"role": "editor", "firstName": "Валентин", "lastName": "Шух"}}
-    ctx, page = cloud_page(browser, base_url, user={"email": "admin@x.pl", "name": "Гугл Аккаунт"}, members=members)
+    # этап 10: имя подставляется только автору — из таблицы людей; у редактора поле пустое, имени Google нет нигде
+    members = {"ivan@x.pl": {"role": "preacher", "firstName": "Валентин", "lastName": "Шух"}, "ed@x.pl": {"role": "editor", "firstName": "Пётр", "lastName": "Сидоров"}}
+    ctx, page = cloud_page(browser, base_url, user={"email": "ivan@x.pl", "name": "Гугл Аккаунт"}, members=members, admins=())
     page.wait_for_selector(".home-top")
-    page.evaluate("PREACHERS.length = 0; PREACHERS.push('Шух Валентин'); newSermon(); closeSettings()")
+    page.wait_for_function("PREACHERS.length === 2")   # список авторов — из таблицы людей
+    page.evaluate("newSermon(); closeSettings()")
     assert page.evaluate("preacherName(state.meta)") == "Валентин Шух"
-    page.evaluate("PREACHERS.length = 0; PREACHERS.push('Петров Иван'); newSermon(); closeSettings()")
-    assert page.evaluate("preacherName(state.meta)") == ""   # его нет в списке авторов — «Выберите автора»
     ctx.close()
-    ctx, page = cloud_page(browser, base_url, user={"email": "admin@x.pl", "name": "Гугл Аккаунт"}, members={"admin@x.pl": {"role": "editor"}})
+    ctx, page = cloud_page(browser, base_url, user={"email": "ed@x.pl", "name": "Гугл Аккаунт"}, members=members, admins=())
+    page.wait_for_selector(".home-top")
+    page.wait_for_function("PREACHERS.length === 2")
+    page.evaluate("newSermon(); closeSettings()")
+    assert page.evaluate("preacherName(state.meta)") == ""   # редактор: поле пустое, даже если он сам проповедует
+    ctx.close()
+    ctx, page = cloud_page(browser, base_url, user={"email": "ivan@x.pl", "name": "Гугл Аккаунт"}, members={"ivan@x.pl": {"role": "preacher"}}, admins=())
     page.wait_for_selector(".home-top")
     page.evaluate("newSermon(); closeSettings()")
-    assert page.evaluate("preacherName(state.meta)") == ""   # в записи участника имени нет — из Google не берём
+    assert page.evaluate("preacherName(state.meta)") == ""   # в таблице имени нет — из Google не берём
     ctx.close()
 
 

@@ -275,6 +275,7 @@ button.film-todo.on{text-decoration:none;border-bottom:1px solid var(--todo)}
 .ptable{border-radius:14px;border:1px solid var(--line);overflow:hidden}
 .srow{display:grid;grid-template-columns:160px minmax(0,1fr) 200px 76px 140px 40px;gap:16px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--text);font-size:14px;background:rgba(20,20,20,.9)}
 .ptable .card-wrap:last-child .srow{border-bottom:0}
+.ptable.has-series .srow{grid-template-columns:150px minmax(0,1fr) 170px 180px 76px 140px 40px}   /* колонка «Серия» (этап 10) */
 .srow.shead{color:var(--muted);font-size:12px;padding:10px 16px;background:rgba(14,14,14,.92)}
 a.srow:hover{background:#1b1b1b}
 .srow.past{opacity:.55}
@@ -515,6 +516,8 @@ a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
   .srow .c-author{grid-area:author;font-size:13px}
   .srow .c-slides{grid-area:slides;font-size:12px;color:var(--muted);justify-self:end}
   .srow .c-status{grid-area:status;justify-self:end}
+  .ptable.has-series .srow{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"date status" "title title" "series series" "author slides"}
+  .srow .c-series{grid-area:series;font-size:12px}
   .srow .stchip{display:inline-flex;padding:4px 8px;font-size:11px}
   .srow .c-lbl{display:inline}
   .card-del{top:14px;transform:none}
@@ -1193,4 +1196,40 @@ body[data-screen="op"] .app-main{min-height:100vh}
 @media (max-width:760px){
   .film-gap.first{width:16px;height:auto}
   .film-end{width:150px;align-self:flex-start;padding:6px}
+}
+
+/* ---------- Окно «Пространство» (этап 10, space.js): люди, серии, общее ---------- */
+.sheet.space-sheet{max-width:980px}
+.space-tabs{width:max-content;max-width:100%;margin:0 0 14px}
+.space-tabs button{white-space:nowrap}
+.sp-body > .hint{margin:0 0 12px}
+.sp-table{display:flex;flex-direction:column;border:1px solid var(--line-2);border-radius:14px;overflow:hidden}
+.sp-row{display:grid;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;min-height:52px}
+.sp-row:last-child{border-bottom:0}
+.sp-row.sp-head{min-height:0;padding:9px 12px;color:var(--muted);font-size:12px;background:var(--surface-2)}
+.sp-people .sp-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) 140px 120px 36px}
+.sp-series .sp-row{grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1fr)}
+.sp-row .input{height:38px}
+.sp-row .hf-sel select{height:36px}
+.sp-mail{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.sp-seen{font-size:12px;color:var(--faint)}
+.sp-seen.on{color:var(--muted)}
+.sp-fixed .sp-name{font-weight:500;padding-left:2px}
+.sp-add{background:color-mix(in srgb, var(--accent) 5%, transparent)}
+.sp-people .sp-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) 140px 156px}
+.sp-series .sp-add{grid-template-columns:minmax(0,1.6fr) auto}
+.sp-add .sp-err{grid-column:1 / -1}
+.sp-add .sp-err:empty{display:none}
+.sp-err{color:var(--danger, #e07a6a);font-size:12px}
+.sp-err:empty{display:none}
+.sp-empty{padding:14px 12px;margin:0}
+.sp-general{display:flex;flex-direction:column;gap:18px;max-width:560px}
+.sp-general .hint{margin:6px 0 0}
+.sp-inline{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.sp-num{width:84px;text-align:center}
+@media (max-width: 760px){
+  .sp-head{display:none !important}
+  .sp-people .sp-row,.sp-people .sp-add{grid-template-columns:1fr 1fr}
+  .sp-people .sp-mail{grid-column:1 / -1}
+  .sp-series .sp-row,.sp-series .sp-add{grid-template-columns:1fr}
 }

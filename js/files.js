@@ -42,10 +42,12 @@ function newSermon(){
   endCloud();   // прежнюю проповедь — сохранить и отпустить
   state = blank(); selId = null;
   state.cloudSpace = cloud.space;   // черновик принадлежит пространству: до первой записи он виден только на его главной
-  // автор по умолчанию (этап 7.8): только из таблицы — имя из записи среди участников, если оно есть в списке авторов
-  // (а если списка авторов нет — просто имя из записи). Аккаунт Google не используем. В «О проповеди» автора можно сменить
+  // автор по умолчанию (этапы 7.8, 10): вошёл автор — его имя из таблицы людей пространства; у редактора и админа (даже если
+  // он сам проповедует) поле пустое. Аккаунт Google не используем. В «О проповеди» автора можно сменить
   const m = cloud.member || {}, me = { firstName:m.firstName || '', lastName:m.lastName || '' };
-  if (preacherKey(me) && (!PREACHERS.length || PREACHERS.includes(preacherKey(me)))) Object.assign(state.meta, me);
+  const mine = (cloud.people || []).find(p => p.email === myEmail());
+  if (mine) Object.assign(me, { firstName:mine.firstName || '', lastName:mine.lastName || '' });   // таблица свежее записи при входе
+  if (cloud.role === 'preacher' && preacherKey(me)) Object.assign(state.meta, me);
   else Object.assign(state.meta, { firstName:'', lastName:'' });
   beginCloud(null);   // новая: сразу правка, замок появится с первым сохранением
   persistDraft();   // прежняя проповедь остаётся в списке: у каждой свой черновик

@@ -81,22 +81,24 @@ function renderHome(){
 }
 
 /* ----- Список: одна таблица и фильтры (этап 7.7; сортировка по заголовкам убрана на этапе 7.8 — порядок всегда по дате) -----
-   Колонки и фильтры описаны таблицами HOME_COLS и homeFilters: колонку «Серия» и фильтр по серии (этап 10) добавить
-   одной записью в каждую. Выбор фильтров хранится в этом браузере (swp-home-view), без облака. */
+   Колонки и фильтры описаны таблицами HOME_COLS и homeFilters. Колонка «Серия» и фильтр по серии (этап 10) — только
+   в пространстве, где есть серии (кроме «Свободной темы»). Выбор фильтров хранится в этом браузере (swp-home-view), без облака. */
 const STATUS_ORDER = { draft:0, submitted:1, work:2, ready:3 };   // «Черновик → Готов к вёрстке → У редактора → Презентация готова»
-const HOME_VIEW_DEFAULT = { f:{ date:'all', from:'', to:'', author:'', status:[] } };
+const HOME_VIEW_DEFAULT = { f:{ date:'all', from:'', to:'', author:'', series:'', status:[] } };   // series: '' — все, '-' — «Свободная тема», иначе id
 let homeView = (() => {
   let v = null; try { v = JSON.parse(LS.get('swp-home-view') || 'null'); } catch(e){}
   const D = JSON.parse(JSON.stringify(HOME_VIEW_DEFAULT));
   if (!v || typeof v !== 'object') return D;
   const f = v.f || {};
   return { f:{ date:['all', 'up', 'past', 'range'].includes(f.date) ? f.date : 'all', from:/^\d{4}-\d{2}-\d{2}$/.test(f.from) ? f.from : '', to:/^\d{4}-\d{2}-\d{2}$/.test(f.to) ? f.to : '',
-      author:typeof f.author === 'string' ? f.author : '', status:Array.isArray(f.status) ? f.status.filter(k => STATUS_KEYS.includes(k)) : [] } };
+      author:typeof f.author === 'string' ? f.author : '', series:typeof f.series === 'string' ? f.series : '', status:Array.isArray(f.status) ? f.status.filter(k => STATUS_KEYS.includes(k)) : [] } };
 })();
 let homeFiltersOpen = false;   // узкий экран: фильтры под кнопкой «Фильтры»
 function saveHomeView(){ LS.set('swp-home-view', JSON.stringify(homeView)); }
 const authorKey = d => preacherKey(d.meta) || '';
-const filtersOn = () => { const f = homeView.f; return f.date !== 'all' || !!f.author || f.status.length > 0; };
+const seriesOn = () => hasSeries() && !!homeView.f.series;   // фильтр по серии действует, только пока в пространстве есть серии
+const filtersOn = () => { const f = homeView.f; return f.date !== 'all' || !!f.author || seriesOn() || f.status.length > 0; };
+const seriesKey = d => d.meta.series || '-';
 
 /* Дата в таблице: «Вс, 15 ноября», в другом году — с годом */
 function rowDate(s){
@@ -108,10 +110,12 @@ const HOME_COLS = [
   { key:'date', label:'Дата', cls:'c-date', cell:d => h('span', { class:'muted', text:rowDate(d.meta.date) || 'Без даты' }) },
   { key:'title', label:'Название', cls:'c-title', cell:d => h('span', { class:'pt' },
     h('span', { class:'scard-title' + (d.meta.title ? '' : ' empty'), text:d.meta.title || 'Без названия' }), cloudMark(d), lockMark(d)) },
+  { key:'series', label:'Серия', cls:'c-series', show:() => hasSeries(), cell:d => h('span', { class:'muted2', text:seriesName(d.meta.series) || '—' }) },
   { key:'author', label:'Автор', cls:'c-author', cell:d => h('span', { class:'muted2', text:preacherName(d.meta) || '—' }) },
   { key:'slides', label:'Слайдов', cls:'c-slides', title:'Сколько слайдов, без заставок', cell:d => { const n = slideCount(d); return h('span', null, h('span', { class:'c-n', text:String(n) }), h('span', { class:'c-lbl', text:' ' + plural(n, 'слайд', 'слайда', 'слайдов') })); } },
   { key:'status', label:'Статус', cls:'c-status', cell:d => { const st = sermonStatus(d); return h('span', null, h('span', { class:'stchip st-' + st.key, text:st.label })); } }
 ];
+const homeCols = () => HOME_COLS.filter(c => !c.show || c.show());
 /* Порядок всегда по дате: проповеди без даты — сверху (обычно это свежие черновики), дальше от новых к старым */
 function homeOrder(a, b){
   const x = a.meta.date || '', y = b.meta.date || '';
@@ -124,6 +128,7 @@ function homeFilter(d, today){
   if (f.date === 'past' && !(dt && dt < today)) return false;
   if (f.date === 'range' && ((f.from && !(dt && dt >= f.from)) || (f.to && !(dt && dt <= f.to)))) return false;
   if (f.author && authorKey(d) !== f.author) return false;
+  if (seriesOn() && seriesKey(d) !== f.series) return false;
   if (f.status.length && !f.status.includes(statusKey(d.cloudStatus))) return false;
   return true;
 }
@@ -158,8 +163,8 @@ function renderHomeList(){
       h('p', { class:'hint', text:why + (filtersOn() ? ' Попробуйте сбросить фильтры.' : ' Проверьте, как написано, или поищите по автору и месту Писания.') }),
       filtersOn() ? h('div', { class:'chips' }, h('button', { type:'button', class:'btn', onclick:() => resetHomeFilters() }, 'Сбросить фильтры')) : null));
   } else {
-    box.append(h('div', { class:'ptable', role:'table', 'aria-label':'Конспекты' },
-      h('div', { class:'srow shead', role:'row' }, HOME_COLS.map(c => homeHead(c)), h('span', { role:'columnheader', 'aria-label':'Действия' })),
+    box.append(h('div', { class:'ptable' + (hasSeries() ? ' has-series' : ''), role:'table', 'aria-label':'Конспекты' },
+      h('div', { class:'srow shead', role:'row' }, homeCols().map(c => homeHead(c)), h('span', { role:'columnheader', 'aria-label':'Действия' })),
       list.map(sermonRow)));
   }
 }
@@ -178,6 +183,12 @@ function homeFilters(all){
   const range = f.date === 'range' ? h('div', { class:'hf-range' },
     h('span', { text:'с' }), h('input', { type:'date', class:'input', value:f.from, 'aria-label':'С даты', onchange:e => set('from', e.target.value) }),
     h('span', { text:'по' }), h('input', { type:'date', class:'input', value:f.to, 'aria-label':'По дату', onchange:e => set('to', e.target.value) })) : null;
+  // серии: все активные и те, что стоят в конспектах списка (в том числе выключенные), плюс «Свободная тема»
+  const ser = new Map([['-', FREE_SERIES]]);
+  activeSeries().forEach(x => ser.set(x.id, x.name));
+  all.forEach(d => { const k = seriesKey(d); if (!ser.has(k) && seriesName(d.meta.series)) ser.set(k, seriesName(d.meta.series)); });
+  if (f.series && !ser.has(f.series)) ser.set(f.series, seriesName(f.series) || 'Серия');
+  const seriesSel = hasSeries() ? sel('Серия', f.series, [['', 'Все серии']].concat([...ser].sort((a, b) => a[0] === '-' ? -1 : b[0] === '-' ? 1 : a[1].localeCompare(b[1], 'ru'))), v => set('series', v)) : null;
   const authorSel = sel('Автор', f.author, [['', 'Все авторы']].concat([...authors].sort((a, b) => a[0].localeCompare(b[0], 'ru')).map(([k, n]) => [k, n])), v => set('author', v));
   const stat = h('div', { class:'hf-status', role:'group', 'aria-label':'Статус' }, STATUS_KEYS.map(k => {
     const on = f.status.includes(k);
@@ -185,11 +196,11 @@ function homeFilters(all){
       onclick:() => set('status', on ? f.status.filter(x => x !== k) : STATUS_KEYS.filter(x => x === k || f.status.includes(x))) }, STATUS_LABELS[k]);
   }));
   const reset = filtersOn() ? h('button', { type:'button', class:'btn ghost small hf-reset', onclick:() => resetHomeFilters() }, ic('close'), 'Сбросить') : null;
-  const n = (f.date !== 'all' ? 1 : 0) + (f.author ? 1 : 0) + (f.status.length ? 1 : 0);
+  const n = (f.date !== 'all' ? 1 : 0) + (f.author ? 1 : 0) + (seriesOn() ? 1 : 0) + (f.status.length ? 1 : 0);
   const toggle = h('button', { type:'button', class:'btn small hf-toggle' + (homeFiltersOpen ? ' on' : ''), 'aria-expanded':String(homeFiltersOpen),
     onclick:() => { homeFiltersOpen = !homeFiltersOpen; renderHomeList(); } }, ic('filter'), n ? 'Фильтры · ' + n : 'Фильтры');
   return h('div', { class:'home-filters' + (homeFiltersOpen ? ' open' : '') }, toggle,
-    h('div', { class:'hf-body' }, dateSel, range, authorSel, stat, reset));
+    h('div', { class:'hf-body' }, dateSel, range, seriesSel, authorSel, stat, reset));
 }
 function resetHomeFilters(){ homeView.f = JSON.parse(JSON.stringify(HOME_VIEW_DEFAULT.f)); saveHomeView(); renderHomeList(); }
 
@@ -209,7 +220,7 @@ function removeBtn(d, cls){
 function sermonRow(d){
   const st = sermonStatus(d), past = !!d.meta.date && d.meta.date < isoToday();   // прошедшие приглушены (этап 9.6)
   return h('div', { class:'card-wrap', role:'row' },
-    h('a', { class:'scard srow st-' + st.key + (past ? ' past' : ''), href:sermonHash(d.id) }, HOME_COLS.map(c => { const el = c.cell(d); el.classList.add(c.cls); el.setAttribute('role', 'cell'); return el; })),
+    h('a', { class:'scard srow st-' + st.key + (past ? ' past' : ''), href:sermonHash(d.id) }, homeCols().map(c => { const el = c.cell(d); el.classList.add(c.cls); el.setAttribute('role', 'cell'); return el; })),
     removeBtn(d, 'card-del'));
 }
 

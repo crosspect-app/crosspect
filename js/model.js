@@ -129,6 +129,9 @@ function normalize(d){
   s.meta = { title:String(dm.title || ''), date:String(dm.date || '') };
   if (dm.firstName != null || dm.lastName != null) Object.assign(s.meta, { firstName:String(dm.firstName || '').trim(), lastName:String(dm.lastName || '').trim() });
   else Object.assign(s.meta, splitPreacher(dm.preacher));
+  // серия и свой формат фона (этап 10): id из таблицы серий и форматов; нет — «Свободная тема» и «По умолчанию»
+  if (typeof dm.series === 'string' && dm.series) s.meta.series = dm.series.slice(0, 64);
+  if (typeof dm.format === 'string' && dm.format) s.meta.format = dm.format.slice(0, 64);
   s.settings = {};   // лимиты и размер Писания теперь общие (настройки слайдов пространства); у проповеди — перевод и размер заставки
   if (d.settings && typeof d.settings.lang === 'string') s.settings.lang = d.settings.lang;
   // размер названия на заставках (−/+), один на всю проповедь (этап 7.2), в % от размера из настроек слайдов
@@ -252,6 +255,7 @@ function mergeSlides(base, over){
   delete r.bg;
   r.formats = fm.formats; r.defaultFormat = fm.defaultFormat;
   r.panels = normPanels('panels' in o ? o.panels : r.panels);
+  r.pickFormat = o.pickFormat === true || (!('pickFormat' in o) && r.pickFormat === true);   // «Выбирать формат фона в проповеди» (этап 10)
   return r;
 }
 /* Порядок панелей: ровно те три, каждая один раз; иначе — по умолчанию (этап 7.4) */

@@ -15,7 +15,7 @@ const ROLE_NAMES = { admin:'админ', editor:'редактор', preacher:'а
    ещё нет, error — не вышло, in — всё есть.
    spaces — куда можно войти: [{ id, name, settings, role, member }]; role — admin (админ всей формы), editor или preacher (автор).
    list — живой список проповедей текущего пространства: Map id → строка-сводка (cloud-api.mjs, fromSummary) */
-const cloud = { mode:'wait', api:null, user:null, admin:false, spaces:[], space:'', spaceName:'', role:'', member:null, settings:{},
+const cloud = { mode:'wait', api:null, user:null, admin:false, spaces:[], space:'', spaceName:'', role:'', member:null, settings:{}, people:null,
   list:null, fromCache:false, listError:'', error:'', unsub:null, started:false, authOn:false };
 const cloudOn = () => cloud.mode === 'in';
 /* Что показывать вместо главной и проповеди: null — ничего, можно работать */
@@ -64,6 +64,8 @@ async function cloudUser(user){
     cloud.spaces = await spacesFor(user.email);
     if (cloud.user !== user) return;   // пока ждали, вошли под другой почтой или вышли
     if (!cloud.spaces.length){ cloud.mode = cloud.admin ? 'nospaces' : 'noaccess'; cloudChanged(); return; }
+    // «входил» в таблице людей (этап 10): отметить первый вход в каждом пространстве, где человек участник
+    if (cloud.api.markSeen) cloud.spaces.forEach(sp => { if (sp.member && !sp.member.seenAt) cloud.api.markSeen(sp.id, user.email).catch(() => {}); });
     // пространство: из ссылки (#…&sp=…), иначе то, где человек был в прошлый раз, иначе первое по алфавиту
     const want = new URLSearchParams(location.hash.slice(1)).get('sp') || LS.get('swp-space');
     useSpace(cloud.spaces.find(x => x.id === want) || cloud.spaces[0]);
@@ -95,9 +97,11 @@ async function spacesFor(email){
 }
 /* Сделать пространство текущим (слушатели запускает и останавливает вызывающий) */
 function useSpace(sp){
-  Object.assign(cloud, { space:sp.id, spaceName:sp.name, settings:sp.settings || {}, role:sp.role, member:sp.member, list:null, listError:'', fromCache:false });
+  Object.assign(cloud, { space:sp.id, spaceName:sp.name, settings:sp.settings || {}, role:sp.role, member:sp.member, list:null, listError:'', fromCache:false, people:null });
   LS.set('swp-space', sp.id);
+  PREACHERS.length = 0;   // список авторов — из людей этого пространства (этап 10), придёт слушателем
   loadSlidesCache(sp.id);   // настройки слайдов этого пространства — последняя копия, пока не пришли из облака
+  loadSeriesCache(sp.id);   // и серии проповедей (space.js)
 }
 /* Переключатель пространств в шапке главной. Правку (если была) сохраняем и отпускаем, потом — на главную нового пространства */
 function switchSpace(id, keepRoute){
@@ -128,10 +132,14 @@ function startListen(){
   });
   // настройки слайдов пространства (этап 7.1): приходят сразу и при каждом изменении, у всех участников
   if (cloud.api.watchSlides) cloud.slidesUnsub = cloud.api.watchSlides(cloud.space, cfg => slidesFromCloud(cfg), () => {});
+  // люди пространства и серии проповедей (этап 10, space.js): список авторов, таблицы в окне «Пространство», фон по серии
+  if (cloud.api.watchMembers) cloud.peopleUnsub = cloud.api.watchMembers(cloud.space, list => setPeople(list), () => {});
+  if (cloud.api.watchSeries) cloud.seriesUnsub = cloud.api.watchSeries(cloud.space, m => setSeriesData(m), () => {});
 }
 function stopListen(){
   if (cloud.unsub){ try { cloud.unsub(); } catch(e){} cloud.unsub = null; }
   if (cloud.slidesUnsub){ try { cloud.slidesUnsub(); } catch(e){} cloud.slidesUnsub = null; }
+  ['peopleUnsub', 'seriesUnsub'].forEach(k => { if (cloud[k]){ try { cloud[k](); } catch(e){} cloud[k] = null; } });
 }
 
 async function cloudSignIn(){
@@ -160,9 +168,9 @@ function renderGate(){
     h('div', { class:'chips' }, other())];
   else if (mode === 'nospaces') body = [
     h('h1', { text:'Пространств пока нет' }),
-    h('p', { class:'gate-text', text:'Вы админ, но в облаке ещё нет ни одного пространства. Заведите первое: crosspect-backup → Actions → «Пространства» → create-space.' }),
+    h('p', { class:'gate-text', text:'Вы админ, но в облаке ещё нет ни одного пространства. Заведите первое: у пространства свои конспекты, люди и настройки слайдов.' }),
     h('div', { class:'chips' },
-      h('button', { type:'button', class:'btn primary', onclick:() => cloudUser(cloud.user) }, 'Обновить'), other())];
+      h('button', { type:'button', class:'btn primary', onclick:() => openNewSpace() }, 'Создать пространство'), other())];
   else if (mode === 'error') body = [
     h('h1', { text:'Облако недоступно' }),
     h('p', { class:'gate-text', text:cloud.error }),

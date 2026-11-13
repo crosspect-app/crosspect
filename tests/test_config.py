@@ -72,11 +72,8 @@ def problems(cfg):
                 out.append(f"{where}: «books» должен быть одним из {sorted(LANG_GROUPS)}")
         if "ru" not in seen:
             out.append("нет перевода с id «ru»: он нужен форме как основа для «Своего перевода»")
-    pr = cfg.get("preachers")
-    if not isinstance(pr, list) or not pr or not all(isinstance(x, str) and x.strip() for x in pr):
-        out.append("«preachers» — непустой список имён")
-    elif len(set(pr)) != len(pr):
-        out.append("в «preachers» есть повторы")
+    if "preachers" in cfg:
+        out.append("«preachers» больше не нужен: авторы — люди пространства (этап 10)")
     return out
 
 
@@ -87,7 +84,7 @@ def test_config_json_is_valid_and_complete():
 
 def test_config_has_no_stray_whitespace_in_names():
     cfg = load_strict(CONFIG.read_text(encoding="utf-8"))
-    names = [t["label"] for t in cfg["translations"]] + cfg["preachers"]
+    names = [t["label"] for t in cfg["translations"]]
     assert [n for n in names if n != n.strip() or re.search(r"\s{2,}", n)] == []
 
 
@@ -102,7 +99,7 @@ def broken(fn):
 
 @pytest.mark.parametrize("change, expect", [
     (lambda c: c.pop("translations"), "translations"),
-    (lambda c: c.pop("preachers"), "preachers"),
+    (lambda c: c.update(preachers=["Петров Иван"]), "preachers"),
     (lambda c: c.update(scriptureFooter="· перевод"), "{name}"),
     (lambda c: c.update(bibleBase="http://x"), "bibleBase"),
     (lambda c: c["translations"].append(dict(c["translations"][0])), "повторяется"),
@@ -111,7 +108,6 @@ def broken(fn):
     (lambda c: c["translations"][1].update(group="xx"), "group"),
     (lambda c: c["translations"][1].update(books="xx"), "books"),
     (lambda c: c.update(translations=[t for t in c["translations"] if t["id"] != "ru"]), "«ru»"),
-    (lambda c: c["preachers"].append(c["preachers"][0]), "повторы"),
 ])
 def test_validator_catches_broken_config(change, expect):
     assert any(expect in p for p in problems(broken(change))), problems(broken(change))

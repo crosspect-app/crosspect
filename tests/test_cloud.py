@@ -231,7 +231,7 @@ def test_new_sermon_defaults_to_me_and_can_be_changed(browser, base_url):
         page.wait_for_selector(".sheet[aria-label='О проповеди']")
         assert page.evaluate("[state.meta.firstName, state.meta.lastName]") == want
         # заменить на другого можно: «Ввести вручную»
-        page.locator(".sheet .dfield").click()
+        page.locator(".sheet .author-field .dfield").click()
         page.locator(".dd-list .man").click()
         page.fill("input[aria-label='Имя']", "Пётр")
         assert page.evaluate("state.meta.firstName") == "Пётр"
