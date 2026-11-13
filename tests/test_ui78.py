@@ -171,6 +171,7 @@ def test_new_outline_author_from_table_not_google(browser, base_url):
 
 
 def test_status_locked_to_draft_while_empty(page):
+    page.set_viewport_size({"width": 1920, "height": 900})   # здесь проверяется широкий переключатель статуса; на 1280 px он свёрнут в кнопку (этап 10.1)
     start_blank(page)
     opts = lambda: page.evaluate("[...document.querySelectorAll('.stswitch .sw-opt')].map(b => b.disabled)")
     assert opts() == [False, True, True, True]

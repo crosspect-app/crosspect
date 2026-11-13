@@ -17,8 +17,8 @@
 - Документ в облаке: `v`, `meta`, `settings`, `blocks` из проповеди плюс `status`, `owner`, `createdBy/At`, `updatedBy/At` (поля — как в `cloud/firestore.rules`, новое поле — сначала правило и тест). Запись — `update` только полей содержимого и замка, поэтому `status`, `owner`, `shareKey` не трогаются.
 
 ## Пространство, люди и серии (этап 10)
-- `cloud-api.mjs`: `createSpace(me, name)` (id случайный, `lockMinutes` 10, `preachersSeeAll`), `updateSpace(s, me, { name, lockMinutes })`, `watchMembers` (живой список `{ email, role, firstName, lastName, seen }`), `addMember` (ошибка `exists`), `updateMember`, `removeMember`, `markSeen` (пишет `seenAt`, только если его ещё нет), `watchSeries` / `setSeries` (`config/series`).
-- `cloud.js`: после входа `markSeen` во всех пространствах, где человек участник и ещё не отмечен; `startListen` слушает людей и серии (`setPeople`, `setSeriesData` в `space.js`), `useSpace` очищает `PREACHERS` и берёт серии из кеша.
+- `cloud-api.mjs`: `createSpace(me, name)` (id случайный, `lockMinutes` 10, `preachersSeeAll`), `updateSpace(s, me, { name, lockMinutes })`, `watchMembers` (живой список `{ email, role, firstName, lastName, seen }`), `addMember` (ошибка `exists`), `updateMember`, `removeMember`, `markSeen` (пишет `seenAt`, только если его ещё нет), `watchSeries` / `setSeries` (`config/series`), `watchOperators` / `setOperators` (`config/operators`, этап 10.1).
+- `cloud.js`: после входа `markSeen` во всех пространствах, где человек участник и ещё не отмечен; `startListen` слушает людей, серии и операторов (`setPeople`, `setSeriesData`, `setOperatorsData` в `space.js`), `useSpace` очищает `PREACHERS` и берёт серии из кеша.
 - Серия и свой формат — `meta.series`, `meta.format` (нет поля — «Свободная тема» и «По умолчанию»); их пишет `content()`, держит `normalize`. Серия идёт в сводку (`summaryOf`, `validSummary`, `fromSummary`, подмена `row`).
 - Фон: `sermonFormatId` (`background.js`) — `sermonOwnFormat` (только при `slides.pickFormat`) → `seriesFormat` (`SERIES[id].format`) → `defaultFormat`.
 

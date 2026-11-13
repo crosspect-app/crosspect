@@ -43,6 +43,7 @@ def test_editor_flag_button_says_author_sees_it(browser, base_url):
 
 def test_editor_sets_ready_and_author_is_locked_out(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": full(st="work")})
+    page.set_viewport_size({"width": 1920, "height": 900})   # здесь проверяется широкий переключатель статуса; на 1280 px он свёрнут в кнопку (этап 10.1)
     wait_home(page)
     open_sermon(page, "s1")
     start_edit(page)

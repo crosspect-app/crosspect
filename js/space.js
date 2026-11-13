@@ -8,7 +8,9 @@
      только админ, редактор видит таблицу без правки. Из неё же — список авторов в «О проповеди» (PREACHERS);
    • «Серии проповедей» (config/series): название, «Активна», формат фона. «Свободная тема» встроена (у проповеди без серии),
      не меняется и не хранится. Серий не удаляют: выключенная остаётся в старых проповедях, но в выборе её больше нет.
-   Данные приходят слушателями из cloud.js (watchMembers, watchSeries): setPeople, setSeriesData. */
+   • «Операторы» (этап 10.1, config/operators): имя и имя пользователя Telegram (без номера телефона). Из них — список в «Ссылке для оператора»
+     → «В Telegram» (operator.js). Автор окно не видит, но список читает.
+   Данные приходят слушателями из cloud.js (watchMembers, watchSeries, watchOperators): setPeople, setSeriesData, setOperatorsData. */
 
 const FREE_SERIES = 'Свободная тема';
 const ROLE_LABEL = { editor:'Редактор', preacher:'Автор' };
@@ -73,6 +75,57 @@ async function seriesFormatGone(fid){
   await writeSeries(next);
 }
 
+/* ----- Операторы (этап 10.1) ----- */
+let OPERATORS = {};   // { <id>: { name, tg } }; tg — имя пользователя Telegram без «@»
+const operatorsCacheKey = sp => 'swp-operators-cache:' + (sp || '');
+const TG_FORMAT_ERR = 'Имя пользователя в Telegram — латиницей, от 5 до 32 символов';
+/* Любой вид ввода → имя пользователя: @ivan_op, ivan_op, t.me/ivan_op, https://t.me/ivan_op, telegram.me/ivan_op → ivan_op */
+function tgNormalize(raw){
+  let t = String(raw || '').trim().replace(/^https?:\/\//i, '').replace(/^(www\.)?(t\.me|telegram\.me|telegram\.dog)\//i, '').replace(/^@/, '');
+  return t.split(/[/?#\s]/)[0];
+}
+/* Проверка по правилам Telegram: 5–32 символа, латиница, цифры и «_», с буквы, не на «_», без «__». Возвращает { tg, err } */
+function tgCheck(raw){
+  const t = String(raw || '').trim();
+  if (!t || t === '@') return { tg:'', err:'Укажите имя пользователя в Telegram' };
+  if (/^\+?[\d\s()\-.]{5,}$/.test(t)) return { tg:'', err:'Нужно имя пользователя в Telegram, а не номер' };
+  const tg = tgNormalize(t);
+  if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(tg)) return { tg, err:TG_FORMAT_ERR };
+  if (/_$/.test(tg) || /__/.test(tg)) return { tg, err:'Имя пользователя не кончается на «_» и не содержит два «_» подряд' };
+  return { tg, err:'' };
+}
+function normOperators(m){
+  const out = {};
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return out;
+  Object.keys(m).forEach(id => {
+    const x = m[id];
+    if (!id || !x || typeof x !== 'object' || !normName(x.name) || tgCheck(x.tg).err) return;
+    out[id] = { name:normName(x.name).slice(0, 100), tg:tgNormalize(x.tg) };
+  });
+  return out;
+}
+function setOperatorsData(map, fromCache){
+  OPERATORS = normOperators(map);
+  if (!fromCache) LS.set(operatorsCacheKey(cloud.space), JSON.stringify(OPERATORS));
+  renderSpaceSheet();
+}
+function loadOperatorsCache(sp){
+  let m = null; try { m = JSON.parse(LS.get(operatorsCacheKey(sp)) || 'null'); } catch(e){}
+  OPERATORS = normOperators(m);
+}
+const operatorList = () => Object.keys(OPERATORS).map(id => Object.assign({ id }, OPERATORS[id])).sort((a, b) => a.name.localeCompare(b.name, 'ru') || a.id.localeCompare(b.id));
+const tgTaken = (tg, except) => Object.keys(OPERATORS).some(id => id !== except && OPERATORS[id].tg.toLowerCase() === tg.toLowerCase());
+function newOperatorId(){ let id; do { id = 'o' + Math.random().toString(36).slice(2, 10); } while (OPERATORS[id]); return id; }
+async function writeOperators(next){
+  try {
+    await cloud.api.setOperators(cloud.space, cloud.user, next);
+    setOperatorsData(next);
+    return true;
+  } catch(e){ toast(cloudExplain(e) || 'Не получилось сохранить операторов.'); renderSpaceSheet(true); return false; }
+}
+/* «Проверить»: Telegram не даёт сайту узнать, есть ли такой человек, поэтому открываем его профиль — пусть Виталий посмотрит сам */
+const openTgProfile = tg => window.open('https://t.me/' + encodeURIComponent(tg), '_blank', 'noopener');
+
 /* ----- Поля в «О проповеди» ----- */
 /* «Серия проповедей»: выбор из активных серий и «Свободной темы». Других активных серий нет и проповедь без серии —
    поле не меняется. Выключенная серия, которая уже стоит в проповеди, видна, но в списке её нет: сменили — не вернуть */
@@ -125,8 +178,8 @@ function renderSpaceSheet(force){
 }
 function drawSpace(){
   spaceRedraw = false;
-  const tabs = [['people', 'Люди'], ['series', 'Серии проповедей'], ['general', 'Общее']];
-  const body = spaceTab === 'series' ? seriesTable() : spaceTab === 'general' ? spaceGeneral() : peopleTable();
+  const tabs = [['people', 'Люди'], ['series', 'Серии проповедей'], ['operators', 'Операторы'], ['general', 'Общее']];
+  const body = spaceTab === 'series' ? seriesTable() : spaceTab === 'operators' ? operatorsTable() : spaceTab === 'general' ? spaceGeneral() : peopleTable();
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet wide space-sheet', role:'dialog', 'aria-label':'Пространство',
     onfocusout:e => { if (spaceRedraw && !(e.relatedTarget && e.currentTarget.contains(e.relatedTarget))) setTimeout(() => renderSpaceSheet(), 0); } },
@@ -223,6 +276,57 @@ function seriesTable(){
       h('div', { class:'sp-row sp-head', role:'row' }, ['Название', 'Активна', 'Формат фона'].map(t => h('span', { role:'columnheader', text:t }))),
       free, rows,
       h('div', { class:'sp-row sp-add', role:'row' }, name, h('span', { class:'sp-add-act' }, h('button', { type:'button', class:'btn primary small', onclick:add }, ic('plus'), 'Добавить серию')), err)));
+}
+
+/* Операторы: админ и редактор. Имя и Telegram меняются сразу; неверное имя пользователя не сохраняется, причина — под строкой */
+function operatorsTable(){
+  const list = operatorList();
+  const upd = (id, fields) => { const next = JSON.parse(JSON.stringify(OPERATORS)); Object.assign(next[id], fields); return writeOperators(next); };
+  const rows = list.map(x => {
+    const err = h('span', { class:'sp-err', role:'alert' });
+    const nameIn = h('input', { class:'input', value:x.name, maxlength:'100', placeholder:'Имя', 'aria-label':'Имя оператора', autocomplete:'off', onchange:e => {
+      const v = normName(e.target.value);
+      if (!v){ err.textContent = 'Укажите имя'; e.target.value = x.name; return; }
+      err.textContent = ''; e.target.value = v;
+      if (v !== x.name) upd(x.id, { name:v });
+    } });
+    const tgIn = h('input', { class:'input', value:'@' + x.tg, placeholder:'@имя', 'aria-label':'Telegram оператора', autocomplete:'off', autocapitalize:'off', spellcheck:'false', onchange:e => {
+      const r = tgCheck(e.target.value);
+      if (r.err){ err.textContent = r.err; return; }
+      if (tgTaken(r.tg, x.id)){ err.textContent = 'Этот оператор уже есть'; return; }
+      err.textContent = ''; e.target.value = '@' + r.tg;
+      if (r.tg !== x.tg) upd(x.id, { tg:r.tg });
+    } });
+    return h('div', { class:'sp-row', role:'row', 'data-id':x.id }, nameIn, tgIn,
+      h('button', { type:'button', class:'btn small', title:'Откроется профиль в Telegram: посмотрите, тот ли это человек', onclick:() => openTgProfile(x.tg) }, 'Проверить'),
+      iconBtn('trash', 'Убрать оператора', () => removeOperator(x), 'danger'), err);
+  });
+  const name = h('input', { class:'input', placeholder:'Имя', maxlength:'100', 'aria-label':'Имя нового оператора', autocomplete:'off' });
+  const tg = h('input', { class:'input', placeholder:'@имя в Telegram', 'aria-label':'Telegram нового оператора', autocomplete:'off', autocapitalize:'off', spellcheck:'false' });
+  const err = h('span', { class:'sp-err', role:'alert' });
+  const add = async () => {
+    const n = normName(name.value), r = tgCheck(tg.value);
+    err.textContent = '';
+    if (!n){ err.textContent = 'Укажите имя'; name.focus(); return; }
+    if (r.err){ err.textContent = r.err; tg.focus(); return; }
+    if (tgTaken(r.tg)){ err.textContent = 'Этот оператор уже есть'; tg.focus(); return; }
+    const next = JSON.parse(JSON.stringify(OPERATORS));
+    next[newOperatorId()] = { name:n, tg:r.tg };
+    if (await writeOperators(next)) toast('Оператор добавлен: ' + n);
+  };
+  [name, tg].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') add(); }));
+  return h('div', { class:'sp-body' },
+    h('p', { class:'hint', text:'Операторов выбирают в окне «Ссылка для оператора» → «В Telegram»: чат с ним откроется с готовым сообщением. Нужно имя пользователя в Telegram, номер телефона не нужен.' }),
+    h('div', { class:'sp-table sp-operators', role:'table', 'aria-label':'Операторы' },
+      h('div', { class:'sp-row sp-head', role:'row' }, ['Имя', 'Telegram', '', ''].map(t => h('span', { role:'columnheader', text:t }))),
+      list.length ? rows : h('p', { class:'hint sp-empty', text:'Операторов пока нет: «В Telegram» откроет обычный выбор, кому отправить' }),
+      h('div', { class:'sp-row sp-add', role:'row' }, name, tg, h('span', { class:'sp-add-act' }, h('button', { type:'button', class:'btn primary small', onclick:add }, ic('plus'), 'Добавить')), h('span'), err)),
+    h('p', { class:'hint sp-after', text:'Существует ли такой человек, форма узнать не может: нажмите «Проверить», откроется его профиль в Telegram.' }));
+}
+function removeOperator(x){
+  if (!confirm('Убрать оператора: ' + x.name + '?')) return;
+  const next = JSON.parse(JSON.stringify(OPERATORS)); delete next[x.id];
+  writeOperators(next).then(ok => { if (ok) toast('Убрали оператора: ' + x.name); });
 }
 
 /* Общее: название и время правки — админ; «Выбирать формат фона в проповеди» — админ и редактор; новое пространство — админ */

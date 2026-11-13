@@ -24,6 +24,7 @@ rules_version = '2';
 //                                    в одной записи с проповедью и совпадает с ней
 //   spaces/{s}/config/slides         настройки слайдов пространства: видят все, правят админ и редактор
 //   spaces/{s}/config/series         серии проповедей (этап 10): видят все, правят админ и редактор
+//   spaces/{s}/config/operators      операторы (этап 10.1): имя и имя пользователя Telegram; видят все, правят админ и редактор
 //   people/{email}/prefs/screen      раскладка экрана у человека: видит и правит только он сам
 //   shares/{key}                     снимок для оператора: читается по ключу без входа
 
@@ -163,13 +164,14 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
 
-      // ---------- настройки слайдов (этап 7.1) и серии проповедей (этап 10) ----------
+      // ---------- настройки слайдов (этап 7.1), серии проповедей (этап 10) и операторы (этап 10.1) ----------
       // config/slides — общие для всех проповедей пространства. Видят все участники (слайды рисует и спикер),
       // меняют админ и редактор. config/series — серии { <id>: { name, active, format } }: автор видит их,
-      // чтобы выбрать серию в «О проповеди»; меняют админ и редактор. Удалить из браузера нельзя: форма только перезаписывает.
+      // чтобы выбрать серию в «О проповеди»; меняют админ и редактор. config/operators — операторы
+      { <id>: { name, tg } }: автор их читает (список нужен ему при отправке ссылки), правят админ и редактор. Удалить из браузера нельзя: форма только перезаписывает.
       match /config/{doc} {
         allow get: if isMember(s);
-        allow create, update: if isEditor(s) && doc in ['slides', 'series']
+        allow create, update: if isEditor(s) && doc in ['slides', 'series', 'operators']
           && request.resource.data.keys().hasAll([doc, 'updatedAt', 'updatedBy'])
           && request.resource.data.keys().hasOnly([doc, 'updatedAt', 'updatedBy'])
           && request.resource.data[doc] is map

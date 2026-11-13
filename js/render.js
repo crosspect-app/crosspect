@@ -38,7 +38,7 @@ function closeDropdown(){ if (ddEl){ ddEl.remove(); ddEl = null; } }
 function dropdown(anchor, items){
   if (ddEl){ closeDropdown(); return; }
   ddEl = h('div', { class:'dd-list', role:'listbox' }, items.map(it => it.sep ? h('hr') :
-    h('button', { type:'button', role:'option', class:(it.cls || '') + (it.on ? ' on' : ''), 'aria-selected':String(!!it.on), onclick:() => { closeDropdown(); it.pick(); anchor.focus(); } }, it.label)));
+    h('button', { type:'button', role:'option', class:(it.cls || '') + (it.on ? ' on' : ''), 'aria-selected':String(!!it.on), disabled:it.off ? true : null, title:it.tip || null, onclick:() => { closeDropdown(); it.pick(); anchor.focus(); } }, it.label)));
   document.body.append(ddEl);
   const r = anchor.getBoundingClientRect();
   ddEl.style.left = r.left + 'px'; ddEl.style.width = r.width + 'px';

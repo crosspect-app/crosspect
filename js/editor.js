@@ -45,12 +45,17 @@ function statusSwitch(){
   const cur = statusKey(state.cloudStatus);
   if (cloud.role === 'preacher' && !canEditCloud() && !atEditor(state)) return h('span', { class:'stchip st-' + cur, text:STATUS_LABELS[cur] });
   const live = editing();
-  return h('div', { class:'stswitch st-' + cur + (live ? '' : ' view'), role:'radiogroup', 'aria-label':'Статус конспекта' },
+  const full = h('div', { class:'stswitch st-' + cur + (live ? '' : ' view'), role:'radiogroup', 'aria-label':'Статус конспекта' },
     STATUS_KEYS.map(k => {
       const o = statusOpt(k, cur);
       return h('button', { type:'button', role:'radio', class:'sw-opt st-' + k + (k === cur ? ' on' : ''), 'aria-checked':String(k === cur),
         disabled:!o.can, title:o.tip, onclick:() => setSermonStatus(k) }, STATUS_LABELS[k]);
     }));
+  // Этап 10.1: когда в шапке мало места (css: до 1400 px), вместо четырёх положений — одна кнопка «Черновик ▾» со списком тех же статусов
+  const drop = h('button', { type:'button', class:'stdrop st-' + cur + (live ? '' : ' view'), 'aria-haspopup':'listbox', 'aria-label':'Статус конспекта: ' + STATUS_LABELS[cur], title:STATUS_TIPS[cur],
+    onclick:() => dropdown(drop, STATUS_KEYS.map(k => { const o = statusOpt(k, statusKey(state.cloudStatus)); return { label:STATUS_LABELS[k], on:k === statusKey(state.cloudStatus), off:!o.can, tip:o.tip, pick:() => setSermonStatus(k) }; })) },
+    h('span', { class:'dtext', text:STATUS_LABELS[cur] }), ic('down'));
+  return h('span', { class:'stwrap' }, full, drop);
 }
 /* Можно ли выбрать статус и что написать во всплывающей подписи. Пока в конспекте нет ни одного слайда, дальше «Черновика»
    не уйти (этап 7.8): остальные положения неактивны */

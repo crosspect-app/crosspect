@@ -37,6 +37,7 @@ def opt(page, label):
 
 def test_author_switches_draft_and_ready_while_editing(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": full()})
+    page.set_viewport_size({"width": 1920, "height": 900})   # здесь проверяется широкий переключатель статуса; на 1280 px он свёрнут в кнопку (этап 10.1)
     page.wait_for_selector(".scard")
     assert "Черновик" in page.inner_text(".scard")
     open_sermon(page, "s1")
@@ -77,6 +78,7 @@ def test_author_switches_draft_and_ready_while_editing(browser, base_url):
 
 def test_status_is_not_undone(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": full()})
+    page.set_viewport_size({"width": 1920, "height": 900})   # здесь проверяется широкий переключатель статуса; на 1280 px он свёрнут в кнопку (этап 10.1)
     page.wait_for_selector(".scard")
     open_sermon(page, "s1")
     start_edit(page)
@@ -91,6 +93,7 @@ def test_status_is_not_undone(browser, base_url):
 def test_editor_takes_sermon_and_author_cannot_edit(browser, base_url):
     # редактор: «У редактора» в правке, вместе с содержимым
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": full(st="submitted")})
+    page.set_viewport_size({"width": 1920, "height": 900})   # здесь проверяется широкий переключатель статуса; на 1280 px он свёрнут в кнопку (этап 10.1)
     page.wait_for_selector(".scard")
     assert "Готов к вёрстке" in page.inner_text(".scard")
     open_sermon(page, "s1")

@@ -930,6 +930,19 @@ describe('пространства, люди и серии (этап 10)', () =>
     await admin.removeMember('sp1', 'anna@x.pl');
     assert.equal(await raw('spaces/sp1/members/anna@x.pl'), null);
   });
+  test('операторы: пишет редактор, автор читает; пустого списка нет — отдаётся {}', async () => {
+    const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');
+    assert.deepEqual(await once((f) => ivan.watchOperators('sp1', f)), {});
+    const ops = { o1: { name: 'Пётр Оператор', tg: 'petr_op' }, o2: { name: 'Анна', tg: 'anna_live' } };
+    await admin.setOperators('sp1', me('admin@x.pl'), ops);
+    assert.deepEqual(await once((f) => ivan.watchOperators('sp1', f)), ops);
+    const d = await raw('spaces/sp1/config/operators');
+    assert.deepEqual(d.operators, ops);
+    assert.equal(d.updatedBy, 'admin@x.pl');
+    await assert.rejects(ivan.setOperators('sp1', me('ivan@x.pl'), {}));
+    await admin.setOperators('sp1', me('admin@x.pl'), { o2: ops.o2 });   // убрали оператора: запись перезаписывается целиком
+    assert.deepEqual(await once((f) => ivan.watchOperators('sp1', f)), { o2: ops.o2 });
+  });
   test('серии: пишет админ, автор читает и ставит серию в свой конспект; серия — в сводке', async () => {
     const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');
     await admin.setSeries('sp1', me('admin@x.pl'), { a1: { name: 'Псалмы', active: true, format: '' } });

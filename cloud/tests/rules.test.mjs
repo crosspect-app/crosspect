@@ -827,6 +827,38 @@ describe('настройки слайдов', () => {
   });
 });
 
+describe('операторы (этап 10.1)', () => {
+  const opr = (db, s = 'sw') => doc(db, 'spaces', s, 'config', 'operators');
+  const body = (who, extra = {}) => ({
+    operators: { o1: { name: 'Пётр Оператор', tg: 'petr_op' } },
+    updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra,
+  });
+  test('редактор и админ записывают, автор только читает (список нужен ему при отправке ссылки)', async () => {
+    await assertSucceeds(setDoc(opr(as('ed')), body('ed')));
+    await assertSucceeds(setDoc(opr(as('admin')), body('admin')));
+    await assertSucceeds(getDoc(opr(as('ivan'))));
+    await assertSucceeds(getDoc(opr(as('ed'))));
+    await assertFails(setDoc(opr(as('ivan')), body('ivan')));
+    await assertFails(getDoc(opr(as('stranger'))));
+    await assertFails(setDoc(opr(as('ed'), 'other'), body('ed')));
+  });
+  test('только нужные поля, время сервера, подпись; удалить нельзя', async () => {
+    const db = as('ed');
+    await assertFails(setDoc(opr(db), body('ed', { operators: 'текст' })));
+    await assertFails(setDoc(opr(db), body('ed', { slides: {} })));
+    await assertFails(setDoc(opr(db), body('ed', { updatedAt: minutesAgo(1) })));
+    await assertFails(setDoc(opr(db), body('ed', { updatedBy: PEOPLE.admin })));
+    await assertFails(setDoc(opr(db), { series: {}, updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
+    await assertSucceeds(setDoc(opr(db), body('ed')));
+    await assertFails(deleteDoc(opr(db)));
+  });
+  test('не больше 300 записей', async () => {
+    const many = (n) => Object.fromEntries(Array.from({ length: n }, (_, i) => ['o' + i, { name: 'Имя ' + i, tg: 'user_' + i + 'abc' }]));
+    await assertSucceeds(setDoc(opr(as('ed')), body('ed', { operators: many(300) })));
+    await assertFails(setDoc(opr(as('ed')), body('ed', { operators: many(301) })));
+  });
+});
+
 describe('серии проповедей (этап 10)', () => {
   const ser = (db, s = 'sw') => doc(db, 'spaces', s, 'config', 'series');
   const body = (who, extra = {}) => ({

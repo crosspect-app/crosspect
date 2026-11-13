@@ -212,7 +212,7 @@ function motionAfterTopbar(){
   // подложка статуса
   const prev = ui.swPrev; ui.swPrev = null;
   const sw = document.querySelector('.stswitch'), on = sw && sw.querySelector('.sw-opt.on');
-  if (prev && on && same && !MOTION.off() && prev.key !== on.className){
+  if (prev && on && same && !MOTION.off() && prev.key !== on.className && sw.offsetWidth){   // свёрнутый переключатель (этап 10.1) скрыт: подложке ездить негде
     const cs = getComputedStyle(on), nr = on.getBoundingClientRect(), sr = sw.getBoundingClientRect();
     const bgNew = cs.backgroundColor;
     const pill = h('span', { class:'sw-pill' });

@@ -212,6 +212,17 @@ export function createCloudAPI(fb){
         { series: JSON.parse(JSON.stringify(series || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
     },
 
+    /* ----- операторы (этап 10.1): spaces/{s}/config/operators, operators = { <id>: { name, tg } }, tg — имя пользователя Telegram без «@» ----- */
+    watchOperators(space, onOperators, onError){
+      return F.onSnapshot(F.doc(db, 'spaces', space, 'config', 'operators'), snap => {
+        onOperators(snap.exists() ? (snap.data().operators || {}) : {});
+      }, onError);
+    },
+    async setOperators(space, me, operators){
+      await F.setDoc(F.doc(db, 'spaces', space, 'config', 'operators'),
+        { operators: JSON.parse(JSON.stringify(operators || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
+    },
+
     /* Все пространства — только админу (остальным база откажет): [{ id, name, settings }] */
     async allSpaces(){
       const snap = await F.getDocs(F.collection(db, 'spaces'));

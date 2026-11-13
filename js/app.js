@@ -268,9 +268,9 @@ function updateStatus(){
   if (s){
     if (cloudSermon()){
       const [cls, text, click] = cloudStatusLine();
-      s.className = 'hd-save ' + cls; s.textContent = text; s.onclick = click || null;
+      s.className = 'hd-save ' + cls; s.textContent = text; s.title = text; s.onclick = click || null;
     }
-    else { s.className = 'hd-save'; s.textContent = ''; s.onclick = null; }
+    else { s.className = 'hd-save'; s.textContent = ''; s.title = ''; s.onclick = null; }
   }
   const fc = $('#film-count');
   if (fc){

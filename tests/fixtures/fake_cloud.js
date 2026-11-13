@@ -211,6 +211,17 @@
       x.series = JSON.parse(JSON.stringify(series || {}));
       store(db); notify();
     },
+    watchOperators(space, onOps){
+      const f = () => { const x = S(load(), space); onOps(JSON.parse(JSON.stringify(x.operators || {}))); };
+      listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
+    },
+    async setOperators(space, who, operators){
+      calls.operators = (calls.operators || 0) + 1; offline();
+      const db = load(), x = S(db, space);
+      if (!isEditor(x, who.email)) throw denied();
+      x.operators = JSON.parse(JSON.stringify(operators || {}));
+      store(db); notify();
+    },
     /* Настройки слайдов пространства: читают все, пишут редактор и админ */
     watchSlides(space, onCfg){
       const f = () => { const db = load(), x = S(db, space); onCfg(x.slides ? JSON.parse(JSON.stringify(x.slides)) : null); };

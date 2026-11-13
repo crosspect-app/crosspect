@@ -176,6 +176,7 @@ def test_jpeg_during_animation_matches_static(browser, base_url):
 
 def test_status_pill_moves_and_wedge_flashes(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": full()}, **MOVE)
+    page.set_viewport_size({"width": 1920, "height": 900})   # здесь проверяется широкий переключатель статуса; на 1280 px он свёрнут в кнопку (этап 10.1)
     page.wait_for_selector(".scard")
     open_sermon(page, "s1")
     assert not anim_on(page, ".topbar .lg-c")   # при открытии клин не вспыхивает

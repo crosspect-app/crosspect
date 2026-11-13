@@ -114,7 +114,7 @@ function opLinkSheet(key){
       h('div', { class:'sheet-foot wrap' },
         h('button', { type:'button', class:'btn', onclick:() => opCopy(url, false, field) }, ic('dup'), 'Скопировать'),
         h('button', { type:'button', class:'btn', onclick:() => opCopy(opShareLines(url).join('\n'), false, null, 'Текст скопирован') }, ic('dup'), 'Скопировать с форматом'),
-        h('button', { type:'button', class:'btn primary', onclick:() => opTelegram(url) }, ic('telegram'), 'В Telegram')));
+        h('button', { type:'button', class:'btn primary', 'aria-haspopup':Object.keys(OPERATORS).length ? 'listbox' : null, onclick:e => opTelegramPick(e.currentTarget, url) }, ic('telegram'), 'В Telegram')));
   }
   settingsOverlay.append(sheet);
   settingsOverlay.classList.add('open');
@@ -144,6 +144,21 @@ function opShareLines(url){
   const lines = [url, OP_LINE, 'Конспект для оператора слайдов', author ? title + ' | ' + author : title];
   if (date) lines.push(date);
   return lines;
+}
+/* «В Telegram» (этап 10.1): операторов в пространстве нет — как раньше; есть — список имён по алфавиту, линия и «Другому…» */
+function opTelegramPick(anchor, url){
+  const ops = operatorList();
+  if (!ops.length){ opTelegram(url); return; }
+  dropdown(anchor, ops.map(o => ({ label:o.name, pick:() => opTelegramTo(o.tg, url) })).concat([{ sep:true }, { label:'Другому…', pick:() => opTelegram(url) }]));
+  if (typeof ddEl !== 'undefined' && ddEl){   // кнопка узкая, имена длиннее: список шире кнопки, но не за краем окна
+    ddEl.style.minWidth = '220px';
+    ddEl.style.left = Math.max(8, Math.min(parseFloat(ddEl.style.left), innerWidth - 228)) + 'px';
+  }
+}
+/* Чат с оператором и готовое сообщение в поле ввода (core.telegram.org/api/links, «Public username links»): у такой ссылки нет отдельного
+   url, поэтому ссылка на конспект идёт первой строкой самого текста */
+function opTelegramTo(tg, url){
+  window.open('https://t.me/' + encodeURIComponent(tg) + '?text=' + encodeURIComponent(opShareLines(url).join('\n')), '_blank', 'noopener');
 }
 /* Telegram сам ставит адрес первой строкой, поэтому в text его нет: сообщение выходит таким же, как скопированный текст */
 function opTelegram(url){

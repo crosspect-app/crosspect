@@ -166,14 +166,20 @@ mark{background:var(--mark);color:inherit;border-radius:5px;padding:0 3px;-webki
 .stswitch .sw-opt:disabled{cursor:not-allowed;opacity:.55}
 .stswitch .sw-opt:hover:not(:disabled):not(.on){color:var(--text)}
 .stswitch.view .sw-opt:not(.on){opacity:.7}
-.stswitch .sw-opt.on.st-draft,.stchip.st-draft{background:#3a2c08;color:#ffde59}
-.stswitch .sw-opt.on.st-submitted,.stchip.st-submitted{background:#13301d;color:#5ad17a}
-.stswitch .sw-opt.on.st-work,.stchip.st-work{background:#13263d;color:#8cbcff}
-.stswitch .sw-opt.on.st-ready,.stchip.st-ready{background:#2a1d42;color:#c6a6ff}   /* «Презентация готова» (этап 9.7) */
-body.light .stswitch .sw-opt.on.st-draft,body.light .stchip.st-draft{background:#fbeeb8;color:#6b4e00}
-body.light .stswitch .sw-opt.on.st-submitted,body.light .stchip.st-submitted{background:#d9f0e0;color:#17693a}
-body.light .stswitch .sw-opt.on.st-work,body.light .stchip.st-work{background:#dce9fb;color:#1d4f8f}
-body.light .stswitch .sw-opt.on.st-ready,body.light .stchip.st-ready{background:#ebe0fb;color:#5a3596}
+.stswitch .sw-opt.on.st-draft,.stchip.st-draft,.stdrop.st-draft{background:#3a2c08;color:#ffde59}
+.stswitch .sw-opt.on.st-submitted,.stchip.st-submitted,.stdrop.st-submitted{background:#13301d;color:#5ad17a}
+.stswitch .sw-opt.on.st-work,.stchip.st-work,.stdrop.st-work{background:#13263d;color:#8cbcff}
+.stswitch .sw-opt.on.st-ready,.stchip.st-ready,.stdrop.st-ready{background:#2a1d42;color:#c6a6ff}   /* «Презентация готова» (этап 9.7) */
+body.light .stswitch .sw-opt.on.st-draft,body.light .stchip.st-draft,body.light .stdrop.st-draft{background:#fbeeb8;color:#6b4e00}
+body.light .stswitch .sw-opt.on.st-submitted,body.light .stchip.st-submitted,body.light .stdrop.st-submitted{background:#d9f0e0;color:#17693a}
+body.light .stswitch .sw-opt.on.st-work,body.light .stchip.st-work,body.light .stdrop.st-work{background:#dce9fb;color:#1d4f8f}
+body.light .stswitch .sw-opt.on.st-ready,body.light .stchip.st-ready,body.light .stdrop.st-ready{background:#ebe0fb;color:#5a3596}
+.stwrap{display:contents}
+/* Свёрнутый переключатель статуса (этап 10.1): кнопка с текущим статусом и стрелкой, список — dropdown() */
+.stdrop{display:none;align-items:center;gap:6px;padding:7px 9px 7px 12px;border:1px solid var(--line-2);border-radius:999px;font:600 12px/1 'Inter',sans-serif;white-space:nowrap;cursor:pointer;transition:background-color .2s,color .2s}
+.stdrop .ic{width:14px;height:14px;opacity:.8}
+.stdrop:hover{border-color:currentColor}
+.stdrop.view{opacity:.85}
 .hist{display:inline-flex;gap:2px}
 
 /* ---------- Шапка ---------- */
@@ -208,9 +214,9 @@ body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--
 .vsep{width:1px;height:26px;background:var(--line-2)}
 .hd-title{display:flex;flex-direction:column;gap:4px;align-items:flex-start;min-width:0;border:0;background:transparent;padding:3px 8px;margin:-3px -8px;border-radius:8px;text-align:left;color:inherit}
 .hd-title:hover{background:var(--surface-2)}
-.hd-name{font-weight:600;font-size:15px;line-height:1.15;max-width:36ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hd-name{font-weight:600;font-size:15px;line-height:1.15;max-width:min(36ch, 100%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hd-name.empty{color:var(--muted);font-weight:400}
-.hd-sub{font-size:12px;color:var(--muted);line-height:1.15;max-width:44ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hd-sub{font-size:12px;color:var(--muted);line-height:1.15;max-width:min(44ch, 100%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hd-save{font-size:12px;line-height:1.3;color:var(--muted);max-width:250px;text-align:right;text-wrap:balance}   /* длинное сообщение — в две строки, а не перенос всей шапки */
 .hd-save.warn{color:var(--warn)}
 .search{display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line-2);min-width:260px;color:var(--muted)}
@@ -352,7 +358,7 @@ a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
 .half-w input[type=range]{width:100%;margin:0;accent-color:var(--accent)}
 .half-w-val{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
 .ph-thumb{aspect-ratio:16/9;border:1px dashed #3a3a3a;border-radius:7px;background:#141414;display:flex;align-items:center;justify-content:center;padding:6px;text-align:center;color:var(--muted);font:500 10px/1.3 'Inter',sans-serif;overflow:hidden}
-.ph-thumb span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ph-thumb span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .st.t-note{padding-top:2px;padding-bottom:2px}
 .mini-note{padding:7px 9px;border-radius:7px;background:#ffde59;color:#141414;font:800 10px/1.3 'Inter',sans-serif;text-transform:uppercase;max-height:58px;overflow:hidden}
 /* Лента: «+» между слайдами и перетаскивание (slides.js) */
@@ -485,6 +491,23 @@ a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
 .hint{font-size:12px;color:var(--muted)}
 .count{font-size:12px;color:var(--muted)}
 .fbtn.on{color:var(--text)}
+
+/* Шапка конспекта (этап 10.1): от 1024 px — одна строка при любой длине названия (оно обрезается многоточием), а статус до 1400 px — одной кнопкой */
+@media (min-width:1024px){
+  .topbar:not(.is-home){flex-wrap:nowrap}
+  .topbar:not(.is-home) > *{flex-shrink:0}
+  .topbar:not(.is-home) > .hd-title{flex-shrink:1;min-width:80px}
+  .topbar:not(.is-home) > .grow{flex-shrink:1;min-width:0}
+}
+@media (min-width:1024px) and (max-width:1200px){   /* самое тесное место: промежутки и переключатель вида уже, сообщение — до двух строк (полностью — во всплывающей подписи) */
+  .topbar:not(.is-home){gap:8px}
+  .topbar:not(.is-home) .seg{width:168px}
+  .topbar:not(.is-home) .hd-save{max-width:170px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+}
+@media (max-width:1400px){
+  .stswitch{display:none}
+  .stdrop{display:inline-flex}
+}
 
 /* ---------- Узкие экраны ---------- */
 @media (max-width:1100px){
@@ -1005,6 +1028,7 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 .dd-list button{border:0;background:transparent;text-align:left;padding:10px 12px;border-radius:10px;font:500 14px 'Inter',sans-serif;color:#d8cdbd;cursor:pointer}
 .dd-list button:hover,.dd-list button:focus-visible{background:var(--surface-2);color:var(--text);outline:none}
 .dd-list button.on{background:var(--surface-3);color:var(--text)}
+.dd-list button:disabled{opacity:.45;cursor:not-allowed;background:transparent;color:#d8cdbd}
 .dd-list hr{border:0;height:1px;background:var(--line-2);margin:6px 4px;flex:none}
 .dd-list .man{color:var(--accent)}
 .cal{position:fixed;z-index:80;width:300px;padding:14px;border-radius:18px;background:#1a1a1a;border:1px solid var(--line-2);box-shadow:0 18px 50px rgba(0,0,0,.6)}
@@ -1209,6 +1233,10 @@ body[data-screen="op"] .app-main{min-height:100vh}
 .sp-row.sp-head{min-height:0;padding:9px 12px;color:var(--muted);font-size:12px;background:var(--surface-2)}
 .sp-people .sp-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) 140px 120px 36px}
 .sp-series .sp-row{grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1fr)}
+.sp-operators .sp-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 96px 36px}
+.sp-operators .sp-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 132px 36px}
+.sp-operators .sp-row > .sp-err{grid-column:1 / -1;margin-top:-4px}
+.sp-after{margin:10px 0 0}
 .sp-row .input{height:38px}
 .sp-row .hf-sel select{height:36px}
 .sp-mail{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
@@ -1232,4 +1260,5 @@ body[data-screen="op"] .app-main{min-height:100vh}
   .sp-people .sp-row,.sp-people .sp-add{grid-template-columns:1fr 1fr}
   .sp-people .sp-mail{grid-column:1 / -1}
   .sp-series .sp-row,.sp-series .sp-add{grid-template-columns:1fr}
+  .sp-operators .sp-row,.sp-operators .sp-add{grid-template-columns:1fr 1fr}
 }

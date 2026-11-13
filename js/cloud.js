@@ -102,6 +102,7 @@ function useSpace(sp){
   PREACHERS.length = 0;   // список авторов — из людей этого пространства (этап 10), придёт слушателем
   loadSlidesCache(sp.id);   // настройки слайдов этого пространства — последняя копия, пока не пришли из облака
   loadSeriesCache(sp.id);   // и серии проповедей (space.js)
+  loadOperatorsCache(sp.id);   // и операторы (этап 10.1, space.js)
 }
 /* Переключатель пространств в шапке главной. Правку (если была) сохраняем и отпускаем, потом — на главную нового пространства */
 function switchSpace(id, keepRoute){
@@ -135,11 +136,12 @@ function startListen(){
   // люди пространства и серии проповедей (этап 10, space.js): список авторов, таблицы в окне «Пространство», фон по серии
   if (cloud.api.watchMembers) cloud.peopleUnsub = cloud.api.watchMembers(cloud.space, list => setPeople(list), () => {});
   if (cloud.api.watchSeries) cloud.seriesUnsub = cloud.api.watchSeries(cloud.space, m => setSeriesData(m), () => {});
+  if (cloud.api.watchOperators) cloud.operatorsUnsub = cloud.api.watchOperators(cloud.space, m => setOperatorsData(m), () => {});   // операторы (этап 10.1)
 }
 function stopListen(){
   if (cloud.unsub){ try { cloud.unsub(); } catch(e){} cloud.unsub = null; }
   if (cloud.slidesUnsub){ try { cloud.slidesUnsub(); } catch(e){} cloud.slidesUnsub = null; }
-  ['peopleUnsub', 'seriesUnsub'].forEach(k => { if (cloud[k]){ try { cloud[k](); } catch(e){} cloud[k] = null; } });
+  ['peopleUnsub', 'seriesUnsub', 'operatorsUnsub'].forEach(k => { if (cloud[k]){ try { cloud[k](); } catch(e){} cloud[k] = null; } });
 }
 
 async function cloudSignIn(){
