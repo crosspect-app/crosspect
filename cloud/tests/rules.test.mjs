@@ -190,9 +190,26 @@ describe('пространство', () => {
     await assertFails(upd({ owner: 'x' }));
     await assertFails(updateDoc(doc(db, 'spaces', 'sw'), { name: 'Без отметки времени' }));
   });
-  test('создать и удалить пространство из браузера нельзя', async () => {
-    await assertFails(setDoc(doc(as('admin'), 'spaces', 'new'), { name: 'Новая', settings: {} }));
+  test('новое пространство заводит только админ, со временем сервера (этап 10); удалить из браузера нельзя', async () => {
+    const make = (who, extra = {}) => setDoc(doc(as(who), 'spaces', 'new'), {
+      name: 'Новая', settings: { lockMinutes: 10 },
+      createdAt: serverTimestamp(), createdBy: PEOPLE[who], updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra,
+    });
+    await assertFails(setDoc(doc(as('admin'), 'spaces', 'new'), { name: 'Новая', settings: {} }));   // без отметок
+    await assertFails(make('ed'));
+    await assertFails(make('ivan'));
+    await assertFails(make('stranger'));
+    await assertFails(make('admin', { createdBy: PEOPLE.ed }));
+    await assertFails(make('admin', { createdAt: minutesAgo(5) }));
+    await assertFails(make('admin', { name: '' }));
+    await assertFails(make('admin', { settings: { lockMinutes: 500 } }));
+    await assertFails(make('admin', { owner: 'x' }));
+    await assertSucceeds(make('admin'));
+    // заведённое пространство админ видит и правит как остальные; участников в нём пока нет
+    await assertSucceeds(getDoc(doc(as('admin'), 'spaces', 'new')));
+    await assertFails(getDoc(doc(as('ed'), 'spaces', 'new')));
     await assertFails(deleteDoc(doc(as('admin'), 'spaces', 'sw')));
+    await assertFails(deleteDoc(doc(as('admin'), 'spaces', 'new')));
   });
 });
 
@@ -248,6 +265,21 @@ describe('участники', () => {
     await assertSucceeds(updateDoc(me, { firstName: 'Новое' }));
     await assertFails(updateDoc(me, { role: 'editor' }));
     await assertFails(deleteDoc(me));
+  });
+  test('«входил» (seenAt, этап 10): ставит сам человек, время сервера; админ не подделывает', async () => {
+    const mine = doc(as('ivan'), 'spaces', 'sw', 'members', PEOPLE.ivan);
+    await assertFails(updateDoc(mine, { seenAt: minutesAgo(1) }));
+    await assertFails(updateDoc(doc(as('ivan'), 'spaces', 'sw', 'members', PEOPLE.petr), { seenAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(mine, { seenAt: serverTimestamp() }));
+    await assertFails(updateDoc(mine, { seenAt: serverTimestamp(), role: 'editor' }));
+    const adm = doc(as('admin'), 'spaces', 'sw', 'members', PEOPLE.ivan);
+    await assertFails(updateDoc(adm, { seenAt: serverTimestamp() }));
+    await assertFails(updateDoc(adm, { seenAt: deleteField() }));
+    await assertSucceeds(updateDoc(adm, { firstName: 'Иоанн' }));   // seenAt остаётся как было
+    // при добавлении «входил» не ставится
+    await assertFails(setDoc(doc(as('admin'), 'spaces', 'sw', 'members', 'new@example.com'), {
+      email: 'new@example.com', role: 'preacher', addedBy: PEOPLE.admin, addedAt: serverTimestamp(), seenAt: serverTimestamp(),
+    }));
   });
   test('каждый правит своё имя, но не роль', async () => {
     const db = as('ivan');
@@ -795,6 +827,39 @@ describe('настройки слайдов', () => {
   });
 });
 
+describe('серии проповедей (этап 10)', () => {
+  const ser = (db, s = 'sw') => doc(db, 'spaces', s, 'config', 'series');
+  const body = (who, extra = {}) => ({
+    series: { s1: { name: 'Нагорная проповедь', active: true, format: 'default' } },
+    updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra,
+  });
+  test('редактор и админ записывают, автор только читает', async () => {
+    await assertSucceeds(setDoc(ser(as('ed')), body('ed')));
+    await assertSucceeds(setDoc(ser(as('admin')), body('admin')));
+    await assertSucceeds(getDoc(ser(as('ivan'))));
+    await assertFails(setDoc(ser(as('ivan')), body('ivan')));
+    await assertFails(getDoc(ser(as('stranger'))));
+    await assertFails(setDoc(ser(as('ed'), 'other'), body('ed')));
+  });
+  test('только нужные поля, время сервера; удалить нельзя', async () => {
+    const db = as('ed');
+    await assertFails(setDoc(ser(db), body('ed', { series: 'текст' })));
+    await assertFails(setDoc(ser(db), body('ed', { slides: {} })));
+    await assertFails(setDoc(ser(db), body('ed', { updatedAt: minutesAgo(1) })));
+    await assertFails(setDoc(ser(db), { slides: {}, updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
+    await assertSucceeds(setDoc(ser(db), body('ed')));
+    await assertFails(deleteDoc(ser(db)));
+  });
+  test('автор ставит серию и свой формат фона в свою проповедь, но не в чужую', async () => {
+    const db = as('ivan');
+    await assertSucceeds(updateDoc(sermon(db, 'sw', 'ivan1'), edit('ivan', { 'meta.series': 's1', 'meta.format': 'f1' })));
+    await assertSucceeds(setDoc(sermon(db, 'sw', 'n1'), newSermon('ivan', { meta: { title: 'Новая', series: 's1' } })));
+    await assertFails(updateDoc(sermon(db, 'sw', 'petr1'), edit('ivan', { 'meta.series': 's1' })));
+    await assertFails(updateDoc(sermon(db, 'sw', 'ivan1'), edit('ivan', { 'meta.series': 5 })));
+    await assertFails(updateDoc(sermon(db, 'sw', 'ivan1'), edit('ivan', { 'meta.format': 'x'.repeat(65) })));
+  });
+});
+
 describe('настройки экрана человека (этап 7.2)', () => {
   const prefs = (db, email, id = 'screen') => doc(db, 'people', email, 'prefs', id);
   const body = (extra = {}) => ({ layout: { order: ['film', 'stage', 'side'], film: 214, side: 400 }, updatedAt: serverTimestamp(), ...extra });
@@ -954,6 +1019,22 @@ describe('сводки для списка (этап 8)', () => {
     await assertFails(tryWith({ refs: 'x'.repeat(2001) }));
     await assertFails(tryWith({ extra: 1 }));
     await assertSucceeds(tryWith({}));
+  });
+  test('серия в сводке (этап 10) — как в проповеди', async () => {
+    const db = as('ivan'), base = sermonData(PEOPLE.ivan);
+    const tryWith = (series, sumExtra) => {
+      const b = writeBatch(db);
+      b.update(sermon(db, 'sw', 'ivan1'), edit('ivan', series === undefined ? {} : { 'meta.series': series }));
+      b.set(sum('sw', 'ivan1')(db), { ...edited('ivan', base), ...sumExtra });
+      return b.commit();
+    };
+    await assertFails(tryWith('s1', {}));
+    await assertFails(tryWith('s1', { series: 's2' }));
+    await assertFails(tryWith(undefined, { series: 's1' }));
+    await assertSucceeds(tryWith('s1', { series: 's1' }));
+    await assertSucceeds(tryWith(undefined, { series: 's1' }));   // серия уже стоит в проповеди с прошлой записи
+    await assertSucceeds(tryWith('', { series: '' }));
+    await assertSucceeds(tryWith('', {}));
   });
   test('сигнал замка обновляет замок и в сводке', async () => {
     await setLock('sw', 'ivan1', 'ivan', 1);
