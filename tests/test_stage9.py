@@ -60,18 +60,20 @@ def db(page):
     return page.evaluate("fakeCloud.db()")
 
 
-def test_create_link_copies_and_second_press_gives_same_link(browser, base_url):
+def test_create_link_does_not_copy_itself_and_second_press_gives_same_link(browser, base_url):
     ctx, page = make(browser, base_url)
     page.evaluate("id => navigate(sermonHash(id))", "r1")
     page.wait_for_function("state && state.id === 'r1' && screen === 'sermon' && ed.id === 'r1' && !ed.busy")
     to_text_view(page)
+    page.evaluate("navigator.clipboard.writeText('до окна')")
     url = press_link(page)
     d = db(page)
     key = d["sermons"]["r1"]["shareKey"]
     assert url == base_url + "/index.html#op=" + key and 20 <= len(key) <= 64
     sh = d["shares"][key]
     assert sh["sermonId"] == "r1" and sh["createdBy"] == "admin@x.pl" and sh["spaceId"] == "sp1"
-    assert page.evaluate("navigator.clipboard.readText()") == url   # ссылка уже в буфере
+    assert page.evaluate("navigator.clipboard.readText()") == "до окна"   # этап 9.3: окно ничего не копирует само
+    assert page.locator(".toast", has_text="копирована").count() == 0
     # повторное нажатие — та же ссылка, новой не появляется
     page.locator(".oplink .icon-btn[aria-label='Закрыть']").click()
     assert press_link(page) == url

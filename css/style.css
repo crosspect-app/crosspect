@@ -561,7 +561,9 @@ a.srow:hover{background:#1b1b1b}
 .sl-tr.on{display:block}
 /* Тезис и цитата: текст в своей области, область задана отступами в кадре */
 .sl-box{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);bottom:var(--sl-b);display:flex;flex-direction:column;justify-content:center}
-.sl-box-quote{bottom:calc(var(--sl-b) + 150px)}   /* снизу место под автора */
+.sl-box-quote{top:calc(var(--sl-t) + 150px);bottom:calc(var(--sl-b) + 150px)}   /* место под автора резервируется и снизу, и сверху (этап 9.3): текст стоит ровно по центру слайда, подпись не двигается */
+.sl-box-quote[data-half=left]{right:calc(50% + var(--qt-gap,48px))}   /* «Текст на половине слайда»: вторая половина пустая (под фото автора), зазор от центра */
+.sl-box-quote[data-half=right]{left:calc(50% + var(--qt-gap,48px))}
 .sl-box-thesis{--track:var(--th-track,-0.04em);--lead:var(--th-lead,1.05)}
 .sl-box-quote{--track:var(--qt-track,-0.04em);--lead:var(--qt-lead,1.05)}
 .sl-inner{font-weight:325;letter-spacing:var(--track);line-height:var(--lead);text-align:center;overflow-wrap:normal}
@@ -585,6 +587,8 @@ a.srow:hover{background:#1b1b1b}
   background:repeating-linear-gradient(135deg, rgba(255,222,89,.13) 0 14px, transparent 14px 30px);display:grid;place-items:center;
   color:#ffde59;font-size:46px;font-weight:500;letter-spacing:-.02em}
 .sl-author{position:absolute;right:var(--sl-x);bottom:var(--sl-b);max-width:1500px;text-align:right;font-size:52px;line-height:1.05;font-weight:325;text-transform:uppercase;letter-spacing:-0.03em}
+.sl-author[data-half=left],.sl-author[data-half=right]{max-width:calc(50% - var(--sl-x) - var(--qt-gap,48px))}   /* подпись не шире половины слайда */
+.sl-author[data-half=left]{right:auto;left:var(--sl-x);text-align:left}   /* текст слева — подпись зеркально внизу слева */
 .sl-author b{font-weight:700}
 .sl-author .src{display:block;margin-top:.45em;font-size:.62em;text-transform:none;opacity:.75}
 /* Писание: заглавными (по умолчанию), «каждый стих с новой строки» — номера колонкой слева */
@@ -994,6 +998,11 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 .tv-card2 .btn.wide + .btn.wide{margin-top:8px}
 .oplink .oplink-url{width:100%;margin:12px 0 4px;text-overflow:ellipsis}
 .oplink .sheet-foot{margin-top:14px;gap:8px}
+/* «Скачать слайды» (этап 9.3): две большие кнопки с пояснением */
+.dl-opts{display:grid;gap:10px}
+.dl-opt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;height:auto;padding:14px 16px;text-align:left;white-space:normal}
+.dl-opt-title{display:flex;align-items:center;gap:8px;font-weight:600}
+.dl-opt-text{font-size:13px;font-weight:400;line-height:1.35;opacity:.72}
 /* страница оператора: тёмная, под телефон; шапки формы нет */
 body[data-screen="op"] .topbar{display:none}
 body[data-screen="op"] .app-main{min-height:100vh}

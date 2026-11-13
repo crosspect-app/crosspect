@@ -90,8 +90,7 @@ async function openOpLink(){
     const r = await cloud.api.shareOn(cloud.space, id, cloud.user, had || opNewKey(), snap, { minutes:lockMins() });
     opSent[r.key] = JSON.stringify(snap);
     if (state && state.id === id){ state.cloudShare = r.key; if (ed.id === id) ed.remote = r.remote; }
-    opLinkSheet(r.key);
-    opCopy(opUrl(r.key), true);
+    opLinkSheet(r.key);   // этап 9.3: сама ссылка не копируется, человек выбирает кнопку
   } catch(e){
     closeSettings();
     if (e.code === 'locked') toast('Сейчас конспект правит ' + lockWho(e.lock) + '. Ссылку можно сделать, когда он закончит');

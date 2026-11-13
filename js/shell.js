@@ -21,7 +21,7 @@ function fillMenu(){
   if (cloudOn() && screen === 'sermon' && authorWaits()) menuEl.append(menuItem('dup', 'Сделать копию', () => saveAsCopy()));   // конспект у редактора: копия — новый черновик автора
   if (screen === 'sermon') menuEl.append(
     h('div', { class:'menu-sep' }),
-    menuItem('zip', 'Скачать все слайды', () => exportMany()),
+    menuItem('zip', 'Скачать слайды', () => openDownload()),   // этап 9.3: выбор — JPEG в архиве или PowerPoint
     menuItem('phone', 'PDF для оператора', () => operatorPDF()));
   if (screen === 'sermon' && canEditCloud()) menuEl.append(menuItem('link', 'Ссылка для оператора', () => openOpLink()));   // этап 9: тому, кто может править конспект
   const resetItem = screen === 'sermon' && wideScreen();   // «Сбросить настройки экрана» — ширина и порядок панелей; стоит сразу под «Настройки слайдов»

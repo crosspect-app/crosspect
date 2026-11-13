@@ -284,6 +284,8 @@ function layoutBox(sl, b, px){
   const box = sl.querySelector('.sl-box'), inner = sl.querySelector('.sl-inner');
   const au = sl.querySelector('.sl-author');
   if (au) au.innerHTML = authorHTML(b);
+  const half = b.type === 'quote' && (b.half === 'left' || b.half === 'right') ? b.half : 'full';   // этап 9.3: текст цитаты на половине слайда
+  box.dataset.half = half; if (au) au.dataset.half = half;
   inner.style.fontSize = px + 'px';
   const align = b.type === 'thesis' ? (b.align || 'center') : 'center';
   inner.style.textAlign = align; inner.dataset.align = align;

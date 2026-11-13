@@ -642,6 +642,8 @@ const BODY = {
     body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Цитата' }), scaleStepper(b)),
       rich(b.text, { key:b.id + ':t', ph:'Текст цитаты, без кавычек. Enter — новая строка', onInput:v => { b.text = v; change(); updateCounter(b); } })));
     body.append(capsSwitch(b));
+    body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Место текста' })),
+      toggle([['full', 'Во всю ширину'], ['left', 'Текст слева'], ['right', 'Текст справа']], b.half || 'full', v => { b.half = v; change(); rerender(b); })));
     body.append(h('div', { class:'grid-2' },
       field('Автор', input(b, 'author', 'Имя Фамилия', { oninput:e => { b.author = e.target.value; change(); updateCounter(b); } })),
       field('Подпись — мелко под автором', input(b, 'caption', 'Книга, год, откуда цитата', { oninput:e => { b.caption = e.target.value; change(); updateCounter(b); } }))));

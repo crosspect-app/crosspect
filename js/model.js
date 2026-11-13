@@ -52,7 +52,7 @@ function newBlock(type){
     case 'splash':     return Object.assign({ id, type }, slide);
     case 'scripture':  return Object.assign({ id, type, items:[newScripture()] }, slide);   // вид стихов — общий для всех слайдов (настройки слайдов, verses)
     case 'thesis':     return Object.assign({ id, type, name:'', nameAuto:true, text:'', valign:'center', scale:100, parts:[newThesisPart()] }, slide);
-    case 'quote':      return Object.assign({ id, type, text:'', author:'', caption:'', scale:100, caps:false }, slide);
+    case 'quote':      return Object.assign({ id, type, text:'', author:'', caption:'', scale:100, caps:false, half:'full' }, slide);   // half: «Во всю ширину» / текст слева / текст справа (этап 9.3)
     case 'image':      return Object.assign({ id, type, name:'', mode:'find', desc:'' }, slide);
     case 'video':      return Object.assign({ id, type, name:'', mode:'link', url:'', from:'', to:'', desc:'' }, slide);
     case 'free':       return Object.assign({ id, type, name:'', desc:'' }, slide);
@@ -170,6 +170,7 @@ function normalize(d){
       const a = String(b.author || '').trim();
       if (b.caption == null && a.includes(',')){ const i = a.indexOf(','); nb.author = a.slice(0, i).trim(); nb.caption = a.slice(i + 1).trim(); }
       else { nb.author = a; nb.caption = String(b.caption || '').trim(); }
+      nb.half = oneOf(b.half, ['full', 'left', 'right'], 'full');
     }
     if (NAMED[b.type]) nb.name = cleanName(nb.name);
     if (b.type === 'thesis'){ if (nb.nameAuto == null) nb.nameAuto = !nb.name; if (nb.nameAuto) nb.name = autoName(nb.text); }
