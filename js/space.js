@@ -174,7 +174,7 @@ function addPersonRow(){
     btn.disabled = true;
     try {
       await cloud.api.addMember(cloud.space, cloud.user, { email, role:r.value, firstName:normName(f.value), lastName:normName(l.value) });
-      toast('Добавлен: ' + (preacherName({ firstName:f.value, lastName:l.value }) || email));
+      toast('Добавили: ' + (preacherName({ firstName:f.value, lastName:l.value }) || email));
       renderSpaceSheet(true);
     } catch(e){ err.textContent = e && e.code === 'exists' ? 'Этот человек уже есть' : cloudExplain(e) || 'Не получилось добавить'; btn.disabled = false; }
   };
@@ -184,8 +184,8 @@ function addPersonRow(){
 }
 async function removePerson(p){
   const who = preacherName(p) || p.email;
-  if (!confirm('Убрать ' + who + ' из пространства? Войти сюда он больше не сможет. Его конспекты останутся.')) return;
-  try { await cloud.api.removeMember(cloud.space, p.email); toast('Убран: ' + who); }
+  if (!confirm('Убрать из пространства: ' + who + '? Войти сюда этот человек больше не сможет, а его конспекты останутся.')) return;
+  try { await cloud.api.removeMember(cloud.space, p.email); toast('Убрали из пространства: ' + who); }
   catch(e){ spaceErr(e, 'Не получилось убрать.'); }
 }
 
