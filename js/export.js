@@ -114,8 +114,10 @@ async function exportOne(b){
 }
 async function exportMany(){
   if (exporting) return;
-  const list = state.blocks.filter(b => PREVIEW[b.type] && b.type !== 'splash');   // заставки в архив JPEG не входят (этап 9.5): их делают по-своему; один JPEG заставки — кнопка «JPEG» над сценой
-  if (!list.length){ toast('В конспекте нет слайдов для архива: заставки, картинки, видео и свободные слайды в него не входят'); return; }
+  // в архив идёт одна заставка — первая (у всех заставок один номер в Holyrics, этап 9.6); своя заставка не входит совсем
+  const first = state.blocks.find(b => b.type === 'splash');
+  const list = state.blocks.filter(b => PREVIEW[b.type] && (b.type !== 'splash' || (b === first && !isCustomSplash(b))));
+  if (!list.length){ toast('В конспекте нет слайдов для архива: картинки, видео, свободные слайды и своя заставка в него не входят'); return; }
   if (!checkNames()) return;
   if (list.length === 1){ exportOne(list[0]); return; }
   exporting = true; motionPause();
@@ -130,8 +132,8 @@ async function exportMany(){
     }
     download(makeZip(files), folder + '.zip');
     pr.end();
-    const rest = state.blocks.filter(b => b.type === 'image' || b.type === 'video' || b.type === 'free').length;
-    toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Заставки, картинки, видео и свободные слайды делаются вручную' : ''));
+    const rest = state.blocks.some(b => b.type === 'image' || b.type === 'video' || b.type === 'free' || isCustomSplash(b));
+    toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео, свободные слайды и своя заставка делаются вручную' : ''));
   } catch(e){ pr.fail(); toast('Не получилось собрать слайды: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
   finally { exporting = false; motionResume(); }
 }

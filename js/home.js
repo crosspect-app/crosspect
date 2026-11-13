@@ -207,9 +207,9 @@ function removeBtn(d, cls){
 }
 /* Строка таблицы; на узком экране — компактная карточка (CSS) */
 function sermonRow(d){
-  const st = sermonStatus(d);
+  const st = sermonStatus(d), past = !!d.meta.date && d.meta.date < isoToday();   // прошедшие приглушены (этап 9.6)
   return h('div', { class:'card-wrap', role:'row' },
-    h('a', { class:'scard srow st-' + st.key, href:sermonHash(d.id) }, HOME_COLS.map(c => { const el = c.cell(d); el.classList.add(c.cls); el.setAttribute('role', 'cell'); return el; })),
+    h('a', { class:'scard srow st-' + st.key + (past ? ' past' : ''), href:sermonHash(d.id) }, HOME_COLS.map(c => { const el = c.cell(d); el.classList.add(c.cls); el.setAttribute('role', 'cell'); return el; })),
     removeBtn(d, 'card-del'));
 }
 

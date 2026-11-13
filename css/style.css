@@ -274,6 +274,8 @@ button.film-todo.on{text-decoration:none;border-bottom:1px solid var(--todo)}
 .ptable .card-wrap:last-child .srow{border-bottom:0}
 .srow.shead{color:var(--muted);font-size:12px;padding:10px 16px;background:rgba(14,14,14,.92)}
 a.srow:hover{background:#1b1b1b}
+.srow.past{opacity:.55}
+a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
 .srow .pt{font-weight:600;min-width:0}
 .srow .scard-title.empty{color:var(--muted);font-weight:500}
 .srow .muted{color:#b9ae9f}
@@ -328,15 +330,20 @@ a.srow:hover{background:#1b1b1b}
 .st-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st.done .st.over .st-cap::after{content:"!";color:var(--warn);font-weight:700}
 .st.missing .st-thumb{outline:2px solid var(--danger);outline-offset:-2px}
+/* Проблемный слайд (этап 9.6): жёлтый треугольник слева вверху; оранжевый «доработать» — справа вверху, значки «Дублировать» и «Удалить» — справа внизу */
+.pb{position:absolute;top:6px;left:6px;z-index:2;width:22px;height:19px;background:var(--warn);color:#141414;clip-path:polygon(50% 0,100% 100%,0 100%);
+  font:800 11px/1 'Inter',sans-serif;text-align:center;padding-top:8px;box-sizing:border-box;cursor:help}
 .st.flash{animation:flash 1.1s ease}
 @keyframes flash{0%{box-shadow:0 0 0 0 rgba(255,222,89,0)}25%{box-shadow:0 0 0 4px rgba(255,222,89,.4)}100%{box-shadow:0 0 0 0 rgba(255,222,89,0)}}
 .fl{display:none;position:absolute;top:6px;right:6px;z-index:2;font:700 9px/1 'Inter',sans-serif;text-transform:uppercase;letter-spacing:.04em;background:var(--todo);color:#141414;padding:4px 6px;border-radius:5px}
 .st.todo .fl{display:block}
-/* Своя заставка (этап 9.5): значок в левом нижнем углу миниатюры, фиолетовый; оранжевый «доработать» — справа вверху (на узкой миниатюре они бы налезли друг на друга) */
-.own{display:none;position:absolute;bottom:6px;left:6px;z-index:2;font:700 9px/1 'Inter',sans-serif;text-transform:uppercase;letter-spacing:.04em;background:var(--own);color:#141414;padding:4px 6px;border-radius:5px}
-.st.custom .own{display:block}
-body.light .own{color:#fff}
+/* Своя заставка (этап 9.6): на сцене и миниатюрах — чёрный экран с крупной жирной надписью (текст и размер ставит layoutSplash) */
+.sl.sl-custom .sl-frame,.sl.sl-custom .sl-panel{display:none}
+.sl.sl-custom .sl-stage{background:#000;box-shadow:none}
+.sl.sl-custom .sl-sp-box{top:0;bottom:0;left:var(--sl-x);right:var(--sl-x)}
+.sl.sl-custom .sl-sp-title{font-weight:800;color:#fff;letter-spacing:-0.02em;text-transform:none}
 .own-splash{display:grid;gap:6px}
+.hint[hidden]{display:none}
 .half-w{display:grid;gap:6px}
 .half-w input[type=range]{width:100%;margin:0;accent-color:var(--accent)}
 .half-w-val{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -1078,3 +1085,13 @@ body[data-screen="op"] .app-main{min-height:100vh}
   .trash-row{flex-direction:column;align-items:stretch}
   .trash-acts{justify-content:flex-end;flex-wrap:wrap}
 }
+
+/* Найти и заменить в конспекте (этап 9.6) */
+.findbar{position:fixed;top:64px;right:16px;z-index:40;width:380px;max-width:calc(100vw - 24px);display:grid;gap:8px;padding:10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.fb-row{display:flex;gap:6px;align-items:center}
+.fb-row .input{flex:1;min-width:0}
+.fb-count{font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.fb-count.none{color:var(--danger)}
+.fb-cs.on{background:var(--warn-bg);color:var(--warn)}
+.findbar.ro .fb-rep{display:none}
+::highlight(fr-cur){background-color:#ffde59;color:#141414}

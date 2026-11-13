@@ -85,7 +85,7 @@ function thumbBody(b, n){
    Настройки слайдов сюда не входят: их смену разносит refreshSlides (settings.js) */
 function thumbFp(b){
   const c = Object.assign({}, b); delete c.todo; delete c.done; delete c.collapsed; delete c.speech; delete c.custom;
-  if (b.type === 'splash'){ const m = state.meta; c.m = [m.title, m.firstName, m.lastName, m.date, state.settings && state.settings.splash, splashFootOn(b)]; }
+  if (b.type === 'splash'){ const m = state.meta; c.m = [m.title, m.firstName, m.lastName, m.date, state.settings && state.settings.splash, splashFootOn(b), isCustomSplash(b)]; }
   return JSON.stringify(c);
 }
 function filmActs(id){
@@ -97,7 +97,7 @@ function filmItem(b, n){
   const btn = h('button', { type:'button', 'data-id':id, style:'--tc:var(--c-' + b.type + ')', onclick:() => { if (!dragClick) selectBlock(id); },
     onkeydown:e => { if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && canArrange()){ e.preventDefault(); const x = blockById(id); if (x) move(x, e.key === 'ArrowUp' ? -1 : 1); } },   // Alt+↑/↓ — переставить с клавиатуры
     class:'st t-' + b.type },
-    h('div', { class:'st-thumb' }, thumbBody(b, n), h('span', { class:'fl', text:'доработать' }), h('span', { class:'own', title:'Своя заставка: в PowerPoint будет чёрным слайдом', text:'своя' })),
+    h('div', { class:'st-thumb' }, thumbBody(b, n), h('span', { class:'fl', text:'доработать' })),
     h('div', { class:'st-cap' },
       TYPES[b.type].slide ? h('span', { class:'st-n' }) : h('span', { class:'st-n' }, ic('note')),
       h('span', { class:'st-name' })));
@@ -107,17 +107,47 @@ function filmItem(b, n){
   updateItem(box, b, n);
   return box;
 }
+/* Проблемные слайды (этап 9.6): жёлтый треугольник на миниатюре со статуса «Готов к вёрстке» и дальше, в «Черновике» — нет.
+   Видят все роли; щелчок выбирает слайд (значок лежит внутри кнопки миниатюры). Подсказка при наведении — одна короткая фраза */
+const SQUEEZE = {};   // id слайда → «текст сжат до N %» (ставит runPreview, когда Писание сжалось ниже допустимого или тезис/цитата упёрлись в минимальный размер); 0 — нет
+const problemsOn = () => !!state && statusKey(state.cloudStatus) !== 'draft';
+function slideProblem(b){
+  const T = TYPES[b.type]; if (!T || !T.slide || b.type === 'splash') return '';
+  if (NAMED[b.type] && !cleanName(b.name)) return 'Нет названия слайда';
+  if (b.type === 'scripture'){
+    const its = b.items || [], sc = its.filter(it => it.kind === 'scripture');
+    if (!sc.length){ if (!its.some(it => it.kind === 'text' && plain(it.html).trim())) return 'Не указано место Писания'; }
+    else if (sc.some(it => !String(refString(it)).trim())) return 'Не указано место Писания';
+    else if (sc.some(it => !(it.verses || []).some(v => plain(v.text).trim()))) return 'Нет текста стихов';
+  } else if (b.type === 'thesis' || b.type === 'quote'){
+    if (!plain(b.text).trim()) return 'Слайд пустой';
+    const c = charCount(b), lim = limitFor(b);
+    if (lim && c > lim) return 'Много текста: ' + c + ' из ' + lim + ' символов';
+  }
+  const sq = SQUEEZE[b.id];
+  if (sq) return 'Текст сжат до ' + sq + '%: лучше разбить на два слайда';
+  return '';
+}
+function paintProblem(box, b){
+  const btn = box.firstElementChild; if (!btn) return;
+  const msg = problemsOn() ? slideProblem(b) : '';
+  let m = btn.querySelector('.pb');
+  if (!msg){ if (m) m.remove(); btn.classList.remove('prob'); return; }
+  if (!m){ m = h('span', { class:'pb', text:'!' }); btn.querySelector('.st-thumb').append(m); }
+  if (m.title !== msg) m.title = msg;
+  btn.classList.add('prob');
+}
 /* Подпись, номер, отметки и значки миниатюры — без пересборки */
 function updateItem(box, b, n){
   const btn = box.firstElementChild;
   btn.classList.toggle('on', b.id === selId);
   btn.classList.toggle('todo', todoOn(b));
-  btn.classList.toggle('custom', isCustomSplash(b));
   btn.classList.toggle('missing', isMissing(b));
   const num = btn.querySelector('.st-n'); if (TYPES[b.type].slide && num.textContent !== String(n)) num.textContent = String(n);
   const nm = btn.querySelector('.st-name'), name = thumbName(b, n); if (nm.textContent !== name) nm.textContent = name;
   const ph = btn.querySelector('.ph-thumb span'); if (ph) ph.textContent = mediaInfo(b, n).short;
   const mn = btn.querySelector('.mini-note'); if (mn) mn.textContent = (b.text || '').trim() || 'Заметка оператору';
+  paintProblem(box, b);
   const acts = box.querySelector('.st-acts');
   if (readOnly()){ if (acts) acts.remove(); }
   else if (!acts) box.append(filmActs(b.id));
@@ -367,7 +397,7 @@ function stageBar(b, n){
     h('span', { class:'cap strong', text:(T.slide ? n + ' · ' : '') + T.label }),
     h('div', { class:'grow' }),
     T.slide && h('button', { type:'button', class:'btn', title:'Скопировать название слайда для Holyrics', onclick:() => copyText(slideName(b, n), 'Скопировано: ') }, ic('tag'), 'Название'),
-    (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn', title:BLANK_JPEG[b.type] ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
+    (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn', disabled:isCustomSplash(b), title:isCustomSplash(b) ? 'У своей заставки JPEG не собирается: заставку вы делаете сами' : BLANK_JPEG[b.type] ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
     T.slide && canFlag() && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo),
       title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную.' + (cloudOn() ? ' Авторы эту отметку не видят.' : ''), onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
     h('div', { class:'stepper' },

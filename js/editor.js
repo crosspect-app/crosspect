@@ -28,6 +28,7 @@ function setSermonStatus(key){
   onEdit();
   MOTION.ui.flare = key === 'submitted';   // «Готов к вёрстке»: клин знака один раз вспыхивает — только когда человек сам переключил (7.6)
   renderTopbar();
+  if (typeof inSlides === 'function' && inSlides() && filmEl) syncFilm();   // этап 9.6: значки проблем на миниатюрах видны со статуса «Готов к вёрстке»
 }
 const STATUS_TIPS = {
   draft:'Конспект ещё пишется',

@@ -19,6 +19,7 @@ function fillMenu(){
     return;
   }
   if (cloudOn() && screen === 'sermon' && authorWaits()) menuEl.append(menuItem('dup', 'Сделать копию', () => saveAsCopy()));   // конспект у редактора: копия — новый черновик автора
+  if (screen === 'sermon' && view === 'slides' && state && state.blocks.length) menuEl.append(h('div', { class:'menu-sep' }), menuItem('search', 'Найти и заменить', () => findOpen()));   // этап 9.6; то же — Ctrl+F
   if (screen === 'sermon') menuEl.append(
     h('div', { class:'menu-sep' }),
     menuItem('zip', 'Скачать слайды', () => openDownload()),   // этап 9.3: выбор — JPEG в архиве или PowerPoint

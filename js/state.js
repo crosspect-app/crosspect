@@ -31,9 +31,14 @@ function change(){
 }
 const isDirty = () => state.updatedAt > (state.savedAt || 0) && (state.blocks.length > 0 || !!state.meta.title);
 
+/* Номера слайдов — как в Holyrics (этап 9.6): все заставки получают номер первой заставки, остальные слайды идут дальше без пропусков:
+   [1] Заставка, [2] Писание, [3] Тезис, [1] Заставка, [4] Цитата. _total — число разных номеров (столько файлов в Holyrics) */
 function slideNums(){
-  const m = {}; let n = 0;
-  state.blocks.forEach(b => { if (TYPES[b.type].slide) m[b.id] = ++n; });
+  const m = {}; let n = 0, sp = 0;
+  state.blocks.forEach(b => {
+    if (!TYPES[b.type].slide) return;
+    if (b.type === 'splash'){ if (!sp) sp = ++n; m[b.id] = sp; } else m[b.id] = ++n;
+  });
   m._total = n;
   return m;
 }

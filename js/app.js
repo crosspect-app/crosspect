@@ -185,7 +185,6 @@ function renderMain(){
 }
 
 function setView(v){
-  if (v === 'text' && !checkNames()) return;
   navigate(sermonHash(state.id, v));
 }
 

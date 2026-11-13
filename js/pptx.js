@@ -138,6 +138,7 @@ async function exportPPTX(){
   if (exporting) return;
   const list = state.blocks.filter(b => TYPES[b.type].slide);
   if (!list.length){ toast('В конспекте пока нет слайдов'); return; }
+  if (!checkNames()) return;   // этап 9.6: названия нужны для файлов Holyrics — как для JPEG и PDF
   exporting = true; motionPause();
   const pr = exportProgress('Собираю PowerPoint', list.length);
   try {
@@ -168,7 +169,7 @@ function openDownload(){
   settingsOverlay.append(h('div', { class:'sheet dlsheet', role:'dialog', 'aria-label':'Скачать слайды' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Скачать слайды' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('div', { class:'dl-opts' },
-      opt('zip', 'JPEG в архиве', 'Слайды, которые собирает форма, по одному файлу. Картинки, видео и свободные слайды не входят.', () => exportMany()),
-      opt('frame', 'PowerPoint', 'Один файл .pptx со всеми слайдами по порядку. На местах картинок, видео и свободных слайдов стоят чёрные слайды, задание к ним — в заметках.', () => exportPPTX()))));
+      opt('zip', 'JPEG в архиве', 'Слайды, которые собирает форма, по одному файлу; заставка — одна, первая. Картинки, видео, свободные слайды и своя заставка не входят.', () => exportMany()),
+      opt('frame', 'PowerPoint', 'Один файл .pptx со всеми слайдами по порядку. Заставки — обычными слайдами. На местах картинок, видео, свободных слайдов и своей заставки стоят чёрные слайды, задание к ним — в заметках.', () => exportPPTX()))));
   settingsOverlay.classList.add('open');
 }

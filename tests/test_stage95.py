@@ -33,25 +33,26 @@ def test_custom_splash_defaults_and_normalize(page):
 
 
 def test_custom_splash_switch_applies_to_every_splash(page, sermon):
+    """Этап 9.6: свою заставку видно чёрным экраном с надписью (значка «своя» больше нет), пояснение — только когда включена"""
     open_sermon(page, sermon)
     page.evaluate("state.blocks.splice(3, 0, newBlock('splash')); renderMain(); selectBlock(state.blocks.find(b => b.type === 'splash').id)")
     sw = page.locator(".side .own-splash .switch")
     sw.wait_for()
     assert "Своя заставка" in sw.inner_text()
-    assert page.locator(".st.t-splash .own:visible").count() == 0
+    assert not page.locator(".side .own-splash .hint").is_visible()   # выключена — пояснения нет
     sw.click()
     assert page.evaluate("state.settings.customSplash") is True
-    page.wait_for_function("document.querySelectorAll('.st.t-splash.custom').length === 2")   # на всех заставках сразу
-    assert page.locator(".st.t-splash").first.locator(".own").get_attribute("title") == "Своя заставка: в PowerPoint будет чёрным слайдом"
+    assert page.locator(".side .own-splash .hint").is_visible()
+    page.wait_for_function("document.querySelectorAll('.film .sl.sl-custom').length === 2")   # на всех заставках сразу
+    assert page.locator(".st .own").count() == 0   # значка «своя» нет
+    assert page.locator(".stage .sl-custom .sl-sp-title").inner_text() == "Добавить свою заставку"
     page.evaluate("state.blocks.push(newBlock('splash')); renderMain()")
     assert page.evaluate("state.blocks.filter(isCustomSplash).length") == 3   # и на новых
-    # значок не накладывается на «доработать»
-    page.evaluate("state.blocks.find(b => b.type === 'splash').todo = true; refreshThumb(state.blocks.find(b => b.type === 'splash'))")
-    th = page.locator(".st.t-splash").first
-    own, fl = th.locator(".own").bounding_box(), th.locator(".fl").bounding_box()
-    assert own["x"] < fl["x"] and own["y"] > fl["y"]
+    page.wait_for_function("document.querySelectorAll('.film .sl.sl-custom').length === 3")
     sw.click()
     assert not page.evaluate("state.settings.customSplash")
+    assert not page.locator(".side .own-splash .hint").is_visible()
+    page.wait_for_function("document.querySelectorAll('.sl.sl-custom').length === 0")
     assert page.errors == []
 
 
@@ -69,19 +70,25 @@ def test_custom_splash_is_black_in_pptx_with_note(page, sermon):
     assert page.errors == []
 
 
-def test_splashes_never_go_to_jpeg_archive(page, sermon):
+def test_only_first_splash_goes_to_jpeg_archive(page, sermon):
+    """Этап 9.6: у всех заставок один номер в Holyrics — в архив идёт первая; своя заставка не входит совсем"""
     open_sermon(page, sermon)
+    page.evaluate("state.blocks.unshift(newBlock('splash')); state.blocks.splice(4, 0, newBlock('splash'))")
     z = zipfile.ZipFile(download(page, "exportMany()").path())
     names = [n for n in z.namelist() if n.endswith(".jpg")]
-    assert names and not any("Заставка" in n for n in names), names
-    # JPEG одного слайда у заставки остаётся
+    assert len([n for n in names if "Заставка" in n]) == 1 and "[1] Заставка" in "".join(names), names
+    page.evaluate("state.settings.customSplash = true")
+    z = zipfile.ZipFile(download(page, "exportMany()").path())
+    assert not any("Заставка" in n for n in z.namelist()), z.namelist()
+    # JPEG одной обычной заставки остаётся
+    page.evaluate("delete state.settings.customSplash")
     d = download(page, "exportOne(state.blocks.find(b => b.type === 'splash'))")
     assert d.suggested_filename.endswith(".jpg") and "Заставка" in d.suggested_filename
 
 
 def test_archive_with_only_splash_says_nothing_to_collect(page):
     start_blank(page)
-    page.evaluate("addBlock('splash'); exportMany()")
+    page.evaluate("addBlock('splash'); state.settings.customSplash = true; exportMany()")   # обычная заставка в архив входит (этап 9.6), своя — нет
     page.wait_for_selector(".toast:has-text('нет слайдов для архива')")
 
 

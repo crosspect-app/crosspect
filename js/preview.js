@@ -16,19 +16,51 @@ function splashScale(b){
   return Math.min(R.max, Math.max(R.min, Math.round(v)));
 }
 const splashBase = b => splashMax() * splashScale(b) / 100;
+const CUSTOM_SPLASH_TEXT = 'Добавить свою заставку', CUSTOM_SPLASH_PX = 50;   // «своя заставка» на сцене и миниатюрах (этап 9.6)
 let lastScale = 0;   // масштаб последнего предпросмотра в редакторе   // trGap — запас между текстом и подписью перевода
 /* Размеры 100% в px — в настройках слайдов (kinds): Писание 52,8 (= 48 × 110%), тезис 50,4, цитата 51,48; имя автора цитаты — 52 */
 const basePx = t => slidesCfg().kinds[t].size;
 const scrPx = () => basePx('scripture');
 const NBSP = '\u00a0';
-const SHORT_RE = /(?<=^|[\s(«"„])([А-Яа-яЁёA-Za-zІіЇїЄєҐґ]{1,2}|[БбДдНнПпЧчКкИиОо](?:ез|ля|ад|од|ри|ро|то|ак|ли|бо|зо|ем)) (?=\S|$)/g;
-function typoText(s){
-  return String(s).replace(/[\t\r\n]+/g, ' ')
+/* Язык текста слайда (этап 9.6): у слайда Писания — по переводу его первого места, у остальных — по языку проповеди (последний выбранный перевод).
+   От него зависят проверка орфографии в полях (атрибут lang) и неразрывные пробелы после коротких слов на слайде */
+function textLang(b){
+  const g = l => (LANGS[l] && LANGS[l].group) || '';
+  if (b && b.type === 'scripture' && Array.isArray(b.items)){
+    const it = b.items.find(x => x && x.kind === 'scripture' && !x.manual && g(x.lang));
+    if (it) return g(it.lang);
+  }
+  return g(curLang()) || 'ru';
+}
+let typoLang = 'ru';   // язык слайда, который сейчас раскладывается (ставит fitSlide)
+/* Короткие слова, после которых пробел неразрывный: 1–2 буквы у всех языков (в польском — с диакритикой: że, są, aż), плюс свой список предлогов и союзов из трёх и более букв */
+const SHORT_LETTERS = 'А-Яа-яЁёІіЇїЄєҐґA-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż';
+const SHORT_MORE = {
+  ru:'[БбДдНнПпЧчКкИиОо](?:ез|ля|ад|од|ри|ро|то|ак|ли|бо|зо|ем)',
+  uk:'(?:[Бб]ез|[Дд]ля|[Нн]ад|[Пп]ід|[Пп]ри|[Пп]ро|[Мм]іж|[Вв]ід|[Аа]бо|[Аа]ле|[Щщ]об|[Хх]оч|[Тт]ож)',
+  pl:'(?:[Dd]la|[Nn]ad|[Pp]od|[Bb]ez|[Ll]ub|[Aa]le|[Aa]by|[Cc]zy|[Gg]dy)',
+  en:''
+};
+const PARTICLES = { ru:'же|ли|ль|бы|б|ж', uk:'же|би|б|ж|ли', pl:'', en:'' };
+const shortRes = {};
+function shortRe(lang){
+  if (!shortRes[lang]){
+    const more = SHORT_MORE[lang] != null ? SHORT_MORE[lang] : SHORT_MORE.ru, pt = PARTICLES[lang] != null ? PARTICLES[lang] : PARTICLES.ru;
+    shortRes[lang] = {
+      words:new RegExp('(?<=^|[\\s(«"„])([' + SHORT_LETTERS + ']{1,2}' + (more ? '|' + more : '') + ') (?=\\S|$)', 'g'),
+      particles:pt ? new RegExp(' (' + pt + ')(?=[\\s,.!?;:]|$)', 'gi') : null
+    };
+  }
+  return shortRes[lang];
+}
+function typoText(s, lang){
+  const re = shortRe(lang || typoLang);
+  let t = String(s).replace(/[\t\r\n]+/g, ' ')
     .replace(/ {2,}/g, m => NBSP.repeat(m.length - 1) + ' ')   // несколько пробелов подряд остаются на слайде
     .replace(/(\d)\s*[-–]\s*(\d)/g, '$1–$2')
     .replace(/ - /g, ' — ').replace(/ —/g, NBSP + '—')
-    .replace(SHORT_RE, '$1' + NBSP)
-    .replace(/ (же|ли|ль|бы|б|ж)(?=[\s,.!?;:]|$)/gi, NBSP + '$1');
+    .replace(re.words, '$1' + NBSP);
+  return re.particles ? t.replace(re.particles, NBSP + '$1') : t;
 }
 function typoDom(root){
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), ns = []; let n;
@@ -205,6 +237,14 @@ function splashNameHTML(m){
 function splashDate(s){ const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? m[3] + '/' + m[2] : ''; }
 function layoutSplash(sl, b, px){
   const m = b.meta || state.meta, box = sl.querySelector('.sl-sp-box'), t = sl.querySelector('.sl-sp-title'), foot = sl.querySelector('.sl-sp-foot');
+  // «Своя заставка» (этап 9.6): чёрный экран с крупной жирной надписью; рамки, фона и названия проповеди нет (в PowerPoint тут чёрный слайд)
+  const custom = !b.meta && isCustomSplash(b);
+  sl.classList.toggle('sl-custom', custom);
+  if (custom){
+    foot.style.display = 'none'; box.style.bottom = '0px';
+    t.classList.remove('sl-empty'); t.textContent = CUSTOM_SPLASH_TEXT; t.style.fontSize = CUSTOM_SPLASH_PX + 'px';
+    return true;
+  }
   sl.querySelector('.sl-sp-name').innerHTML = splashNameHTML(m);
   sl.querySelector('.sl-sp-date').textContent = splashDate(m.date);
   // «Только название» (настройка слайдов, этап 7.3): линии, имени и даты нет, название — посередине всей области текста
@@ -303,6 +343,7 @@ function layoutBox(sl, b, px){
 }
 function fitSlide(sl, b){
   const w = sl.clientWidth; if (!w) return null;
+  typoLang = textLang(b);   // этап 9.6: неразрывные пробелы — по языку этого слайда
   sl.style.setProperty('--s', w / SL.W);
   if (w < SL.W && !sl.closest('.film, .scfg, .hb-wall')) lastScale = w / SL.W;   // масштаб берём с крупных слайдов, не с миниатюр
   const fit = b.type === 'scripture' ? layoutAt : b.type === 'splash' ? layoutSplash : layoutBox;
@@ -332,7 +373,10 @@ function runPreview(b){
   if (ratio == null) return;
   const pct = Math.round(ratio * 100);
   let over, msg;
-  if (b.type === 'splash'){
+  if (isCustomSplash(b)){
+    over = false;
+    msg = 'своя заставка: в PowerPoint чёрный слайд, в архив JPEG не входит';
+  } else if (b.type === 'splash'){
     const px = Math.round(ratio * splashBase(b));
     over = px < splashMin3();
     msg = 'название ' + px + ' px' + (over ? ' — длинное, лучше короче' : '');
@@ -347,8 +391,11 @@ function runPreview(b){
     msg = c + ' / ' + lim + ' символов · текст ' + real + '%' + (pct < 100 ? ' (не поместился, уменьшен)' : '');
     if (over) msg += ' — многовато, лучше разбить';
   }
+  // этап 9.6: «текст сжат до предела» — для значка проблемы на миниатюре (slides.js, slideProblem)
+  const base = b.type === 'scripture' ? scrPx() : b.type === 'splash' ? 0 : basePx(b.type) * blkScale(b) / 100;
+  SQUEEZE[b.id] = b.type === 'scripture' ? (over ? pct : 0) : (base && ratio * base <= SL.min + 0.5 ? pct : 0);
   const th = filmEl && filmEl.isConnected ? filmEl.querySelector('.st[data-id="' + b.id + '"]') : null;
-  if (th) th.classList.toggle('over', over);
+  if (th){ th.classList.toggle('over', over); paintProblem(th.parentNode, b); }
   // этап 7.7: запомнить, по какому содержимому разложено, — syncSlides не будет раскладывать то же самое ещё раз
   const fp = thumbFp(b);
   if (th) th.parentNode._fp = fp;

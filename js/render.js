@@ -81,7 +81,9 @@ function toggle(opts, cur, fn){
 }
 
 function rich(value, o){
-  const el = h('div', { class:'rich ' + (o.cls || ''), contenteditable:'true', 'data-ph':o.ph || '', spellcheck:'true', role:'textbox' });
+  // этап 9.6: язык поля — по языку текста слайда (перевод у Писания, иначе язык проповеди): браузер не подчёркивает украинский и польский целиком
+  const own = o.key ? blockById(String(o.key).split(':')[0]) : null;
+  const el = h('div', { class:'rich ' + (o.cls || ''), contenteditable:'true', 'data-ph':o.ph || '', spellcheck:'true', lang:textLang(own), role:'textbox' });
   if (o.key) el.dataset.key = o.key;
   if (o.lists) el.dataset.lists = '1';
   el.innerHTML = sanitize(value);
@@ -495,7 +497,7 @@ function nameField(b, n){
     box.classList.toggle('missing', flagMissing && miss);
     refreshThumb(b);
   };
-  const inp = h('input', { class:'input', value:b.name || '', maxlength:String(cfg.maxLength), autocomplete:'off', spellcheck:'true',
+  const inp = h('input', { class:'input', value:b.name || '', maxlength:String(cfg.maxLength), autocomplete:'off', spellcheck:'true', lang:textLang(b),
     'aria-label':'Название слайда', placeholder:NAME_PH[b.type] || '',
     oninput:e => {
       const raw = e.target.value, clean = raw.replace(BAD_CHARS, '');
@@ -606,15 +608,19 @@ const BODY = {
   },
   splash(b, body, n){
     // этап 9.5: только настройки, все — общие на заставки проповеди. Название, дату и автора меняют в «О проповеди» (шапка)
-    const all = () => { refreshSplash(); state.blocks.forEach(x => { if (x.type === 'splash') refreshThumb(x); }); };
+    const all = () => {
+      refreshSplash(); state.blocks.forEach(x => { if (x.type === 'splash') refreshThumb(x); });
+      const bar = stageEl && stageEl.querySelector('.stage-bar'); if (bar) bar.replaceWith(stageBar(b, slideNums()[b.id]));   // кнопка «JPEG» у своей заставки неактивна
+    };
     const sw = (label, on, fn) => h('label', { class:'switch' },
       h('input', { type:'checkbox', checked:on, onchange:e => { fn(e.target.checked); change(); all(); } }), h('span', { class:'sw' }), label);
+    const hint = h('p', { class:'hint', hidden:!isCustomSplash(b), text:'В PowerPoint вместо заставки будет чёрный слайд, в архив JPEG заставка не попадёт.' });   // пояснение — только когда «Своя заставка» включена (этап 9.6)
     body.append(
       h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Размер названия' }), splashStepper()),
       sw('Нижняя строка', splashFootOn(b), v => { state.settings.splashFoot = v; }),
       h('div', { class:'own-splash' },
-        sw('Своя заставка', isCustomSplash(b), v => { if (v) state.settings.customSplash = true; else delete state.settings.customSplash; }),
-        h('p', { class:'hint', text:'В PowerPoint вместо заставки будет чёрный слайд, в архив JPEG заставки не попадут.' })));
+        sw('Своя заставка', isCustomSplash(b), v => { if (v) state.settings.customSplash = true; else delete state.settings.customSplash; hint.hidden = !v; }),
+        hint));
   },
   thesis(b, body, n){
     const parts = b.parts, cnt = parts.length;

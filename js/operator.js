@@ -20,12 +20,13 @@ const opUrl = key => location.href.split('#')[0] + '#op=' + key;
 /* Конспект → то, что видит оператор. Всё уже очищено (sanitize), как в PDF для оператора (print.js). s — конспект формы */
 function opSnapshot(s){
   const m = s.meta || {};
-  let n = 0;
+  let n = 0, spN = 0;   // номера — как в Holyrics (slideNums в state.js): все заставки — с номером первой
   const blocks = [];
   (s.blocks || []).forEach(b => {
     if (!b || !TYPES[b.type]) return;
     if (b.type === 'note'){ const t = String(b.text || '').trim(); if (t) blocks.push({ t:'note', text:t }); return; }
-    const o = { t:b.type, n:++n };
+    if (b.type === 'splash' && !spN) spN = ++n;
+    const o = { t:b.type, n:b.type === 'splash' ? spN : ++n };
     switch (b.type){
       case 'scripture':
         o.items = [];
