@@ -10,23 +10,26 @@ const mainEl = h('main', { class:'app-main', id:'main' });
 const menuItem = (icon, label, fn) => h('button', { type:'button', onclick:() => { closeMenu(); fn(); } }, ic(icon), label);
 const menuEl = h('div', { class:'menu', id:'menu' });
 /* Меню зависит от экрана: выгрузка — только внутри проповеди; «Настройки слайдов» — только админу и редактору.
-   Открыть файл в форме нельзя (с этапа 8 проповеди только в облаке); «Скачать файл» — копия на компьютер */
+   Открыть файл в форме нельзя (с этапа 8 проповеди только в облаке). «Новый конспект» и «Скачать файл» из меню убраны (этап 9.2):
+   новый конспект делает кнопка на списке, копии базы — ночной бэкап */
 function fillMenu(){
   menuEl.innerHTML = '';
   if (!cloudOn()){   // экран входа: из меню — только выйти, если вошли не той почтой
     if (cloud.user) menuEl.append(h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
     return;
   }
-  menuEl.append(menuItem('newdoc', 'Новый конспект', () => newSermon()));
-  if (screen === 'sermon') menuEl.append(menuItem('save', 'Скачать файл', () => saveFile()));
   if (cloudOn() && screen === 'sermon' && authorWaits()) menuEl.append(menuItem('dup', 'Сделать копию', () => saveAsCopy()));   // конспект у редактора: копия — новый черновик автора
   if (screen === 'sermon') menuEl.append(
     h('div', { class:'menu-sep' }),
     menuItem('zip', 'Скачать все слайды', () => exportMany()),
     menuItem('phone', 'PDF для оператора', () => operatorPDF()));
   if (screen === 'sermon' && canEditCloud()) menuEl.append(menuItem('link', 'Ссылка для оператора', () => openOpLink()));   // этап 9: тому, кто может править конспект
-  if (screen === 'sermon' && wideScreen()) menuEl.append(menuItem('reset', 'Сбросить настройки экрана', () => resetLayout()));   // ширина и порядок панелей
+  const resetItem = screen === 'sermon' && wideScreen();   // «Сбросить настройки экрана» — ширина и порядок панелей; стоит сразу под «Настройки слайдов»
   if (canEditSlidesCfg()) menuEl.append(h('div', { class:'menu-sep' }), menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));   // общие для пространства: админ и редактор
+  if (resetItem){
+    if (!canEditSlidesCfg()) menuEl.append(h('div', { class:'menu-sep' }));   // у автора «Настроек слайдов» нет: пункт стоит один
+    menuEl.append(menuItem('reset', 'Сбросить настройки экрана', () => resetLayout()));
+  }
   if (screen !== 'help') menuEl.append(h('div', { class:'menu-sep' }), menuItem('help', 'Как пользоваться', () => openHelp()));   // инструкция (этап 7.8 — пока пустая страница)
   menuEl.append(h('div', { class:'menu-sep' }), h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
 }

@@ -53,8 +53,10 @@ def test_download_file_is_a_copy(page, sermon):
     open_sermon(page, sermon)
     page.evaluate("state.meta.title = 'Тест формы'; change()")
     page.locator(".topbar .icon-btn[aria-label='Ещё']").click()
+    assert "Скачать файл" not in page.inner_text("#menu")   # с этапа 9.2 пункта нет, сама saveFile() осталась
+    page.keyboard.press("Escape")
     with page.expect_download() as dl:
-        page.locator("#menu button", has_text="Скачать файл").click()
+        page.evaluate("saveFile()")
     d = dl.value
     assert d.suggested_filename == "2026-11-15 Тест формы.json"
     saved = json.loads(open(d.path(), encoding="utf-8").read())

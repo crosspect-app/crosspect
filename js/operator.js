@@ -100,7 +100,8 @@ async function openOpLink(){
   } finally { opBusy = false; }
 }
 
-/* Окно со ссылкой: key — пока нет (делаем), показывается «Делаю ссылку…» */
+/* Окно со ссылкой: key — пока нет (делаем), показывается «Делаю ссылку…». Без пояснения и без «Отключить ссылку» (этап 9.2):
+   ссылка живёт, пока жив конспект, и исчезает вместе с ним */
 function opLinkSheet(key){
   settingsOverlay.innerHTML = '';
   const head = h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Ссылка для оператора' }), iconBtn('close', 'Закрыть', closeSettings));
@@ -108,14 +109,12 @@ function opLinkSheet(key){
   if (!key) sheet.append(h('p', { class:'hint', text:'Делаю ссылку…' }));
   else {
     const url = opUrl(key), field = h('input', { type:'text', class:'input oplink-url', readonly:'readonly', value:url, 'aria-label':'Ссылка', onfocus:e => e.target.select() });
-    const native = opNativeShare();
     sheet.append(
-      h('p', { class:'hint', text:'Откройте её на телефоне, входить не нужно. Страница обновляется сама, когда вы сохраняете конспект. Увидеть его сможет любой, у кого есть ссылка.' }),
       field,
       h('div', { class:'sheet-foot wrap' },
-        h('button', { type:'button', class:'btn danger', onclick:() => opLinkOff() }, 'Отключить ссылку'),
-        h('button', { type:'button', class:'btn', onclick:() => opCopy(url, false, field) }, ic('dup'), 'Скопировать'),
-        h('button', { type:'button', class:'btn primary', onclick:() => opShare(url) }, native ? 'Поделиться' : 'В Telegram')));
+        h('button', { type:'button', class:'btn', onclick:() => opCopy(url, false, field) }, ic('dup'), 'Скопировать ссылку'),
+        h('button', { type:'button', class:'btn', onclick:() => opCopyRich(url) }, 'Копировать с оформлением'),
+        h('button', { type:'button', class:'btn primary', onclick:() => opTelegram(url) }, 'В Telegram')));
   }
   settingsOverlay.append(sheet);
   settingsOverlay.classList.add('open');
@@ -130,32 +129,50 @@ async function opCopy(url, quiet, field){
   if (ok) toast('Ссылка скопирована');
   else if (!quiet) toast('Не получилось скопировать. Выделите ссылку и скопируйте её вручную');
 }
-/* На телефоне — системное «Поделиться», на компьютере — Telegram с готовым текстом */
-const opNativeShare = () => !!navigator.share && !!window.matchMedia && matchMedia('(pointer: coarse)').matches;
-function opShareText(){
-  const m = (state && state.meta) || {};
-  return 'Конспект для оператора' + (m.title ? ': «' + m.title + '»' : '') + (fmtDate(m.date) ? ', ' + fmtDate(m.date) : '');
+/* Текст для «Копировать с оформлением» и «В Telegram» (этап 9.2): курсивом «Конспект для оператора слайдов», жирным «Название | Автор»,
+   дата словами («8 ноября 2026 г.»), линия из «─» и ссылка. Нет ни даты, ни автора — линии и пустой строки нет. Строки: { text, tag?, link? } */
+const OP_LINE = '─'.repeat(20);
+function opShareRows(url){
+  const m = (state && state.meta) || {}, author = preacherName(m), date = fmtDate(m.date), more = !!(author || date);
+  const title = String(m.title || '').trim() || 'Без названия';
+  const rows = [{ text:'Конспект для оператора слайдов', tag:'i' }];
+  if (more) rows.push({ text:'' });
+  rows.push({ text:author ? title + ' | ' + author : title, tag:'b' });
+  if (date) rows.push({ text:date });
+  if (more) rows.push({ text:OP_LINE });
+  rows.push({ text:url, link:true });
+  return rows;
 }
-function opShare(url){
-  const text = opShareText();
-  if (opNativeShare()){ navigator.share({ title:text, text, url }).catch(() => {}); return; }
-  window.open('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text), '_blank', 'noopener');
-}
-async function opLinkOff(){
-  if (opBusy || !state) return;
-  if (!confirm('Отключить ссылку? Она перестанет открываться у всех, кому вы её отправили. Потом можно сделать новую.')) return;
-  const id = state.id, key = shareKeyNow();
-  opBusy = true;
+const opPlainText = (rows, noLink) => rows.filter(r => !(noLink && r.link)).map(r => r.text).join('\n');
+const opHtmlText = rows => rows.map(r => r.tag ? '<' + r.tag + '>' + esc(r.text) + '</' + r.tag + '>' : esc(r.text)).join('<br>');
+
+/* В буфер уходят и HTML (курсив, жирный), и обычный текст: куда вставляют, то и берётся. Нет ClipboardItem — копируем скрытый блок с разметкой */
+async function opCopyRich(url){
+  const rows = opShareRows(url), plainText = opPlainText(rows), html = opHtmlText(rows);
+  let ok = false;
   try {
-    const r = await cloud.api.shareOff(cloud.space, id, cloud.user, { minutes:lockMins() });
-    delete opSent[key];
-    if (state && state.id === id){ state.cloudShare = ''; if (ed.id === id) ed.remote = r; }
-    closeSettings();
-    toast('Ссылка отключена');
-  } catch(e){
-    if (e.code === 'locked') toast('Сейчас конспект правит ' + lockWho(e.lock) + '. Ссылку можно отключить, когда он закончит');
-    else toast(cloudExplain(e) || 'Не получилось отключить ссылку');
-  } finally { opBusy = false; }
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+      await navigator.clipboard.write([new ClipboardItem({ 'text/html':new Blob([html], { type:'text/html' }), 'text/plain':new Blob([plainText], { type:'text/plain' }) })]);
+      ok = true;
+    }
+  } catch(e){}
+  if (!ok){
+    const box = h('div', { contenteditable:'true', style:'position:fixed;left:-9999px;top:0;white-space:pre-wrap', html });
+    document.body.append(box);
+    try {
+      const r = document.createRange(), sel = getSelection();
+      r.selectNodeContents(box); sel.removeAllRanges(); sel.addRange(r);
+      ok = document.execCommand('copy');
+      sel.removeAllRanges();
+    } catch(e){}
+    box.remove();
+  }
+  toast(ok ? 'Скопировано с оформлением' : 'Не получилось скопировать');
+}
+/* Telegram не читает разметку из ссылки: текст идёт простой, тот же. Адрес Telegram ставит сам (первой строкой), поэтому в text его нет */
+function opTelegram(url){
+  const text = opPlainText(opShareRows(url), true);
+  window.open('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text), '_blank', 'noopener');
 }
 
 /* ----- Страница оператора ----- */

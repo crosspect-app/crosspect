@@ -345,7 +345,7 @@ def test_home_one_table_default_order_and_counts(browser, base_url):
     assert page.locator(".ptable").count() == 1 and page.locator(".cards").count() == 0
     assert home_rows(page) == ["Без даты", "Будущая", "Скоро", "Прошлая", "Давняя"]   # без даты — сверху, дальше от новых к старым
     assert [t.replace("\n", "") for t in page.locator(".srow.shead [role=columnheader]").all_inner_texts()[:5]] == ["Дата", "Название", "Автор", "Слайдов", "Статус"]   # сортировки по заголовкам нет с этапа 7.8
-    assert page.locator(".scard.next .scard-title").inner_text() == "Скоро"   # ближайшая предстоящая выделена
+    assert page.locator(".scard.next, .next-mark").count() == 0   # пометки «ближайшая» с этапа 9.2 нет
     row = page.locator(".card-wrap", has_text="Будущая")
     assert row.locator(".c-slides .c-n").inner_text() == "4"
     assert page.locator(".card-wrap", has_text="Скоро").locator(".c-slides .c-n").inner_text() == "0"   # только заставка

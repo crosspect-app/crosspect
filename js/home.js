@@ -106,7 +106,7 @@ function rowDate(s){
 const HOME_COLS = [
   { key:'date', label:'Дата', cls:'c-date', cell:d => h('span', { class:'muted', text:rowDate(d.meta.date) || 'Без даты' }) },
   { key:'title', label:'Название', cls:'c-title', cell:d => h('span', { class:'pt' },
-    h('span', { class:'scard-title' + (d.meta.title ? '' : ' empty'), text:d.meta.title || 'Без названия' }), d._next ? ' ' : null, d._next ? h('span', { class:'next-mark', text:'ближайшая' }) : null, cloudMark(d), lockMark(d)) },
+    h('span', { class:'scard-title' + (d.meta.title ? '' : ' empty'), text:d.meta.title || 'Без названия' }), cloudMark(d), lockMark(d)) },
   { key:'author', label:'Автор', cls:'c-author', cell:d => h('span', { class:'muted2', text:preacherName(d.meta) || '—' }) },
   { key:'slides', label:'Слайдов', cls:'c-slides', title:'Сколько слайдов, без заставок', cell:d => { const n = slideCount(d); return h('span', null, h('span', { class:'c-n', text:String(n) }), h('span', { class:'c-lbl', text:' ' + plural(n, 'слайд', 'слайда', 'слайдов') })); } },
   { key:'status', label:'Статус', cls:'c-status', cell:d => { const st = sermonStatus(d); return h('span', null, h('span', { class:'stchip st-' + st.key, text:st.label })); } }
@@ -148,9 +148,6 @@ function renderHomeList(){
     return;
   }
   const today = isoToday();
-  // ближайшая предстоящая — чуть выделена
-  const next = all.filter(d => d.meta.date && d.meta.date >= today).sort((a, b) => a.meta.date.localeCompare(b.meta.date))[0];
-  all.forEach(d => { d._next = d === next; });
   const list = all.filter(d => (!q || haystack(d).includes(q)) && homeFilter(d, today)).sort(homeOrder);
   box.append(homeFilters(all));
   if (!list.length){
@@ -175,8 +172,8 @@ function homeFilters(all){
   if (f.author && !authors.has(f.author)) authors.set(f.author, f.author);
   const sel = (label, value, opts, onchange, extra) => h('label', Object.assign({ class:'hf-sel' + (value && value !== 'all' ? ' on' : '') }, extra || {}),
     h('select', { 'aria-label':label, onchange:e => onchange(e.target.value) }, opts.map(([v, t]) => h('option', { value:v, text:t, selected:v === value }))), ic('down'));
-  const dateSel = sel('Дата', f.date, [['all', 'Все даты'], ['up', 'Ближайшие'], ['past', 'Прошедшие'], ['range', 'Период…']], v => set('date', v),
-    { title:'Ближайшие — сегодня и позже, прошедшие — раньше сегодняшнего дня' });
+  const dateSel = sel('Дата', f.date, [['all', 'Все даты'], ['up', 'Предстоящие'], ['past', 'Прошлые'], ['range', 'Период…']], v => set('date', v),
+    { title:'Предстоящие — сегодня и позже, прошлые — раньше сегодняшнего дня' });
   const range = f.date === 'range' ? h('div', { class:'hf-range' },
     h('span', { text:'с' }), h('input', { type:'date', class:'input', value:f.from, 'aria-label':'С даты', onchange:e => set('from', e.target.value) }),
     h('span', { text:'по' }), h('input', { type:'date', class:'input', value:f.to, 'aria-label':'По дату', onchange:e => set('to', e.target.value) })) : null;
@@ -211,7 +208,7 @@ function removeBtn(d, cls){
 function sermonRow(d){
   const st = sermonStatus(d);
   return h('div', { class:'card-wrap', role:'row' },
-    h('a', { class:'scard srow st-' + st.key + (d._next ? ' next' : ''), href:sermonHash(d.id) }, HOME_COLS.map(c => { const el = c.cell(d); el.classList.add(c.cls); el.setAttribute('role', 'cell'); return el; })),
+    h('a', { class:'scard srow st-' + st.key, href:sermonHash(d.id) }, HOME_COLS.map(c => { const el = c.cell(d); el.classList.add(c.cls); el.setAttribute('role', 'cell'); return el; })),
     removeBtn(d, 'card-del'));
 }
 

@@ -380,7 +380,8 @@ export function createCloudAPI(fb){
       return { key: used, remote: fromDoc(space, back) };
     },
 
-    /* Отключить ссылку: снимок удаляется, shareKey стирается у проповеди. Нет ссылки — ничего не делает. Возвращает проповедь */
+    /* С этапа 9.2 форма его не зовёт (кнопку «Отключить ссылку» убрали: ссылка живёт, пока жив конспект). Оставлен вместе с тестами слоя облака.
+       Отключить ссылку: снимок удаляется, shareKey стирается у проповеди. Нет ссылки — ничего не делает. Возвращает проповедь */
     async shareOff(space, id, me, opts){
       opts = opts || {};
       const r = ref(space, id), my = lower(me.email), ts = F.serverTimestamp();

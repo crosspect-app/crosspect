@@ -218,27 +218,21 @@ def test_create_link_in_edit_mode_flushes_changes_and_editing_goes_on(browser, b
     ctx.close()
 
 
-def test_disable_link(browser, base_url):
+def test_link_window_has_three_buttons_and_no_disable(browser, base_url):
+    """Этап 9.2: без пояснения, без «Отключить ссылку»; ссылка остаётся, пока жив конспект"""
     ctx, page = make(browser, base_url)
     page.evaluate("id => navigate(sermonHash(id))", "r1")
     page.wait_for_function("state && state.id === 'r1' && ed.id === 'r1' && !ed.busy")
     to_text_view(page)
     url = press_link(page)
+    sheet = page.locator(".oplink")
+    assert [b.strip() for b in sheet.locator("button").all_inner_texts() if b.strip()] == ["Скопировать ссылку", "Копировать с оформлением", "В Telegram"]
+    assert sheet.locator(".hint").count() == 0 and "Откройте её на телефоне" not in sheet.inner_text()
+    assert sheet.locator(".btn.danger").count() == 0 and "Отключить" not in sheet.inner_text()
+    # страница оператора открыта и работает
     op = operator_page(ctx, page, url)
     op.wait_for_selector(".opv-title")
-    page.on("dialog", lambda dlg: dlg.accept())
-    page.get_by_role("button", name="Отключить ссылку").click()
-    page.wait_for_function("!shareKeyNow()")
-    d = db(page)
-    assert d["shares"] == {} and "shareKey" not in d["sermons"]["r1"]
-    # страница оператора сообщает, что ссылка не работает
-    op.wait_for_selector(".opv-msg")
-    txt = op.locator(".opv-msg").inner_text()
-    assert "Эта ссылка больше не работает" in txt and "Попросите новую у автора или редактора" in txt
-    assert op.locator(".opv-slide").count() == 0
-    # потом можно сделать новую — другая ссылка
-    new = press_link(page)
-    assert new != url and len(db(page)["shares"]) == 1
+    assert op.locator(".opv-slide").count() > 0
     ctx.close()
 
 
@@ -306,29 +300,52 @@ def test_busy_by_someone_else_gives_message_and_no_link(browser, base_url):
     ctx.close()
 
 
-def test_share_telegram_on_computer_and_system_share_on_phone(browser, base_url):
+LINE = "─" * 20
+
+
+def test_share_text_telegram_and_rich_copy(browser, base_url):
     ctx, page = make(browser, base_url)
     page.evaluate("id => navigate(sermonHash(id))", "r1")
     page.wait_for_function("state && state.id === 'r1' && ed.id === 'r1' && !ed.busy")
     to_text_view(page)
     page.evaluate("window.open = (u) => { window.__opened = u; }")
     url = press_link(page)
-    text = "Конспект для оператора: «Вера и дела», " + page.evaluate("fmtDate('2026-11-15')")
-    assert page.locator(".oplink .btn.primary").inner_text() == "В Telegram"
-    page.locator(".oplink .btn.primary").click()
+    date = page.evaluate("fmtDate('2026-11-15')")
+    assert date == "15 ноября 2026 г."
+    plain = "Конспект для оператора слайдов\n\nВера и дела | Иван Петров\n" + date + "\n" + LINE + "\n" + url
+    # «В Telegram»: тот же текст простым, адрес Telegram ставит сам
+    page.get_by_role("button", name="В Telegram").click()
     opened = page.evaluate("window.__opened")
     from urllib.parse import parse_qs, urlparse
     q = parse_qs(urlparse(opened).query)
-    assert opened.startswith("https://t.me/share/url?") and q["url"] == [url] and q["text"] == [text]
-    # телефон: системное «Поделиться»
-    page.locator(".oplink .icon-btn[aria-label='Закрыть']").click()
-    page.evaluate("""() => { const mm = window.matchMedia.bind(window); window.matchMedia = q => /coarse/.test(q) ? { matches:true, media:q, addEventListener(){}, removeEventListener(){} } : mm(q);
-      Object.defineProperty(navigator, 'share', { configurable:true, value: async d => { window.__shared = d; } }); }""")
-    press_link(page)
-    assert page.locator(".oplink .btn.primary").inner_text() == "Поделиться"
-    page.locator(".oplink .btn.primary").click()
-    shared = page.evaluate("window.__shared")
-    assert shared["url"] == url and shared["text"] == text
+    assert opened.startswith("https://t.me/share/url?") and q["url"] == [url] and q["text"] == [plain.rsplit("\n", 1)[0]]
+    # «Копировать с оформлением»: в буфере и HTML (курсив, жирный), и простой текст
+    page.get_by_role("button", name="Копировать с оформлением").click()
+    page.wait_for_selector(".toast:has-text('Скопировано с оформлением')")
+    clip = page.evaluate("""async () => { const it = (await navigator.clipboard.read())[0];
+      const out = {}; for (const t of it.types) out[t] = await (await it.getType(t)).text(); return out; }""")
+    assert clip["text/plain"] == plain
+    assert clip["text/html"].count("<i>Конспект для оператора слайдов</i>") == 1 and "<b>Вера и дела | Иван Петров</b>" in clip["text/html"]
+    # «Скопировать ссылку»: только адрес
+    page.get_by_role("button", name="Скопировать ссылку").click()
+    assert page.evaluate("navigator.clipboard.readText()") == url
+    ctx.close()
+
+
+def test_share_text_without_author_and_date(browser, base_url):
+    """Нет автора — только название; нет ни даты, ни автора — без линии и пустой строки; дата без автора — линия есть"""
+    ctx, page = make(browser, base_url)
+    page.evaluate("id => navigate(sermonHash(id))", "r1")
+    page.wait_for_function("state && state.id === 'r1' && ed.id === 'r1' && !ed.busy")
+    rows = lambda: page.evaluate("opPlainText(opShareRows('U'))")
+    page.evaluate("state.meta.firstName = ''; state.meta.lastName = ''")
+    assert rows() == "Конспект для оператора слайдов\n\nВера и дела\n15 ноября 2026 г.\n" + LINE + "\nU"
+    page.evaluate("state.meta.date = ''")
+    assert rows() == "Конспект для оператора слайдов\nВера и дела\nU"
+    page.evaluate("state.meta.firstName = 'Иван'; state.meta.lastName = 'Петров'")
+    assert rows() == "Конспект для оператора слайдов\n\nВера и дела | Иван Петров\n" + LINE + "\nU"
+    page.evaluate("state.meta.title = 'A <b> & B'")
+    assert "<b>A &lt;b&gt; &amp; B | Иван Петров</b>" in page.evaluate("opHtmlText(opShareRows('U'))")   # название в HTML экранируется
     ctx.close()
 
 

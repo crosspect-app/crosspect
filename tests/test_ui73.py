@@ -175,7 +175,7 @@ def test_no_settings_source_and_no_open_file(browser, base_url):
     assert "Открыть файл" not in page.inner_text(".home")
     open_sermon(page, "s1")
     items = menu_items(page)
-    assert "Источник настроек" not in items and "Открыть файл" not in items and "Скачать файл" in items
+    assert "Источник настроек" not in items and "Открыть файл" not in items and "Скачать файл" not in items and "Новый конспект" not in items
     assert page.evaluate("Object.keys(LANGS).length") >= 20   # переводы на месте
     ctx.close()
 
