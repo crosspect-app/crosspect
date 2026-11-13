@@ -324,7 +324,7 @@ service cloud.firestore {
               && optStr(d, 'name', 200);
           }
           allow get, list: if canEdit(owner()) || (('deletedAt' in owner()) && canTrash(owner()));
-          allow create: if canEdit(owner()) && validVersion(request.resource.data);
+          allow create: if exists(sermonPath(s, id)) && canEdit(owner()) && validVersion(request.resource.data);   // без проповеди истории нет (редактору get не понадобился бы)
           allow delete: if (exists(sermonPath(s, id)) && (canEdit(owner()) || (('deletedAt' in owner()) && canTrash(owner()))))
             || (isMember(s) && !existsAfter(sermonPath(s, id)));
         }
