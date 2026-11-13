@@ -226,7 +226,7 @@ def test_link_window_has_three_buttons_and_no_disable(browser, base_url):
     to_text_view(page)
     url = press_link(page)
     sheet = page.locator(".oplink")
-    assert [b.strip() for b in sheet.locator("button").all_inner_texts() if b.strip()] == ["Скопировать ссылку", "Копировать с оформлением", "В Telegram"]
+    assert [b.strip() for b in sheet.locator("button").all_inner_texts() if b.strip()] == ["Скопировать ссылку", "Скопировать", "В Telegram"]
     assert sheet.locator(".hint").count() == 0 and "Откройте её на телефоне" not in sheet.inner_text()
     assert sheet.locator(".btn.danger").count() == 0 and "Отключить" not in sheet.inner_text()
     # страница оператора открыта и работает
@@ -303,7 +303,7 @@ def test_busy_by_someone_else_gives_message_and_no_link(browser, base_url):
 LINE = "─" * 20
 
 
-def test_share_text_telegram_and_rich_copy(browser, base_url):
+def test_share_text_is_same_for_copy_and_telegram(browser, base_url):
     ctx, page = make(browser, base_url)
     page.evaluate("id => navigate(sermonHash(id))", "r1")
     page.wait_for_function("state && state.id === 'r1' && ed.id === 'r1' && !ed.busy")
@@ -312,20 +312,21 @@ def test_share_text_telegram_and_rich_copy(browser, base_url):
     url = press_link(page)
     date = page.evaluate("fmtDate('2026-11-15')")
     assert date == "15 ноября 2026 г."
-    plain = "Конспект для оператора слайдов\n\nВера и дела | Иван Петров\n" + date + "\n" + LINE + "\n" + url
-    # «В Telegram»: тот же текст простым, адрес Telegram ставит сам
+    body = ["Конспект для оператора слайдов", "Вера и дела | Иван Петров", date]
+    # кнопки: у «Скопировать» и «В Telegram» есть значки
+    assert page.locator(".oplink .btn", has_text="Скопировать").locator(".ic").count() == 2 and page.locator(".oplink .btn.primary .ic").count() == 1
+    # «Скопировать»: ссылка, линия, название, автор, дата — простой текст
+    page.get_by_role("button", name="Скопировать", exact=True).click()
+    page.wait_for_selector(".toast:has-text('Текст скопирован')")
+    copied = page.evaluate("navigator.clipboard.readText()")
+    assert copied == "\n".join([url, LINE] + body)
+    # «В Telegram»: тот же текст, адрес Telegram ставит первой строкой сам
     page.get_by_role("button", name="В Telegram").click()
     opened = page.evaluate("window.__opened")
     from urllib.parse import parse_qs, urlparse
     q = parse_qs(urlparse(opened).query)
-    assert opened.startswith("https://t.me/share/url?") and q["url"] == [url] and q["text"] == [plain.rsplit("\n", 1)[0]]
-    # «Копировать с оформлением»: в буфере и HTML (курсив, жирный), и простой текст
-    page.get_by_role("button", name="Копировать с оформлением").click()
-    page.wait_for_selector(".toast:has-text('Скопировано с оформлением')")
-    clip = page.evaluate("""async () => { const it = (await navigator.clipboard.read())[0];
-      const out = {}; for (const t of it.types) out[t] = await (await it.getType(t)).text(); return out; }""")
-    assert clip["text/plain"] == plain
-    assert clip["text/html"].count("<i>Конспект для оператора слайдов</i>") == 1 and "<b>Вера и дела | Иван Петров</b>" in clip["text/html"]
+    assert opened.startswith("https://t.me/share/url?") and q["url"] == [url]
+    assert q["url"][0] + "\n" + q["text"][0] == copied
     # «Скопировать ссылку»: только адрес
     page.get_by_role("button", name="Скопировать ссылку").click()
     assert page.evaluate("navigator.clipboard.readText()") == url
@@ -333,19 +334,19 @@ def test_share_text_telegram_and_rich_copy(browser, base_url):
 
 
 def test_share_text_without_author_and_date(browser, base_url):
-    """Нет автора — только название; нет ни даты, ни автора — без линии и пустой строки; дата без автора — линия есть"""
+    """Нет автора — только название; нет даты — строки с датой нет"""
     ctx, page = make(browser, base_url)
     page.evaluate("id => navigate(sermonHash(id))", "r1")
     page.wait_for_function("state && state.id === 'r1' && ed.id === 'r1' && !ed.busy")
-    rows = lambda: page.evaluate("opPlainText(opShareRows('U'))")
+    lines = lambda: page.evaluate("opShareLines('U')")
+    head = ["U", LINE, "Конспект для оператора слайдов"]
+    assert lines() == head + ["Вера и дела | Иван Петров", "15 ноября 2026 г."]
     page.evaluate("state.meta.firstName = ''; state.meta.lastName = ''")
-    assert rows() == "Конспект для оператора слайдов\n\nВера и дела\n15 ноября 2026 г.\n" + LINE + "\nU"
+    assert lines() == head + ["Вера и дела", "15 ноября 2026 г."]
     page.evaluate("state.meta.date = ''")
-    assert rows() == "Конспект для оператора слайдов\nВера и дела\nU"
-    page.evaluate("state.meta.firstName = 'Иван'; state.meta.lastName = 'Петров'")
-    assert rows() == "Конспект для оператора слайдов\n\nВера и дела | Иван Петров\n" + LINE + "\nU"
-    page.evaluate("state.meta.title = 'A <b> & B'")
-    assert "<b>A &lt;b&gt; &amp; B | Иван Петров</b>" in page.evaluate("opHtmlText(opShareRows('U'))")   # название в HTML экранируется
+    assert lines() == head + ["Вера и дела"]
+    page.evaluate("state.meta.title = ''")
+    assert lines() == head + ["Без названия"]
     ctx.close()
 
 

@@ -267,7 +267,9 @@ def test_open_sermon_slides_in_and_back_slides_out(browser, base_url):
     page.evaluate("window.__anims = []")
     page.locator("a.btn.ghost", has_text="Конспекты").click()
     page.wait_for_selector(".home-top")
-    assert any(c == "leave-ghost" and "translateX(72px)" in k for c, k in page.evaluate("window.__anims"))   # прежний экран уезжает поверх списка
+    anims = page.evaluate("window.__anims")
+    assert any(c == "leave-ghost" and "translateX(56px)" in k for c, k in anims)   # прежний экран уезжает поверх списка
+    assert not any(c == "home" and "opacity" in k for c, k in anims)   # список под ним не гаснет и не проявляется (этап 9.2): гаснет только уезжающий
     page.wait_for_function("!document.querySelector('.leave-ghost')", timeout=2000)
     # при возврате на главную заставки входа нет
     assert page.locator(".gate").count() == 0

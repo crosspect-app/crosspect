@@ -68,7 +68,8 @@ function fmtAgo(ts){
 }
 
 function renderHome(){
-  mainEl.append(homeBg(), h('div', { class:'home' },
+  homeBg();   // фон — постоянный узел в body (motion.js)
+  mainEl.append(h('div', { class:'home' },
     h('div', { class:'home-top' },
       h('h1', { text:'Конспекты' }),
       h('div', { class:'grow' }),

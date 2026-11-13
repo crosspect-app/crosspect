@@ -882,7 +882,10 @@ body.light .size button:hover{background:var(--surface-3)}
   50%{transform:translate(23px,84px)}62.5%{transform:translate(-64px,47px)}75%{transform:translate(71px,12px)}87.5%{transform:translate(-12px,-95px)}}
 /* Главная (этап 7.8): стена слайдов с библейскими названиями, затемнённая и мягкая, с зерном; поверх — тёмная дымка
    с одним «окном», которое медленно плывёт (только transform). Параметры стены — в --wall-filter */
-.home-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;--wall-filter:brightness(.51) contrast(.8) saturate(.85)}
+.home-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;--wall-filter:brightness(.51) contrast(.8) saturate(.85);opacity:0}
+body.wall-on .home-bg{opacity:1}
+.home-bg .hb-haze{animation-play-state:paused}
+body.wall-on .home-bg .hb-haze{animation-play-state:running}
 .hb-wall{position:absolute;display:grid;gap:22px;transform:rotate(-9deg);transform-origin:50% 50%;filter:var(--wall-filter)}   /* размер и место — fillWall (motion.js), по диагонали окна */
 .hb-cell .sl{width:340px}
 .hb-wall{opacity:0;transition:opacity .6s ease-out}
@@ -923,7 +926,7 @@ body.light .size button:hover{background:var(--surface-3)}
 .sk-thumb::after,.sk-stage::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(236,223,207,.07),transparent);animation:sk-shine 1.2s linear infinite}
 
 /* Фоновая вкладка: бесконечные анимации стоят */
-html.page-hidden .gate-grain,html.page-hidden .hb-haze,html.page-hidden .sk-card::after,html.page-hidden .sk-thumb::after,html.page-hidden .sk-stage::after{animation-play-state:paused}
+html.page-hidden .gate-grain,html.page-hidden .hb-haze,html.page-hidden .home-bg .hb-haze,html.page-hidden .sk-card::after,html.page-hidden .sk-thumb::after,html.page-hidden .sk-stage::after{animation-play-state:paused}
 /* На время снятия JPEG и ZIP движение выключено */
 html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{animation:none!important;transition:none!important}
 

@@ -113,65 +113,41 @@ function opLinkSheet(key){
       field,
       h('div', { class:'sheet-foot wrap' },
         h('button', { type:'button', class:'btn', onclick:() => opCopy(url, false, field) }, ic('dup'), 'Скопировать ссылку'),
-        h('button', { type:'button', class:'btn', onclick:() => opCopyRich(url) }, 'Копировать с оформлением'),
-        h('button', { type:'button', class:'btn primary', onclick:() => opTelegram(url) }, 'В Telegram')));
+        h('button', { type:'button', class:'btn', onclick:() => opCopy(opShareLines(url).join('\n'), false, null, 'Текст скопирован') }, ic('dup'), 'Скопировать'),
+        h('button', { type:'button', class:'btn primary', onclick:() => opTelegram(url) }, ic('telegram'), 'В Telegram')));
   }
   settingsOverlay.append(sheet);
   settingsOverlay.classList.add('open');
 }
 
-/* Копировать: после ожидания ответа облака браузер иногда не даёт писать в буфер без нажатия — тогда молча остаётся кнопка «Скопировать» */
-async function opCopy(url, quiet, field){
+/* Копировать: после ожидания ответа облака браузер иногда не даёт писать в буфер без нажатия — тогда молча остаётся кнопка «Скопировать ссылку».
+   field — поле со ссылкой (запасной путь: выделить его); без него запасной путь — скрытое поле. okMsg — что написать при успехе */
+async function opCopy(text, quiet, field, okMsg){
   let ok = false;
-  try { await navigator.clipboard.writeText(url); ok = true; } catch(e){
-    try { const f = field || $('.oplink-url'); if (f){ f.select(); ok = document.execCommand('copy'); } } catch(e2){}
-  }
-  if (ok) toast('Ссылка скопирована');
-  else if (!quiet) toast('Не получилось скопировать. Выделите ссылку и скопируйте её вручную');
-}
-/* Текст для «Копировать с оформлением» и «В Telegram» (этап 9.2): курсивом «Конспект для оператора слайдов», жирным «Название | Автор»,
-   дата словами («8 ноября 2026 г.»), линия из «─» и ссылка. Нет ни даты, ни автора — линии и пустой строки нет. Строки: { text, tag?, link? } */
-const OP_LINE = '─'.repeat(20);
-function opShareRows(url){
-  const m = (state && state.meta) || {}, author = preacherName(m), date = fmtDate(m.date), more = !!(author || date);
-  const title = String(m.title || '').trim() || 'Без названия';
-  const rows = [{ text:'Конспект для оператора слайдов', tag:'i' }];
-  if (more) rows.push({ text:'' });
-  rows.push({ text:author ? title + ' | ' + author : title, tag:'b' });
-  if (date) rows.push({ text:date });
-  if (more) rows.push({ text:OP_LINE });
-  rows.push({ text:url, link:true });
-  return rows;
-}
-const opPlainText = (rows, noLink) => rows.filter(r => !(noLink && r.link)).map(r => r.text).join('\n');
-const opHtmlText = rows => rows.map(r => r.tag ? '<' + r.tag + '>' + esc(r.text) + '</' + r.tag + '>' : esc(r.text)).join('<br>');
-
-/* В буфер уходят и HTML (курсив, жирный), и обычный текст: куда вставляют, то и берётся. Нет ClipboardItem — копируем скрытый блок с разметкой */
-async function opCopyRich(url){
-  const rows = opShareRows(url), plainText = opPlainText(rows), html = opHtmlText(rows);
-  let ok = false;
-  try {
-    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
-      await navigator.clipboard.write([new ClipboardItem({ 'text/html':new Blob([html], { type:'text/html' }), 'text/plain':new Blob([plainText], { type:'text/plain' }) })]);
-      ok = true;
-    }
-  } catch(e){}
-  if (!ok){
-    const box = h('div', { contenteditable:'true', style:'position:fixed;left:-9999px;top:0;white-space:pre-wrap', html });
-    document.body.append(box);
+  try { await navigator.clipboard.writeText(text); ok = true; } catch(e){
     try {
-      const r = document.createRange(), sel = getSelection();
-      r.selectNodeContents(box); sel.removeAllRanges(); sel.addRange(r);
-      ok = document.execCommand('copy');
-      sel.removeAllRanges();
-    } catch(e){}
-    box.remove();
+      const f = field || h('textarea', { readonly:'readonly', style:'position:fixed;left:-9999px;top:0' });
+      if (!field){ f.value = text; document.body.append(f); }
+      f.select(); ok = document.execCommand('copy');
+      if (!field) f.remove();
+    } catch(e2){}
   }
-  toast(ok ? 'Скопировано с оформлением' : 'Не получилось скопировать');
+  if (ok) toast(okMsg || 'Ссылка скопирована');
+  else if (!quiet) toast(field ? 'Не получилось скопировать. Выделите ссылку и скопируйте её вручную' : 'Не получилось скопировать');
 }
-/* Telegram не читает разметку из ссылки: текст идёт простой, тот же. Адрес Telegram ставит сам (первой строкой), поэтому в text его нет */
+/* Текст для «Скопировать» и «В Telegram» (этап 9.2) — один и тот же, простой, без оформления: ссылка, линия из «─», «Конспект для оператора слайдов»,
+   «Название | Автор» (нет автора — только название), дата словами («8 ноября 2026 г.», нет даты — строки нет) */
+const OP_LINE = '─'.repeat(20);
+function opShareLines(url){
+  const m = (state && state.meta) || {}, author = preacherName(m), date = fmtDate(m.date);
+  const title = String(m.title || '').trim() || 'Без названия';
+  const lines = [url, OP_LINE, 'Конспект для оператора слайдов', author ? title + ' | ' + author : title];
+  if (date) lines.push(date);
+  return lines;
+}
+/* Telegram сам ставит адрес первой строкой, поэтому в text его нет: сообщение выходит таким же, как скопированный текст */
 function opTelegram(url){
-  const text = opPlainText(opShareRows(url), true);
+  const text = opShareLines(url).slice(1).join('\n');
   window.open('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text), '_blank', 'noopener');
 }
 

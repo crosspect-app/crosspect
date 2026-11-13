@@ -53,3 +53,23 @@ def test_list_has_no_next_mark_and_date_filter_names(browser, base_url):
     page.locator(".home-filters select[aria-label='Дата']").select_option("past")
     assert [t.strip() for t in page.locator(".scard .scard-title").all_inner_texts()] == ["Давно"]
     ctx.close()
+
+
+def test_home_wall_is_one_node_and_shows_after_leave_animation(browser, base_url):
+    """Возврат из конспекта: стена слайдов не пересобирается (один и тот же узел), прячется на других экранах и проявляется,
+    когда конспект уже уехал; список лежит под уезжающим конспектом непрозрачным (гаснет только он)"""
+    ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons=SERMONS, reduced_motion="no-preference")
+    page.wait_for_selector(".hb-wall.ready")
+    page.wait_for_function("!document.getAnimations().some(a => a.effect && a.effect.target && a.effect.target.classList && a.effect.target.classList.contains('home-bg'))", timeout=5000)   # проявление после входа закончилось
+    page.evaluate("window.__wall = document.querySelector('.hb-wall')")
+    assert page.evaluate("document.querySelector('.home-bg').parentElement === document.body && document.body.classList.contains('wall-on')")
+    open_sermon(page, "s1")
+    assert page.evaluate("!document.body.classList.contains('wall-on') && getComputedStyle(document.querySelector('.home-bg')).opacity") == "0"
+    page.evaluate("navigate('')")
+    page.wait_for_selector(".home")
+    assert not page.evaluate("document.body.classList.contains('wall-on')")   # пока конспект уезжает, стены нет
+    assert page.evaluate("document.querySelector('.home').getAnimations().every(a => !a.effect.getKeyframes().some(k => 'opacity' in k && k.opacity !== ''))")
+    page.wait_for_function("document.body.classList.contains('wall-on')", timeout=3000)
+    assert page.evaluate("document.querySelector('.hb-wall') === window.__wall")
+    page.wait_for_function("!document.querySelector('.leave-ghost')", timeout=3000)
+    ctx.close()

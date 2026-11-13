@@ -56,6 +56,7 @@ function route(){
     showSermon(p);
   } else {
     const from = screen === 'sermon' ? leaveSermon() : null;   // (со страницы инструкции — без анимации)   // «← Проповеди»: экран проповеди уезжает вправо (этап 7.7)
+    if (from) wallHold = true;   // стена слайдов появится, когда конспект уедет (этап 9.2): её показ занимает главный поток, и движение вставало
     screen = 'home'; renderAll(); window.scrollTo(0, 0);
     if (from) enterHome();
   }
@@ -132,17 +133,27 @@ function leaveSermon(){
   wrap.style.cssText = 'left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + Math.min(r.height, innerHeight - r.top) + 'px';
   sv.inert = true;
   wrap.append(sv); document.body.append(wrap);
-  const a = motionAnimate(wrap, [{ opacity:1, transform:'none' }, { opacity:0, transform:'translateX(72px)' }], MOTION.ms('--motion-slow', 250), { fill:'forwards' });
+  const a = motionAnimate(wrap, [{ opacity:1, transform:'none' }, { opacity:0, transform:'translateX(56px)' }], MOTION.ms('--motion-slow', 250), { fill:'forwards', easing:'cubic-bezier(.4,0,1,1)' });
   if (a) a.addEventListener('finish', () => wrap.remove()); else wrap.remove();
   setTimeout(() => wrap.remove(), 900);
   filmEl = stageEl = sideEl = null; svFor = null;
   return wrap;
 }
-/* Список проявляется под уезжающей проповедью */
+/* Список лежит под уезжающей проповедью сразу, непрозрачный: гаснет только она, поэтому «провала» яркости посередине нет (раньше гасли оба).
+   Сам список чуть подъезжает слева, шапка проявляется */
+let wallHold = false;   // пока true, фон главной (стена) не показывается
+function wallRelease(){
+  wallHold = false;
+  if (screen !== 'home' || cloudGate()) return;
+  document.body.classList.add('wall-on');
+  motionAnimate(WALL.root, [{ opacity:0 }, { opacity:1 }], 500, { easing:'ease-out' });
+}
 function enterHome(){
   const d = MOTION.ms('--motion-slow', 250);
+  setTimeout(wallRelease, d + 40);
   const home = mainEl.querySelector('.home');
-  if (home) motionAnimate(home, [{ opacity:0 }, { opacity:1 }], d);
+  if (home) motionAnimate(home, [{ transform:'translateX(-28px)' }, { transform:'none' }], d, { easing:'cubic-bezier(0,0,.2,1)' });
+  topbar.querySelectorAll(':scope > *').forEach(x => motionAnimate(x, [{ opacity:0 }, { opacity:1 }], d, { easing:'ease-out' }));
 }
 
 function renderAll(){ renderTopbar(); renderMain(); }
@@ -150,6 +161,7 @@ function renderMain(){
   closeTrPanel();
   document.body.classList.toggle('light', screen === 'sermon' && view === 'text');   // «Текст» — светлый, остальное тёмное
   document.body.dataset.screen = screen;
+  document.body.classList.toggle('wall-on', screen === 'home' && !cloudGate() && !wallHold);   // стена слайдов на фоне — только за списком (этап 9.2)
   document.body.classList.toggle('ro', readOnly());
   // «Слайды» той же проповеди уже на экране — обновить точечно: лента, сцена и панель не пересобираются (этап 7.7)
   if (screen === 'sermon' && view === 'slides' && state && syncSlides()){

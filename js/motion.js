@@ -53,8 +53,8 @@ function gateDissolve(){
 }
 function gateReveal(){
   if (MOTION.off()) return;
-  [...mainEl.children].forEach(el => { if (!el.classList.contains('home-bg')) motionAnimate(el, [{ opacity:0, filter:'blur(8px)' }, { opacity:1, filter:'blur(0px)' }], 520, { easing:'ease-out' }); });
-  const bg = mainEl.querySelector(':scope > .home-bg'); if (bg) motionAnimate(bg, [{ opacity:0 }, { opacity:getComputedStyle(bg).opacity }], 700, { easing:'ease-out' });
+  [...mainEl.children].forEach(el => motionAnimate(el, [{ opacity:0, filter:'blur(8px)' }, { opacity:1, filter:'blur(0px)' }], 520, { easing:'ease-out' }));
+  const bg = document.querySelector('body > .home-bg'); if (bg) motionAnimate(bg, [{ opacity:0 }, { opacity:getComputedStyle(bg).opacity }], 700, { easing:'ease-out' });
   topbar.querySelectorAll(':scope > *').forEach(x => motionAnimate(x, [{ opacity:0 }, { opacity:1 }], 520));
 }
 
@@ -257,16 +257,24 @@ const WALL_TITLES = ['Если я не имею любви', 'Вера без д
   'Любов довготерпить', 'Światło świata', 'Chleb życia', 'Miłość cierpliwa jest', 'Dobry pasterz', 'Nie lękaj się', 'Sól ziemi', 'Nowe stworzenie',
   'Łaska i prawda', 'Light of the World', 'Bread of Life', 'Love Is Patient', 'The Good Shepherd', 'Do Not Be Afraid', 'Salt of the Earth',
   'Grace and Truth', 'Let There Be Light'];
-const WALL = { key:'', el:null, proto:null, vars:null, size:'' };
+const WALL = { key:'', root:null, el:null, proto:null, vars:null, size:'' };
 const WALL_CELL = 340, WALL_GAP = 22;
+/* Фон главной живёт в body и не пересобирается при каждом возврате из конспекта (этап 9.2): стена — сотни слайдов, и снова положить её
+   в страницу стоило ~200 мс главного потока, из-за этого после «← Конспекты» движение начиналось с паузой. На других экранах узел
+   остаётся на месте, но скрыт (`content-visibility:hidden` хранит его раскладку), показывает его класс body.wall-on (renderMain) */
 function homeBg(){
-  const el = h('div', { class:'home-bg', 'aria-hidden':'true' }, h('div', { class:'hb-grain' }), h('div', { class:'hb-haze' }));
+  if (!WALL.root) WALL.root = h('div', { class:'home-bg', 'aria-hidden':'true' }, h('div', { class:'hb-grain' }), h('div', { class:'hb-haze' }));
   let cfg = null, bg = null;
   try { cfg = slidesCfg(); bg = formatBg(cfg.defaultFormat, cfg); } catch(e){}
   const key = JSON.stringify(bg);
-  if (!WALL.el || WALL.key !== key){ WALL.key = key; WALL.el = h('div', { class:'hb-wall' }); WALL.proto = null; WALL.size = ''; WALL.vars = bgVars(bg); }
-  el.prepend(WALL.el);
-  return el;
+  if (!WALL.el || WALL.key !== key){
+    const old = WALL.el;
+    WALL.key = key; WALL.el = h('div', { class:'hb-wall' }); WALL.proto = null; WALL.size = ''; WALL.vars = bgVars(bg);
+    if (old) old.remove();
+    WALL.root.prepend(WALL.el);
+  }
+  if (!WALL.root.isConnected) document.body.prepend(WALL.root);
+  return WALL.root;
 }
 /* Каждое название раскладывается один раз (только название посередине, как «Заставка: только название»), в скрытом месте */
 function wallProtos(){
