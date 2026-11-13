@@ -336,6 +336,7 @@ a.srow:hover{background:#1b1b1b}
 .own{display:none;position:absolute;bottom:6px;left:6px;z-index:2;font:700 9px/1 'Inter',sans-serif;text-transform:uppercase;letter-spacing:.04em;background:var(--own);color:#141414;padding:4px 6px;border-radius:5px}
 .st.custom .own{display:block}
 body.light .own{color:#fff}
+.own-splash{display:grid;gap:6px}
 .half-w{display:grid;gap:6px}
 .half-w input[type=range]{width:100%;margin:0;accent-color:var(--accent)}
 .half-w-val{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -605,7 +606,7 @@ body.light .own{color:#fff}
 .sl-vstack{display:flex;flex-direction:column;gap:var(--sc-vgap,.3em)}   /* с новой строки по центру или справа: номер перед стихом */
 .sl-vn{font-weight:700;font-size:.6em;line-height:1;text-align:right;letter-spacing:0;min-width:1.1em}
 /* Рамка пунктиром: вокруг стихов (в строку) и вокруг части тезиса. Толщину проверить на проекторе (ориентир 3 px на 1080) */
-.sl-verse.framed,.sl-part.framed,.sl-vlist.framed,.sl-vstack.framed{border:3px dashed rgba(236,223,207,.85);border-radius:12px;padding:.45em .7em}   /* с новой строки — одна рамка на все стихи */
+.sl-verse.framed,.sl-part.framed,.sl-vlist.framed,.sl-vstack.framed,.sl-inner.framed{border:3px dashed rgba(236,223,207,.85);border-radius:12px;padding:.45em .7em}   /* с новой строки — одна рамка на все стихи */
 /* Заставка: название посередине, внизу линия, «Имя ФАМИЛИЯ» слева и дата справа */
 .sl-sp-box{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);bottom:300px;display:flex;flex-direction:column;justify-content:center}
 .sl-sp-title{font-weight:900;text-transform:uppercase;text-align:center;line-height:var(--sp-lead,1.1);letter-spacing:var(--sp-track,0em);overflow-wrap:normal;word-break:keep-all;hyphens:manual;text-wrap:balance}
@@ -809,6 +810,7 @@ body.light .fmtbar{box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .exp-mark .lg-a{--fx:-14px;--fy:0px;animation-delay:200ms}
 .exp-mark .lg-b{--fx:0px;--fy:-14px;animation-delay:400ms}
 @keyframes lg-loop{0%{opacity:0;transform:translate(var(--fx),var(--fy))}28%,72%{opacity:1;transform:none}100%{opacity:0;transform:translate(var(--fx),var(--fy))}}
+.exp-prog.no-count .exp-bar{display:none}
 .exp-prog.done .exp-mark path,.exp-prog.still .exp-mark path{animation:none}
 .toast button{border:0;background:transparent;color:inherit;font-weight:600;font-size:12px;padding:4px 8px;border-radius:99px;text-decoration:underline;text-underline-offset:3px}
 

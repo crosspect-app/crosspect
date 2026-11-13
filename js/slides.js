@@ -85,7 +85,7 @@ function thumbBody(b, n){
    Настройки слайдов сюда не входят: их смену разносит refreshSlides (settings.js) */
 function thumbFp(b){
   const c = Object.assign({}, b); delete c.todo; delete c.done; delete c.collapsed; delete c.speech; delete c.custom;
-  if (b.type === 'splash'){ const m = state.meta; c.m = [m.title, m.firstName, m.lastName, m.date, state.settings && state.settings.splash]; }
+  if (b.type === 'splash'){ const m = state.meta; c.m = [m.title, m.firstName, m.lastName, m.date, state.settings && state.settings.splash, splashFootOn(b)]; }
   return JSON.stringify(c);
 }
 function filmActs(id){

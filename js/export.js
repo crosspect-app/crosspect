@@ -104,18 +104,18 @@ async function exportOne(b){
     const f = sideEl && sideEl.querySelector('.namebox input'); if (f) f.focus();
     toast('Сначала напишите название слайда'); return;
   }
-  exporting = true; motionPause(); const tt = toast('Готовлю JPEG…');   // на время снятия JPEG движение выключено: снимок всегда со статичного слайда (motion.js)
+  exporting = true; motionPause(); const pr = exportProgress('Готовлю JPEG');   // на время снятия JPEG движение выключено: снимок всегда со статичного слайда (motion.js); знак окна играет
   try {
     const name = slideName(b, slideNums()[b.id]) + '.jpg';
     download(await renderJPEG(b), name);
-    toastSet(tt, 'Скачано: ' + name);
-  } catch(e){ toastSet(tt, 'Не получилось собрать JPEG: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
+    pr.end(); toast('Скачано: ' + name);
+  } catch(e){ pr.fail(); toast('Не получилось собрать JPEG: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
   finally { exporting = false; motionResume(); }
 }
 async function exportMany(){
   if (exporting) return;
-  const list = state.blocks.filter(b => PREVIEW[b.type] && !isCustomSplash(b));   // «своя заставка» (этап 9.5) в архив не идёт
-  if (!list.length){ toast('В конспекте нет слайдов, которые форма собирает сама'); return; }
+  const list = state.blocks.filter(b => PREVIEW[b.type] && b.type !== 'splash');   // заставки в архив JPEG не входят (этап 9.5): их делают по-своему; один JPEG заставки — кнопка «JPEG» над сценой
+  if (!list.length){ toast('В конспекте нет слайдов для архива: заставки, картинки, видео и свободные слайды в него не входят'); return; }
   if (!checkNames()) return;
   if (list.length === 1){ exportOne(list[0]); return; }
   exporting = true; motionPause();
@@ -130,8 +130,8 @@ async function exportMany(){
     }
     download(makeZip(files), folder + '.zip');
     pr.end();
-    const rest = state.blocks.filter(b => b.type === 'image' || b.type === 'video' || b.type === 'free' || isCustomSplash(b)).length;
-    toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео, свободные слайды и свои заставки делаются вручную' : ''));
+    const rest = state.blocks.filter(b => b.type === 'image' || b.type === 'video' || b.type === 'free').length;
+    toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Заставки, картинки, видео и свободные слайды делаются вручную' : ''));
   } catch(e){ pr.fail(); toast('Не получилось собрать слайды: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
   finally { exporting = false; motionResume(); }
 }

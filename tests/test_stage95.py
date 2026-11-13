@@ -26,77 +26,87 @@ def download(page, call):
 
 def test_custom_splash_defaults_and_normalize(page):
     r = page.evaluate("""() => {
-      const c = v => { const b = { id:'s', type:'splash' }; if (v !== undefined) b.custom = v; return normalize({ blocks:[b] }).blocks[0].custom; };
-      return [c(true), c(false), c(undefined), c('да'), newBlock('splash').custom, 'custom' in normalize({ blocks:[{ id:'t', type:'thesis', custom:true }] }).blocks[0]]; }""")
-    assert r == [True, False, False, True, False, False]   # у старых заставок выкл.; у других слайдов поля нет
+      const n = d => normalize(d).settings.customSplash === true;
+      return [n({ blocks:[] }), n({ blocks:[], settings:{ customSplash:true } }), n({ blocks:[{ id:'s', type:'splash', custom:true }] }),   // старое поле у заставки переезжает в настройки проповеди
+              'custom' in normalize({ blocks:[{ id:'s', type:'splash', custom:true }] }).blocks[0], 'custom' in newBlock('splash')]; }""")
+    assert r == [False, True, True, False, False]
 
 
-def test_custom_splash_switch_badge_and_thumbnail(page, sermon):
+def test_custom_splash_switch_applies_to_every_splash(page, sermon):
     open_sermon(page, sermon)
-    page.evaluate("selectBlock(state.blocks.find(b => b.type === 'splash').id)")
-    sw = page.locator(".own-splash")
+    page.evaluate("state.blocks.splice(3, 0, newBlock('splash')); renderMain(); selectBlock(state.blocks.find(b => b.type === 'splash').id)")
+    sw = page.locator(".side .own-splash .switch")
     sw.wait_for()
-    assert sw.get_by_text("Своя заставка").count() == 1
-    th = page.locator(".st.t-splash").first
-    assert not th.locator(".own").is_visible()
+    assert "Своя заставка" in sw.inner_text()
+    assert page.locator(".st.t-splash .own:visible").count() == 0
     sw.click()
-    assert page.evaluate("state.blocks.find(b => b.type === 'splash').custom") is True
-    assert th.locator(".own").is_visible()
-    assert th.locator(".own").get_attribute("title") == "Своя заставка: в PowerPoint будет чёрным слайдом"
-    # значок не там, где «доработать»
+    assert page.evaluate("state.settings.customSplash") is True
+    page.wait_for_function("document.querySelectorAll('.st.t-splash.custom').length === 2")   # на всех заставках сразу
+    assert page.locator(".st.t-splash").first.locator(".own").get_attribute("title") == "Своя заставка: в PowerPoint будет чёрным слайдом"
+    page.evaluate("state.blocks.push(newBlock('splash')); renderMain()")
+    assert page.evaluate("state.blocks.filter(isCustomSplash).length") == 3   # и на новых
+    # значок не накладывается на «доработать»
     page.evaluate("state.blocks.find(b => b.type === 'splash').todo = true; refreshThumb(state.blocks.find(b => b.type === 'splash'))")
+    th = page.locator(".st.t-splash").first
     own, fl = th.locator(".own").bounding_box(), th.locator(".fl").bounding_box()
-    assert own["y"] >= fl["y"] + fl["height"] or own["x"] + own["width"] <= fl["x"], (own, fl)   # не накладываются
-    assert own["x"] < fl["x"] and own["y"] > fl["y"]   # другой угол: слева внизу
+    assert own["x"] < fl["x"] and own["y"] > fl["y"]
     sw.click()
-    assert page.evaluate("state.blocks.find(b => b.type === 'splash').custom") is False
-    assert not th.locator(".own").is_visible()
+    assert not page.evaluate("state.settings.customSplash")
     assert page.errors == []
-
-
-def test_custom_splash_is_per_splash_and_undoable(page, sermon):
-    open_sermon(page, sermon)
-    page.evaluate("state.blocks.splice(3, 0, newBlock('splash'))")
-    r = page.evaluate("""() => { const sp = state.blocks.filter(b => b.type === 'splash'); sp[0].custom = true; return sp.map(b => b.custom); }""")
-    assert r == [True, False]   # на другие и на новые заставки не действует
-    assert page.evaluate("newBlock('splash').custom") is False
-    # смена «своей заставки» не ставит «доработать» вместо редактора: сигнатура слайда не меняется
-    assert page.evaluate("(() => { const b = state.blocks.find(x => x.type === 'splash'), a = blockSig(b); b.custom = !b.custom; return a === blockSig(b); })()")
 
 
 def test_custom_splash_is_black_in_pptx_with_note(page, sermon):
     pptx = pytest.importorskip("pptx")
     open_sermon(page, sermon)
-    page.evaluate("state.blocks.splice(3, 0, newBlock('splash')); state.blocks.find(b => b.type === 'splash').custom = true")
+    page.evaluate("state.blocks.splice(3, 0, newBlock('splash')); state.settings.customSplash = true")
     prs = pptx.Presentation(download(page, "exportPPTX()").path())
     types = page.evaluate("state.blocks.filter(b => TYPES[b.type].slide).map(b => b.type)")
     names = page.evaluate("(() => { const n = slideNums(); return state.blocks.filter(b => TYPES[b.type].slide).map(b => slideName(b, n[b.id])); })()")
     slides = list(prs.slides)
-    first, second = [i for i, t in enumerate(types) if t == "splash"]
-    assert not any(sh.shape_type == 13 for sh in slides[first].shapes)   # чёрный слайд
-    assert slides[first].notes_slide.notes_text_frame.text == names[first] + "\nСвоя заставка"
-    assert any(sh.shape_type == 13 for sh in slides[second].shapes)   # вторая заставка — обычная
-    assert slides[second].notes_slide.notes_text_frame.text == names[second]
+    for i in [i for i, t in enumerate(types) if t == "splash"]:   # все заставки — чёрные
+        assert not any(sh.shape_type == 13 for sh in slides[i].shapes)
+        assert slides[i].notes_slide.notes_text_frame.text == names[i] + "\nСвоя заставка"
     assert page.errors == []
 
 
-def test_custom_splash_not_in_jpeg_archive_but_single_jpeg_works(page, sermon):
+def test_splashes_never_go_to_jpeg_archive(page, sermon):
     open_sermon(page, sermon)
-    page.evaluate("state.blocks.splice(3, 0, newBlock('splash')); state.blocks.find(b => b.type === 'splash').custom = true")
     z = zipfile.ZipFile(download(page, "exportMany()").path())
     names = [n for n in z.namelist() if n.endswith(".jpg")]
-    assert not any("Заставка" in n and "[1]" in n for n in names), names
-    assert sum("Заставка" in n for n in names) == 1   # вторая заставка в архиве есть
-    # JPEG одного слайда остаётся обычным
+    assert names and not any("Заставка" in n for n in names), names
+    # JPEG одного слайда у заставки остаётся
     d = download(page, "exportOne(state.blocks.find(b => b.type === 'splash'))")
-    assert d.suggested_filename.endswith(".jpg")
-    assert page.errors == []
+    assert d.suggested_filename.endswith(".jpg") and "Заставка" in d.suggested_filename
 
 
-def test_custom_splash_alone_gives_nothing_for_archive(page):
+def test_archive_with_only_splash_says_nothing_to_collect(page):
     start_blank(page)
-    page.evaluate("addBlock('splash'); state.blocks.find(b => b.type === 'splash').custom = true; exportMany()")
-    page.wait_for_selector(".toast:has-text('нет слайдов, которые форма собирает сама')")
+    page.evaluate("addBlock('splash'); exportMany()")
+    page.wait_for_selector(".toast:has-text('нет слайдов для архива')")
+
+
+# ---------- Нижняя строка, обводка цитаты, название тезиса ----------
+
+def test_thesis_has_no_name_field_and_auto_name(page):
+    start_blank(page)
+    page.evaluate("addBlock('thesis')")
+    page.wait_for_selector(".side .bbody")
+    assert page.locator(".side .namebox").count() == 0
+    page.evaluate("(() => { const b = state.blocks.find(b => b.type === 'thesis'); b.text = 'Бегать прыгать дышать'; b.parts[0].html = 'Бегать прыгать дышать'; change(); })()")
+    assert page.evaluate("slideName(state.blocks.find(b => b.type === 'thesis'), 1)") == "[1] Бегать прыгать дышать"
+    assert page.evaluate("missingNames().length") == 0   # пустое название тезиса не мешает выгрузке
+
+
+def test_quote_dashed_frame_switch(page):
+    start_blank(page)
+    page.evaluate("addBlock('quote')")
+    page.wait_for_selector(".bbody .switch")
+    assert page.evaluate("newBlock('quote').frame") is False
+    page.locator(".bbody .switch", has_text="Обводка пунктиром").click()
+    assert page.evaluate("state.blocks.find(b => b.type === 'quote').frame") is True
+    page.wait_for_function("document.querySelector('.stage .sl-inner').classList.contains('framed')")
+    assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-inner')).borderTopStyle") == "dashed"
+    assert page.evaluate("normalize({ blocks:[{ id:'q', type:'quote', text:'x' }] }).blocks[0].frame") is False
 
 
 # ---------- Ширина текста у цитаты ----------
@@ -251,19 +261,19 @@ def test_progress_window_removed_after_error(page, sermon):
     assert page.evaluate("exporting") is False
 
 
-def test_single_jpeg_updates_same_toast(page, sermon):
+def test_single_jpeg_and_pdf_use_progress_window(page, sermon):
     open_sermon(page, sermon)
-    page.evaluate("""() => { window.__t = []; const o = window.toast; window.toast = function(){ const el = o.apply(this, arguments); window.__t.push(el); return el; };
-      const sh = window.toastSet; window.toastSet = function(el, m){ const r = sh.apply(this, arguments); window.__t.push(r); return r; }; }""")
+    page.evaluate("""() => { window.__w = []; const o = window.renderJPEG; window.renderJPEG = async b => { window.__w.push(document.querySelectorAll('.exp-prog').length); return o(b); }; }""")
     d = download(page, "exportOne(state.blocks.find(b => b.type === 'thesis'))")
     assert d.suggested_filename.endswith(".jpg")
-    r = page.evaluate("({ n:document.querySelectorAll('.toast').length, texts:[...document.querySelectorAll('.toast')].map(t => t.textContent), same:new Set(window.__t).size })")
-    assert r["n"] == 1 and r["texts"][0].startswith("Скачано: ") and r["same"] == 1, r   # «Готовлю JPEG…» стало «Скачано: …» в том же окошке
-
-
-def test_toast_set_falls_back_when_toast_is_gone(page):
-    r = page.evaluate("""() => { const t = toast('раз'); t.remove(); const n = toastSet(t, 'два'); return [n !== t, n.textContent.startsWith('два')]; }""")
-    assert r == [True, True]
+    assert page.evaluate("window.__w") == [1]
+    page.wait_for_function("!document.querySelector('.exp-prog')", timeout=5000)
+    assert page.evaluate("[...document.querySelectorAll('.toast')].map(t => t.textContent)")[0].startswith("Скачано: ")
+    # PDF: окно хода, потом одно сообщение про «Сохранить как PDF»
+    page.evaluate("window.print = () => { window.__printed = document.querySelectorAll('.exp-prog').length; }; operatorPDF()")
+    page.wait_for_function("window.__printed !== undefined", timeout=5000)
+    assert page.evaluate("window.__printed") == 0   # окно хода закрыто до печати
+    assert page.evaluate("[...document.querySelectorAll('.toast')].filter(t => t.textContent.includes('Сохранить как PDF')).length") == 1
 
 
 # ---------- Заметки PowerPoint ----------

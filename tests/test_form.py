@@ -166,7 +166,7 @@ def test_export_all_slides_zip(page, sermon):
     assert d.suggested_filename == "2026-11-15 Тест формы.zip"
     z = zipfile.ZipFile(io.BytesIO(open(d.path(), "rb").read()))
     jpgs = [n for n in z.namelist() if n.endswith(".jpg")]
-    assert len(jpgs) == 4   # заставка (из текста в начале старого файла), Писание, тезис, цитата; картинка, видео и свободный не собираются
+    assert len(jpgs) == 3   # Писание, тезис, цитата; заставка (с 9.5), картинка, видео и свободный не собираются
     for n in jpgs:
         assert n.startswith("2026-11-15 Тест формы/")
         assert jpeg_size(z.read(n)) == (1920, 1080)

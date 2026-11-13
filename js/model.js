@@ -48,17 +48,25 @@ function syncThesisText(b){ b.text = b.parts.filter(p => p.kind === 'text' && pl
 /* Ширина области текста у цитаты «слева / справа», % ширины слайда (этап 9.5): 30–80, по умолчанию 50 */
 const HALF_W = { min:30, max:80, step:5, dflt:50 };
 function clampHalfW(v){ v = v == null || v === '' ? NaN : Math.round(+v); return isFinite(v) ? Math.min(HALF_W.max, Math.max(HALF_W.min, v)) : HALF_W.dflt; }
-/* «Своя заставка» (этап 9.5): форма её не рисует в архив JPEG, в PowerPoint она чёрная */
-const isCustomSplash = b => !!b && b.type === 'splash' && !!b.custom;
+/* «Своя заставка» (этап 9.5): одна на все заставки проповеди (state.settings.customSplash). В архив JPEG не идёт, в PowerPoint — чёрный слайд */
+const isCustomSplash = b => !!b && b.type === 'splash' && !!(state && state.settings && state.settings.customSplash);
+/* «Нижняя строка» заставки (линия, имя и дата): у проповеди своя (state.settings.splashFoot), пока не меняли — как в настройках слайдов пространства.
+   b.meta — пример в окне настроек слайдов: там всегда по настройкам */
+function splashFootOn(b){
+  const dflt = !slidesCfg().kinds.splash.titleOnly;
+  if (b && b.meta) return dflt;
+  const v = state && state.settings ? state.settings.splashFoot : undefined;
+  return typeof v === 'boolean' ? v : dflt;
+}
 
 function newBlock(type){
   const id = uid(), T = TYPES[type];
   const slide = T && T.slide ? { speech:'', todo:!!T.todo } : {};
   switch (type){
-    case 'splash':     return Object.assign({ id, type, custom:false }, slide);   // custom: «Своя заставка» (этап 9.5): в PowerPoint — чёрный слайд, в архив JPEG не идёт
+    case 'splash':     return Object.assign({ id, type }, slide);   // настройки заставки (размер, «своя», нижняя строка) — общие на проповедь, в state.settings
     case 'scripture':  return Object.assign({ id, type, items:[newScripture()] }, slide);   // вид стихов — общий для всех слайдов (настройки слайдов, verses)
     case 'thesis':     return Object.assign({ id, type, name:'', nameAuto:true, text:'', valign:'center', scale:100, parts:[newThesisPart()] }, slide);
-    case 'quote':      return Object.assign({ id, type, text:'', author:'', caption:'', scale:100, caps:false, half:'full', halfW:50 }, slide);   // half: «Во всю ширину» / текст слева / текст справа (этап 9.3); halfW — ширина области текста при «слева / справа», % слайда (этап 9.5)
+    case 'quote':      return Object.assign({ id, type, text:'', author:'', caption:'', scale:100, caps:false, half:'full', halfW:50, frame:false }, slide);   // frame — обводка текста пунктиром (этап 9.5)   // half: «Во всю ширину» / текст слева / текст справа (этап 9.3); halfW — ширина области текста при «слева / справа», % слайда (этап 9.5)
     case 'image':      return Object.assign({ id, type, name:'', mode:'find', desc:'' }, slide);
     case 'video':      return Object.assign({ id, type, name:'', mode:'link', url:'', from:'', to:'', desc:'' }, slide);
     case 'free':       return Object.assign({ id, type, name:'', desc:'' }, slide);
@@ -125,6 +133,9 @@ function normalize(d){
   if (d.settings && typeof d.settings.lang === 'string') s.settings.lang = d.settings.lang;
   // размер названия на заставках (−/+), один на всю проповедь (этап 7.2), в % от размера из настроек слайдов
   if (d.settings && isFinite(+d.settings.splash) && +d.settings.splash > 0) s.settings.splash = Math.round(+d.settings.splash);
+  // этап 9.5: «своя заставка» и нижняя строка — тоже одни на все заставки проповеди (раньше «своя» стояла у отдельной заставки)
+  if ((d.settings && d.settings.customSplash) || (d.blocks || []).some(b => b && b.type === 'splash' && b.custom)) s.settings.customSplash = true;
+  if (d.settings && typeof d.settings.splashFoot === 'boolean') s.settings.splashFoot = d.settings.splashFoot;
   let cur = null;   // слайд, к которому относится идущий дальше текст
   (d.blocks || []).forEach(b => {
     if (!b) return;
@@ -178,8 +189,9 @@ function normalize(d){
       else { nb.author = a; nb.caption = String(b.caption || '').trim(); }
       nb.half = oneOf(b.half, ['full', 'left', 'right'], 'full');
       nb.halfW = clampHalfW(b.halfW);
+      nb.frame = !!b.frame;
     }
-    if (b.type === 'splash') nb.custom = !!b.custom; else delete nb.custom;
+    delete nb.custom;   // перенесено в state.settings.customSplash
     if (NAMED[b.type]) nb.name = cleanName(nb.name);
     if (b.type === 'thesis'){ if (nb.nameAuto == null) nb.nameAuto = !nb.name; if (nb.nameAuto) nb.name = autoName(nb.text); }
     s.blocks.push(nb);

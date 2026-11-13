@@ -65,7 +65,8 @@ function operatorPDF(){
   document.body.classList.add('op-print');
   const done = () => { document.body.classList.remove('op-print'); document.title = title; printEl.innerHTML = ''; window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done);
-  toast('В окне печати выберите «Сохранить как PDF»');
-  const go = () => setTimeout(() => window.print(), 50);
+  // этап 9.5: пока готовится страница — окно со знаком, потом одно сообщение (без стопки над окном печати)
+  const pr = exportProgress('Готовлю PDF');
+  const go = () => { pr.end(); toast('В окне печати выберите «Сохранить как PDF»'); setTimeout(() => window.print(), 500); };   // окно хода успевает закрыться до печати
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(go); else go();
 }

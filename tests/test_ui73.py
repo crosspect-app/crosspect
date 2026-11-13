@@ -79,7 +79,7 @@ def test_splash_title_only(browser, base_url):
     sheet = page.locator(".sheet.scfg")
     foot = sheet.locator("[aria-label='Заставка: имя и дата: размер']")
     assert foot.is_enabled()
-    sheet.get_by_text("Заставка: только название").click()
+    sheet.get_by_text("Нижняя строка на заставке").click()   # было «Заставка: только название»; теперь переключатель обратный
     assert foot.is_disabled()   # строка «Заставка: имя и дата» неактивна
     page.wait_for_function("(() => { const f = document.querySelector('.scfg-slide .sl-sp-foot'); return f && getComputedStyle(f).display === 'none'; })()")
     apply_btn(page).click()

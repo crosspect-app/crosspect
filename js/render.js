@@ -476,8 +476,8 @@ function autoName(html){
   return cleanName(out ? out.charAt(0).toUpperCase() + out.slice(1) : '');
 }
 function syncAutoName(b){
-  if (b.type !== 'thesis' || b.nameAuto === false) return;
-  b.name = autoName(b.text);
+  if (b.type !== 'thesis') return;
+  b.name = autoName(b.text);   // с 9.5 поля нет: название всегда из первых слов (старые ручные названия в данных не трогаем, их не показываем)
   const inp = b.id === selId && sideEl ? sideEl.querySelector('.namebox input') : null;
   if (inp && document.activeElement !== inp){ inp.value = b.name; inp.dispatchEvent(new Event('sync')); }
 }
@@ -605,24 +605,18 @@ const BODY = {
     // подсказка об этом — всплывающая у заголовка панели (slides.js, renderSide)
   },
   splash(b, body, n){
-    const m = state.meta, from = 'Берётся из проповеди: «О проповеди» в шапке';
-    // три строки только для показа (этап 7.4): серые, без рамки поля, чтобы было видно, что здесь ничего не вводят
-    const row = (lbl, val, ph, tip, extra) => h('div', { class:'info-row' }, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:lbl }), extra || null),
-      h('div', { class:'info-val' + (val ? '' : ' empty'), text:val || ph, title:tip || '' }));
-    const titleOnly = slidesCfg().kinds.splash.titleOnly;   // «Заставка: только название» (этап 7.3): низ не рисуется
+    // этап 9.5: только настройки, все — общие на заставки проповеди. Название, дату и автора меняют в «О проповеди» (шапка)
+    const all = () => { refreshSplash(); state.blocks.forEach(x => { if (x.type === 'splash') refreshThumb(x); }); };
+    const sw = (label, on, fn) => h('label', { class:'switch' },
+      h('input', { type:'checkbox', checked:on, onchange:e => { fn(e.target.checked); change(); all(); } }), h('span', { class:'sw' }), label);
     body.append(
-      row('Название для Holyrics', slideName(b, n), '', 'Имя файла JPEG. Длинное название проповеди обрезается по длине названия слайда'),
-      row('Название на слайде', m.title, 'Без названия', from, splashStepper()),
-      titleOnly ? row('Внизу слайда', 'Не показывается: включено «Заставка: только название»', '', 'Это настройка слайдов всего пространства: «⋯ → Настройки слайдов» (её меняют админ и редактор)')
-        : row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Автор и дата не указаны', from),
-      // в боковой панели заставки текстовых подсказок нет (этап 7.2): пояснение — всплывающее
-      h('label', { class:'switch own-splash', title:'Для этой заставки: в PowerPoint будет чёрный слайд, в архив JPEG она не попадёт. Заставку вы сделаете сами' },
-        h('input', { type:'checkbox', checked:!!b.custom, onchange:e => { b.custom = e.target.checked; change(); refreshThumb(b); } }),
-        h('span', { class:'sw' }), 'Своя заставка'),
-      h('button', { type:'button', class:'btn', style:'justify-content:center', onclick:() => openMeta() }, ic('settings'), 'Изменить название, дату, автора'));
+      h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Размер названия' }), splashStepper()),
+      sw('Нижняя строка', splashFootOn(b), v => { state.settings.splashFoot = v; }),
+      h('div', { class:'own-splash' },
+        sw('Своя заставка', isCustomSplash(b), v => { if (v) state.settings.customSplash = true; else delete state.settings.customSplash; }),
+        h('p', { class:'hint', text:'В PowerPoint вместо заставки будет чёрный слайд, в архив JPEG заставки не попадут.' })));
   },
   thesis(b, body, n){
-    body.append(nameField(b, n));
     const parts = b.parts, cnt = parts.length;
     parts.forEach((p, i) => {
       const moveP = d => { const j = i + d; if (j < 0 || j >= cnt) return; parts.splice(i, 1); parts.splice(j, 0, p); syncThesisText(b); syncAutoName(b); change(); rerender(b); };
@@ -653,6 +647,9 @@ const BODY = {
     body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Цитата' }), scaleStepper(b)),
       rich(b.text, { key:b.id + ':t', ph:'Текст цитаты, без кавычек. Enter — новая строка', onInput:v => { b.text = v; change(); updateCounter(b); } })));
     body.append(capsSwitch(b));
+    body.append(h('label', { class:'switch' },
+      h('input', { type:'checkbox', checked:!!b.frame, onchange:e => { b.frame = e.target.checked; change(); updateCounter(b); } }),
+      h('span', { class:'sw' }), 'Обводка пунктиром'));
     body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Место текста' })),
       toggle([['full', 'Во всю ширину'], ['left', 'Текст слева'], ['right', 'Текст справа']], b.half || 'full', v => { b.half = v; change(); rerender(b); })));
     if (b.half === 'left' || b.half === 'right') body.append(halfWidthRow(b));

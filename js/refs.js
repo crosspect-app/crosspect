@@ -63,7 +63,7 @@ const ABBR = 'Быт.|Исх.|Лев.|Чис.|Втор.|Нав.|Суд.|Руф.|
 /* ========= Названия слайдов (имена файлов) =========
    Заставка: «[1] Заставка Название проповеди» · Писание: «[3] 1 КОР. 12_7-9,12» · цитата: «[4] цитата Оливер КАН» · тезис, картинка, видео, свободный: «[5] своё название» */
 const BAD_CHARS = /[\\/:*?"<>|]/g;          // символы, которые нельзя в именах файлов Windows
-const NAMED = { thesis:true, image:true, video:true, free:true };   // у этих слайдов название пишут вручную
+const NAMED = { image:true, video:true, free:true };   // у этих слайдов название пишут вручную; у тезиса (с 9.5) оно всегда из первых слов текста
 const cleanName = s => String(s || '').replace(BAD_CHARS, '').replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().replace(/[ .]+$/, '');
 const versesForName = s => String(s || '').replace(/[–—]/g, '-').replace(/\s+/g, '');
 function scriptureNamePart(b){
@@ -100,6 +100,7 @@ function slideName(b, n){
   if (b.type === 'splash') part = splashNamePart();
   else if (b.type === 'scripture') part = scriptureNamePart(b);
   else if (b.type === 'quote') part = quoteNamePart(b);
+  else if (b.type === 'thesis') part = autoName(b.text);   // поля названия у тезиса нет (этап 9.5)
   else if (NAMED[b.type]) part = b.name || '';
   return cleanName('[' + n + '] ' + cleanName(part));
 }

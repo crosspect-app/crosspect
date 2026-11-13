@@ -208,7 +208,7 @@ function layoutSplash(sl, b, px){
   sl.querySelector('.sl-sp-name').innerHTML = splashNameHTML(m);
   sl.querySelector('.sl-sp-date').textContent = splashDate(m.date);
   // «Только название» (настройка слайдов, этап 7.3): линии, имени и даты нет, название — посередине всей области текста
-  const only = !!slidesCfg().kinds.splash.titleOnly;
+  const only = !splashFootOn(b);   // этап 9.5: у проповеди своя «нижняя строка», по умолчанию — из настроек слайдов
   foot.style.display = only ? 'none' : '';
   box.style.bottom = only ? 'var(--sl-b)' : (SL.H - foot.offsetTop + SPLASH.gap) + 'px';   // иначе — посередине над линией с именем и датой
   const title = String(m.title || '').trim();
@@ -293,6 +293,7 @@ function layoutBox(sl, b, px){
   inner.style.textAlign = align; inner.dataset.align = align;
   box.style.justifyContent = b.type === 'thesis' ? ({ top:'flex-start', bottom:'flex-end' }[b.valign] || 'center') : 'center';
   inner.classList.toggle('caps', b.type !== 'thesis' && isCaps(b));
+  inner.classList.toggle('framed', b.type === 'quote' && !!b.frame);   // обводка пунктиром (этап 9.5), как у части тезиса
   inner.classList.toggle('parts', b.type === 'thesis');
   inner.innerHTML = boxHTML(b);
   inner.querySelectorAll('.sl-tp').forEach(typoDom);

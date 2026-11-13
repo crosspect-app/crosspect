@@ -86,8 +86,8 @@ def test_splash_size_is_one_per_sermon(browser, base_url):
     assert page.evaluate("normalize({ blocks:[], settings:{ splash:120 } }).settings.splash") == 120
     page.evaluate("state.settings.splash = 500")
     assert page.evaluate("splashScale()") == page.evaluate("SLIDES_BASE.kinds.splash.max")
-    # в боковой панели заставки нет текстовых подсказок
-    assert page.locator(".side .hint").count() == 0
+    # в боковой панели заставки нет текстовых подсказок, кроме пояснения к «Своей заставке» (этап 9.5)
+    assert page.locator(".side .hint:not(.own-splash .hint)").count() == 0
     assert not page.errors, page.errors
     ctx.close()
 

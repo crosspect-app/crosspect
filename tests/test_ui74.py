@@ -140,31 +140,42 @@ def test_panels_section_only_in_editor_window(browser, base_url):
 
 # ---------- поля заставки ----------
 
-def test_splash_fields_look_read_only(browser, base_url):
+def test_splash_panel_has_only_settings(browser, base_url):
+    """Этап 9.5: в настройках заставки нет названия, даты, автора и кнопки «Изменить…» — только размер, нижняя строка, своя заставка"""
     ctx, page = editor_page(browser, base_url)
-    vals = page.locator(".side .info-val")
-    assert vals.count() == 3
-    assert page.locator(".side .info-row input, .side .info-row textarea, .side .info-row [contenteditable]").count() == 0
-    st = page.evaluate("""() => [...document.querySelectorAll('.side .info-val')].map(el => { const c = getComputedStyle(el); const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
-      return { border:c.borderTopWidth, bg:c.backgroundColor, cursor:c.cursor, color:c.color, bgImg:c.backgroundImage }; })""")
-    for s in st:
-        assert s["border"] == "0px" and s["cursor"] == "default" and s["bg"] in ("rgba(0, 0, 0, 0)", "transparent"), s
-        assert s["color"] != "rgb(236, 223, 207)", s   # не основной цвет текста: приглушённый
-    assert page.locator(".side .info-row").nth(1).inner_text().find("Вера") >= 0
-    # кнопка остаётся обычной
-    assert page.locator(".side").get_by_role("button", name="Изменить название, дату, автора").is_visible()
+    side = page.locator(".side")
+    assert page.locator(".side .info-row").count() == 0
+    assert side.get_by_role("button", name="Изменить название, дату, автора").count() == 0
+    assert "Holyrics" not in side.inner_text()
+    assert side.locator(".step").count() == 1
+    assert [t.strip() for t in side.locator(".switch").all_inner_texts()] == ["Нижняя строка", "Своя заставка"]
+    assert "чёрный слайд" in side.locator(".own-splash .hint").inner_text() and "архив JPEG" in side.locator(".own-splash .hint").inner_text()
     assert not page.errors, page.errors
     ctx.close()
 
 
-def test_splash_footer_row_when_title_only(browser, base_url):
+def test_splash_foot_switch_applies_to_all_splashes(browser, base_url):
     ctx, page = editor_page(browser, base_url, settings=None)
-    assert "Не показывается" not in page.locator(".side").inner_text()
+    start_edit(page)
+    page.evaluate("state.blocks.splice(2, 0, newBlock('splash')); renderMain()")
+    sp = "state.blocks.filter(b => b.type === 'splash')"
+    assert page.evaluate(sp + ".length") >= 2
+    page.locator(".side .switch", has_text="Нижняя строка").click()
+    assert page.evaluate("state.settings.splashFoot") is False
+    page.wait_for_function("[...document.querySelectorAll('.st.t-splash .sl-sp-foot')].length >= 2 && [...document.querySelectorAll('.st.t-splash .sl-sp-foot')].every(f => getComputedStyle(f).display === 'none')")
+    page.locator(".side .switch", has_text="Нижняя строка").click()
+    assert page.evaluate("state.settings.splashFoot") is True
+    ctx.close()
+
+
+def test_splash_foot_default_comes_from_space_settings(browser, base_url):
+    ctx, page = editor_page(browser, base_url, settings=None)
+    assert page.evaluate("splashFootOn(state.blocks.find(b => b.type === 'splash'))") is True
     page.evaluate("""() => { const db = fakeCloud.db(); db.slides = { kinds:{ splash:{ titleOnly:true } } }; fakeCloud.put(db); }""")
-    page.wait_for_function("document.querySelector('.side').innerText.includes('Не показывается')", timeout=5000)
-    row = page.locator(".side .info-row").nth(2)
-    assert "Не показывается" in row.inner_text() and "Только название".lower() in row.inner_text().lower()
-    assert "Вера" not in row.inner_text()
+    page.wait_for_function("splashFootOn(state.blocks.find(b => b.type === 'splash')) === false", timeout=5000)
+    assert not page.locator(".side .switch", has_text="Нижняя строка").locator("input").is_checked()
+    # у проповеди своё значение важнее настроек пространства
+    assert page.evaluate("(() => { state.settings.splashFoot = true; return splashFootOn(state.blocks.find(b => b.type === 'splash')); })()") is True
     ctx.close()
 
 
