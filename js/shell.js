@@ -7,7 +7,7 @@ const app = $('#app');
 const topbar = h('header', { class:'topbar' });
 const mainEl = h('main', { class:'app-main', id:'main' });
 
-const menuItem = (icon, label, fn) => h('button', { type:'button', onclick:() => { closeMenu(); fn(); } }, ic(icon), label);
+const menuItem = (icon, label, fn, off) => h('button', { type:'button', disabled:!!off, title:off || null, onclick:() => { closeMenu(); fn(); } }, ic(icon), label);   // off — почему пункт неактивен
 const menuEl = h('div', { class:'menu', id:'menu' });
 /* Меню зависит от экрана: выгрузка — только внутри проповеди; «Настройки слайдов» — только админу и редактору.
    Открыть файл в форме нельзя (с этапа 8 проповеди только в облаке). «Новый конспект» и «Скачать файл» из меню убраны (этап 9.2):
@@ -18,7 +18,11 @@ function fillMenu(){
     if (cloud.user) menuEl.append(h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
     return;
   }
-  if (cloudOn() && screen === 'sermon' && authorWaits()) menuEl.append(menuItem('dup', 'Сделать копию', () => saveAsCopy()));   // конспект у редактора: копия — новый черновик автора
+  if (screen === 'sermon' && state){   // этап 9.7: копии — всем, кто видит конспект; история — тем, кто может его править
+    menuEl.append(menuItem('dup', 'Сделать копию', () => saveAsCopy({ keep:true })),
+      menuItem('dup', 'Копировать в пространство…', () => openCopyToSpace(), multiSpace() ? '' : 'У вас одно пространство'));
+    if (canHistory()) menuEl.append(menuItem('undo', 'История', () => openHistory()));
+  }
   if (screen === 'sermon' && view === 'slides' && state && state.blocks.length) menuEl.append(h('div', { class:'menu-sep' }), menuItem('search', 'Найти и заменить', () => findOpen()));   // этап 9.6; то же — Ctrl+F
   if (screen === 'sermon') menuEl.append(
     h('div', { class:'menu-sep' }),

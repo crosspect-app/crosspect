@@ -83,7 +83,7 @@ function renderHome(){
 /* ----- Список: одна таблица и фильтры (этап 7.7; сортировка по заголовкам убрана на этапе 7.8 — порядок всегда по дате) -----
    Колонки и фильтры описаны таблицами HOME_COLS и homeFilters: колонку «Серия» и фильтр по серии (этап 10) добавить
    одной записью в каждую. Выбор фильтров хранится в этом браузере (swp-home-view), без облака. */
-const STATUS_ORDER = { draft:0, submitted:1, work:2 };   // «Черновик → Готов к вёрстке → У редактора»
+const STATUS_ORDER = { draft:0, submitted:1, work:2, ready:3 };   // «Черновик → Готов к вёрстке → У редактора → Презентация готова»
 const HOME_VIEW_DEFAULT = { f:{ date:'all', from:'', to:'', author:'', status:[] } };
 let homeView = (() => {
   let v = null; try { v = JSON.parse(LS.get('swp-home-view') || 'null'); } catch(e){}

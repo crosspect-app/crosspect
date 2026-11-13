@@ -75,12 +75,15 @@ function blockSummary(b){
 }
 
 
-/* Статус конспекта (этап 7.3) — три: «Черновик» (в облаке `draft`, новый конспект), «Готов к вёрстке» (`submitted`, автор закончил)
-   и «У редактора» (`work`, конспект взял редактор; старое `done` считается так же). Переключатель — на экране проповеди (editor.js) */
-const STATUS_KEYS = ['draft', 'submitted', 'work'];
-const STATUS_LABELS = { draft:'Черновик', submitted:'Готов к вёрстке', work:'У редактора' };
-const statusKey = st => st === 'submitted' ? 'submitted' : st === 'work' || st === 'done' ? 'work' : 'draft';
-const atEditor = d => !!d && statusKey(d.cloudStatus) === 'work';
+/* Статус конспекта (этап 7.3) — «Черновик» (в облаке `draft`, новый конспект), «Готов к вёрстке» (`submitted`, автор закончил),
+   «У редактора» (`work`, конспект взял редактор; старое `done` считается так же) и с этапа 9.7 «Презентация готова» (`ready`,
+   редактор сделал слайды). Последние два ставит только редактор или админ, автор при них конспект не правит.
+   Переключатель — на экране проповеди (editor.js) */
+const STATUS_KEYS = ['draft', 'submitted', 'work', 'ready'];
+const STATUS_LABELS = { draft:'Черновик', submitted:'Готов к вёрстке', work:'У редактора', ready:'Презентация готова' };
+const statusKey = st => st === 'submitted' || st === 'ready' ? st : st === 'work' || st === 'done' ? 'work' : 'draft';
+const EDITOR_ONLY = ['work', 'ready'];   // ставит и снимает только редактор или админ; автор при них не правит
+const atEditor = d => !!d && EDITOR_ONLY.includes(statusKey(d.cloudStatus));
 function sermonStatus(d){ const k = statusKey(d.cloudStatus); return { key:k, label:STATUS_LABELS[k] }; }
 /* «Вс, 15 ноября» */
 function fmtDay(s){

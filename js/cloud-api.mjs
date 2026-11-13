@@ -19,6 +19,15 @@
 
 const MAX_LIST = 200;               // сколько проповедей показывать на главной
 const MAX_BYTES = 900 * 1024;       // документ в Firestore — до 1 МиБ; предупреждаем заранее
+const VERSIONS_KEEP = 10;           // история сохранений (этап 9.7): сколько копий держать
+
+/* Одинаковое ли содержимое (meta, settings, blocks) у копии из истории и проповеди: ключи — в любом порядке */
+function canonJSON(v){
+  if (Array.isArray(v)) return '[' + v.map(canonJSON).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).sort().filter(k => v[k] !== undefined).map(k => JSON.stringify(k) + ':' + canonJSON(v[k])).join(',') + '}';
+  return JSON.stringify(v);
+}
+const sameContent = (a, b) => canonJSON({ meta: a.meta, settings: a.settings, blocks: a.blocks }) === canonJSON({ meta: b.meta, settings: b.settings, blocks: b.blocks });
 
 /* Сводка проповеди для списка: поля документа проповеди (после записи) → документ summaries/{id}.
    Те же поля, что проверяют правила (validSummary в cloud/firestore.rules). Нужна и служебному скрипту
@@ -52,6 +61,7 @@ export function createCloudAPI(fb){
   const col = space => F.collection(db, 'spaces', space, 'sermons');
   const ref = (space, id) => F.doc(db, 'spaces', space, 'sermons', id);
   const sumRef = (space, id) => F.doc(db, 'spaces', space, 'summaries', id);
+  const verCol = (space, id) => F.collection(db, 'spaces', space, 'sermons', id, 'versions');
   const lower = e => String(e || '').trim().toLowerCase();
   const ms = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : 0);
   const err = (code, message, extra) => Object.assign(new Error(message || code), { code }, extra);
@@ -108,6 +118,14 @@ export function createCloudAPI(fb){
       // отметки «доработать» и «готово» в проповедь не пишем: «доработать» лежит в закрытом документе editor/state (этап 7)
       blocks: (s.blocks || []).map(b => { const c = Object.assign({}, b); delete c.todo; delete c.done; return c; }),
     }));
+  }
+
+  /* История сохранений (этап 9.7): копии конспекта, новые сверху */
+  async function listVersions(space, id){
+    const snap = await F.getDocs(F.query(verCol(space, id), F.orderBy('savedAt', 'desc')));
+    return snap.docs.map(d => { const x = d.data({ serverTimestamps: 'estimate' });
+      return { id: d.id, savedAt: ms(x.savedAt), savedBy: x.savedBy || '', name: x.name || '', status: x.status || 'draft',
+        v: x.v || 2, meta: x.meta || {}, settings: x.settings || {}, blocks: x.blocks || [] }; });
   }
 
   return {
@@ -313,7 +331,8 @@ export function createCloudAPI(fb){
         { layout: JSON.parse(JSON.stringify(layout || {})), updatedAt: F.serverTimestamp() });
     },
 
-    /* Отметки редактора («доработать»): документ editor/state, читает и пишет только редактор (и админ), замок не нужен.
+    /* Отметки редактора («доработать»): документ editor/state, пишет только редактор (и админ), замок не нужен;
+       с этапа 9.7 читают все, кто видит проповедь (автор тоже видит отметки).
        flags = { <id слайда>: { t: 1 | 0, s: подпись } }. Нет документа или нет прав — пустой набор */
     async getFlags(space, id){
       try {
@@ -325,6 +344,27 @@ export function createCloudAPI(fb){
       await F.setDoc(F.doc(db, 'spaces', space, 'sermons', id, 'editor', 'state'),
         { flags: JSON.parse(JSON.stringify(flags || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
     },
+
+    /* История сохранений (этап 9.7): spaces/{s}/sermons/{id}/versions/{v} = содержимое проповеди на момент «Сохранить»
+       + status, savedAt (время сервера), savedBy, name. Видят и пишут те, кто может править. Копию не меняют:
+       addVersion добавляет новую и стирает старые сверх keep (10). Если содержимое такое же, как у последней копии, —
+       новой не будет (вернёт null). Возвращает список, как versions */
+    async addVersion(space, s, me, opts){
+      opts = opts || {};
+      const keep = opts.keep || VERSIONS_KEEP, body = content(s);
+      const list = await listVersions(space, s.id);
+      if (list.length && sameContent(list[0], body)) return null;
+      const r = F.doc(verCol(space, s.id));
+      await F.setDoc(r, Object.assign({}, body, {
+        status: s.cloudStatus || 'draft', savedAt: F.serverTimestamp(), savedBy: lower(me.email),
+        name: String(opts.name || '').slice(0, 200),
+      }));
+      const extra = list.slice(keep - 1);   // новая — первая, из прежних остаются keep − 1
+      for (const v of extra) { try { await F.deleteDoc(F.doc(verCol(space, s.id), v.id)); } catch (e) { /* не стёрлась — сотрём в следующий раз */ } }
+      return listVersions(space, s.id);
+    },
+    /* Список копий, новые сверху: [{ id, savedAt (мс), savedBy, name, status, v, meta, settings, blocks }] */
+    versions: listVersions,
 
     /* Настройки слайдов пространства (этап 7.1): документ config/slides, общий для всех проповедей.
        Читают все участники, пишут админ и редактор. onCfg(slides | null) на каждое изменение; null — документа ещё нет */
@@ -485,7 +525,11 @@ export function createCloudAPI(fb){
       let share = null;
       if (key){ try { const sn = await F.getDoc(F.doc(db, 'shares', key)); if (sn.exists()) share = sn.ref; } catch (e) { /* снимка не нашли — не мешаем удалению */ } }
       if (share) await F.deleteDoc(share);   // отдельной записью (предел правил, см. выше); не удалился — конспект не трогаем, чтобы открытый снимок не остался без хозяина
+      let vers = [];   // история сохранений (этап 9.7) уходит вместе с конспектом
+      try { vers = (await F.getDocs(verCol(space, id))).docs.map(d => d.ref); }
+      catch (e) { if (!denied(e)) throw e; }
       const b = F.writeBatch(db);
+      vers.forEach(r => b.delete(r));
       b.delete(F.doc(db, 'spaces', space, 'sermons', id, 'editor', 'state'));
       b.delete(sumRef(space, id));
       b.delete(ref(space, id));

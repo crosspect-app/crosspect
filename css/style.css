@@ -153,6 +153,7 @@ mark{background:var(--mark);color:inherit;border-radius:5px;padding:0 3px;-webki
 .menu.open{display:block}
 .menu button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:10px 12px;border-radius:10px;font-size:13px}
 .menu button:hover{background:var(--surface-2)}
+.menu button:disabled{opacity:.45;cursor:not-allowed;background:transparent}   /* «Копировать в пространство…», когда пространство одно (этап 9.7) */
 .menu-sep{height:1px;background:var(--line);margin:4px 6px}
 .seg{display:flex;gap:2px;background:var(--surface);border:1px solid var(--line-2);border-radius:999px;padding:3px;width:220px}
 .seg button{flex:1;height:30px;border:0;background:transparent;padding:0 12px;border-radius:999px;font-size:13px;font-weight:500;color:var(--muted);transition:.15s}
@@ -168,9 +169,11 @@ mark{background:var(--mark);color:inherit;border-radius:5px;padding:0 3px;-webki
 .stswitch .sw-opt.on.st-draft,.stchip.st-draft{background:#3a2c08;color:#ffde59}
 .stswitch .sw-opt.on.st-submitted,.stchip.st-submitted{background:#13301d;color:#5ad17a}
 .stswitch .sw-opt.on.st-work,.stchip.st-work{background:#13263d;color:#8cbcff}
+.stswitch .sw-opt.on.st-ready,.stchip.st-ready{background:#2a1d42;color:#c6a6ff}   /* «Презентация готова» (этап 9.7) */
 body.light .stswitch .sw-opt.on.st-draft,body.light .stchip.st-draft{background:#fbeeb8;color:#6b4e00}
 body.light .stswitch .sw-opt.on.st-submitted,body.light .stchip.st-submitted{background:#d9f0e0;color:#17693a}
 body.light .stswitch .sw-opt.on.st-work,body.light .stchip.st-work{background:#dce9fb;color:#1d4f8f}
+body.light .stswitch .sw-opt.on.st-ready,body.light .stchip.st-ready{background:#ebe0fb;color:#5a3596}
 .hist{display:inline-flex;gap:2px}
 
 /* ---------- Шапка ---------- */
@@ -268,6 +271,7 @@ button.film-todo.on{text-decoration:none;border-bottom:1px solid var(--todo)}
 .hf-chip.on.st-draft{background:#3a2c08;color:#ffde59}
 .hf-chip.on.st-submitted{background:#13301d;color:#5ad17a}
 .hf-chip.on.st-work{background:#13263d;color:#8cbcff}
+.hf-chip.on.st-ready{background:#2a1d42;color:#c6a6ff}
 .hf-reset .ic{width:14px;height:14px}
 .ptable{border-radius:14px;border:1px solid var(--line);overflow:hidden}
 .srow{display:grid;grid-template-columns:160px minmax(0,1fr) 200px 76px 140px 40px;gap:16px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--text);font-size:14px;background:rgba(20,20,20,.9)}
@@ -1078,6 +1082,8 @@ body[data-screen="op"] .app-main{min-height:100vh}
 .trash-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .trash-title.empty{color:var(--muted)}
 .trash-meta,.trash-when{font-size:12px;color:var(--muted);margin-top:2px}
+.trash-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.trash-meta .stchip{font-size:11px;padding:4px 8px}
 .trash-when{color:var(--faint)}
 .trash-acts{display:flex;gap:8px;flex-shrink:0}
 .trash-empty{margin:4px 0 6px}
@@ -1095,3 +1101,37 @@ body[data-screen="op"] .app-main{min-height:100vh}
 .fb-cs.on{background:var(--warn-bg);color:var(--warn)}
 .findbar.ro .fb-rep{display:none}
 ::highlight(fr-cur){background-color:#ffde59;color:#141414}
+
+/* Этап 9.7: «Копировать в пространство…» и окно «История» (js/cloud.js, js/versions.js) */
+.copy-list{display:flex;flex-direction:column;gap:8px}
+.copy-list .btn{justify-content:flex-start}
+.ver-sheet{max-width:940px}
+.ver-body{display:grid;grid-template-columns:240px 1fr;gap:14px;min-height:0}
+.ver-list{display:flex;flex-direction:column;gap:4px;max-height:60vh;overflow:auto;padding-right:2px}
+.ver-row{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1px solid transparent;background:transparent;border-radius:12px;padding:9px 11px;cursor:pointer;color:var(--text)}
+.ver-row:hover{background:var(--surface-2)}
+.ver-row.on{background:var(--surface-2);border-color:var(--line-2)}
+.ver-when{font-weight:600;font-size:13px}
+.ver-who{font-size:12px;color:var(--muted)}
+.ver-view{max-height:60vh;overflow:auto;border:1px solid var(--line-2);border-radius:14px;background:var(--surface-2);padding:14px 16px}
+.ver-doc{--vs:.85}
+.ver-doc .tv-card{padding:10px 14px}
+.ver-title{font-weight:700;font-size:16px}
+.ver-title.empty{color:var(--muted)}
+.ver-meta{font-size:12px;color:var(--muted);margin:2px 0 12px}
+.ver-slide{padding:10px 0;border-top:1px solid var(--line)}
+.ver-cap{font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.ver-speech{font-size:12px;color:var(--muted);margin-top:8px;white-space:pre-wrap}
+.ver-note-op{font-size:12px;color:var(--muted);padding:8px 0;border-top:1px solid var(--line)}
+.ver-empty{margin:4px 0 6px}
+.ver-sheet .sheet-foot{align-items:center;gap:12px;margin-top:14px}
+.ver-note{flex:1;font-size:12px}
+@media (max-width:720px){
+  .ver-body{grid-template-columns:1fr}
+  .ver-list{max-height:30vh}
+}
+@media (max-width:440px){   /* четыре статуса (этап 9.7) на телефоне: уже, а если не влезают — прокрутка внутри переключателя */
+  .stswitch{max-width:100%;overflow-x:auto;scrollbar-width:none}
+  .stswitch::-webkit-scrollbar{display:none}
+  .stswitch .sw-opt{padding:5px 6px;font-size:10.5px}
+}

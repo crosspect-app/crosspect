@@ -42,7 +42,7 @@
   const isEditor = (db, email) => { if (isAdmin(email)) return true; const m = db.members[email]; return !!m && m.role !== 'preacher'; };
   // «У редактора» (этап 7.3), как в правилах: автор не правит, не берёт замок, не меняет статус и не удаляет; сам ставит только draft / submitted
   const denied = () => fail('permission-denied', 'Missing or insufficient permissions');
-  const atEditor = r => !!r && (r.status === 'work' || r.status === 'done');
+  const atEditor = r => !!r && (r.status === 'work' || r.status === 'done' || r.status === 'ready');   // ready — «Презентация готова» (этап 9.7)
   const authorBlocked = (db, email, r, status) => !isEditor(db, email) && (atEditor(r) || (status != null && !['draft', 'submitted'].includes(status)));
   function notify(){ listeners.forEach(f => f()); }
   window.addEventListener('storage', e => { if (e.key === KEY) notify(); });   // «база» общая у всех вкладок этого браузера: чужая запись доходит и сюда
@@ -136,10 +136,10 @@
       const db = load(), x = S(db, space), cur = x.sermons[id];
       if (cur && cur.lock && cur.lock.email === who.email && (!at || cur.lock.at === at)){ cur.lock = null; store(db); notify(); }
     },
-    /* Отметки редактора: только редактор и админ, как в правилах */
+    /* Отметки редактора: пишут только редактор и админ, читают все участники (этап 9.7), как в правилах */
     async getFlags(space, id){
       const db = load(), x = S(db, space), u = me();
-      if (!u || !isEditor(x, u.email)) return {};
+      if (!u || (!isEditor(x, u.email) && !x.members[u.email])) return {};
       return JSON.parse(JSON.stringify((x.flags || {})[id] || {}));
     },
     async setFlags(space, id, who, flags){
@@ -250,6 +250,24 @@
       if (u && cur && !isEditor(x, u.email) && (cur.owner !== u.email || cur.status !== 'draft')) throw denied();   // автор удаляет только свой черновик
       const key = cur && cur.shareKey;
       if (key && db.shares) delete db.shares[key];   // ссылка для оператора уходит вместе с конспектом
-      delete x.sermons[id]; if (x.flags) delete x.flags[id]; store(db); notify(); },
+      delete x.sermons[id]; if (x.flags) delete x.flags[id]; if (x.versions) delete x.versions[id]; store(db); notify(); },
+    /* История сохранений (этап 9.7): x.versions[id] = [копии, новые сверху]; видят и пишут те, кто может править */
+    async addVersion(space, s, who, opts){
+      calls.versions = (calls.versions || 0) + 1; offline();
+      const db = load(), x = S(db, space), cur = x.sermons[s.id], my = who.email;
+      if (!cur || (!isEditor(x, my) && (cur.owner !== my || atEditor(cur) || cur.deletedAt))) throw denied();
+      const body = JSON.parse(JSON.stringify({ v:s.v || 2, meta:s.meta, settings:s.settings || {}, blocks:(s.blocks || []).map(b => { const c = Object.assign({}, b); delete c.todo; delete c.done; return c; }) }));
+      x.versions = x.versions || {}; const list = x.versions[s.id] = x.versions[s.id] || [];
+      const key = v => JSON.stringify({ meta:v.meta, settings:v.settings, blocks:v.blocks });
+      if (list.length && key(list[0]) === key(body)) return null;
+      list.unshift(Object.assign(body, { id:'v' + tick(db), status:s.cloudStatus || 'draft', savedAt:Date.now() + db.clock, savedBy:my, name:(opts && opts.name) || '' }));
+      list.splice((opts && opts.keep) || 10);
+      store(db); return JSON.parse(JSON.stringify(list));
+    },
+    async versions(space, id){
+      const db = load(), x = S(db, space), cur = x.sermons[id], u = me();
+      if (!cur || !u || (!isEditor(x, u.email) && cur.owner !== u.email)) throw denied();
+      return JSON.parse(JSON.stringify((x.versions || {})[id] || []));
+    },
   };
 })();

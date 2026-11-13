@@ -139,6 +139,7 @@ if (cmd === 'create-space') {
       if (dry) continue;
       if (typeof x.shareKey === 'string' && x.shareKey) await db.collection('shares').doc(x.shareKey).delete();   // нет снимка — delete и так ничего не делает
       const batch = db.batch();
+      for (const v of (await d.ref.collection('versions').get()).docs) batch.delete(v.ref);   // история сохранений (этап 9.7)
       batch.delete(d.ref.collection('editor').doc('state'));
       batch.delete(s.ref.collection('summaries').doc(d.id));
       batch.delete(d.ref);

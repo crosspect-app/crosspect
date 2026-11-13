@@ -243,6 +243,7 @@ async function cloudWrite(s, o){
       persistDraft();
       if (!ed.unsub) startWatch();
     } else LS.set('swp-sermon:' + s.id, JSON.stringify(s));
+    if (o.manual) snapVersion(s);   // «Сохранить» и Ctrl+S: копия в историю (этап 9.7; автосохранение копий не делает)
   } catch(e){
     const code = (e && e.code) || '';
     if (code === 'lost-lock'){
@@ -332,7 +333,10 @@ async function closeEdit(reason){
   const at = ed.myAt;
   let res = 'ok';
   if (isUnsaved(s) || !s.cloudAt) res = await (ed.pending = cloudWrite(s, { release:true, at, manual:reason === 'button' }));
-  else if (at){ try { await cloud.api.release(cloud.space, s.id, cloud.user, at); } catch(e){ res = netErr(e) ? 'offline' : 'error'; } }
+  else if (at){
+    try { await cloud.api.release(cloud.space, s.id, cloud.user, at); } catch(e){ res = netErr(e) ? 'offline' : 'error'; }
+    if (res === 'ok' && reason === 'button') snapVersion(s);   // правки ушли автосохранением: копия в историю — всё равно по «Сохранить» (этап 9.7)
+  }
   if (state !== s || ed.mode !== 'edit') return res === 'ok' ? 'none' : res;
   if (res !== 'ok'){
     if (reason === 'button'){
@@ -403,7 +407,7 @@ async function rescueAndShow(s, l){
 }
 function lostSheet(l, copy, onOpen){
   const mine = l && l.email === myEmail();
-  const head = !l ? (authorWaits(state) ? AT_EDITOR_MSG + '.' : 'Этот конспект вам править нельзя.') : mine ? 'Этот конспект вы правите в другой вкладке или на другом устройстве.' : lockWho(l) + ' сейчас правит эту проповедь.';
+  const head = !l ? (authorWaits(state) ? atEditorMsg() + '.' : 'Этот конспект вам править нельзя.') : mine ? 'Этот конспект вы правите в другой вкладке или на другом устройстве.' : lockWho(l) + ' сейчас правит эту проповедь.';
   const what = onOpen ? 'В браузере оставались несохранённые правки: ' : 'То, что не успело сохраниться, ';
   const tail = copy
     ? (copy.cloud ? what + (onOpen ? 'они ' : '') + 'сохранены отдельной копией «' + copy.title + '».'
@@ -442,7 +446,7 @@ function roBlock(){
 function roHint(){
   if (Date.now() - ed.hintAt < 1500) return;
   ed.hintAt = Date.now();
-  if (authorWaits()){ toast(AT_EDITOR_MSG); return; }
+  if (authorWaits()){ toast(atEditorMsg()); return; }
   if (!canEditCloud()){ toast('Это конспект другого автора: его можно только смотреть. Чтобы взять за основу, нажмите «Сделать копию»'); return; }
   const l = otherLock();
   if (l && l.email !== myEmail() && cloud.role === 'preacher'){ toast('Сейчас его правит ' + lockWho(l) + '. Править можно, когда правка закончится'); return; }
@@ -456,11 +460,11 @@ function headAction(){
   if (ed.busy) return b('primary', null, 'Открываю правку…', null, { disabled:true });
   if (ed.mode === 'edit') return b('primary', 'done', 'Сохранить', () => closeEdit('button'), { title:'Сохранить и закончить правку: тогда конспект смогут править другие (Ctrl+S — сохранить и продолжить)' });
   if (authorWaits()){   // конспект у редактора: на кнопке проявляется значок замка (motion.js); у редактора и админа замка нет — кнопка работает
-    const btn = b('primary hd-edit', 'edit', 'Редактировать', null, { disabled:true, title:AT_EDITOR_MSG + '. Чтобы взять конспект за основу, сделайте копию: «⋯ → Сделать копию»' });
+    const btn = b('primary hd-edit', 'edit', 'Редактировать', null, { disabled:true, title:atEditorMsg() + '. Чтобы взять конспект за основу, сделайте копию: «⋯ → Сделать копию»' });
     btn.append(h('span', { class:'lockbadge', 'aria-hidden':'true' }, ic('lock')));
     return btn;
   }
-  if (!canEditCloud()) return b('', 'dup', 'Сделать копию', () => saveAsCopy(), { title:'Копия станет вашим конспектом, его можно править' });
+  if (!canEditCloud()) return b('', 'dup', 'Сделать копию', () => saveAsCopy({ keep:true }), { title:'Копия станет вашим конспектом, его можно править' });
   const l = otherLock();
   if (l && l.email === myEmail()) return b('primary', 'edit', 'Править здесь', () => takeOver(l));
   if (l && cloud.role !== 'preacher') return b('', 'edit', 'Забрать правку', () => takeOver(l), { title:'Сейчас правит ' + lockWho(l) });
@@ -480,7 +484,7 @@ function cloudStatusLine(){
     return ['', 'Правки сохранятся сами'];
   }
   if (ed.busy) return ['', 'Открываю правку…'];
-  if (authorWaits()) return ['warn', AT_EDITOR_MSG];
+  if (authorWaits()) return ['warn', atEditorMsg()];
   if (!canEditCloud()) return ['warn', 'Только чтение: конспект другого автора'];
   const l = otherLock();
   if (l && l.email === myEmail()) return ['warn', 'Вы правите её в другой вкладке или на другом устройстве (с ' + fmtTime(l.at) + ')'];

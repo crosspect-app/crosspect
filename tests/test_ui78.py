@@ -159,7 +159,7 @@ def test_new_outline_author_from_table_not_google(browser, base_url):
 def test_status_locked_to_draft_while_empty(page):
     start_blank(page)
     opts = lambda: page.evaluate("[...document.querySelectorAll('.stswitch .sw-opt')].map(b => b.disabled)")
-    assert opts() == [False, True, True]
+    assert opts() == [False, True, True, True]
     assert page.locator(".stswitch .sw-opt.st-submitted").get_attribute("title") == "Сначала добавьте слайды"
     page.evaluate("addBlock('thesis', 0)")
     assert opts()[1] is False   # слайд есть — «Готов к вёрстке» можно

@@ -16,7 +16,9 @@ rules_version = '2';
 //                                    разрешает) или только свои. Корзина (этап 9.1): удалённая
 //                                    проповедь помечена deletedAt / deletedBy и не правится;
 //                                    стереть насовсем можно только её
-//   spaces/{s}/sermons/{id}/editor/state   отметки редактора; проповедник их не видит
+//   spaces/{s}/sermons/{id}/editor/state   отметки редактора; с этапа 9.7 их видит и автор, пишут редактор и админ
+//   spaces/{s}/sermons/{id}/versions/{v}   история сохранений (этап 9.7): копии конспекта по «Сохранить», последние 10;
+//                                    видят и пишут те, кто может править проповедь
 //   spaces/{s}/summaries/{id}        сводка проповеди для списка на главной (этап 8): пишется
 //                                    в одной записи с проповедью и совпадает с ней
 //   spaces/{s}/config/slides         настройки слайдов пространства: видят все, правят админ и редактор
@@ -164,9 +166,10 @@ service cloud.firestore {
           return isEditor(s) || (isPreacher(s) && (d.owner == me() || seeAll(s)));
         }
         // «У редактора» (этап 7.3): статус work (и старое done) — конспект взял редактор,
-        // автор (проповедник) его не правит, не берёт замок, не меняет статус и не удаляет
+        // автор (проповедник) его не правит, не берёт замок, не меняет статус и не удаляет.
+        // «Презентация готова» (ready, этап 9.7) — то же самое
         function atEditor(d) {
-          return d.status in ['work', 'done'];
+          return d.status in ['work', 'done', 'ready'];
         }
         // в корзине (этап 9.1) автор не правит и в обход «Восстановить» (снять пометку правкой);
         // редактору проверка не нужна: восстановить он может и так
@@ -230,7 +233,7 @@ service cloud.firestore {
             && optStr(d.meta, 'firstName', 100) && optStr(d.meta, 'lastName', 100)
             && (!('settings' in d) || d.settings is map)
             && d.blocks is list && d.blocks.size() <= 500
-            && d.status in ['draft', 'submitted', 'work', 'done']
+            && d.status in ['draft', 'submitted', 'work', 'done', 'ready']
             // owner — почта проповедника; пусто — гость без входа (такие заводит редактор)
             && (d.owner == '' || isEmail(d.owner))
             && lockShape(d.get('lock', null))
@@ -291,8 +294,9 @@ service cloud.firestore {
 
         // ---------- отметки редактора («доработать» и т. п.) ----------
 
+        // Видят все, кто видит проповедь (этап 9.7: автор тоже видит «доработать»); пишут редактор и админ
         match /editor/{doc} {
-          allow get, list: if isEditor(s);
+          allow get, list: if isEditor(s) || canRead(get(sermonPath(s, id)).data);
           allow create, update: if isEditor(s) && doc == 'state'
             && request.resource.data.keys().hasOnly(['flags', 'updatedAt', 'updatedBy'])
             && request.resource.data.get('flags', {}) is map
@@ -300,6 +304,29 @@ service cloud.firestore {
             && request.resource.data.updatedBy == me();
           // вместе с проповедью их может удалить и тот, кто удаляет проповедь
           allow delete: if isEditor(s) || (isMember(s) && !existsAfter(sermonPath(s, id)));
+        }
+
+        // ---------- история сохранений (этап 9.7) ----------
+        // versions/{v} — копия конспекта на момент «Сохранить»: { v, meta, settings, blocks, status, savedAt, savedBy, name }.
+        // Видят и пишут те, кто может править проповедь (автор — свою, пока она не у редактора и не в корзине;
+        // из корзины — ещё и тот, кто может стереть её насовсем, чтобы стереть и историю). Менять копию нельзя:
+        // только добавить новую и удалить лишние (форма держит последние 10).
+        match /versions/{v} {
+          function owner() { return get(sermonPath(s, id)).data; }
+          function validVersion(d) {
+            return d.keys().hasAll(['v', 'meta', 'blocks', 'status', 'savedAt', 'savedBy'])
+              && d.keys().hasOnly(['v', 'meta', 'settings', 'blocks', 'status', 'savedAt', 'savedBy', 'name'])
+              && d.v is int && d.meta is map
+              && (!('settings' in d) || d.settings is map)
+              && d.blocks is list && d.blocks.size() <= 500
+              && d.status is string && d.status.size() <= 20
+              && d.savedAt == request.time && d.savedBy == me()
+              && optStr(d, 'name', 200);
+          }
+          allow get, list: if canEdit(owner()) || (('deletedAt' in owner()) && canTrash(owner()));
+          allow create: if canEdit(owner()) && validVersion(request.resource.data);
+          allow delete: if (exists(sermonPath(s, id)) && (canEdit(owner()) || (('deletedAt' in owner()) && canTrash(owner()))))
+            || (isMember(s) && !existsAfter(sermonPath(s, id)));
         }
       }
 

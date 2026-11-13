@@ -50,7 +50,7 @@ function histApply(e){
   state.blocks.forEach(b => { todo[b.id] = b.todo; });
   state.meta = d.meta; state.settings = d.settings;
   state.blocks = d.blocks.map(b => { if (TYPES[b.type] && TYPES[b.type].slide) b.todo = b.id in todo ? !!todo[b.id] : (cloudOn() ? defaultTodo(b) : !!b.todo); return b; });
-  if (cloudOn() && canFlag()) applyFlags(state);   // отметки редактора — поверх, как при открытии
+  if (cloudOn()) applyFlags(state);   // отметки редактора — поверх, как при открытии
   selId = state.blocks.some(b => b.id === e.sel) ? e.sel : (state.blocks[0] ? state.blocks[0].id : null);
   hist.applying = true;
   try { change(); } finally { hist.applying = false; }

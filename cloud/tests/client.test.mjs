@@ -536,7 +536,7 @@ describe('работа редактора (этап 7)', () => {
     assert.ok(back.blocks.every((b) => !('todo' in b) && !('done' in b)), JSON.stringify(back.blocks));
     assert.equal(r.blocks[1].text, 'x');
   });
-  test('отметки редактора: пишет и читает редактор; спикер читает пустое, писать ему база не даёт; удаление проповеди убирает отметки', async () => {
+  test('отметки редактора: пишет и читает редактор; автор читает (этап 9.7), писать ему база не даёт; удаление проповеди убирает отметки', async () => {
     const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');
     await admin.save('sp1', sermon('fl1', 'Отметки', { meta: { title: 'Отметки', firstName: 'Иван', lastName: 'Петров' } }), me('admin@x.pl'), {});
     assert.deepEqual(await admin.getFlags('sp1', 'fl1'), {});   // документа ещё нет
@@ -545,7 +545,7 @@ describe('работа редактора (этап 7)', () => {
     assert.deepEqual(await admin.getFlags('sp1', 'fl1'), flags);
     await admin.setFlags('sp1', 'fl1', me('admin@x.pl'), { b2: { t: 1, s: 'q' } });   // записывается набор целиком
     assert.deepEqual(await admin.getFlags('sp1', 'fl1'), { b2: { t: 1, s: 'q' } });
-    assert.deepEqual(await ivan.getFlags('sp1', 'fl1'), {}, 'спикер отметок не читает');
+    assert.deepEqual(await ivan.getFlags('sp1', 'fl1'), { b2: { t: 1, s: 'q' } }, 'автор видит отметки (этап 9.7)');
     await assert.rejects(ivan.setFlags('sp1', 'fl1', me('ivan@x.pl'), { b1: { t: 1, s: 'z' } }), (e) => /permission-denied/.test(e.code));
     await admin.trash('sp1', 'fl1', me('admin@x.pl'));
     await admin.remove('sp1', 'fl1');
@@ -611,6 +611,58 @@ describe('«У редактора» (этап 7.3)', () => {
     const d = await ivan.save('sp1', sermon('ue1', 'Снова автор', { cloudAt: l2.cloudAt }), me('ivan@x.pl'), { status: 'submitted', lock: L(l2.lock.at) });
     assert.equal(d.cloudStatus, 'submitted');
     assert.equal(d.meta.title, 'Снова автор');
+  });
+});
+
+describe('этап 9.7: «Презентация готова», копии, история', () => {
+  test('«Презентация готова»: ставит редактор; автор не ставит и, пока стоит, не правит', async () => {
+    const ivan = await client('ivan@x.pl'), admin = await client('admin@x.pl');
+    const a = await ivan.save('sp1', sermon('rd1', 'Готово'), me('ivan@x.pl'), { status: 'submitted' });
+    await assert.rejects(ivan.save('sp1', sermon('rd1', 'Готово', { cloudAt: a.cloudAt }), me('ivan@x.pl'), { status: 'ready' }), (e) => /permission-denied/.test(e.code));
+    const b = await admin.save('sp1', sermon('rd1', 'Готово', { cloudAt: a.cloudAt }), me('admin@x.pl'), { status: 'ready' });
+    assert.equal(b.cloudStatus, 'ready');
+    const rows = await new Promise((res) => { const off = admin.listen('sp1', null, (list) => { off(); res(list); }); });
+    assert.equal(rows.find((r) => r.id === 'rd1').cloudStatus, 'ready', 'сводка с новым статусом проходит правила');
+    await assert.rejects(ivan.lock('sp1', 'rd1', me('ivan@x.pl'), 'Иван', { minutes: 10 }), (e) => /permission-denied/.test(e.code));
+    await assert.rejects(ivan.save('sp1', sermon('rd1', 'Правка', { cloudAt: b.cloudAt }), me('ivan@x.pl'), { status: 'ready' }), (e) => /permission-denied/.test(e.code));
+  });
+  test('копия в другое пространство — новый черновик того, кто копирует', async () => {
+    const ivan = await client('ivan@x.pl');
+    const src = await ivan.save('sp1', sermon('cp1', 'Оригинал'), me('ivan@x.pl'), { status: 'submitted' });
+    const copy = Object.assign(JSON.parse(JSON.stringify(src)), { id: 'cp1copy', cloudAt: 0, cloudSpace: 'closed', cloudOwner: '', cloudStatus: 'draft' });
+    const c = await ivan.save('closed', copy, me('ivan@x.pl'), { status: 'draft' });
+    assert.equal(c.cloudOwner, 'ivan@x.pl');
+    assert.equal(c.cloudStatus, 'draft');
+    assert.equal(c.meta.title, 'Оригинал');
+    const petr = await client('petr@x.pl');   // чужую копию в закрытом пространстве не видно
+    await assert.rejects(petr.get('closed', 'cp1copy'), (e) => /permission-denied/.test(e.code));
+  });
+  test('история: копия по запросу, без повторов, последние 10; читает и пишет тот, кто правит', async () => {
+    const ivan = await client('ivan@x.pl'), petr = await client('petr@x.pl'), admin = await client('admin@x.pl');
+    let cur = await ivan.save('sp1', sermon('hv1', 'v0'), me('ivan@x.pl'));
+    const first = await ivan.addVersion('sp1', cur, me('ivan@x.pl'), { name: 'Иван' });
+    assert.equal(first.length, 1);
+    assert.equal(first[0].savedBy, 'ivan@x.pl');
+    assert.equal(first[0].name, 'Иван');
+    assert.equal(first[0].meta.title, 'v0');
+    assert.ok(first[0].savedAt > 0);
+    assert.equal(await ivan.addVersion('sp1', cur, me('ivan@x.pl')), null, 'то же содержимое — новой копии нет');
+    for (let i = 1; i <= 11; i++) {
+      cur = await ivan.save('sp1', sermon('hv1', 'v' + i, { cloudAt: cur.cloudAt }), me('ivan@x.pl'));
+      await ivan.addVersion('sp1', cur, me('ivan@x.pl'), { name: 'Иван' });
+    }
+    const list = await ivan.versions('sp1', 'hv1');
+    assert.equal(list.length, 10);
+    assert.equal(list[0].meta.title, 'v11', 'новые сверху');
+    assert.equal(list[9].meta.title, 'v2');
+    assert.equal(list[0].blocks[0].todo, undefined, '«доработать» в копию не попадает');
+    await assert.rejects(petr.versions('sp1', 'hv1'), (e) => /permission-denied/.test(e.code));
+    await assert.rejects(petr.addVersion('sp1', cur, me('petr@x.pl')), (e) => /permission-denied/.test(e.code));
+    assert.equal((await admin.versions('sp1', 'hv1')).length, 10, 'админ видит');
+    // удаление насовсем стирает и историю
+    await ivan.trash('sp1', 'hv1', me('ivan@x.pl'));
+    await ivan.remove('sp1', 'hv1');
+    assert.equal((await admin.versions('sp1', 'hv1')).length, 0);
   });
 });
 

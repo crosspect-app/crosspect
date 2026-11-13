@@ -40,10 +40,11 @@ def test_author_switches_draft_and_ready_while_editing(browser, base_url):
     page.wait_for_selector(".scard")
     assert "Черновик" in page.inner_text(".scard")
     open_sermon(page, "s1")
-    assert page.locator(".topbar .stswitch .sw-opt").count() == 3   # переключатель виден и в просмотре
+    assert page.locator(".topbar .stswitch .sw-opt").count() == 4   # переключатель виден и в просмотре (четвёртый статус — этап 9.7)
     assert st_label(page) == "Черновик"
     assert "null" not in page.inner_text(".topbar")
     assert opt(page, "У редактора").is_disabled()   # этот статус ставит редактор
+    assert opt(page, "Презентация готова").is_disabled()
     # в просмотре статус не меняется: подсказка про «Редактировать»
     opt(page, "Готов к вёрстке").click()
     page.wait_for_function("document.querySelector('.toast').textContent.includes('Редактировать')")
@@ -191,7 +192,8 @@ def test_new_sermon_is_draft_and_old_done_counts_as_at_editor(browser, base_url)
 
 # ---------- доработать ----------
 
-def test_speaker_does_not_see_todo(browser, base_url):
+def test_speaker_sees_todo_but_cannot_set_it(browser, base_url):
+    """Этап 9.7: отметки «доработать» автор видит (лента, счётчик), но кнопки у него нет."""
     ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": full()})
     page.wait_for_selector(".scard")
     open_sermon(page, "s1")
@@ -200,8 +202,8 @@ def test_speaker_does_not_see_todo(browser, base_url):
         page.locator(".film .st").nth(i).click()
         assert not page.locator(".stage-bar .btn.todo").count()
         assert not page.locator(".editor-box").count()
-    assert not page.locator(".film .st.todo").count()
-    assert "доработать" not in page.inner_text("#film-count")
+    assert page.locator(".film .st.todo").count() == 1   # картинка просит доработки сама
+    assert "1 доработать" in page.inner_text("#film-count")
     assert not page.errors, page.errors
     ctx.close()
 

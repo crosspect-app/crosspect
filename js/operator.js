@@ -77,7 +77,7 @@ function opNewKey(){
 let opBusy = false;
 async function openOpLink(){
   if (opBusy || !cloudOn() || screen !== 'sermon' || !state) return;
-  if (!canEditCloud()){ toast(authorWaits() ? AT_EDITOR_MSG : 'Ссылку для оператора делает тот, кто может править этот конспект'); return; }
+  if (!canEditCloud()){ toast(authorWaits() ? atEditorMsg() : 'Ссылку для оператора делает тот, кто может править этот конспект'); return; }
   const id = state.id, had = shareKeyNow();
   if (!had && !state.blocks.length){ toast('В конспекте пока нет слайдов'); return; }
   opBusy = true;

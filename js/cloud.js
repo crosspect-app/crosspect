@@ -192,7 +192,8 @@ function canEditCloud(d){
 }
 /* Свой конспект автора, который сейчас «У редактора»: смотреть можно, править — нет */
 const authorWaits = d => cloudOn() && cloud.role === 'preacher' && ownSermon(d) && atEditor(d || state);
-const AT_EDITOR_MSG = 'Конспект у редактора: если нужны правки, напишите ему';
+/* Почему автор не правит свой конспект: «У редактора» или «Презентация готова» (этап 9.7) */
+const atEditorMsg = d => statusKey((d || state || {}).cloudStatus) === 'ready' ? 'Презентация уже готова: если нужны правки, напишите редактору' : 'Конспект у редактора: если нужны правки, напишите ему';
 const isUnsaved = d => d.updatedAt > (d.savedAt || 0) && (d.blocks.length > 0 || !!d.meta.title);
 
 /* ----- Сохранение ----- */
@@ -223,21 +224,55 @@ function takeRemote(remote){
   histReset();
   persistDraft(); renderAll(); toast('Открыта версия из облака');
 }
-/* Копия получает новый номер и уходит в облако как отдельная проповедь (её хозяин — вы). Оригинал не сохраняется */
-function saveAsCopy(){
-  const old = state.id;
-  endCloud({ discard:true });   // замок оригинала отпускаем, его несохранённые правки уходят в копию
-  state.id = uid(); state.meta.title = (state.meta.title || 'Проповедь') + ' (копия)';
-  CLOUD_FIELDS.forEach(k => delete state[k]);
-  state.cloudSpace = cloud.space;
-  state.savedAt = 0; state.updatedAt = Date.now();
-  try { localStorage.removeItem('swp-sermon:' + old); } catch(e){}
+/* Копия получает новый номер и уходит в облако как отдельная проповедь: черновик того, кто копирует (этап 9.7 — «Сделать копию»
+   у всех, кто видит конспект). keep — оригинал сохраняется как обычно (меню «⋯»); без него — оригинал не сохраняется,
+   его несохранённые правки уходят только в копию (окно «Конспект уже изменили»). Отметки «доработать» у копии — как у нового */
+function copyOf(src, space){
+  const c = JSON.parse(JSON.stringify(src));
+  c.id = uid();
+  CLOUD_FIELDS.forEach(k => delete c[k]);
+  delete c.lock; delete c.deletedAt; delete c.deletedBy;
+  c.cloudSpace = space;
+  c.savedAt = 0; c.updatedAt = Date.now();
+  c.blocks.forEach(b => { if (TYPES[b.type] && TYPES[b.type].slide) b.todo = defaultTodo(b); });
+  return c;
+}
+function saveAsCopy(o){
+  o = o || {};
+  const old = state, copy = copyOf(state, cloud.space);
+  copy.meta.title = (copy.meta.title || 'Проповедь') + ' (копия)';
+  endCloud({ discard:!o.keep });   // замок оригинала отпускаем; keep — его правки сохраняются, иначе уходят только в копию
+  state = copy;
+  if (!o.keep) try { localStorage.removeItem('swp-sermon:' + old.id); } catch(e){}
   if (cloudOn()) beginCloud(null);
   histReset();
   persistDraft();
   history.replaceState(null, '', sermonHash(state.id) + (view === 'text' ? '&v=text' : ''));
   renderAll();
   if (cloudOn()) saveNow();
+  if (o.keep) toast('Это копия — ваш черновик. Оригинал не изменился');
+}
+
+/* «Копировать в пространство…» (этап 9.7): у кого больше одного пространства. Копия — черновик того, кто копирует,
+   в выбранном пространстве (название то же); открытый конспект не меняется */
+function openCopyToSpace(){
+  if (!multiSpace()) return;
+  const others = cloud.spaces.filter(x => x.id !== cloud.space);
+  settingsOverlay.innerHTML = '';
+  settingsOverlay.append(h('div', { class:'sheet copy-sheet', role:'dialog', 'aria-label':'Копировать в пространство' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Копировать в пространство' }), iconBtn('close', 'Закрыть', closeSettings)),
+    h('p', { class:'hint', style:'font-size:12px;margin-bottom:14px', text:'Копия станет вашим черновиком в выбранном пространстве. Этот конспект останется как есть.' }),
+    h('div', { class:'copy-list' }, others.map(sp => h('button', { type:'button', class:'btn wide', onclick:() => { closeSettings(); copyToSpace(sp.id); } }, ic('dup'), sp.name || sp.id)))));
+  settingsOverlay.classList.add('open');
+}
+async function copyToSpace(spaceId){
+  const sp = cloud.spaces.find(x => x.id === spaceId);
+  if (!sp || !state) return;
+  const c = copyOf(state, spaceId), name = sp.name || sp.id;
+  try {
+    await cloud.api.save(spaceId, c, cloud.user, { status:'draft' });
+    toast('Копия — в пространстве «' + name + '»', 'Открыть', () => navigate('#s=' + encodeURIComponent(c.id) + '&sp=' + encodeURIComponent(spaceId)));
+  } catch(e){ toast(cloudExplain(e) || 'Не получилось скопировать'); }
 }
 
 /* ----- Удаление: с этапа 9.1 — в корзину (trash.js) ----- */
@@ -249,7 +284,7 @@ async function openCloudSermon(id, local, seq){
   let remote = null, failed = false;
   try { remote = await cloud.api.get(cloud.space, id); } catch(e){ failed = !/permission-denied/.test((e && e.code) || ''); }
   if (remote && remote.deletedAt) return { missing:true, trashed:true };   // в корзине (этап 9.1): не открывается, пока не вернут
-  if (remote && canFlag()) await loadFlags(id);   // отметки «доработать» — только редактору   // «нет прав» — это «нет такой для вас», а не обрыв связи
+  if (remote) await loadFlags(id);   // отметки «доработать» (с этапа 9.7 их видит и автор)   // «нет прав» — это «нет такой для вас», а не обрыв связи
   if (seq !== routeSeq) return null;   // пока грузили, человек ушёл на другой экран
   const unsaved = local && isUnsaved(local);
   let pick = null, note = '';

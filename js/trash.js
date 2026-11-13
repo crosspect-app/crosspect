@@ -32,7 +32,7 @@ async function trashCloudSermon(d){
     return;
   }
   if (cloud.role === 'preacher' && r && statusKey(r.cloudStatus) !== 'draft'){   // автор удаляет только свой черновик (так решает и база)
-    toast(atEditor(r) ? AT_EDITOR_MSG : 'Удалить можно только черновик. Откройте конспект, нажмите «Редактировать» и переключите статус на «Черновик»');
+    toast(atEditor(r) ? atEditorMsg(r) : 'Удалить можно только черновик. Откройте конспект, нажмите «Редактировать» и переключите статус на «Черновик»');
     return;
   }
   try {
@@ -113,10 +113,11 @@ function drawTrash(){
 function trashRow(r){
   const who = r.deletedBy && r.deletedBy !== myEmail() ? ' · ' + r.deletedBy : '';
   const meta = [rowDate(r.meta.date) || 'Без даты', preacherName(r.meta)].filter(Boolean).join(' · ');
+  const st = sermonStatus(r);
   return h('div', { class:'trash-row', 'data-id':r.id },
     h('div', { class:'trash-info' },
       h('div', { class:'trash-title' + (r.meta.title ? '' : ' empty'), text:r.meta.title || 'Без названия' }),
-      h('div', { class:'trash-meta', text:meta }),
+      h('div', { class:'trash-meta' }, h('span', { class:'stchip st-' + st.key, text:st.label }), h('span', { text:meta })),   // статус (этап 9.7)
       h('div', { class:'trash-when', text:trashWhen(r.deletedAt) + who + ' · ' + trashLeft(r.deletedAt) })),
     h('div', { class:'trash-acts' },
       h('button', { type:'button', class:'btn small', onclick:() => restoreSermon(r.id) }, ic('undo'), 'Восстановить'),

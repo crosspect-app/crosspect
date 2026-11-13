@@ -439,6 +439,44 @@ describe('«У редактора» (этап 7.3)', () => {
   });
 });
 
+describe('«Презентация готова» (этап 9.7)', () => {
+  const st = (who, status, extra = {}) => ({ status, updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra });
+  async function setStatus(s, id, status) {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'spaces', s, 'sermons', id), { status });
+    });
+  }
+  test('автор сам не ставит — ни правкой, ни отдельно, ни при создании', async () => {
+    const ref = sermon(as('petr'), 'sw', 'petr1');
+    await assertFails(updateDoc(ref, st('petr', 'ready')));
+    await assertFails(updateDoc(ref, edit('petr', { status: 'ready' })));
+    await assertFails(setDoc(sermon(as('petr'), 'sw', 'new1'), newSermon('petr', { status: 'ready' })));
+  });
+  test('пока стоит, автор конспект не правит, не берёт замок, не меняет статус и не удаляет', async () => {
+    await setStatus('sw', 'petr1', 'ready');
+    const ref = sermon(as('petr'), 'sw', 'petr1');
+    await assertSucceeds(getDoc(ref));
+    await assertFails(updateDoc(ref, edit('petr')));
+    await assertFails(updateDoc(ref, takeLock('petr')));
+    await assertFails(updateDoc(ref, st('petr', 'draft')));
+    await assertFails(updateDoc(ref, toTrash('petr')));
+  });
+  test('редактор и админ ставят и снимают', async () => {
+    const edRef = sermon(as('ed'), 'sw', 'petr1');
+    await assertSucceeds(updateDoc(edRef, st('ed', 'work')));
+    await assertSucceeds(updateDoc(edRef, st('ed', 'ready')));
+    await assertSucceeds(updateDoc(edRef, edit('ed', { 'meta.title': 'Слайды готовы' })));
+    await assertSucceeds(updateDoc(edRef, st('ed', 'submitted')));
+    const ref = sermon(as('admin'), 'sw', 'ivan1');
+    await assertSucceeds(updateDoc(ref, st('admin', 'ready')));
+    await assertSucceeds(updateDoc(ref, st('admin', 'work')));
+    await assertSucceeds(setDoc(sermon(as('ed'), 'sw', 'new2'), newSermon('ed', { status: 'ready' })));
+  });
+  test('неизвестный статус не проходит', async () => {
+    await assertFails(updateDoc(sermon(as('ed'), 'sw', 'petr1'), st('ed', 'shown')));
+  });
+});
+
 describe('замок', () => {
   test('взять свободный, продлить сигналом, править, отпустить', async () => {
     const db = as('ivan');
@@ -625,14 +663,97 @@ describe('отметки редактора', () => {
     await assertSucceeds(getDoc(state(db)));
     await assertSucceeds(setDoc(state(db), { flags: { b1: { on: false } }, updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
   });
-  test('проповедник не видит и не пишет, даже у своей проповеди', async () => {
+  test('автор видит (этап 9.7), но не пишет, даже у своей проповеди', async () => {
     const db = as('ivan');
-    await assertFails(getDoc(state(db)));
+    await assertSucceeds(getDoc(state(db)));
+    await assertSucceeds(getDoc(doc(as('petr'), 'spaces', 'sw', 'sermons', 'ivan1', 'editor', 'state')));   // пространство открывает чужие
     await assertFails(setDoc(state(db), { flags: {}, updatedAt: serverTimestamp(), updatedBy: PEOPLE.ivan }));
+  });
+  test('чужие отметки — только там, где автору видна сама проповедь', async () => {
+    await assertSucceeds(getDoc(doc(as('ivan'), 'spaces', 'closed', 'sermons', 'ivan1', 'editor', 'state')));
+    await assertFails(getDoc(doc(as('petr'), 'spaces', 'closed', 'sermons', 'ivan1', 'editor', 'state')));
+    await assertFails(getDoc(doc(as('stranger'), 'spaces', 'sw', 'sermons', 'ivan1', 'editor', 'state')));
+    await assertFails(getDoc(doc(anon(), 'spaces', 'sw', 'sermons', 'ivan1', 'editor', 'state')));
   });
   test('другие документы рядом не заводятся', async () => {
     const db = as('ed');
     await assertFails(setDoc(doc(db, 'spaces', 'sw', 'sermons', 'ivan1', 'editor', 'other'), { flags: {}, updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
+  });
+});
+
+describe('история сохранений (этап 9.7)', () => {
+  const ver = (db, s, id, v = 'v1') => doc(db, 'spaces', s, 'sermons', id, 'versions', v);
+  const copy = (who, extra = {}) => ({
+    v: 2, meta: { title: 'Вера' }, settings: { lang: 'syn' }, blocks: [{ id: 'b1', type: 'splash', speech: '' }],
+    status: 'draft', savedAt: serverTimestamp(), savedBy: PEOPLE[who], name: who, ...extra,
+  });
+  async function putVersion(s, id, v) {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(ver(ctx.firestore(), s, id, v), { ...copy('ed'), savedAt: minutesAgo(5) });
+    });
+  }
+  async function setStatus(s, id, status) {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'spaces', s, 'sermons', id), { status });
+    });
+  }
+  test('автор пишет и читает историю своего конспекта, удаляет лишние копии', async () => {
+    const db = as('petr');
+    await assertSucceeds(setDoc(ver(db, 'sw', 'petr1'), copy('petr')));
+    await assertSucceeds(getDoc(ver(db, 'sw', 'petr1')));
+    await assertSucceeds(getDocs(collection(db, 'spaces', 'sw', 'sermons', 'petr1', 'versions')));
+    await assertSucceeds(deleteDoc(ver(db, 'sw', 'petr1')));
+  });
+  test('чужую историю автор не видит и не пишет, даже если конспекты пространства ему открыты', async () => {
+    await putVersion('sw', 'ivan1', 'v1');
+    const db = as('petr');
+    await assertFails(getDoc(ver(db, 'sw', 'ivan1')));
+    await assertFails(getDocs(collection(db, 'spaces', 'sw', 'sermons', 'ivan1', 'versions')));
+    await assertFails(setDoc(ver(db, 'sw', 'ivan1', 'v2'), copy('petr')));
+    await assertFails(deleteDoc(ver(db, 'sw', 'ivan1')));
+    await assertFails(getDoc(ver(as('stranger'), 'sw', 'ivan1')));
+    await assertFails(getDoc(ver(anon(), 'sw', 'ivan1')));
+  });
+  test('пока конспект у редактора или презентация готова, автор историю не пишет и не читает', async () => {
+    await putVersion('sw', 'petr1', 'v1');
+    for (const status of ['work', 'ready']) {
+      await setStatus('sw', 'petr1', status);
+      const db = as('petr');
+      await assertFails(setDoc(ver(db, 'sw', 'petr1', 'v2'), copy('petr')));
+      await assertFails(getDoc(ver(db, 'sw', 'petr1')));
+    }
+  });
+  test('редактор и админ — у любого конспекта', async () => {
+    await assertSucceeds(setDoc(ver(as('ed'), 'sw', 'ivan1'), copy('ed')));
+    await assertSucceeds(getDoc(ver(as('admin'), 'sw', 'ivan1')));
+    await assertSucceeds(setDoc(ver(as('admin'), 'sw', 'guest'), copy('admin')));
+    await assertSucceeds(deleteDoc(ver(as('admin'), 'sw', 'ivan1')));
+  });
+  test('время сервера, своя почта, только нужные поля; поменять копию нельзя', async () => {
+    const db = as('ed');
+    await assertFails(setDoc(ver(db, 'sw', 'ivan1'), copy('ed', { savedAt: minutesAgo(1) })));
+    await assertFails(setDoc(ver(db, 'sw', 'ivan1'), copy('ed', { savedBy: PEOPLE.ivan })));
+    await assertFails(setDoc(ver(db, 'sw', 'ivan1'), copy('ed', { extra: 1 })));
+    const { blocks, ...noBlocks } = copy('ed');
+    await assertFails(setDoc(ver(db, 'sw', 'ivan1'), noBlocks));
+    await assertSucceeds(setDoc(ver(db, 'sw', 'ivan1'), copy('ed')));
+    await assertFails(updateDoc(ver(db, 'sw', 'ivan1'), { 'meta.title': 'Иначе' }));
+    await assertFails(setDoc(ver(db, 'sw', 'ivan1'), copy('ed')));   // перезаписать — тоже правка
+  });
+  test('у несуществующего конспекта истории нет', async () => {
+    await assertFails(setDoc(ver(as('ed'), 'sw', 'nope'), copy('ed')));
+  });
+  test('из корзины автор стирает свой черновик вместе с историей', async () => {
+    await putVersion('sw', 'petr1', 'v1');
+    await putInTrash('sw', 'petr1', 'petr');
+    const db = as('petr');
+    await assertSucceeds(getDocs(collection(db, 'spaces', 'sw', 'sermons', 'petr1', 'versions')));
+    await assertFails(setDoc(ver(db, 'sw', 'petr1', 'v2'), copy('petr')));   // в корзине не правится
+    const batch = writeBatch(db);
+    batch.delete(ver(db, 'sw', 'petr1'));
+    batch.delete(doc(db, 'spaces', 'sw', 'summaries', 'petr1'));
+    batch.delete(sermon(db, 'sw', 'petr1'));
+    await assertSucceeds(batch.commit());
   });
 });
 

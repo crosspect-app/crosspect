@@ -136,7 +136,7 @@ def test_export_pptx_order_black_slides_and_notes(page, sermon):
     assert page.errors == []
 
 
-def test_export_pptx_todo_slide_is_black_only_for_editor(page, sermon):
+def test_export_pptx_todo_slide_is_black(page, sermon):
     pptx = pytest.importorskip("pptx")
     open_sermon(page, sermon)
     page.evaluate("state.blocks.find(b => b.type === 'thesis').todo = true")
@@ -145,11 +145,11 @@ def test_export_pptx_todo_slide_is_black_only_for_editor(page, sermon):
     th = list(prs.slides)[types.index("thesis")]
     assert not any(sh.shape_type == 13 for sh in th.shapes)
     assert "Отмечено «доработать»" in th.notes_slide.notes_text_frame.text
-    # автор отметок не видит: слайд остаётся обычным
+    # с этапа 9.7 автор тоже видит отметки: у него слайд такой же чёрный
     page.evaluate("cloud.role = 'preacher'")
     prs = pptx.Presentation(download_pptx(page, "exportPPTX()").path())
     th = list(prs.slides)[types.index("thesis")]
-    assert any(sh.shape_type == 13 for sh in th.shapes)
+    assert not any(sh.shape_type == 13 for sh in th.shapes)
 
 
 def test_notes_hold_only_file_name_and_black_slide_comments(page, sermon):
