@@ -66,3 +66,11 @@
 
 - **Ключ попал не туда.** Project settings → Service accounts → Generate new private key (новый), затем в Google Cloud → IAM → Service accounts → этот аккаунт → Keys → удалить старый. Новый вставить в оба секрета (кнопка Update у секрета).
 - **Ошибка 403 / Permission denied в Actions** при выкладке — проверить роль из шага 5.3.
+
+### Облако: настроено (11 ноября 2026)
+- Проект Firebase `crosspect-2dabd` в аккаунте «Słowo Wiary Poznań - Media»: база Firestore (europe-central2, Варшава), вход Google, домен `crosspect-app.github.io` разрешён. Настройки для формы — `js/firebase-config.js` (подключён, пока не используется).
+- Правила и индексы выложены из `main` (job «Выкладка правил Firestore»); секрет `FIREBASE_SERVICE_ACCOUNT` есть в `crosspect` и `crosspect-backup`, у сервисного аккаунта роль Firebase Admin.
+- Приватный `crosspect-app/crosspect-backup`: ночная копия (первая сделана), восстановление, «Пространства».
+- Пространство «Słowo Wiary Poznań», id `3fSpkDd6m1modjqmIWYL`. Админ всей формы — церковный аккаунт Google (`admins/swpoznan.media@gmail.com`, с этапа 8). Авторов (`preacher`) и редакторов (`editor`) добавлять через `crosspect-backup` → Actions → «Пространства» → `set-member`, новое пространство (например, для отца) — `create-space` (до этапа 10, где это появится в форме). Админа назначает и снимает `set-admin` / `remove-admin`.
+- GitHub: организацией `crosspect-app` владеет личный аккаунт Виталия; церковный аккаунт GitHub `swpoznan` в неё не входит.
+
