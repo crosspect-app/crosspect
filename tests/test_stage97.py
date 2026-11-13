@@ -48,7 +48,7 @@ def test_editor_sets_ready_and_author_is_locked_out(browser, base_url):
     start_edit(page)
     assert page.locator(".topbar .stswitch .sw-opt").all_inner_texts() == ["Черновик", "Готов к вёрстке", "У редактора", "Презентация готова"]
     opt(page, "Презентация готова").click()
-    page.locator("#app").get_by_role("button", name="Сохранить").click()
+    page.locator("#app").get_by_role("button", name="Готово").click()
     page.wait_for_function("fakeCloud.db().sermons.s1.status === 'ready' && ed.mode === 'view'")
     ctx.close()
     ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons={"s1": full(st="ready")})
@@ -148,7 +148,7 @@ def test_copy_to_other_space(browser, base_url):
 def save_with_title(page, title):
     start_edit(page)
     page.evaluate("t => { state.meta.title = t; change(); }", title)
-    page.locator("#app").get_by_role("button", name="Сохранить").click()
+    page.locator("#app").get_by_role("button", name="Готово").click()
     page.wait_for_function("t => ed.mode === 'view' && fakeCloud.db().sermons.s1.meta.title === t", arg=title)
 
 
@@ -164,7 +164,7 @@ def test_save_keeps_copy_autosave_does_not(browser, base_url):
     page.evaluate("state.meta.title = 'Автосохранение'; change()")
     page.wait_for_function("fakeCloud.db().sermons.s1.meta.title === 'Автосохранение'")   # ушло само
     assert versions(page) == []
-    page.locator("#app").get_by_role("button", name="Сохранить").click()   # правки уже в облаке, а копия — по «Сохранить»
+    page.locator("#app").get_by_role("button", name="Готово").click()   # правки уже в облаке, а копия — по «Готово»
     page.wait_for_function("((fakeCloud.db().versions || {}).s1 || []).length === 1")
     save_with_title(page, "Второе")
     page.wait_for_function("((fakeCloud.db().versions || {}).s1 || []).length === 2")

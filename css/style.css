@@ -241,7 +241,6 @@ body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--
 .pt .lock-mark{margin-left:8px}
 /* Облачная проповедь в режиме просмотра (lock.js): настройки и текст не правятся */
 body.ro .side .bbody,body.ro .speech .rich,body.ro .tv .prose{opacity:.8;cursor:default}
-.ro-note{margin:0;padding:10px 12px;border-radius:12px;background:var(--surface-2);color:var(--muted);font-size:12px;line-height:1.5}
 .hd-save.pick{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .home-warn{color:var(--warn)}
 .sheet-foot.wrap{justify-content:flex-end}
@@ -1134,4 +1133,64 @@ body[data-screen="op"] .app-main{min-height:100vh}
   .stswitch{max-width:100%;overflow-x:auto;scrollbar-width:none}
   .stswitch::-webkit-scrollbar{display:none}
   .stswitch .sw-opt{padding:5px 6px;font-size:10.5px}
+}
+
+/* ---------- Правка и просмотр (этап 9.8) ----------
+   Просмотр: поля правой панели и «Текст к слайду» серые, без рамки, текст приглушён, но читается; переключатели и выбранное
+   в группах — тоже серые (правая панель и поле текста в просмотре — inert, lock.js). Правка: поля чуть светлее фона, с жёлтой рамкой.
+   Слайды в ленте и на сцене одинаковые в обоих режимах */
+.sv .side .bbody .input,.sv .side .bbody .rich,.sv .side .bbody .dfield{border-color:color-mix(in srgb, var(--accent) 38%, transparent);background:#1d1c1a}
+.sv .side .bbody .input:hover,.sv .side .bbody .rich:hover,.sv .side .bbody .dfield:hover{border-color:color-mix(in srgb, var(--accent) 60%, transparent)}
+.sv .side .bbody .input:focus,.sv .side .bbody .rich:focus,.sv .side .bbody .dfield:focus-visible{border-color:var(--accent)}
+.sv .speech:has(.speech-text:not([inert])){border-color:color-mix(in srgb, var(--accent) 38%, transparent);background:#1a1918}
+.sv .speech:has(.speech-text:not([inert]):focus){border-color:var(--accent)}
+.sv .side .bbody[inert] .input,.sv .side .bbody[inert] .rich,.sv .side .bbody[inert] .dfield{background:var(--surface-3);border-color:transparent;color:#b9b0a4;box-shadow:none}
+.sv .side .bbody[inert] .input::placeholder,.sv .side .bbody[inert] .rich:empty::before{color:#6f685f}
+.sv .side .bbody[inert] select.input{background-image:none}
+.sv .side .bbody[inert] .toggle{background:var(--surface-3);border-color:transparent}
+.sv .side .bbody[inert] .toggle button{color:#8f877c}
+.sv .side .bbody[inert] .toggle button.on{background:#3d3b38;color:#d6ccbf}
+.sv .side .bbody[inert] .switch{color:#8f877c}
+.sv .side .bbody[inert] .sw{background:var(--surface-3);border-color:transparent}
+.sv .side .bbody[inert] .sw::after{background:#5c5750}
+.sv .side .bbody[inert] .switch input:checked + .sw{background:#4a4743}
+.sv .side .bbody[inert] .switch input:checked + .sw::after{background:#a39a8e}
+.sv .side .bbody[inert] .vchip{background:var(--surface-3);border-color:transparent;color:#8f877c}
+.sv .side .bbody[inert] .vchip.on{background:#4a4743;color:#e0d6c9}
+.sv .side .bbody[inert] .chip{background:var(--surface-3);border-color:transparent;color:#b9b0a4}
+.sv .side .bbody[inert] .chip.on{background:#4a4743;color:#e0d6c9}
+.sv .side .bbody[inert] .btn{background:var(--surface-3);border-color:transparent;color:#8f877c}
+.sv .speech:has(.speech-text[inert]){background:var(--surface-2);border-color:transparent}
+.sv .speech:has(.speech-text[inert]) .speech-head{border-bottom-color:var(--line-2)}
+.sv .rich.speech-text[inert]{color:#b9b0a4}
+.sv .rich.speech-text[inert]:empty::before{color:#6f685f}
+/* «Готово» в шапке — светлая кнопка (жёлтая «Редактировать» — в просмотре); под названием — «Правка · сохранено в 15:20» */
+.btn.hd-done{background:var(--text);border-color:var(--text);color:#141414;font-weight:600}
+.btn.hd-done:hover{background:#fff4e6;border-color:#fff4e6}
+.hd-sub.editing{color:var(--accent)}
+/* Попытка править в просмотре: мягкая подсветка кнопки в шапке (lock.js, nudgeHead) — только opacity и transform */
+.hd-act{position:relative}
+.hd-act::after{content:"";position:absolute;inset:-5px;border-radius:999px;border:2px solid var(--accent);opacity:0;pointer-events:none}
+.hd-act.nudge::after{animation:hd-nudge 1.1s var(--ease-out)}
+@keyframes hd-nudge{0%{opacity:0;transform:scale(.92)}25%{opacity:.9;transform:scale(1.04)}55%{opacity:.6;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+.hd-save.nudge{animation:hd-nudge-t 1.1s var(--ease-out)}
+@keyframes hd-nudge-t{0%,100%{opacity:1}30%{opacity:.35}60%{opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  .hd-act.nudge::after{animation:none!important;opacity:.9}
+  .hd-save.nudge{animation:none!important;color:var(--text)}
+}
+/* Лента (этап 9.8): «+» между любыми слайдами, в том числе перед первым, — только при наведении и только в правке;
+   в конце — пунктирная плашка размером с миниатюру «+ Добавить слайд» */
+.film-gap.first{height:12px}
+.film-gap.first .film-ins{opacity:0}
+.film-gap.first:hover .film-ins,.film-gap.first .film-ins:focus-visible{opacity:1}
+@media (hover:none){ .film-gap.first .film-ins{opacity:.75} }   /* на сенсорном экране наведения нет: «+» видны всегда, как между слайдами */
+.film-end{height:auto;padding:6px 6px 2px}
+.film-end .film-ins.film-plate{position:static;transform:none;opacity:1;width:100%;height:auto;aspect-ratio:16/9;border-radius:7px;border:1px dashed var(--line-2);border-color:#4a463f;
+  background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;font:500 11.5px/1.2 'Inter',sans-serif;white-space:nowrap}
+.film-end .film-ins.film-plate .ic{width:15px;height:15px}
+.film-end .film-ins.film-plate:hover,.film-end .film-ins.film-plate:focus-visible{border-style:dashed;border-color:var(--accent);color:var(--accent);background:color-mix(in srgb, var(--accent) 6%, transparent)}
+@media (max-width:760px){
+  .film-gap.first{width:16px;height:auto}
+  .film-end{width:150px;align-self:flex-start;padding:6px}
 }

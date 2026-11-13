@@ -46,7 +46,7 @@ function emptyState(){
       h('li', null, 'У каждого слайда есть «Текст к слайду»: что вы говорите, пока он на экране. На экран этот текст не выводится, его видит оператор.'),
       h('li', null, 'Если какое-то время говорите без слайда, добавьте «Заставку проповеди»: на экране будет название проповеди.'),
       h('li', null, '«Заметка оператору» — просьба к оператору: запустить видео, включить музыку.'),
-      h('li', null, cloudOn() ? 'Правки сами уходят в облако церкви, их видят редакторы. Закончили — нажмите «Сохранить».' : 'Готово? Нажмите «Сохранить» и отправьте получившийся файл.')),
+      h('li', null, cloudOn() ? 'Правки сами уходят в облако церкви, их видят редакторы. Закончили — нажмите «Готово».' : 'Готово? Нажмите «Сохранить» и отправьте получившийся файл.')),
     readOnly() ? null : h('div', { class:'chips' },
       h('button', { type:'button', class:'btn primary', onclick:() => addBlock('splash', 0) }, ic('plus'), 'Добавить заставку'),
       h('button', { type:'button', class:'btn', onclick:() => openSheet(0) }, ic('plus'), 'Другой слайд'))));
@@ -171,15 +171,15 @@ function syncFilm(){
     let box = old.get(b.id);
     if (box){ old.delete(b.id); updateItem(box, b, nums[b.id]); }
     else box = filmItem(b, nums[b.id]);
-    if (arrange){ const g = box._gap || (box._gap = filmGap()); g.dataset.at = String(i); g.classList.toggle('first', !want.length); want.push(g); }   // «+» между слайдами: вставить сюда; перед первым — виден всегда
+    if (arrange){ const g = box._gap || (box._gap = filmGap()); g.dataset.at = String(i); g.classList.toggle('first', !want.length); want.push(g); }   // «+» между слайдами и перед первым: вставить сюда; виден при наведении (этап 9.8)
     want.push(box);
   });
   if (!ro){
-    // «+» после последнего слайда (этап 7.8, вместо кнопки «Добавить в конец»): виден всегда, не только при наведении
+    // после последнего слайда — пунктирная плашка размером с миниатюру (этап 9.8; только в правке): видна всегда
     let add = filmEl.querySelector(':scope > .film-end');
     if (!add){
       add = h('div', { class:'film-end' });
-      add.append(h('button', { type:'button', class:'film-ins', title:'Добавить слайд в конец', 'aria-label':'Добавить слайд в конец', onclick:() => openSheet(state.blocks.length) }, ic('plus')));
+      add.append(h('button', { type:'button', class:'film-ins film-plate', title:'Добавить слайд', onclick:() => openSheet(state.blocks.length) }, ic('plus'), 'Добавить слайд'));
     }
     add.dataset.at = String(state.blocks.length);
     want.push(add);
@@ -203,7 +203,7 @@ function syncFilm(){
 const canArrange = () => !readOnly() && !filmOnlyTodo;
 function filmGap(){
   const g = h('div', { class:'film-gap' });
-  g.append(h('button', { type:'button', class:'film-ins', title:'Добавить слайд сюда', 'aria-label':'Добавить слайд сюда', onclick:() => openSheet(+g.dataset.at) }, ic('plus')));
+  g.append(h('button', { type:'button', class:'film-ins', title:'Добавить слайд', 'aria-label':'Добавить слайд', onclick:() => openSheet(+g.dataset.at) }, ic('plus')));
   return g;
 }
 
@@ -429,7 +429,7 @@ function speechBox(b){
   const box = rich(b.speech, { key:b.id + ':speech', cls:'speech-text',
     ph:b.type === 'splash' ? 'Что вы говорите, пока на экране заставка: вступление, история, переход к следующей мысли' : 'Что вы говорите, пока этот слайд на экране. Оператор увидит этот текст у себя',
     onInput:v => { b.speech = v; sec._v = v; show(); change(); } });
-  if (readOnly()) box.inert = true;   // просмотр: щелчок покажет подсказку про «Редактировать» (lock.js)
+  if (readOnly()) box.inert = true;   // просмотр: серое поле, щелчок подсвечивает «Редактировать» (lock.js)
   const sec = h('section', { class:'speech', 'aria-label':'Текст к слайду' },
     h('div', { class:'speech-head' }, h('span', { class:'cap', text:'Текст к слайду' }), cnt, h('div', { class:'grow' }), toggleBtn), box);
   sec._b = b; sec._v = b.speech;   // syncStage: пересобрать, только если блок или текст поменялись не отсюда
@@ -445,12 +445,9 @@ function renderSide(){
   const n = slideNums()[b.id], T = TYPES[b.type];
   sideEl.className = 'side t-' + b.type;
   sideEl.style.setProperty('--tc', 'var(--c-' + b.type + ')');
-  const body = h('div', { class:'bbody' }), ro = readOnly();
+  const body = h('div', { class:'bbody' });
   BODY[b.type](b, body, n);
-  if (ro){
-    const why = authorWaits() ? atEditorMsg() + '.' : !canEditCloud() ? 'Только просмотр: это конспект другого автора.' : 'Только просмотр. Чтобы менять слайды, нажмите «Редактировать».';
-    body.inert = true; sideEl.append(h('p', { class:'ro-note', text:why }));
-  }
+  if (readOnly()) body.inert = true;   // просмотр: поля серые (CSS по [inert]), щелчок подсвечивает «Редактировать» (lock.js); плашки «Только просмотр» нет с этапа 9.8
   const capTip = b.type !== 'scripture' ? '' : canEditSlidesCfg()
     ? 'Как выглядят стихи (в строку или с новой строки, рамка, выравнивание), задано для всех слайдов: меню «⋯» → «Настройки слайдов»'
     : 'Как выглядят стихи, одинаково для всех слайдов: это задаёт редактор';

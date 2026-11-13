@@ -45,9 +45,9 @@ def test_author_switches_draft_and_ready_while_editing(browser, base_url):
     assert "null" not in page.inner_text(".topbar")
     assert opt(page, "У редактора").is_disabled()   # этот статус ставит редактор
     assert opt(page, "Презентация готова").is_disabled()
-    # в просмотре статус не меняется: подсказка про «Редактировать»
+    # в просмотре статус не меняется: подсвечивается «Редактировать» (этап 9.8)
     opt(page, "Готов к вёрстке").click()
-    page.wait_for_function("document.querySelector('.toast').textContent.includes('Редактировать')")
+    assert page.locator(".topbar .hd-act.nudge", has_text="Редактировать").count() == 1
     assert st_label(page) == "Черновик" and page.evaluate("ed.mode") == "view"
     start_edit(page)
     page.evaluate("state.blocks[1].speech = 'дописал'; change()")
@@ -66,7 +66,7 @@ def test_author_switches_draft_and_ready_while_editing(browser, base_url):
     assert page.evaluate("fakeCloud.db().sermons.s1.status") == "submitted" and st_label(page) == "Готов к вёрстке"
     # и обратно в «Черновик» — тоже без ограничений
     opt(page, "Черновик").click()
-    page.get_by_role("button", name="Сохранить").click()
+    page.get_by_role("button", name="Готово").click()
     page.wait_for_function("ed.mode === 'view' && fakeCloud.db().sermons.s1.status === 'draft'")
     assert not page.evaluate("fakeCloud.calls.status"), "отдельная запись статуса больше не нужна"
     # смена статуса в отмену не входит
@@ -112,7 +112,7 @@ def test_editor_takes_sermon_and_author_cannot_edit(browser, base_url):
     assert "у редактора" in btn.get_attribute("title").lower()
     assert "Конспект у редактора: если нужны правки, напишите ему" in status(page)
     page.locator(".side").click()
-    page.wait_for_function("document.querySelector('.toast').textContent.includes('Конспект у редактора')")
+    assert page.locator("#hd-save.nudge").count() == 1 and page.locator(".toast").count() == 0   # подсвечивается строка «Конспект у редактора» (этап 9.8)
     assert page.evaluate("ed.mode") == "view" and page.evaluate("fakeCloud.calls.lock") == 0
     # копию сделать можно: она — новый черновик автора
     assert "Сделать копию" in menu_items(page)
@@ -283,7 +283,7 @@ def test_editors_own_edit_does_not_bring_todo_back(browser, base_url):
     page.evaluate("state.blocks[2].desc = 'Поправил сам'; change()")
     page.keyboard.press("Control+s")
     page.wait_for_function("fakeCloud.db().sermons.s1.blocks[2].desc === 'Поправил сам'")
-    page.get_by_role("button", name="Сохранить", exact=True).click()
+    page.get_by_role("button", name="Готово", exact=True).click()
     page.wait_for_function("ed.mode === 'view'")
     page.wait_for_timeout(2500)   # отметки уходят с небольшой паузой
     page.evaluate("navigate('')")

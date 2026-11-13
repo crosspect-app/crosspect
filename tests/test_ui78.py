@@ -44,14 +44,23 @@ def test_film_plus_at_start_and_end(browser, base_url):
     assert page.locator(".film-add").count() == 0
     first = page.locator(".film > .film-gap").first
     assert "first" in first.get_attribute("class")
+    # этап 9.8: «+» перед первым — как между слайдами, только при наведении; в конце — плашка размером с миниатюру
     op = "sel => getComputedStyle(document.querySelector(sel)).opacity"
-    assert page.evaluate(op, ".film-gap.first .film-ins") == "1" and page.evaluate(op, ".film-end .film-ins") == "1"   # видны без наведения
-    assert page.evaluate(op, ".film > .film-gap:not(.first) .film-ins") == "0"   # между слайдами — при наведении, как раньше
-    page.locator(".film-end .film-ins").click()
-    assert page.inner_text(".overlay.open .sheet-title") == "Добавить в конец"
+    assert page.evaluate(op, ".film-gap.first .film-ins") == "0" and page.evaluate(op, ".film > .film-gap:not(.first) .film-ins") == "0"
+    plate = page.locator(".film-end .film-plate")
+    assert page.evaluate(op, ".film-end .film-plate") == "1" and plate.inner_text().strip() == "Добавить слайд"
+    assert page.evaluate("[...document.querySelectorAll('.film .film-ins')].every(b => b.title === 'Добавить слайд')")
+    thumb = page.evaluate("(() => { const r = document.querySelector('.film .st-thumb').getBoundingClientRect(); return [r.width, r.height]; })()")
+    pl = plate.bounding_box()
+    assert abs(pl["width"] - thumb[0]) <= 2 and abs(pl["height"] - thumb[1]) <= 2, (pl, thumb)
+    total = page.evaluate("slideNums()._total")
+    plate.click()
+    assert page.inner_text(".overlay.open .sheet-title") == "Слайд %d" % (total + 1)
     page.keyboard.press("Escape")
+    first.hover()
+    assert page.evaluate(op, ".film-gap.first .film-ins") == "1"
     page.locator(".film-gap.first .film-ins").click()
-    assert page.inner_text(".overlay.open .sheet-title") == "Добавить в начало"
+    assert page.inner_text(".overlay.open .sheet-title") == "Слайд 1"
     ctx.close()
 
 

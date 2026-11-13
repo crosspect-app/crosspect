@@ -63,8 +63,8 @@ def test_film_nodes_survive_edit_autosave_save(browser, base_url):
     page.keyboard.press("Control+s")
     page.wait_for_function("!isDirty() && !ed.saving")
     assert page.evaluate(CHANGED) == []
-    # «Сохранить» закрывает правку: значки ушли, узлы те же
-    page.locator("#app").get_by_role("button", name="Сохранить").click()
+    # «Готово» закрывает правку: значки ушли, узлы те же
+    page.locator("#app").get_by_role("button", name="Готово").click()
     page.wait_for_function("ed.mode === 'view'")
     assert page.evaluate(CHANGED) == []
     assert page.locator(".film .st-acts").count() == 0 and page.locator(".film .film-gap").count() == 0
@@ -94,8 +94,8 @@ def test_undo_and_remote_update_reuse_nodes(browser, base_url):
     page.wait_for_function("state.blocks.some(b => b.id === 't4')")
     assert page.evaluate(CHANGED) == ["t4"]   # вернувшийся слайд — новый узел, остальные прежние
     assert page.evaluate(EMPTY_THUMBS) == []
-    # «Сохранить», потом правка другого человека приходит в просмотр: узлы те же, меняется только его миниатюра
-    page.locator("#app").get_by_role("button", name="Сохранить").click()
+    # «Готово», потом правка другого человека приходит в просмотр: узлы те же, меняется только его миниатюра
+    page.locator("#app").get_by_role("button", name="Готово").click()
     page.wait_for_function("ed.mode === 'view'")
     page.evaluate(REMEMBER)
     page.evaluate("""() => { const db = fakeCloud.db(), r = db.sermons.s1; db.clock += 1000;

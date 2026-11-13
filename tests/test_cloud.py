@@ -89,8 +89,8 @@ def test_save_new_sermon_to_cloud(browser, base_url):
     page.fill("input[aria-label='Название проповеди']", "Благодать")
     page.evaluate("closeSettings()")
     page.evaluate("addBlock('splash', 0)")
-    assert "Не сохранено: уйдёт в облако само" in page.inner_text("#hd-save")
-    page.wait_for_function("document.getElementById('hd-save').textContent.includes('Сохранено в облаке')", timeout=10000)   # само, без кнопки
+    assert page.inner_text("#hd-sub") == "Правка · изменения сохранятся сами"
+    page.wait_for_function("document.getElementById('hd-sub').textContent.startsWith('Правка · сохранено в ')", timeout=10000)   # само, без кнопки
     db = page.evaluate("fakeCloud.db()")
     assert len(db["sermons"]) == 1
     r = next(iter(db["sermons"].values()))
@@ -98,7 +98,7 @@ def test_save_new_sermon_to_cloud(browser, base_url):
     assert r["lock"]["email"] == "admin@x.pl"   # новая проповедь сразу под замком автора
     # правка после сохранения снова помечается
     page.evaluate("state.meta.title = 'Благодать 2'; change()")
-    assert "Не сохранено: уйдёт в облако само" in page.inner_text("#hd-save")
+    assert page.inner_text("#hd-sub") == "Правка · изменения сохранятся сами"
     ctx.close()
 
 
@@ -109,7 +109,7 @@ def test_open_cloud_sermon_edit_and_unsaved_recovery(browser, base_url):
     page.locator(".scard").first.click()
     page.wait_for_function("state && state.id === 's1' && screen === 'sermon' && ed.id === 's1'")
     assert page.evaluate("state.blocks[0].speech") == "<b>привет</b>"
-    assert "Только просмотр" in page.inner_text("#hd-save")
+    assert page.inner_text("#hd-save") == "" and page.locator(".topbar .hd-act", has_text="Редактировать").count() == 1
     page.get_by_role("button", name="Редактировать").click()
     page.wait_for_function("ed.mode === 'edit'")
     page.evaluate("state.meta.title = 'Вера и дела'; change()")
@@ -209,7 +209,7 @@ def test_preacher_sees_all_but_edits_own(browser, base_url):
     assert page.get_by_role("button", name="Сделать копию").is_visible()
     page.evaluate("state.meta.title = 'Правка'; change()")   # правка в просмотре не проходит
     assert page.evaluate("state.meta.title") == "Чужая"
-    assert "другого автора" in page.inner_text(".toast")
+    assert page.locator(".topbar .hd-act.nudge").count() == 1 and page.locator("#hd-save.nudge").count() == 1   # подсветка «Сделать копию» и строки «другого автора» (этап 9.8)
     page.wait_for_timeout(300)
     assert page.evaluate("fakeCloud.db().sermons.other.meta.title") == "Чужая"
     assert page.evaluate("fakeCloud.calls.save + fakeCloud.calls.lock") == 0

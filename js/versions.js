@@ -1,12 +1,12 @@
 'use strict';
 
 /* ========= История сохранений (этап 9.7) =========
-   При «Сохранить» и Ctrl+S (не при автосохранении) форма откладывает копию конспекта в облако:
+   При «Готово», Ctrl+S, уходе с правки и раз в 10 минут правки (этап 9.8, решает lock.js) форма откладывает копию конспекта в облако:
    spaces/{s}/sermons/{id}/versions/{v} (cloud-api.mjs: addVersion). Хранятся последние 10 (VERSIONS_KEEP); копия с тем же
    содержимым, что у последней, не пишется. Окно «История» (меню «⋯») — список копий и просмотр выбранной текстом;
    «Вернуть эту версию» — только в правке, как обычная правка: попадает в отмену (↶, Ctrl+Z) и уходит в облако
    с автосохранением. Видят и пишут историю те, кто может править конспект (так решает и база).
-   Этап 9.8: копию делать при «Готово», Ctrl+S и раз в 10–15 минут правки (кнопки «Сохранить» не будет). */
+*/
 
 const VER_KEEP = 10;   // столько копий хранит облако (VERSIONS_KEEP в cloud-api.mjs)
 const ver = { busy:{}, again:{}, list:null, id:'', pick:0, loading:false, error:'' };
@@ -14,7 +14,7 @@ const ver = { busy:{}, again:{}, list:null, id:'', pick:0, loading:false, error:
 /* Кто видит историю этого конспекта: тот, кто может его править, и только если он уже в облаке */
 const canHistory = () => cloudSermon() && canEditCloud() && !!state.cloudAt;
 
-/* Отложить копию после явного сохранения. Не мешает работе: без ожидания, ошибки — молча (копия — страховка) */
+/* Отложить копию (когда — решает lock.js). Не мешает работе: без ожидания, ошибки — молча (копия — страховка) */
 async function snapVersion(s){
   if (!cloudOn() || !s || !s.cloudAt || !s.cloudSpace || !canEditCloud(s)) return;
   const id = s.id;
@@ -62,7 +62,7 @@ function drawHistory(){
   let body;
   if (ver.loading) body = h('p', { class:'hint ver-empty', text:'Открываю историю…' });
   else if (ver.error) body = h('p', { class:'hint ver-empty', text:ver.error });
-  else if (!list.length) body = h('p', { class:'hint ver-empty', text:'Копий пока нет. Форма откладывает копию каждый раз, когда вы нажимаете «Сохранить», и хранит последние ' + VER_KEEP + '.' });
+  else if (!list.length) body = h('p', { class:'hint ver-empty', text:'Копий пока нет. Форма откладывает копию, когда вы нажимаете «Готово» или Ctrl+S, а во время долгой правки — раз в 10 минут. Хранятся последние ' + VER_KEEP + '.' });
   else {
     const i = Math.min(ver.pick, list.length - 1), v = list[i];
     body = h('div', { class:'ver-body' },

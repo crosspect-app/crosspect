@@ -231,7 +231,7 @@ function renderTopbar(){
     h('span', { class:'vsep' }),
     h('button', { type:'button', class:'hd-title', title:'Изменить название, дату, автора', onclick:() => openMeta() },
       h('span', { class:'hd-name' + (m.title ? '' : ' empty'), text:m.title || 'Без названия' }),
-      h('span', { class:'hd-sub', text:[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') || 'Дата и автор не указаны' })),
+      h('span', { id:'hd-sub', class:'hd-sub', 'data-meta':[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') || 'Дата и автор не указаны' })),   // в правке — ход сохранения (updateStatus)
     cloudSermon() ? statusSwitch() : h('span', { class:'stchip st-' + st.key, text:st.label }),   // переключатель статуса (editor.js)
     h('div', { class:'grow' }),
     h('div', { class:'seg', role:'group', 'aria-label':'Вид конспекта' },
@@ -241,7 +241,7 @@ function renderTopbar(){
     histTools() || '',   // ↶ ↷ — пока проповедь правится (history.js)
     checkEl(),   // галочка автосохранения (motion.js)
     h('span', { id:'hd-save', class:'hd-save' }),
-    headAction(),   // «Сохранить»; в облаке — «Редактировать» / «Сохранить» (закончить правку, lock.js)
+    headAction(),   // «Редактировать» / «Готово» (закончить правку, lock.js, этап 9.8)
     more);
   updateStatus();
   motionAfterTopbar();   // подложка статуса, замок, вспышка клина, галочка (motion.js)
@@ -262,6 +262,8 @@ function updateStatus(){
   if (!state || screen !== 'sermon') return;
   histButtons();
   syncStatusSwitch();   // пустой конспект: дальше «Черновика» нельзя (editor.js, этап 7.8)
+  const sub = $('#hd-sub');
+  if (sub){ const e = editing(); sub.textContent = e ? editSub() : sub.dataset.meta; sub.classList.toggle('editing', e); }   // «Правка · сохранено в 15:20» (этап 9.8)
   const s = $('#hd-save');
   if (s){
     if (cloudSermon()){

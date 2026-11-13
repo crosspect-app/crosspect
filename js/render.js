@@ -693,11 +693,11 @@ const BODY = {
 };
 
 /* ----- Действия с блоками ----- */
+/* Окно выбора нового слайда. Заголовок — номер, который получит слайд (этап 9.8): «Слайд 5» */
 function openSheet(at){
   sheetAt = at;
-  const prev = state.blocks.slice(0, at).reverse().find(b => TYPES[b.type].slide);
-  sheetTitle.textContent = !state.blocks.length ? 'Что добавить?' : at >= state.blocks.length ? 'Добавить в конец'
-    : prev ? 'Добавить после Слайда ' + slideNums()[prev.id] : 'Добавить в начало';
+  const nums = slideNums(), before = state.blocks.slice(0, at).reduce((m, x) => Math.max(m, nums[x.id] || 0), 0);   // заставки делят один номер: берём наибольший
+  sheetTitle.textContent = !state.blocks.length ? 'Что добавить?' : 'Слайд ' + (before + 1);
   sheetOverlay.classList.add('open');
 }
 function closeSheet(){ sheetOverlay.classList.remove('open'); }

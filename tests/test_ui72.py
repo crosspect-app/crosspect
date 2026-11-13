@@ -113,13 +113,13 @@ def test_splash_name_and_add_sheet(page):
     page.evaluate("state.meta.title = 'Сила'; change()")
     assert page.evaluate("slideName(state.blocks[0], 1)") == "[1] Заставка Сила"
     assert '"' not in page.evaluate("slideName(state.blocks[0], 1)") and "«" not in page.evaluate("slideName(state.blocks[0], 1)")
-    # окно добавления: «Добавить после Слайда N», «Добавить в конец», плитки парами
+    # окно добавления: заголовок — номер, который получит слайд (этап 9.8); плитки парами
     page.evaluate("openSheet(0)")
-    assert page.inner_text(".overlay.open .sheet-title") == "Добавить в начало"
+    assert page.inner_text(".overlay.open .sheet-title") == "Слайд 1"
     page.evaluate("closeSheet(); openSheet(1)")
-    assert page.inner_text(".overlay.open .sheet-title") == "Добавить в конец"
+    assert page.inner_text(".overlay.open .sheet-title") == "Слайд 2"
     page.evaluate("addBlock('thesis', 1); addBlock('quote', 2); openSheet(2)")
-    assert page.inner_text(".overlay.open .sheet-title") == "Добавить после Слайда 2"
+    assert page.inner_text(".overlay.open .sheet-title") == "Слайд 3"
     names = page.evaluate("[...document.querySelectorAll('.overlay.open .type .type-name')].map(x => x.textContent)")
     assert names == ["Заставка проповеди", "Место Писания", "Тезис", "Цитата", "Картинка", "Видео", "Свободный слайд", "Заметка оператору"]
     widths = page.evaluate("[...document.querySelectorAll('.overlay.open .type')].map(x => Math.round(x.getBoundingClientRect().width))")
@@ -301,8 +301,8 @@ def test_undo_redo_slide_actions(browser, base_url):
     n = page.evaluate("hist.undo.length")
     page.evaluate("toggleTodo(state.blocks[0])")
     assert page.evaluate("hist.undo.length") == n
-    # «Сохранить» закрывает правку — история сбрасывается
-    page.get_by_role("button", name="Сохранить", exact=True).click()
+    # «Готово» закрывает правку — история сбрасывается
+    page.get_by_role("button", name="Готово", exact=True).click()
     page.wait_for_function("ed.mode === 'view'")
     assert not page.locator(".hist").count()
     start_edit(page)
@@ -346,8 +346,8 @@ def test_save_button_label_and_icon(browser, base_url):
     page.wait_for_selector(".scard")
     open_sermon(page, "s1")
     start_edit(page)
-    btn = page.locator(".topbar").get_by_role("button", name="Сохранить", exact=True)
+    btn = page.locator(".topbar").get_by_role("button", name="Готово", exact=True)   # кнопки «Сохранить» нет (этап 9.8)
     assert btn.is_visible()
-    assert not page.locator(".topbar").get_by_role("button", name="Сохранить и закрыть").count()
+    assert not page.locator(".topbar").get_by_role("button", name="Сохранить").count()
     assert "M12 4v11" not in btn.inner_html()   # без стрелки вниз
     ctx.close()

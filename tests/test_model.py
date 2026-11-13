@@ -51,7 +51,7 @@ def test_cloud_roundtrip_keeps_model(page, sermon):
     }""")
     # в облако и обратно: сохранить, уйти на главную, забыть черновик браузера, открыть снова из облака
     page.evaluate("change()")
-    page.get_by_role("button", name="Сохранить", exact=True).click()
+    page.get_by_role("button", name="Готово", exact=True).click()
     page.wait_for_function("ed.mode === 'view' && !isDirty()")
     id = page.evaluate("state.id")
     page.evaluate("id => { navigate(''); localStorage.removeItem('swp-sermon:' + id); state = blank(); }", id)

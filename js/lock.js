@@ -3,18 +3,20 @@
 /* ========= Замок и автосохранение (этап 6) =========
    Проповедь из облака открывается для просмотра. «Редактировать» берёт замок (транзакция в cloud-api.mjs):
    пока он мой, другие видят «Сейчас правит …» и проповедь только для чтения, обновляемую вживую.
-   Пока правлю: правка уходит в облако через несколько секунд, сигнал «я здесь» — раз в минуту.
-   «Сохранить», уход с проповеди или простой дольше lockMinutes — сохранить и отпустить.
+   Пока правлю: правка уходит в облако сама (раз в 30 секунд), сигнал «я здесь» — раз в минуту. Кнопки «Сохранить» нет (этап 9.8):
+   «Редактировать» становится «Готово»; «Готово», уход с проповеди или простой дольше lockMinutes — сохранить и отпустить.
    Замок забрали (редактор или я сам в другой вкладке) — то, что не успело сохраниться, уходит отдельной копией.
    Без сети правки копятся в черновике браузера и уходят, когда связь вернётся.
    «Свой» замок — почта + время начала (`at`): другая вкладка той же почты берёт замок заново, и `at` меняется. */
 /* Автосохранение — раз в 30 секунд, пока есть несохранённые правки (бесплатный запас базы общий на всех). Сразу — при
-   «Сохранить», уходе с проповеди, скрытии вкладки и Ctrl+S. Тесты могут сократить паузу: window.CROSSPECT_AUTOSAVE_MS */
-const AUTOSAVE_MS = +window.CROSSPECT_AUTOSAVE_MS || 30000, BEAT_MS = 60000, TICK_MS = 15000, SLOW_MS = 8000, RETRY_MS = 15000, QUOTA_RETRY_MS = 300000, ADOPT_MS = 15000;   // ADOPT_MS — сколько после взятия замка новый замок с моей почтой считается моим
+   «Готово», уходе с проповеди, скрытии вкладки и Ctrl+S. Тесты могут сократить паузу: window.CROSSPECT_AUTOSAVE_MS.
+   Копия в историю (versions.js): при «Готово», Ctrl+S, уходе с правки и не реже раза в VER_MS правки (с ближайшим автосохранением) */
+const AUTOSAVE_MS = +window.CROSSPECT_AUTOSAVE_MS || 30000, VER_MS = +window.CROSSPECT_VERSION_MS || 600000, BEAT_MS = 60000, TICK_MS = 15000, SLOW_MS = 8000, RETRY_MS = 15000, QUOTA_RETRY_MS = 300000, ADOPT_MS = 15000;   // ADOPT_MS — сколько после взятия замка новый замок с моей почтой считается моим
 /* mode: view — просмотр, edit — правлю я. remote — последняя версия из облака (с замком), myAt — начало моего замка */
 const ed = { id:null, mode:'view', remote:null, myAt:0, unsub:null, saveT:null, tickT:null, retryT:null, pending:null,
   lastAct:0, lastBeat:0, saving:false, beating:false, slow:false, offline:false, denied:false, conflict:null, busy:false,
-  autoEdit:null, headKey:'', hintAt:0, quota:false, quotaAt:0, adoptUntil:0 };   // quota — дневной запас базы исчерпан: правки ждут в браузере
+  autoEdit:null, headKey:'', hintAt:0, quota:false, quotaAt:0, adoptUntil:0, verAt:0, verPend:false };   // quota — дневной запас базы исчерпан: правки ждут в браузере;
+   // verAt — когда в этой правке последний раз делали копию в историю, verPend — после неё правки уже уходили в облако
 
 const lockMins = () => { const m = +(cloud.settings && cloud.settings.lockMinutes); return m >= 1 ? m : 10; };
 const lockLive = l => !!l && Date.now() < l.beat + lockMins() * 60000;
@@ -69,13 +71,14 @@ function beginCloud(remote, pickedLocal, offline){
 function endCloud(o){
   o = o || {};
   if (!ed.id) return Promise.resolve();
-  const s = state && state.id === ed.id ? state : null, wasEdit = ed.mode === 'edit', at = ed.myAt, id = ed.id, conflict = ed.conflict;
+  const s = state && state.id === ed.id ? state : null, wasEdit = ed.mode === 'edit', at = ed.myAt, id = ed.id, conflict = ed.conflict, verPend = ed.verPend;
   stopWatch(); stopTimers(); flushFlags();
   if (s && wasEdit && !o.discard) LS.set('swp-sermon:' + s.id, JSON.stringify(s));   // черновик — сразу, не ждём паузы
   Object.assign(ed, { id:null, mode:'view', remote:null, myAt:0, conflict:null, saving:false, slow:false, offline:false, denied:false, busy:false, pending:null });
   rememberAt(id, 0);
   if (!wasEdit || !s || !cloudOn()) return Promise.resolve();
-  if (!o.discard && !conflict && isUnsaved(s)) return cloudWrite(s, { release:true, at });
+  if (!o.discard && !conflict && isUnsaved(s)) return cloudWrite(s, { release:true, at, snap:true });   // ушли с правки: копия в историю, как по «Готово»
+  if (verPend && !o.discard) snapVersion(s);
   if (at) return cloud.api.release(cloud.space, id, cloud.user, at).catch(() => {});
   return Promise.resolve();
 }
@@ -154,7 +157,7 @@ async function startEdit(o){
     const r = await cloud.api.lock(cloud.space, id, cloud.user, myLockName(), { at:o.resumeAt || 0, force:!!o.force, minutes:lockMins() });
     if (ed.id !== id || !cloudOn()){ cloud.api.release(cloud.space, id, cloud.user, r.lock && r.lock.at).catch(() => {}); return; }
     ed.remote = r; ed.myAt = r.lock ? r.lock.at : 0; rememberAt(id, ed.myAt); ed.adoptUntil = Date.now() + ADOPT_MS;
-    ed.mode = 'edit'; ed.lastAct = ed.lastBeat = Date.now(); ed.denied = false;
+    ed.mode = 'edit'; ed.lastAct = ed.lastBeat = ed.verAt = Date.now(); ed.denied = false; ed.verPend = false;
     if (state === s && !isDirty() && r.cloudAt !== state.cloudAt) setRemoteState(r);   // править будем самую свежую версию
     // после перезагрузки облачная версия бывает новее черновика только из-за наших же записей: черновик их уже содержит
     else if (state === s && o.ownSince && r.cloudBy === myEmail() && r.cloudAt >= o.ownSince) state.cloudAt = r.cloudAt;
@@ -192,28 +195,34 @@ function autoSave(manual){
   if (!editing() || ed.conflict || ed.denied || !isDirty()) return;
   if (ed.saving) return;   // по окончании текущей записи проверим ещё раз
   if (ed.quota && Date.now() - ed.quotaAt < QUOTA_RETRY_MS){ retryLater(QUOTA_RETRY_MS - (Date.now() - ed.quotaAt)); return; }   // запас базы исчерпан: пробуем раз в несколько минут
-  ed.pending = cloudWrite(state, { at:ed.myAt, manual:manual === true });   // manual — «Сохранить» / Ctrl+S: знак играет анимацию; автосохранение — тихая галочка (motion.js)
+  ed.pending = cloudWrite(state, { at:ed.myAt, manual:manual === true });   // manual — Ctrl+S: знак играет анимацию; автосохранение — тихая галочка (motion.js)
 }
 /* «Заменить облачную» в окне конфликта */
 function forceSave(){
   ed.conflict = null; clearTimeout(ed.saveT); ed.saveT = null;
   ed.pending = cloudWrite(state, { at:ed.myAt, force:true, manual:true });
 }
-/* Ctrl+S и «Сохранить» во время правки: сразу, не дожидаясь паузы */
+/* Ctrl+S во время правки: сохранить сразу, не дожидаясь паузы, и остаться в правке. Копия в историю — и когда всё уже сохранено */
 function saveNow(){
   if (readOnly()){ roHint(); return; }
   clearTimeout(ed.saveT); ed.saveT = null;
   if (ed.conflict){ conflictSheet(ed.conflict); return; }
   ed.denied = false; ed.quotaAt = 0;   // Ctrl+S — попробовать сразу, даже если запас был исчерпан
   if (isDirty()) autoSave(true);
-  else updateStatus();
+  else { if (editing() && state.cloudAt && !ed.saving) snapNow(state, true); updateStatus(); }
+}
+/* Копия в историю (этап 9.8). mine — запись этой правки: запомнить, когда была копия */
+function snapNow(s, mine){
+  snapVersion(s);
+  if (mine){ ed.verAt = Date.now(); ed.verPend = false; }
 }
 function retryLater(ms){
   if (ed.retryT) return;
   ed.retryT = setTimeout(() => { ed.retryT = null; if (editing() && isDirty()) scheduleSave(0); }, ms || RETRY_MS);
 }
 
-/* Записать проповедь s в облако. o: { at — мой замок, release — отпустить, force — заменить облачную }.
+/* Записать проповедь s в облако. o: { at — мой замок, release — отпустить, force — заменить облачную,
+   manual — Ctrl+S или «Готово» (анимация знака), snap — копия в историю (уход с правки) }.
    s может быть уже не открыта (ушли с неё): тогда пишем молча и обновляем только её черновик */
 async function cloudWrite(s, o){
   o = o || {};
@@ -243,7 +252,9 @@ async function cloudWrite(s, o){
       persistDraft();
       if (!ed.unsub) startWatch();
     } else LS.set('swp-sermon:' + s.id, JSON.stringify(s));
-    if (o.manual) snapVersion(s);   // «Сохранить» и Ctrl+S: копия в историю (этап 9.7; автосохранение копий не делает)
+    // копия в историю: «Готово», Ctrl+S, уход с правки — сразу; автосохранение — если с прошлой копии прошло VER_MS (этап 9.8)
+    if (o.manual || o.snap) snapNow(s, here());
+    else if (here()){ ed.verPend = true; if (Date.now() - ed.verAt >= VER_MS) snapNow(s, true); }
   } catch(e){
     const code = (e && e.code) || '';
     if (code === 'lost-lock'){
@@ -320,7 +331,7 @@ async function beat(){
 }
 
 /* ----- Закончить правку ----- */
-/* «Сохранить» (reason 'button') или простой ('idle'):
+/* «Готово» (reason 'button') или простой ('idle'):
    сохранить, отпустить замок, остаться в просмотре. Возвращает 'ok' или причину, почему не вышло */
 async function closeEdit(reason){
   if (!editing()) return 'none';
@@ -332,10 +343,10 @@ async function closeEdit(reason){
   clearTimeout(ed.saveT); ed.saveT = null;
   const at = ed.myAt;
   let res = 'ok';
-  if (isUnsaved(s) || !s.cloudAt) res = await (ed.pending = cloudWrite(s, { release:true, at, manual:reason === 'button' }));
+  if (isUnsaved(s) || !s.cloudAt) res = await (ed.pending = cloudWrite(s, { release:true, at, manual:reason === 'button', snap:true }));
   else if (at){
     try { await cloud.api.release(cloud.space, s.id, cloud.user, at); } catch(e){ res = netErr(e) ? 'offline' : 'error'; }
-    if (res === 'ok' && reason === 'button') snapVersion(s);   // правки ушли автосохранением: копия в историю — всё равно по «Сохранить» (этап 9.7)
+    if (res === 'ok' && (reason === 'button' || ed.verPend)) snapNow(s, true);   // правки ушли автосохранением: копия в историю — всё равно по «Готово» (этапы 9.7, 9.8)
   }
   if (state !== s || ed.mode !== 'edit') return res === 'ok' ? 'none' : res;
   if (res !== 'ok'){
@@ -435,7 +446,7 @@ function idleSheet(){
 }
 
 /* ----- Только просмотр ----- */
-/* Правка в режиме просмотра: вернуть как было и подсказать про «Редактировать». Вызывается из change() */
+/* Правка в режиме просмотра: вернуть как было и подсветить «Редактировать». Вызывается из change() */
 function roBlock(){
   if (!readOnly()) return false;
   if (ed.remote && ed.remote.blocks) setRemoteState(ed.remote);
@@ -443,7 +454,11 @@ function roBlock(){
   roHint();
   return true;
 }
+/* Попытка править в просмотре. На экране конспекта (этап 9.8) — без сообщения внизу: мягко подсвечивается кнопка в шапке
+   («Редактировать», «Забрать правку», «Сделать копию») и строка рядом, если там написано, почему править нельзя.
+   Поверх открыто окно (шапку не видно) — прежняя подсказка внизу */
 function roHint(){
+  if (screen === 'sermon' && !settingsOverlay.classList.contains('open') && !sheetOverlay.classList.contains('open')){ nudgeHead(); return; }
   if (Date.now() - ed.hintAt < 1500) return;
   ed.hintAt = Date.now();
   if (authorWaits()){ toast(atEditorMsg()); return; }
@@ -452,13 +467,21 @@ function roHint(){
   if (l && l.email !== myEmail() && cloud.role === 'preacher'){ toast('Сейчас его правит ' + lockWho(l) + '. Править можно, когда правка закончится'); return; }
   toast('Сейчас только просмотр', l ? 'Забрать правку' : 'Редактировать', () => l ? takeOver(l) : startEdit());
 }
+function nudgeHead(){
+  [$('.hd-act'), $('#hd-save')].forEach(el => {
+    if (!el || (el.id === 'hd-save' && !el.textContent)) return;
+    el.classList.remove('nudge'); void el.offsetWidth;   // повторный щелчок — подсветка заново
+    el.classList.add('nudge');
+    clearTimeout(el._nudgeT); el._nudgeT = setTimeout(() => el.classList.remove('nudge'), 1200);
+  });
+}
 
-/* Кнопка в шапке вместо «Сохранить» */
+/* Кнопка в шапке: «Редактировать» — в просмотре, «Готово» — в правке (этап 9.8, кнопки «Сохранить» нет) */
 function headAction(){
-  const b = (cls, icon, label, fn, extra) => h('button', Object.assign({ type:'button', class:'btn ' + cls, onclick:fn }, extra || {}), icon ? ic(icon) : null, label);
+  const b = (cls, icon, label, fn, extra) => h('button', Object.assign({ type:'button', class:'btn hd-act ' + cls, onclick:fn }, extra || {}), icon ? ic(icon) : null, label);
   if (!cloudSermon()) return b('primary', 'save', 'Сохранить', () => saveSermon(), { title:'Ctrl+S' });
   if (ed.busy) return b('primary', null, 'Открываю правку…', null, { disabled:true });
-  if (ed.mode === 'edit') return b('primary', 'done', 'Сохранить', () => closeEdit('button'), { title:'Сохранить и закончить правку: тогда конспект смогут править другие (Ctrl+S — сохранить и продолжить)' });
+  if (ed.mode === 'edit') return b('hd-done', 'done', 'Готово', () => closeEdit('button'), { title:'Закончить правку: всё сохранится, и конспект смогут править другие. Пока вы правите, всё сохраняется само; Ctrl+S — сохранить сразу' });
   if (authorWaits()){   // конспект у редактора: на кнопке проявляется значок замка (motion.js); у редактора и админа замка нет — кнопка работает
     const btn = b('primary hd-edit', 'edit', 'Редактировать', null, { disabled:true, title:atEditorMsg() + '. Чтобы взять конспект за основу, сделайте копию: «⋯ → Сделать копию»' });
     btn.append(h('span', { class:'lockbadge', 'aria-hidden':'true' }, ic('lock')));
@@ -471,17 +494,15 @@ function headAction(){
   if (l) return b('primary hd-edit', 'edit', 'Редактировать', null, { disabled:true, title:'Сейчас правит ' + lockWho(l) + '. Когда правка закончится, кнопка заработает' });
   return b('primary hd-edit', 'edit', 'Редактировать', () => startEdit());
 }
-/* Строка состояния в шапке: [класс, текст, по щелчку] */
+/* Строка состояния в шапке: [класс, текст, по щелчку]. В правке — только когда что-то не так: обычный ход сохранения
+   виден под названием (editSub, этап 9.8) */
 function cloudStatusLine(){
   if (ed.mode === 'edit'){
     if (ed.conflict) return ['warn pick', 'Не сохранено: в облаке другая версия. Выбрать', () => conflictSheet(ed.conflict)];
     if (ed.denied) return ['warn', 'Облако не приняло правку'];
     if (ed.quota) return ['warn', 'Облако перегружено до 9:00: правки в этом браузере, уйдут в облако сами'];
     if (ed.offline || ed.slow) return ['warn', 'Нет связи: правки в этом браузере, уйдут в облако, когда появится сеть'];
-    if (ed.saving) return ['', 'Сохраняю…'];
-    if (isDirty()) return ['', 'Не сохранено: уйдёт в облако само'];
-    if (state.cloudAt) return ['ok', '✓ Сохранено в облаке в ' + fmtTime(state.savedAt || state.cloudAt)];
-    return ['', 'Правки сохранятся сами'];
+    return ['', ''];
   }
   if (ed.busy) return ['', 'Открываю правку…'];
   if (authorWaits()) return ['warn', atEditorMsg()];
@@ -489,7 +510,14 @@ function cloudStatusLine(){
   const l = otherLock();
   if (l && l.email === myEmail()) return ['warn', 'Вы правите её в другой вкладке или на другом устройстве (с ' + fmtTime(l.at) + ')'];
   if (l) return ['warn', 'Сейчас правит ' + lockWho(l) + ' (с ' + fmtTime(l.at) + ')'];
-  return ['', 'Только просмотр'];
+  return ['', ''];   // просмотр видно по серым полям и кнопке «Редактировать» (этап 9.8)
+}
+/* Под названием в шапке во время правки (этап 9.8): «Правка · сохранено в 15:20» */
+function editSub(){
+  if (ed.conflict || ed.denied || ed.quota || ed.offline || ed.slow) return 'Правка · не сохранено';
+  if (ed.saving) return 'Правка · сохраняю…';
+  if (isDirty() || !state.cloudAt) return 'Правка · изменения сохранятся сами';
+  return 'Правка · сохранено в ' + fmtTime(state.savedAt || state.cloudAt);
 }
 /* Пометка на карточке главной: кто сейчас правит */
 function lockMark(d){
