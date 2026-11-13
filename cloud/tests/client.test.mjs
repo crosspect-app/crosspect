@@ -932,7 +932,7 @@ describe('пространства, люди и серии (этап 10)', () =>
   });
   test('операторы: пишет админ, автор читает; пока записи нет — отдаётся {}', async () => {
     const admin = await client('admin@x.pl');
-    const read = async () => once((f) => client('ivan@x.pl').then((ivan) => ivan.watchOperators('sp1', f)));   // каждый раз новый читатель: у старого свой кеш
+    const read = async () => { const ivan = await client('ivan@x.pl'); return once((f) => ivan.watchOperators('sp1', f)); };   // каждый раз новый читатель: у старого свой кеш
     assert.deepEqual(await read(), {});
     const ops = { o1: { name: 'Пётр Оператор', tg: 'petr_op' }, o2: { name: 'Анна', tg: 'anna_live' } };
     await admin.setOperators('sp1', me('admin@x.pl'), ops);
