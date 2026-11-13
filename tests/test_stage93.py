@@ -152,14 +152,21 @@ def test_export_pptx_todo_slide_is_black_only_for_editor(page, sermon):
     assert any(sh.shape_type == 13 for sh in th.shapes)
 
 
-def test_speech_goes_to_notes_of_ordinary_slide(page, sermon):
+def test_notes_hold_only_file_name_and_black_slide_comments(page, sermon):
+    """Этап 9.5: в заметках — название файла слайда; текста к слайду и содержимого слайдов нет."""
     pptx = pytest.importorskip("pptx")
     open_sermon(page, sermon)
     page.evaluate("state.blocks.find(b => b.type === 'quote').speech = 'Сказать это вслух'")
     prs = pptx.Presentation(download_pptx(page, "exportPPTX()").path())
+    names = page.evaluate("(() => { const n = slideNums(); return state.blocks.filter(b => TYPES[b.type].slide).map(b => slideName(b, n[b.id])); })()")
     types = page.evaluate("state.blocks.filter(b => TYPES[b.type].slide).map(b => b.type)")
-    q = list(prs.slides)[types.index("quote")]
-    assert q.notes_slide.notes_text_frame.text == "Сказать это вслух"
+    for x, name, t in zip(prs.slides, names, types):
+        text = x.notes_slide.notes_text_frame.text
+        assert text.split("\n")[0] == name, (t, text)   # название файла — первой строкой, у каждого слайда
+        assert "Сказать это вслух" not in text
+        if t in ("splash", "scripture", "thesis", "quote"):
+            assert text == name, (t, text)   # у обычного слайда — только название
+    assert page.errors == []
 
 
 def test_download_menu_offers_jpeg_and_powerpoint(page, sermon):

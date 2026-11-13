@@ -411,6 +411,13 @@ function scaleStepper(b){
   show();
   return h('div', { class:'step', title:'Размер текста' }, minus, val, plus);
 }
+/* Ширина области текста у цитаты «слева / справа» (этап 9.5): ползунок 30–80 %, число рядом */
+function halfWidthRow(b){
+  const v0 = clampHalfW(b.halfW), val = h('span', { class:'half-w-val', text:v0 + '%' });
+  const inp = h('input', { type:'range', min:String(HALF_W.min), max:String(HALF_W.max), step:String(HALF_W.step), value:String(v0), 'aria-label':'Ширина текста, % ширины слайда',
+    oninput:e => { b.halfW = clampHalfW(e.target.value); val.textContent = b.halfW + '%'; change(); updateCounter(b); } });
+  return h('div', { class:'half-w' }, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Ширина текста' }), val), inp);
+}
 function partStepper(b, p){
   const R = scaleRange('thesis'), cur = () => Math.min(R.max, Math.max(R.min, Math.round(+p.scale || 100)));
   const val = h('span'), minus = h('button', { type:'button', title:'Мельче на 1%', 'aria-label':'Мельче на 1%' }, '−'),
@@ -608,6 +615,10 @@ const BODY = {
       row('Название на слайде', m.title, 'Без названия', from, splashStepper()),
       titleOnly ? row('Внизу слайда', 'Не показывается: включено «Заставка: только название»', '', 'Это настройка слайдов всего пространства: «⋯ → Настройки слайдов» (её меняют админ и редактор)')
         : row('Внизу слайда', [preacherName(m), splashDate(m.date)].filter(Boolean).join(' · '), 'Автор и дата не указаны', from),
+      // в боковой панели заставки текстовых подсказок нет (этап 7.2): пояснение — всплывающее
+      h('label', { class:'switch own-splash', title:'Для этой заставки: в PowerPoint будет чёрный слайд, в архив JPEG она не попадёт. Заставку вы сделаете сами' },
+        h('input', { type:'checkbox', checked:!!b.custom, onchange:e => { b.custom = e.target.checked; change(); refreshThumb(b); } }),
+        h('span', { class:'sw' }), 'Своя заставка'),
       h('button', { type:'button', class:'btn', style:'justify-content:center', onclick:() => openMeta() }, ic('settings'), 'Изменить название, дату, автора'));
   },
   thesis(b, body, n){
@@ -644,6 +655,7 @@ const BODY = {
     body.append(capsSwitch(b));
     body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Место текста' })),
       toggle([['full', 'Во всю ширину'], ['left', 'Текст слева'], ['right', 'Текст справа']], b.half || 'full', v => { b.half = v; change(); rerender(b); })));
+    if (b.half === 'left' || b.half === 'right') body.append(halfWidthRow(b));
     body.append(h('div', { class:'grid-2' },
       field('Автор', input(b, 'author', 'Имя Фамилия', { oninput:e => { b.author = e.target.value; change(); updateCounter(b); } })),
       field('Подпись — мелко под автором', input(b, 'caption', 'Книга, год, откуда цитата', { oninput:e => { b.caption = e.target.value; change(); updateCounter(b); } }))));

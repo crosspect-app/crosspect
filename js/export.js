@@ -104,34 +104,35 @@ async function exportOne(b){
     const f = sideEl && sideEl.querySelector('.namebox input'); if (f) f.focus();
     toast('Сначала напишите название слайда'); return;
   }
-  exporting = true; motionPause(); toast('Готовлю JPEG…');   // на время снятия JPEG движение выключено: снимок всегда со статичного слайда (motion.js)
+  exporting = true; motionPause(); const tt = toast('Готовлю JPEG…');   // на время снятия JPEG движение выключено: снимок всегда со статичного слайда (motion.js)
   try {
     const name = slideName(b, slideNums()[b.id]) + '.jpg';
     download(await renderJPEG(b), name);
-    toast('Скачано: ' + name);
-  } catch(e){ toast('Не получилось собрать JPEG: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
+    toastSet(tt, 'Скачано: ' + name);
+  } catch(e){ toastSet(tt, 'Не получилось собрать JPEG: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
   finally { exporting = false; motionResume(); }
 }
 async function exportMany(){
   if (exporting) return;
-  const list = state.blocks.filter(b => PREVIEW[b.type]);
+  const list = state.blocks.filter(b => PREVIEW[b.type] && !isCustomSplash(b));   // «своя заставка» (этап 9.5) в архив не идёт
   if (!list.length){ toast('В конспекте нет слайдов, которые форма собирает сама'); return; }
   if (!checkNames()) return;
   if (list.length === 1){ exportOne(list[0]); return; }
   exporting = true; motionPause();
-  const nums = slideNums(), folder = folderName(), files = [{ name:folder + '/', dir:true }], used = {};
+  const nums = slideNums(), folder = folderName(), files = [{ name:folder + '/', dir:true }], used = {}, pr = exportProgress('Готовлю слайды', list.length);
   try {
     for (let i = 0; i < list.length; i++){
-      toast('Готовлю слайды: ' + (i + 1) + ' из ' + list.length + '…');
+      pr.step(i + 1);
       const b = list[i];
       let name = slideName(b, nums[b.id]);
       if (used[name]){ used[name]++; name += ' (' + used[name] + ')'; } else used[name] = 1;
       files.push({ name:folder + '/' + name + '.jpg', data:new Uint8Array(await (await renderJPEG(b)).arrayBuffer()) });
     }
     download(makeZip(files), folder + '.zip');
-    const rest = state.blocks.filter(b => b.type === 'image' || b.type === 'video' || b.type === 'free').length;
-    toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео и свободные слайды делаются вручную' : ''));
-  } catch(e){ toast('Не получилось собрать слайды: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
+    pr.end();
+    const rest = state.blocks.filter(b => b.type === 'image' || b.type === 'video' || b.type === 'free' || isCustomSplash(b)).length;
+    toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео, свободные слайды и свои заставки делаются вручную' : ''));
+  } catch(e){ pr.fail(); toast('Не получилось собрать слайды: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
   finally { exporting = false; motionResume(); }
 }
 

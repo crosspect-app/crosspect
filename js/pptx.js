@@ -3,8 +3,9 @@
 /* ========= PowerPoint (.pptx) из слайдов (этап 9.3) =========
    Файл собирается без библиотек: ZIP — тот же makeZip, что и в архиве JPEG (export.js), слайды — картинки renderJPEG.
    Слайд на весь кадр 16:9: картинка 1920×1080, порядок как в конспекте, поэтому номера [N] совпадают с названиями JPEG.
-   Чёрные слайды (картинка, видео, свободный и — у редактора и админа — слайд с отметкой «доработать»): чёрный фон, без подписи,
-   задание лежит в заметках докладчика. У обычного слайда в заметки идёт «текст к слайду».
+   Чёрные слайды (картинка, видео, свободный, «своя заставка» и — у редактора и админа — слайд с отметкой «доработать»): чёрный фон, без подписи,
+   задание лежит в заметках докладчика. Заметки (этап 9.5): у каждого слайда — название файла (`slideName`), у чёрных — ещё комментарии
+   (описание картинки, ссылка и отрезок видео, «пришлю отдельно»); текста конспекта, «текста к слайду» и содержимого слайдов в заметках нет.
    makePPTX(slides) — чистая сборка из готовых данных (её же проверяют тесты), exportPPTX — выгрузка из открытого конспекта. */
 const PPTX_W = 12192000, PPTX_H = 6858000;   // 13,333 × 7,5 дюйма: 16:9
 const PPTX_NS = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"';
@@ -110,12 +111,12 @@ function makePPTX(slides, title){
   return new Blob([blob], { type:'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 }
 
-/* Чёрный слайд: форма сама его не рисует — картинка, видео, свободный слайд или слайд, который редактор отметил «доработать» */
-const pptxIsBlack = b => !PREVIEW[b.type] || todoOn(b);
-/* Заметки чёрного слайда: что на нём должно быть («[7] Картинка: название», дальше описание и подробности) */
-function pptxBlackNotes(b, n){
-  const T = TYPES[b.type], name = cleanName(b.name), m = state.meta, out = [];
-  out.push('[' + n + '] ' + T.label + (name ? ': ' + name : ''));
+/* Чёрный слайд: форма сама его не рисует — картинка, видео, свободный слайд, «своя заставка» или слайд, который редактор отметил «доработать» */
+const pptxIsBlack = b => !PREVIEW[b.type] || isCustomSplash(b) || todoOn(b);
+/* Заметки докладчика (этап 9.5): название файла слайда у каждого, у чёрных — ещё комментарии к заданию. Содержимого слайдов здесь нет */
+function pptxNotes(b, n, black){
+  const out = [slideName(b, n)];
+  if (!black) return out.join('\n');
   const add = (label, v) => { v = String(v == null ? '' : v).trim(); if (v) out.push(label + v); };
   switch (b.type){
     case 'image':
@@ -128,19 +129,9 @@ function pptxBlackNotes(b, n){
     case 'free':
       add('Описание: ', b.desc); break;
     case 'splash':
-      add('Название: ', m.title); break;
-    case 'scripture':
-      b.items.forEach(it => {
-        if (it.kind === 'text') add('', plain(it.html));
-        else if (it.kind !== 'line') out.push([it.ref, it.translation].filter(Boolean).join(' ') + (it.verses ? ': ' + it.verses.map(v => (v.num ? v.num + ' ' : '') + plain(v.text).trim()).filter(Boolean).join(' ') : ''));
-      }); break;
-    case 'thesis':
-      add('', plain(b.text)); break;
-    case 'quote':
-      add('', '«' + plain(b.text).trim() + '»'); add('Автор: ', b.author); add('Подпись: ', b.caption); break;
+      if (isCustomSplash(b)) out.push('Своя заставка'); break;
   }
-  if (PREVIEW[b.type]) out.push('Отмечено «доработать»: слайд нужно сделать или поправить');
-  if (plain(b.speech).trim()) out.push('', 'Текст к слайду:', plain(b.speech).trim());
+  if (PREVIEW[b.type] && todoOn(b)) out.push('Отмечено «доработать»: слайд нужно сделать или поправить');
   return out.join('\n');
 }
 async function exportPPTX(){
@@ -148,21 +139,23 @@ async function exportPPTX(){
   const list = state.blocks.filter(b => TYPES[b.type].slide);
   if (!list.length){ toast('В конспекте пока нет слайдов'); return; }
   exporting = true; motionPause();
+  const pr = exportProgress('Собираю PowerPoint', list.length);
   try {
     const nums = slideNums(), slides = []; let black = 0;
     for (let i = 0; i < list.length; i++){
-      toast('Собираю PowerPoint: ' + (i + 1) + ' из ' + list.length + '…');
+      pr.step(i + 1);
       const b = list[i], n = nums[b.id], bl = pptxIsBlack(b);
       if (bl) black++;
       slides.push({
         jpeg:bl ? null : new Uint8Array(await (await renderJPEG(b)).arrayBuffer()),
         alt:slideName(b, n),
-        notes:bl ? pptxBlackNotes(b, n) : plain(b.speech).trim()
+        notes:pptxNotes(b, n, bl)
       });
     }
     download(makePPTX(slides, state.meta.title), folderName() + '.pptx');
+    pr.end();
     toast('Скачан PowerPoint: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (black ? ', из них чёрных: ' + black : ''));
-  } catch(e){ toast('Не получилось собрать PowerPoint: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
+  } catch(e){ pr.fail(); toast('Не получилось собрать PowerPoint: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
   finally { exporting = false; motionResume(); }
 }
 

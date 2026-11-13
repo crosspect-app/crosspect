@@ -286,6 +286,8 @@ function layoutBox(sl, b, px){
   if (au) au.innerHTML = authorHTML(b);
   const half = b.type === 'quote' && (b.half === 'left' || b.half === 'right') ? b.half : 'full';   // этап 9.3: текст цитаты на половине слайда
   box.dataset.half = half; if (au) au.dataset.half = half;
+  const hw = clampHalfW(b.halfW) + '%';   // этап 9.5: ширина области текста; на «Во всю ширину» не используется
+  box.style.setProperty('--hw', hw); if (au) au.style.setProperty('--hw', hw);
   inner.style.fontSize = px + 'px';
   const align = b.type === 'thesis' ? (b.align || 'center') : 'center';
   inner.style.textAlign = align; inner.dataset.align = align;

@@ -76,7 +76,7 @@ function canon(v){
   return JSON.stringify(v);
 }
 function blockSig(b){
-  const c = Object.assign({}, b); delete c.todo; delete c.done; delete c.collapsed;
+  const c = Object.assign({}, b); delete c.todo; delete c.done; delete c.collapsed; delete c.custom;   // «своя заставка» — решение о выгрузке, не правка слайда: «доработать» из-за неё не ставится
   const s = canon(c); let x = 5381;
   for (let i = 0; i < s.length; i++) x = ((x << 5) + x + s.charCodeAt(i)) | 0;
   return (x >>> 0).toString(36);

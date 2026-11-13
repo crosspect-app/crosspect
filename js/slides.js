@@ -84,7 +84,7 @@ function thumbBody(b, n){
 /* Отпечаток того, что видно на слайде: содержимое без отметок и текста к слайду; у заставки — ещё название, автор, дата и размер.
    Настройки слайдов сюда не входят: их смену разносит refreshSlides (settings.js) */
 function thumbFp(b){
-  const c = Object.assign({}, b); delete c.todo; delete c.done; delete c.collapsed; delete c.speech;
+  const c = Object.assign({}, b); delete c.todo; delete c.done; delete c.collapsed; delete c.speech; delete c.custom;
   if (b.type === 'splash'){ const m = state.meta; c.m = [m.title, m.firstName, m.lastName, m.date, state.settings && state.settings.splash]; }
   return JSON.stringify(c);
 }
@@ -97,7 +97,7 @@ function filmItem(b, n){
   const btn = h('button', { type:'button', 'data-id':id, style:'--tc:var(--c-' + b.type + ')', onclick:() => { if (!dragClick) selectBlock(id); },
     onkeydown:e => { if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && canArrange()){ e.preventDefault(); const x = blockById(id); if (x) move(x, e.key === 'ArrowUp' ? -1 : 1); } },   // Alt+↑/↓ — переставить с клавиатуры
     class:'st t-' + b.type },
-    h('div', { class:'st-thumb' }, thumbBody(b, n), h('span', { class:'fl', text:'доработать' })),
+    h('div', { class:'st-thumb' }, thumbBody(b, n), h('span', { class:'fl', text:'доработать' }), h('span', { class:'own', title:'Своя заставка: в PowerPoint будет чёрным слайдом', text:'своя' })),
     h('div', { class:'st-cap' },
       TYPES[b.type].slide ? h('span', { class:'st-n' }) : h('span', { class:'st-n' }, ic('note')),
       h('span', { class:'st-name' })));
@@ -112,6 +112,7 @@ function updateItem(box, b, n){
   const btn = box.firstElementChild;
   btn.classList.toggle('on', b.id === selId);
   btn.classList.toggle('todo', todoOn(b));
+  btn.classList.toggle('custom', isCustomSplash(b));
   btn.classList.toggle('missing', isMissing(b));
   const num = btn.querySelector('.st-n'); if (TYPES[b.type].slide && num.textContent !== String(n)) num.textContent = String(n);
   const nm = btn.querySelector('.st-name'), name = thumbName(b, n); if (nm.textContent !== name) nm.textContent = name;

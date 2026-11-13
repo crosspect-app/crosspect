@@ -7,7 +7,7 @@
 function toast(msg, actionLabel, action){
   const total = actionLabel ? 6000 : 2400;
   const same = [...toastBox.children].find(x => !x._gone && x._msg === msg && !actionLabel && !x._act);
-  if (same){ same._restart(); return; }
+  if (same){ same._restart(); return same; }
   const el = h('div', { class:'toast show', role:'status' }, h('span', { text:msg }));
   el._msg = msg; el._act = !!actionLabel;
   const bar = h('i', { class:'toast-bar' });
@@ -30,6 +30,33 @@ function toast(msg, actionLabel, action){
   motionAnimate(el, [{ opacity:0, transform:'translateY(12px)' }, { opacity:1, transform:'none' }], MOTION.ms('--motion', 200));
   anim = motionAnimate(bar, [{ transform:'scaleX(1)' }, { transform:'scaleX(0)' }], total, { easing:'linear', fill:'forwards' });
   run();
+  return el;
+}
+/* Обновить сообщение, пока оно на экране (этап 9.5): «Готовлю JPEG…» → «Скачано: …» в том же окошке, без стопки. Ушло — покажет новое */
+function toastSet(el, msg){
+  if (!el || el._gone || !el.isConnected) return toast(msg);
+  const t = el.firstElementChild; if (t) t.textContent = msg;
+  el._msg = msg; el._restart();
+  return el;
+}
+/* Окно хода выгрузки (этап 9.5): вместо стопки сообщений «Собираю… N из M» — одно окно со знаком Crosspect, который играет (части собираются и
+   разлетаются, как на заставке), строкой «Собираю PowerPoint: 5 из 16» и тонкой полоской. Знак анимируется только своими частями (`path`):
+   движение на время сборки выключено для всего остального (motionPause), а `path` под это правило не попадает. Окно стоит вне слайдов и снимков.
+   «Уменьшить движение» — знак стоит. step(i) — начали i-й; end() — собрано: знак целиком, окно закрывается; fail() — закрыть сразу */
+function exportProgress(title, total){
+  const bar = h('i'), txt = h('span', { class:'exp-t', text:title });
+  const mark = h('span', { class:'logo-mark exp-mark', 'data-lg':'0', html:logoSVG() });
+  const el = h('div', { class:'exp-prog' + (MOTION.reduced() ? ' still' : ''), role:'status', 'aria-live':'polite' },
+    mark, h('div', { class:'exp-body' }, txt, h('div', { class:'exp-bar' }, bar)));
+  document.body.append(el);
+  const fill = k => { bar.style.transform = 'scaleX(' + Math.max(0, Math.min(1, k)) + ')'; };
+  fill(0);
+  return {
+    el,
+    step(i){ txt.textContent = title + ': ' + i + ' из ' + total; fill((i - 1) / total); },
+    end(){ el.classList.add('done'); fill(1); txt.textContent = 'Готово'; setTimeout(() => el.remove(), 450); },
+    fail(){ el.remove(); }
+  };
 }
 function closeMenu(){ menuEl.classList.remove('open'); }
 document.addEventListener('click', e => { if (!menuEl.contains(e.target)) closeMenu(); });

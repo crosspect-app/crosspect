@@ -45,14 +45,20 @@ function newThesisPart(){ return { kind:'text', html:'', align:'center', scale:1
 function syncThesisText(b){ b.text = b.parts.filter(p => p.kind === 'text' && plain(p.html).trim()).map(p => p.html).join('<br>'); }
 /* У каждого слайда есть «Текст к слайду» (speech, HTML): что проповедник говорит, пока слайд на экране.
    todo — отметка «доработать» для того, кто готовит слайды; картинка, видео и свободный слайд получают её сами */
+/* Ширина области текста у цитаты «слева / справа», % ширины слайда (этап 9.5): 30–80, по умолчанию 50 */
+const HALF_W = { min:30, max:80, step:5, dflt:50 };
+function clampHalfW(v){ v = v == null || v === '' ? NaN : Math.round(+v); return isFinite(v) ? Math.min(HALF_W.max, Math.max(HALF_W.min, v)) : HALF_W.dflt; }
+/* «Своя заставка» (этап 9.5): форма её не рисует в архив JPEG, в PowerPoint она чёрная */
+const isCustomSplash = b => !!b && b.type === 'splash' && !!b.custom;
+
 function newBlock(type){
   const id = uid(), T = TYPES[type];
   const slide = T && T.slide ? { speech:'', todo:!!T.todo } : {};
   switch (type){
-    case 'splash':     return Object.assign({ id, type }, slide);
+    case 'splash':     return Object.assign({ id, type, custom:false }, slide);   // custom: «Своя заставка» (этап 9.5): в PowerPoint — чёрный слайд, в архив JPEG не идёт
     case 'scripture':  return Object.assign({ id, type, items:[newScripture()] }, slide);   // вид стихов — общий для всех слайдов (настройки слайдов, verses)
     case 'thesis':     return Object.assign({ id, type, name:'', nameAuto:true, text:'', valign:'center', scale:100, parts:[newThesisPart()] }, slide);
-    case 'quote':      return Object.assign({ id, type, text:'', author:'', caption:'', scale:100, caps:false, half:'full' }, slide);   // half: «Во всю ширину» / текст слева / текст справа (этап 9.3)
+    case 'quote':      return Object.assign({ id, type, text:'', author:'', caption:'', scale:100, caps:false, half:'full', halfW:50 }, slide);   // half: «Во всю ширину» / текст слева / текст справа (этап 9.3); halfW — ширина области текста при «слева / справа», % слайда (этап 9.5)
     case 'image':      return Object.assign({ id, type, name:'', mode:'find', desc:'' }, slide);
     case 'video':      return Object.assign({ id, type, name:'', mode:'link', url:'', from:'', to:'', desc:'' }, slide);
     case 'free':       return Object.assign({ id, type, name:'', desc:'' }, slide);
@@ -171,7 +177,9 @@ function normalize(d){
       if (b.caption == null && a.includes(',')){ const i = a.indexOf(','); nb.author = a.slice(0, i).trim(); nb.caption = a.slice(i + 1).trim(); }
       else { nb.author = a; nb.caption = String(b.caption || '').trim(); }
       nb.half = oneOf(b.half, ['full', 'left', 'right'], 'full');
+      nb.halfW = clampHalfW(b.halfW);
     }
+    if (b.type === 'splash') nb.custom = !!b.custom; else delete nb.custom;
     if (NAMED[b.type]) nb.name = cleanName(nb.name);
     if (b.type === 'thesis'){ if (nb.nameAuto == null) nb.nameAuto = !nb.name; if (nb.nameAuto) nb.name = autoName(nb.text); }
     s.blocks.push(nb);

@@ -4,7 +4,7 @@
   --line:#222; --line-2:#2e2e2e;
   --text:#ecdfcf; --muted:#a39a8e; --faint:#7f776c;
   --accent:#ffde59; --accent-1:#ffde59; --accent-2:#ffde59; --on-accent:#141414;
-  --warn:#ffde59; --warn-bg:rgba(255,222,89,.12); --danger:#ff8b7b; --ok:#5ad17a; --todo:#ff8a3d;
+  --warn:#ffde59; --warn-bg:rgba(255,222,89,.12); --danger:#ff8b7b; --ok:#5ad17a; --todo:#ff8a3d; --own:#b6a6ff;
   --topbar:#0e0e0e; --mark:rgba(255,222,89,.3); --shadow:0 18px 50px rgba(0,0,0,.6);
   --c-scripture:#ffde59; --c-thesis:#ffde59; --c-quote:#ffde59; --c-splash:#ecdfcf;
   --c-image:#cfc4b5; --c-video:#cfc4b5; --c-free:#cfc4b5; --c-note:#ffde59;
@@ -20,7 +20,7 @@ body.light{
   --bg:#f7f6f3; --surface:#fff; --surface-2:#f1efe9; --surface-3:#e8e5dd;
   --line:#e6e3dc; --line-2:#d6d2c7;
   --text:#1d1c1a; --muted:#6b675f; --faint:#8f8a80;
-  --accent:#8a6500; --warn:#8a6500; --warn-bg:rgba(230,170,20,.16); --danger:#c2412f; --ok:#1f8a47; --todo:#c2560f;
+  --accent:#8a6500; --warn:#8a6500; --warn-bg:rgba(230,170,20,.16); --danger:#c2412f; --ok:#1f8a47; --todo:#c2560f; --own:#6b56d8;
   --topbar:#f7f6f3; --mark:rgba(255,222,89,.6); --shadow:0 18px 50px rgba(60,40,20,.15);
 }
 *{box-sizing:border-box}
@@ -332,6 +332,13 @@ a.srow:hover{background:#1b1b1b}
 @keyframes flash{0%{box-shadow:0 0 0 0 rgba(255,222,89,0)}25%{box-shadow:0 0 0 4px rgba(255,222,89,.4)}100%{box-shadow:0 0 0 0 rgba(255,222,89,0)}}
 .fl{display:none;position:absolute;top:6px;right:6px;z-index:2;font:700 9px/1 'Inter',sans-serif;text-transform:uppercase;letter-spacing:.04em;background:var(--todo);color:#141414;padding:4px 6px;border-radius:5px}
 .st.todo .fl{display:block}
+/* Своя заставка (этап 9.5): значок в левом нижнем углу миниатюры, фиолетовый; оранжевый «доработать» — справа вверху (на узкой миниатюре они бы налезли друг на друга) */
+.own{display:none;position:absolute;bottom:6px;left:6px;z-index:2;font:700 9px/1 'Inter',sans-serif;text-transform:uppercase;letter-spacing:.04em;background:var(--own);color:#141414;padding:4px 6px;border-radius:5px}
+.st.custom .own{display:block}
+body.light .own{color:#fff}
+.half-w{display:grid;gap:6px}
+.half-w input[type=range]{width:100%;margin:0;accent-color:var(--accent)}
+.half-w-val{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
 .ph-thumb{aspect-ratio:16/9;border:1px dashed #3a3a3a;border-radius:7px;background:#141414;display:flex;align-items:center;justify-content:center;padding:6px;text-align:center;color:var(--muted);font:500 10px/1.3 'Inter',sans-serif;overflow:hidden}
 .ph-thumb span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .st.t-note{padding-top:2px;padding-bottom:2px}
@@ -562,8 +569,8 @@ a.srow:hover{background:#1b1b1b}
 /* Тезис и цитата: текст в своей области, область задана отступами в кадре */
 .sl-box{position:absolute;left:var(--sl-x);right:var(--sl-x);top:var(--sl-t);bottom:var(--sl-b);display:flex;flex-direction:column;justify-content:center}
 .sl-box-quote{top:calc(var(--sl-t) + 150px);bottom:calc(var(--sl-b) + 150px)}   /* место под автора резервируется и снизу, и сверху (этап 9.3): текст стоит ровно по центру слайда, подпись не двигается */
-.sl-box-quote[data-half=left]{right:calc(50% + var(--qt-gap,48px))}   /* «Текст на половине слайда»: вторая половина пустая (под фото автора), зазор от центра */
-.sl-box-quote[data-half=right]{left:calc(50% + var(--qt-gap,48px))}
+.sl-box-quote[data-half=left]{right:calc(100% - var(--hw,50%) + var(--qt-gap,48px))}   /* «Текст на части слайда»: область --hw от края (по умолчанию половина, этап 9.5), остальное пустое (под фото автора), зазор от границы */
+.sl-box-quote[data-half=right]{left:calc(100% - var(--hw,50%) + var(--qt-gap,48px))}
 .sl-box-thesis{--track:var(--th-track,-0.04em);--lead:var(--th-lead,1.05)}
 .sl-box-quote{--track:var(--qt-track,-0.04em);--lead:var(--qt-lead,1.05)}
 .sl-inner{font-weight:325;letter-spacing:var(--track);line-height:var(--lead);text-align:center;overflow-wrap:normal}
@@ -587,7 +594,7 @@ a.srow:hover{background:#1b1b1b}
   background:repeating-linear-gradient(135deg, rgba(255,222,89,.13) 0 14px, transparent 14px 30px);display:grid;place-items:center;
   color:#ffde59;font-size:46px;font-weight:500;letter-spacing:-.02em}
 .sl-author{position:absolute;right:var(--sl-x);bottom:var(--sl-b);max-width:1500px;text-align:right;font-size:52px;line-height:1.05;font-weight:325;text-transform:uppercase;letter-spacing:-0.03em}
-.sl-author[data-half=left],.sl-author[data-half=right]{max-width:calc(50% - var(--sl-x) - var(--qt-gap,48px))}   /* подпись не шире половины слайда */
+.sl-author[data-half=left],.sl-author[data-half=right]{max-width:calc(var(--hw,50%) - var(--sl-x) - var(--qt-gap,48px))}   /* подпись не шире области текста */
 .sl-author[data-half=left]{right:auto;left:var(--sl-x);text-align:left}   /* текст слева — подпись зеркально внизу слева */
 .sl-author b{font-weight:700}
 .sl-author .src{display:block;margin-top:.45em;font-size:.62em;text-transform:none;opacity:.75}
@@ -789,6 +796,20 @@ body.light .fmtbar{box-shadow:0 4px 14px rgba(0,0,0,.08)}
   padding:11px 12px 13px 18px;border-radius:99px;background:#ecdfcf;color:#141414;font-size:12px;font-weight:400;box-shadow:var(--shadow);max-width:100%}
 /* Полоска внизу: сколько осталось до скрытия (наведение мышью ставит отсчёт на паузу) */
 .toast-bar{position:absolute;left:18px;right:18px;bottom:4px;height:2px;border-radius:2px;background:currentColor;opacity:.3;transform-origin:left center}
+.exp-prog{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:72;display:flex;align-items:center;gap:16px;padding:14px 22px 14px 16px;border-radius:18px;
+  background:var(--surface-2);border:1px solid var(--line-2);color:var(--text);box-shadow:var(--shadow);font-size:13px;min-width:260px;max-width:calc(100vw - 32px)}
+.exp-mark{width:44px;height:41px}
+.exp-mark svg{width:100%;height:100%;overflow:visible}
+.exp-body{flex:1;min-width:0;display:grid;gap:9px}
+.exp-bar{height:3px;border-radius:3px;background:var(--line-2);overflow:hidden}
+.exp-bar i{display:block;height:100%;background:var(--accent);transform-origin:left center}
+/* Знак играет по кругу: части собираются, держатся и разлетаются (как на заставке, lg-in); анимируются только path — на них не действует no-motion на время сборки */
+.exp-mark path{animation:lg-loop 2000ms var(--ease-out) infinite both}
+.exp-mark .lg-c{--fx:12px;--fy:12px}
+.exp-mark .lg-a{--fx:-14px;--fy:0px;animation-delay:200ms}
+.exp-mark .lg-b{--fx:0px;--fy:-14px;animation-delay:400ms}
+@keyframes lg-loop{0%{opacity:0;transform:translate(var(--fx),var(--fy))}28%,72%{opacity:1;transform:none}100%{opacity:0;transform:translate(var(--fx),var(--fy))}}
+.exp-prog.done .exp-mark path,.exp-prog.still .exp-mark path{animation:none}
 .toast button{border:0;background:transparent;color:inherit;font-weight:600;font-size:12px;padding:4px 8px;border-radius:99px;text-decoration:underline;text-underline-offset:3px}
 
 /* ---------- PDF для оператора: узкие страницы под экран телефона, только то, что нужно на служении ---------- */
@@ -942,6 +963,7 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
   .logo-mark path{transition-duration:.3s!important}
   .gate-grain,.hb-haze,.sk-card::after,.sk-thumb::after,.sk-stage::after{animation:none!important}
   .toast-bar{display:none}
+  .exp-mark path{animation:none!important}
   .st.hl::after,.blk.hl::after{animation:none!important}
 }
 

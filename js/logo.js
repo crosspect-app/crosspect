@@ -30,7 +30,7 @@ function logoLockup(cls, props){
   return h(cls === 'gate-logo' ? 'div' : 'a', Object.assign({ class:cls }, props || {}), logoMark(), h('span', { class:'logo-t', text:'Crosspect' }));
 }
 
-function logoPaint(){ document.querySelectorAll('.logo-mark').forEach(m => m.setAttribute('data-lg', String(LG.level))); }
+function logoPaint(){ document.querySelectorAll('.logo-mark:not(.exp-mark)').forEach(m => m.setAttribute('data-lg', String(LG.level))); }
 /* Дойти до стадии `want` (2 — записано в браузере, 3 — отправлено, 4 — подтверждено сервером): по одной части за STEP, чтобы быструю запись было видно */
 function logoTo(want){
   LG.want = want;
