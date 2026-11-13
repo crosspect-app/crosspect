@@ -54,3 +54,4 @@ Crosspect — браузерная форма церкви «Слово веры
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — решения Виталия и предпочтения.
 - [`docs/FIREBASE.md`](docs/FIREBASE.md) — облако: настройка и выкладка.
 - [`docs/DESIGN.md`](docs/DESIGN.md) — дизайн; [`ARCHITECTURE.md`](ARCHITECTURE.md) — код.
+- `docs/arch/` — части `ARCHITECTURE.md`: файлы кода, облако в форме, тесты, облако (оглавление — в `ARCHITECTURE.md`).

@@ -10,6 +10,10 @@ def test_status_within_budget():
     assert (ROOT / "STATUS.md").stat().st_size <= 12_000, "STATUS.md больше 12 000 байт: перенести подробности в docs/"
 
 
+def test_architecture_within_budget():
+    assert (ROOT / "ARCHITECTURE.md").stat().st_size <= 12_000, "ARCHITECTURE.md больше 12 000 байт: вынести раздел в docs/arch/"
+
+
 def test_claude_md_within_budget():
     assert (ROOT / "CLAUDE.md").stat().st_size <= 6_000, "CLAUDE.md больше 6 000 байт"
 
