@@ -112,8 +112,8 @@ function opLinkSheet(key){
     sheet.append(
       field,
       h('div', { class:'sheet-foot wrap' },
-        h('button', { type:'button', class:'btn', onclick:() => opCopy(url, false, field) }, ic('dup'), 'Скопировать ссылку'),
-        h('button', { type:'button', class:'btn', onclick:() => opCopy(opShareLines(url).join('\n'), false, null, 'Текст скопирован') }, ic('dup'), 'Скопировать'),
+        h('button', { type:'button', class:'btn', onclick:() => opCopy(url, false, field) }, ic('dup'), 'Скопировать'),
+        h('button', { type:'button', class:'btn', onclick:() => opCopy(opShareLines(url).join('\n'), false, null, 'Текст скопирован') }, ic('dup'), 'Скопировать с форматом'),
         h('button', { type:'button', class:'btn primary', onclick:() => opTelegram(url) }, ic('telegram'), 'В Telegram')));
   }
   settingsOverlay.append(sheet);

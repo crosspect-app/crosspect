@@ -226,7 +226,7 @@ def test_link_window_has_three_buttons_and_no_disable(browser, base_url):
     to_text_view(page)
     url = press_link(page)
     sheet = page.locator(".oplink")
-    assert [b.strip() for b in sheet.locator("button").all_inner_texts() if b.strip()] == ["Скопировать ссылку", "Скопировать", "В Telegram"]
+    assert [b.strip() for b in sheet.locator("button").all_inner_texts() if b.strip()] == ["Скопировать", "Скопировать с форматом", "В Telegram"]
     assert sheet.locator(".hint").count() == 0 and "Откройте её на телефоне" not in sheet.inner_text()
     assert sheet.locator(".btn.danger").count() == 0 and "Отключить" not in sheet.inner_text()
     # страница оператора открыта и работает
@@ -316,7 +316,7 @@ def test_share_text_is_same_for_copy_and_telegram(browser, base_url):
     # кнопки: у «Скопировать» и «В Telegram» есть значки
     assert page.locator(".oplink .btn", has_text="Скопировать").locator(".ic").count() == 2 and page.locator(".oplink .btn.primary .ic").count() == 1
     # «Скопировать»: ссылка, линия, название, автор, дата — простой текст
-    page.get_by_role("button", name="Скопировать", exact=True).click()
+    page.get_by_role("button", name="Скопировать с форматом").click()
     page.wait_for_selector(".toast:has-text('Текст скопирован')")
     copied = page.evaluate("navigator.clipboard.readText()")
     assert copied == "\n".join([url, LINE] + body)
@@ -327,8 +327,8 @@ def test_share_text_is_same_for_copy_and_telegram(browser, base_url):
     q = parse_qs(urlparse(opened).query)
     assert opened.startswith("https://t.me/share/url?") and q["url"] == [url]
     assert q["url"][0] + "\n" + q["text"][0] == copied
-    # «Скопировать ссылку»: только адрес
-    page.get_by_role("button", name="Скопировать ссылку").click()
+    # «Скопировать»: только адрес
+    page.get_by_role("button", name="Скопировать", exact=True).click()
     assert page.evaluate("navigator.clipboard.readText()") == url
     ctx.close()
 
