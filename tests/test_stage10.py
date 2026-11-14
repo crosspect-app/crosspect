@@ -68,7 +68,7 @@ def test_seen_mark_and_editor_reads_only(browser, base_url):
     assert page.locator(".sp-row[data-email='ivan@x.pl'] .sp-seen").inner_text() == "ещё не входил"
     assert page.locator(".sp-people input").count() == 0 and page.locator(".sp-people select").count() == 0   # только смотрит
     assert page.locator(".sp-people .sp-add").count() == 0
-    assert "только админ" in page.inner_text(".space-sheet")
+    assert not page.locator(".space-sheet .sp-people input").count()   # редактор видит таблицу без полей (подпись убрана 14.11)
     # серии редактор ведёт; название и время правки — нет; новое пространство — нет
     open_space(page, "Серии проповедей")
     assert page.locator(".sp-series .sp-add").count() == 1

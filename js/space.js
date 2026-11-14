@@ -213,8 +213,6 @@ function peopleTable(){
     adm ? iconBtn('trash', 'Убрать из пространства', () => removePerson(p), 'danger') : h('span')));
   const head = h('div', { class:'sp-row sp-head', role:'row' }, ['Имя', 'Фамилия', 'Почта', 'Роль', 'Вход', ''].map(t => h('span', { role:'columnheader', text:t })));
   return h('div', { class:'sp-body' },
-    h('p', { class:'hint', text:adm ? 'Кого добавили, тот входит через Google под этой почтой. Имя и фамилия попадают в список авторов в «О проповеди».'
-      : 'Добавлять и убирать людей может только админ. Имя и фамилия попадают в список авторов в «О проповеди».' }),
     h('div', { class:'sp-table sp-people', role:'table', 'aria-label':'Люди' }, head,
       list.length ? rows : h('p', { class:'hint sp-empty', text:'В пространстве пока никого нет' }),
       adm ? addPersonRow() : null));

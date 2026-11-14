@@ -180,7 +180,6 @@ function renderGate(){
       h('button', { type:'button', class:'btn primary', onclick:() => { if (cloud.user) cloudUser(cloud.user); else { cloud.started = false; initCloud(); } } }, 'Повторить'))];
   else body = [
     h('h1', { text:'Конспекты проповедей' }),
-    h('p', { class:'gate-text', text:'Войдите через Google. Нужна та почта, которую вам добавил админ церкви.' }),
     h('div', { class:'chips' }, h('button', { type:'button', class:'btn primary big', onclick:() => cloudSignIn() }, 'Войти через Google')),
     inAppBrowser() ? h('p', { class:'gate-warn', text:'Похоже, страница открыта внутри Telegram или другого приложения. Google не даёт войти отсюда: откройте ссылку в Chrome или Safari.' }) : null];
   // этап 7.6: логотип собирается (~900 мс, один раз при открытии экрана; перерисовка в первую секунду продолжает, а не начинает заново), на фоне живое зерно
