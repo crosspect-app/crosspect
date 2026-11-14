@@ -14,6 +14,18 @@ def versions(page):
     return page.evaluate("((fakeCloud.db().versions || {}).s1 || []).map(v => v.meta.title)")
 
 
+def stable_shot(page, sel=".stage .sl"):
+    """Снимок слайда, когда он перестал меняться (шрифты и картинка фона догружаются; без этого тест иногда падал)"""
+    prev = None
+    for _ in range(30):
+        cur = page.locator(sel).first.screenshot()
+        if cur == prev:
+            return cur
+        prev = cur
+        page.wait_for_timeout(150)
+    return prev
+
+
 def test_view_grey_fields_edit_bright_with_yellow_frame(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": full()})
     wait_home(page)
@@ -26,12 +38,12 @@ def test_view_grey_fields_edit_bright_with_yellow_frame(browser, base_url):
     assert css(page, ".speech", "borderTopColor") == "rgba(0, 0, 0, 0)"
     on = page.evaluate("(() => { const b = document.querySelector('.side .bbody .toggle button.on'); return b ? getComputedStyle(b).backgroundColor : ''; })()")
     assert on in ("", "rgb(61, 59, 56)")   # выбранное в группе — тоже серое
-    stage = page.locator(".stage .sl").first.screenshot()
+    stage = stable_shot(page)
     start_edit(page)
     assert css(page, field, "backgroundColor") == "rgb(29, 28, 26)"   # чуть светлее фона
     assert css(page, field, "borderTopColor").startswith("color(srgb 1 0.870588 0.34902")   # жёлтая рамка (accent с прозрачностью)
     assert css(page, ".speech", "borderTopColor").startswith("color(srgb 1 0.870588 0.34902")
-    assert page.locator(".stage .sl").first.screenshot() == stage   # слайды в обоих режимах одинаковые
+    assert stable_shot(page) == stage   # слайды в обоих режимах одинаковые
     assert not page.errors, page.errors
     ctx.close()
 
