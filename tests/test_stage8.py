@@ -88,11 +88,11 @@ def test_old_admin_role_is_editor(browser, base_url):
 def test_noaccess_and_admin_without_spaces(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user={"email": "nobody@x.pl", "name": "Никто"}, **two_spaces())
     page.wait_for_selector(".gate h1")
-    assert "Вас нет в списке" in page.inner_text(".gate h1")
+    assert "Нет доступа" in page.inner_text(".gate h1")
     assert "swpoznan.media@gmail.com" in page.inner_text(".gate")
     assert not page.locator("text=Продолжить без входа").count()
     ctx.close()
-    # админ, но пространств ещё нет: понятный экран, а не «Вас нет в списке»
+    # админ, но пространств ещё нет: понятный экран, а не «Нет доступа»
     ctx, page = cloud_page(browser, base_url, user={"email": "lone@x.pl", "name": "Один"}, admins=("lone@x.pl",), no_spaces=True)
     page.wait_for_selector(".gate h1")
     assert "Пространств пока нет" in page.inner_text(".gate h1")

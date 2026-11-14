@@ -159,14 +159,14 @@ async function cloudSignOut(){
 /* ----- Экран входа ----- */
 function renderGate(){
   const mode = cloudGate();
-  const other = () => h('button', { type:'button', class:'btn primary', onclick:() => cloudSignOut().then(() => cloudSignIn()) }, 'Войти другой почтой');
+  const other = () => h('button', { type:'button', class:'btn primary', onclick:() => cloudSignOut().then(() => cloudSignIn()) }, 'Войти через другой аккаунт');
   let body;
   // заставка при открытии (этап 7.7): только знак и зерно; если облако отвечает дольше ~1,5 с — тихая строка «Подключаюсь к облаку…»
   if (mode === 'wait') body = [h('p', { class:'gate-text gate-wait', role:'status', text:'Подключаюсь к облаку…' })];
   else if (mode === 'noaccess') body = [
-    h('h1', { text:'Вас нет в списке' }),
-    h('p', { class:'gate-text' }, 'Вы вошли как ' + (cloud.user ? cloud.user.email : '') + ', но этой почты нет среди участников. Чтобы получить доступ, напишите на\u00a0',
-      h('a', { class:'gate-mail', href:'mailto:' + CONTACT_EMAIL, text:CONTACT_EMAIL }), ' или войдите другой почтой.'),
+    h('h1', { text:'Нет доступа' }),
+    h('p', { class:'gate-text' }, 'Аккаунт ' + (cloud.user ? cloud.user.email : '') + ' не\u00a0подключён к\u00a0Crosspect. Войдите через другой аккаунт Google или обратитесь к\u00a0администратору (',
+      h('a', { class:'gate-mail', href:'mailto:' + CONTACT_EMAIL, text:CONTACT_EMAIL }), ').'),
     h('div', { class:'chips' }, other())];
   else if (mode === 'nospaces') body = [
     h('h1', { text:'Пространств пока нет' }),

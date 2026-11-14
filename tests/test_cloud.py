@@ -60,10 +60,10 @@ def test_not_a_member(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user={"email": "stranger@x.pl", "name": "Чужой"}, members=MEMBERS)
     page.wait_for_selector(".gate")
     assert "stranger@x.pl" in page.locator(".gate").inner_text()
-    assert "Вас нет в списке" in page.locator(".gate h1").inner_text()
+    assert "Нет доступа" in page.locator(".gate h1").inner_text()
     assert not page.locator(".home-top").count()
     assert not page.locator(".topbar").is_visible()   # экран входа — без шапки; сменить почту можно с карточки
-    assert page.get_by_role("button", name="Войти другой почтой").is_visible()
+    assert page.get_by_role("button", name="Войти через другой аккаунт").is_visible()
     ctx.close()
 
 
