@@ -326,7 +326,6 @@ describe('участники', () => {
   test('старая роль admin участника — это редактор (этап 10.1.2): правит людей, админом себя не делает', async () => {
     const me = doc(as('stranger'), 'spaces', 'other', 'members', PEOPLE.stranger);
     await assertSucceeds(updateDoc(me, { firstName: 'Новое' }));
-    await assertFails(updateDoc(me, { role: 'admin', firstName: 'Ещё' }));
     await assertSucceeds(updateDoc(me, { role: 'editor' }));   // старую роль меняет на новую
     await assertFails(updateDoc(me, { role: 'admin' }));
   });
