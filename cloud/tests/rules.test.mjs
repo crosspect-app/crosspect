@@ -323,11 +323,12 @@ describe('участники', () => {
     await assertFails(updateDoc(doc(as('ivan'), 'spaces', 'fast', 'members', PEOPLE.petr), { role: 'editor' }));
     await assertFails(deleteDoc(doc(as('ivan'), 'spaces', 'fast', 'members', PEOPLE.petr)));
   });
-  test('со старой ролью admin своё имя поправить можно, роль — нет', async () => {
+  test('старая роль admin участника — это редактор (этап 10.1.2): правит людей, админом себя не делает', async () => {
     const me = doc(as('stranger'), 'spaces', 'other', 'members', PEOPLE.stranger);
     await assertSucceeds(updateDoc(me, { firstName: 'Новое' }));
-    await assertFails(updateDoc(me, { role: 'editor' }));
-    await assertFails(deleteDoc(me));
+    await assertFails(updateDoc(me, { role: 'admin', firstName: 'Ещё' }));
+    await assertSucceeds(updateDoc(me, { role: 'editor' }));   // старую роль меняет на новую
+    await assertFails(updateDoc(me, { role: 'admin' }));
   });
   test('последний вход (seenAt): ставит сам человек при каждом входе, время сервера; админ и редактор не подделывают', async () => {
     const mine = doc(as('ivan'), 'spaces', 'sw', 'members', PEOPLE.ivan);

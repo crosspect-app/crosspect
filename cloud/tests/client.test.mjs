@@ -923,6 +923,8 @@ describe('пространства, люди и серии (этап 10)', () =>
     assert.ok((await raw('spaces/sp1/members/anna@x.pl')).seenAt.toMillis() > first);
     list = await once((f) => anna.watchMembers('sp1', f));
     assert.equal(list.find((p) => p.email === 'anna@x.pl').seen, true);
+    await assert.rejects(anna.updateMember('sp1', 'ivan@x.pl', { firstName: 'X' }));   // пока автор — чужое не правит
+    await assert.rejects(anna.removeMember('sp1', 'ivan@x.pl'));
     await admin.updateMember('sp1', 'anna@x.pl', { role: 'editor', lastName: 'Новак', tg: 'anna_live' });
     a = await raw('spaces/sp1/members/anna@x.pl');
     assert.equal(a.role, 'editor');
@@ -931,8 +933,6 @@ describe('пространства, люди и серии (этап 10)', () =>
     assert.ok(a.seenAt);   // правка админа последний вход не трогает
     await admin.updateMember('sp1', 'anna@x.pl', { tg: '' });
     assert.equal((await raw('spaces/sp1/members/anna@x.pl')).tg, undefined);
-    await assert.rejects(anna.updateMember('sp1', 'ivan@x.pl', { firstName: 'X' }));
-    await assert.rejects(anna.removeMember('sp1', 'ivan@x.pl'));
     // Анна теперь редактор: правит людей своего пространства
     await anna.updateMember('sp1', 'ivan@x.pl', { firstName: 'Иван' });
     await admin.removeMember('sp1', 'anna@x.pl');
