@@ -26,6 +26,17 @@ def stable_shot(page, sel=".stage .sl"):
     return prev
 
 
+def nearly_same(a, b):
+    """Снимки совпадают, кроме единичных точек: на CI слайд иногда отличается на пару пикселей сглаживания (зерно, шрифт)"""
+    import io
+    from PIL import Image, ImageChops
+    x, y = Image.open(io.BytesIO(a)).convert("RGB"), Image.open(io.BytesIO(b)).convert("RGB")
+    if x.size != y.size:
+        return False
+    diff = ImageChops.difference(x, y).convert("L").point(lambda v: 255 if v > 24 else 0)
+    return diff.histogram()[255] <= x.size[0] * x.size[1] // 1000   # не больше 0,1 % заметно разных точек
+
+
 def test_view_grey_fields_edit_bright_with_yellow_frame(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": full()})
     wait_home(page)
@@ -43,7 +54,7 @@ def test_view_grey_fields_edit_bright_with_yellow_frame(browser, base_url):
     assert css(page, field, "backgroundColor") == "rgb(29, 28, 26)"   # чуть светлее фона
     assert css(page, field, "borderTopColor").startswith("color(srgb 1 0.870588 0.34902")   # жёлтая рамка (accent с прозрачностью)
     assert css(page, ".speech", "borderTopColor").startswith("color(srgb 1 0.870588 0.34902")
-    assert stable_shot(page) == stage   # слайды в обоих режимах одинаковые
+    assert nearly_same(stable_shot(page), stage)   # слайды в обоих режимах одинаковые
     assert not page.errors, page.errors
     ctx.close()
 
