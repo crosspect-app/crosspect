@@ -60,6 +60,7 @@ function closeMenu(){ menuEl.classList.remove('open'); }
 function toggleMenu(){
   if (menuEl.classList.contains('open')){ closeMenu(); return; }
   fillMenu();
+  if (!menuEl.children.length) return;   // пустое меню не открываем
   menuEl.classList.add('open');
   placeMenu();
 }

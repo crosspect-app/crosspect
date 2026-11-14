@@ -199,7 +199,7 @@ function renderTopbar(){
   if (screen === 'home') MOTION.ui.id = '';   // на главной и экране входа анимации шапки проповеди забываются
   if (screen === 'home' && cloudGate()){
     topbar.className = 'topbar is-home' + (cloudGate() === 'wait' ? ' is-splash' : '');   // заставка — без шапки (этап 7.8)
-    topbar.append(logoLockup('logo', { href:'#', title:'Crosspect' }), h('div', { class:'grow' }), more);
+    topbar.append(logoLockup('logo', { href:'#', title:'Crosspect' }), h('div', { class:'grow' }), cloud.user ? more : null);   // до входа в меню пусто — кнопки «⋯» нет; вошли не той почтой — в меню «Выйти»
     return;
   }
   if (screen === 'help'){

@@ -62,6 +62,8 @@ def test_not_a_member(browser, base_url):
     assert "stranger@x.pl" in page.locator(".gate").inner_text()
     assert "Вас нет в списке" in page.locator(".gate h1").inner_text()
     assert not page.locator(".home-top").count()
+    page.locator(".topbar .icon-btn[aria-label='Ещё']").click()   # вошли не той почтой: в меню почта и «Выйти»
+    assert "Выйти" in page.inner_text("#menu")
     ctx.close()
 
 
@@ -75,8 +77,9 @@ def test_without_sign_in_only_gate(browser, base_url):
     assert page.locator(".gate").count() == 1
     assert not page.locator(".home-top").count() and not page.locator(".film").count()
     assert page.evaluate("screen") == "home"
-    page.locator(".topbar .icon-btn[aria-label='Ещё']").click()
-    assert "Новый конспект" not in page.inner_text("#menu")
+    assert not page.locator(".topbar .icon-btn[aria-label='Ещё']").count()   # до входа в меню пусто: кнопки «⋯» нет
+    page.evaluate("toggleMenu()")
+    assert not page.evaluate("menuEl.classList.contains('open')")   # пустое меню не открывается
     assert not page.errors, page.errors
     ctx.close()
 
