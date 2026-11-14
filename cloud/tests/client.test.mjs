@@ -908,41 +908,97 @@ describe('пространства, люди и серии (этап 10)', () =>
     await assert.rejects(ivan.createSpace(me('ivan@x.pl'), 'Своё'));
     await assert.rejects(ivan.updateSpace('sp1', me('ivan@x.pl'), { name: 'Чужое' }));
   });
-  test('люди: админ добавляет, правит, убирает; человек сам отмечает «входил»; список видят участники', async () => {
+  test('люди: админ добавляет, правит, убирает; человек сам отмечает последний вход; список видят участники', async () => {
     const admin = await client('admin@x.pl');
     await admin.addMember('sp1', me('admin@x.pl'), { email: 'Anna@X.pl', role: 'preacher', firstName: ' Анна ', lastName: 'Ковальская' });
     await assert.rejects(admin.addMember('sp1', me('admin@x.pl'), { email: 'anna@x.pl', role: 'editor' }), (e) => e.code === 'exists');
     const anna = await client('anna@x.pl');
     let list = await once((f) => anna.watchMembers('sp1', f));
     let a = list.find((p) => p.email === 'anna@x.pl');
-    assert.deepEqual(a, { email: 'anna@x.pl', role: 'preacher', firstName: 'Анна', lastName: 'Ковальская', seen: false });
+    assert.deepEqual(a, { key: 'anna@x.pl', email: 'anna@x.pl', role: 'preacher', firstName: 'Анна', lastName: 'Ковальская', tg: '', seenAt: 0, seen: false });
     await anna.markSeen('sp1', 'anna@x.pl');
-    await anna.markSeen('sp1', 'anna@x.pl');   // второй раз ничего не пишет
+    const first = (await raw('spaces/sp1/members/anna@x.pl')).seenAt.toMillis();
+    await new Promise((r) => setTimeout(r, 20));
+    await anna.markSeen('sp1', 'anna@x.pl');   // при каждом входе — новое время
+    assert.ok((await raw('spaces/sp1/members/anna@x.pl')).seenAt.toMillis() > first);
     list = await once((f) => anna.watchMembers('sp1', f));
     assert.equal(list.find((p) => p.email === 'anna@x.pl').seen, true);
-    await admin.updateMember('sp1', 'anna@x.pl', { role: 'editor', lastName: 'Новак' });
+    await admin.updateMember('sp1', 'anna@x.pl', { role: 'editor', lastName: 'Новак', tg: 'anna_live' });
     a = await raw('spaces/sp1/members/anna@x.pl');
     assert.equal(a.role, 'editor');
     assert.equal(a.lastName, 'Новак');
-    assert.ok(a.seenAt);   // правка админа «входил» не трогает
+    assert.equal(a.tg, 'anna_live');
+    assert.ok(a.seenAt);   // правка админа последний вход не трогает
+    await admin.updateMember('sp1', 'anna@x.pl', { tg: '' });
+    assert.equal((await raw('spaces/sp1/members/anna@x.pl')).tg, undefined);
     await assert.rejects(anna.updateMember('sp1', 'ivan@x.pl', { firstName: 'X' }));
     await assert.rejects(anna.removeMember('sp1', 'ivan@x.pl'));
+    // Анна теперь редактор: правит людей своего пространства
+    await anna.updateMember('sp1', 'ivan@x.pl', { firstName: 'Иван' });
     await admin.removeMember('sp1', 'anna@x.pl');
     assert.equal(await raw('spaces/sp1/members/anna@x.pl'), null);
   });
-  test('операторы: пишет админ, автор читает; пока записи нет — отдаётся {}', async () => {
+  test('люди без почты (этап 10.1.2): p-ключ, почту добавить и убрать — перенос записи', async () => {
     const admin = await client('admin@x.pl');
-    const read = async () => { const ivan = await client('ivan@x.pl'); return once((f) => ivan.watchOperators('sp1', f)); };   // каждый раз новый читатель: у старого свой кеш
-    assert.deepEqual(await read(), {});
-    const ops = { o1: { name: 'Пётр Оператор', tg: 'petr_op' }, o2: { name: 'Анна', tg: 'anna_live' } };
-    await admin.setOperators('sp1', me('admin@x.pl'), ops);
-    assert.deepEqual(await read(), ops);
-    const d = await raw('spaces/sp1/config/operators');
-    assert.deepEqual(d.operators, ops);
-    assert.equal(d.updatedBy, 'admin@x.pl');
-    await assert.rejects((await client('ivan@x.pl')).setOperators('sp1', me('ivan@x.pl'), {}));
-    await admin.setOperators('sp1', me('admin@x.pl'), { o2: ops.o2 });   // убрали оператора: запись перезаписывается целиком
-    assert.deepEqual(await read(), { o2: ops.o2 });
+    const key = await admin.addMember('sp1', me('admin@x.pl'), { role: 'operator', firstName: 'Пётр', lastName: 'Оператор', tg: 'petr_op' });
+    assert.match(key, /^p-[a-z0-9]{12}$/);
+    let d = await raw('spaces/sp1/members/' + key);
+    assert.equal(d.email, undefined);
+    assert.equal(d.tg, 'petr_op');
+    const k2 = await admin.setMemberEmail('sp1', me('admin@x.pl'), key, 'Petr.Op@X.pl');
+    assert.equal(k2, 'petr.op@x.pl');
+    assert.equal(await raw('spaces/sp1/members/' + key), null);
+    d = await raw('spaces/sp1/members/petr.op@x.pl');
+    assert.equal(d.email, 'petr.op@x.pl');
+    assert.equal(d.firstName, 'Пётр');
+    assert.equal(d.role, 'operator');
+    await assert.rejects(admin.setMemberEmail('sp1', me('admin@x.pl'), 'petr.op@x.pl', 'ivan@x.pl'), (e) => e.code === 'exists');
+    const k3 = await admin.setMemberEmail('sp1', me('admin@x.pl'), 'petr.op@x.pl', '');
+    assert.match(k3, /^p-/);
+    assert.equal((await raw('spaces/sp1/members/' + k3)).email, undefined);
+    // оператор с почтой в форму не входит: своё пространство он не прочитает
+    await admin.setMemberEmail('sp1', me('admin@x.pl'), k3, 'oper@x.pl');
+    const oper = await client('oper@x.pl');
+    const mine = await oper.spacesOf('oper@x.pl');
+    assert.equal(mine[0].role, 'operator');
+    await assert.rejects(oper.getSpace('sp1'));
+    await admin.removeMember('sp1', 'oper@x.pl');
+  });
+  test('операторы этапа 10.1 переносятся в людей, документ удаляется', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await F.setDoc(F.doc(ctx.firestore(), 'spaces/sp1/config/operators'), { operators: {
+        o1: { name: 'Пётр Оператор Младший', tg: 'petr_op2' }, o2: { name: 'Анна', tg: 'anna_live2' }, o3: { name: 'Плохой', tg: 'x' } }, updatedBy: 'admin@x.pl' });
+    });
+    const admin = await client('admin@x.pl');
+    assert.equal(await admin.migrateOperators('sp1', me('admin@x.pl')), 2);
+    assert.equal(await raw('spaces/sp1/config/operators'), null);
+    assert.equal(await admin.migrateOperators('sp1', me('admin@x.pl')), 0);   // второй раз — нечего
+    const list = await once((f) => admin.watchMembers('sp1', f));
+    const petr = list.find((p) => p.tg === 'petr_op2');
+    assert.deepEqual([petr.role, petr.firstName, petr.lastName, petr.email], ['operator', 'Пётр', 'Оператор Младший', '']);
+    assert.ok(list.find((p) => p.tg === 'anna_live2'));
+    for (const p of list.filter((x) => x.role === 'operator')) await admin.removeMember('sp1', p.key);
+  });
+  test('удаление пространства (этап 10.1.2): только пустое и только админом', async () => {
+    const admin = await client('admin@x.pl');
+    const sp = await admin.createSpace(me('admin@x.pl'), 'На удаление');
+    await admin.addMember(sp.id, me('admin@x.pl'), { email: 'ed2@x.pl', role: 'editor' });
+    await admin.addMember(sp.id, me('admin@x.pl'), { role: 'operator', firstName: 'Оп', tg: 'op_user1' });
+    await admin.setSeries(sp.id, me('admin@x.pl'), { a1: { name: 'Псалмы', active: true, format: '' } });
+    const ed2 = await client('ed2@x.pl');
+    const s = sermon('del1', 'Мешает');
+    s.meta.series = 'a1';
+    await ed2.save(sp.id, s, me('ed2@x.pl'));
+    assert.deepEqual(await admin.spaceUsage(sp.id), { sermons: 1, series: { a1: 1 } });
+    await assert.rejects(ed2.deleteSpace(sp.id));
+    await assert.rejects(admin.deleteSpace(sp.id), (e) => e.code === 'not-empty' && e.count === 1);
+    await ed2.trash(sp.id, 'del1', me('ed2@x.pl'));
+    await assert.rejects(admin.deleteSpace(sp.id), (e) => e.code === 'not-empty');   // в корзине — тоже конспект
+    await ed2.remove(sp.id, 'del1', me('ed2@x.pl'));
+    await admin.deleteSpace(sp.id);
+    assert.equal(await raw('spaces/' + sp.id), null);
+    assert.equal(await raw('spaces/' + sp.id + '/members/ed2@x.pl'), null);
+    assert.equal(await raw('spaces/' + sp.id + '/config/series'), null);
   });
   test('серии: пишет админ, автор читает и ставит серию в свой конспект; серия — в сводке', async () => {
     const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');

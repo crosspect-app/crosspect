@@ -64,8 +64,8 @@ async function cloudUser(user){
     cloud.spaces = await spacesFor(user.email);
     if (cloud.user !== user) return;   // пока ждали, вошли под другой почтой или вышли
     if (!cloud.spaces.length){ cloud.mode = cloud.admin ? 'nospaces' : 'noaccess'; cloudChanged(); return; }
-    // «входил» в таблице людей (этап 10): отметить первый вход в каждом пространстве, где человек участник
-    if (cloud.api.markSeen) cloud.spaces.forEach(sp => { if (sp.member && !sp.member.seenAt) cloud.api.markSeen(sp.id, user.email).catch(() => {}); });
+    // «Последний вход» в таблице людей (этап 10.1.2): при каждом входе во всех пространствах, где человек участник
+    if (cloud.api.markSeen) cloud.spaces.forEach(sp => { if (sp.member) cloud.api.markSeen(sp.id, user.email).catch(() => {}); });
     // пространство: из ссылки (#…&sp=…), иначе то, где человек был в прошлый раз, иначе первое по алфавиту
     const want = new URLSearchParams(location.hash.slice(1)).get('sp') || LS.get('swp-space');
     useSpace(cloud.spaces.find(x => x.id === want) || cloud.spaces[0]);
@@ -78,10 +78,10 @@ async function cloudUser(user){
   cloudChanged();
 }
 /* Куда можно войти. Админ всей формы — во все пространства (роль admin), остальные — туда, где они участники.
-   Старая роль admin у участника (до этапа 8) — это редактор */
+   Старая роль admin у участника (до этапа 8) — это редактор. Оператор (этап 10.1.2) в форму не входит, даже если у него есть почта */
 async function spacesFor(email){
   cloud.admin = cloud.api.isAdmin ? await cloud.api.isAdmin(email) : false;
-  const mine = await cloud.api.spacesOf(email);
+  const mine = (await cloud.api.spacesOf(email)).filter(m => m.role !== 'operator');
   let list;
   if (cloud.admin){
     const all = await cloud.api.allSpaces();
@@ -102,7 +102,6 @@ function useSpace(sp){
   PREACHERS.length = 0;   // список авторов — из людей этого пространства (этап 10), придёт слушателем
   loadSlidesCache(sp.id);   // настройки слайдов этого пространства — последняя копия, пока не пришли из облака
   loadSeriesCache(sp.id);   // и серии проповедей (space.js)
-  loadOperatorsCache(sp.id);   // и операторы (этап 10.1, space.js)
 }
 /* Переключатель пространств в шапке главной. Правку (если была) сохраняем и отпускаем, потом — на главную нового пространства */
 function switchSpace(id, keepRoute){
@@ -127,21 +126,22 @@ function startListen(){
     cloud.list = new Map(items.map(r => [r.id, r])); cloud.fromCache = !!fromCache; cloud.listError = '';
     if (screen === 'home' && cloudOn()) renderHomeList();
     renderTrash();   // окно «Корзина» открыто — обновить (trash.js)
+    renderSpaceSheet();   // окно «Пространства»: можно ли удалить серию (space.js)
   }, e => {
     cloud.listError = cloudExplain(e) || 'Не удалось загрузить список конспектов.';
     if (screen === 'home' && cloudOn()) renderHomeList();
   });
   // настройки слайдов пространства (этап 7.1): приходят сразу и при каждом изменении, у всех участников
   if (cloud.api.watchSlides) cloud.slidesUnsub = cloud.api.watchSlides(cloud.space, cfg => slidesFromCloud(cfg), () => {});
-  // люди пространства и серии проповедей (этап 10, space.js): список авторов, таблицы в окне «Пространство», фон по серии
+  // люди пространства и серии проповедей (этап 10, space.js): список авторов и получателей в Telegram, фон по серии
   if (cloud.api.watchMembers) cloud.peopleUnsub = cloud.api.watchMembers(cloud.space, list => setPeople(list), () => {});
   if (cloud.api.watchSeries) cloud.seriesUnsub = cloud.api.watchSeries(cloud.space, m => setSeriesData(m), () => {});
-  if (cloud.api.watchOperators) cloud.operatorsUnsub = cloud.api.watchOperators(cloud.space, m => setOperatorsData(m), () => {});   // операторы (этап 10.1)
+  if (canSpace()) migrateOps(cloud.space);   // операторы этапа 10.1 → люди с ролью «Оператор» (этап 10.1.2, space.js)
 }
 function stopListen(){
   if (cloud.unsub){ try { cloud.unsub(); } catch(e){} cloud.unsub = null; }
   if (cloud.slidesUnsub){ try { cloud.slidesUnsub(); } catch(e){} cloud.slidesUnsub = null; }
-  ['peopleUnsub', 'seriesUnsub', 'operatorsUnsub'].forEach(k => { if (cloud[k]){ try { cloud[k](); } catch(e){} cloud[k] = null; } });
+  ['peopleUnsub', 'seriesUnsub'].forEach(k => { if (cloud[k]){ try { cloud[k](); } catch(e){} cloud[k] = null; } });
 }
 
 async function cloudSignIn(){

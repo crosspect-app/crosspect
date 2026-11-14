@@ -159,7 +159,7 @@ if (cmd === 'create-space') {
     console.log(`\n${s.id} — ${s.get('name')} (проповедей: ${sermons.data().count})`);
     for (const m of members.docs) {
       const d = m.data();
-      console.log(`  ${d.role.padEnd(8)} ${d.email}  ${[d.firstName, d.lastName].filter(Boolean).join(' ')}`);
+      console.log(`  ${d.role.padEnd(8)} ${d.email || '(без почты)'}  ${[d.firstName, d.lastName].filter(Boolean).join(' ')}`);
     }
   }
 } else {

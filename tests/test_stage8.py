@@ -18,7 +18,23 @@ def two_spaces(**kw):
 
 
 def picker(page):
-    return page.locator("select.org-pick")
+    """Переключатель пространств в шапке главной (с этапа 10.1.2 — кнопка со списком)"""
+    return page.locator(".topbar .org-pick")
+
+
+def space_names(page):
+    """Названия пространств в списке переключателя (без «Настроить пространства…» под чертой)"""
+    picker(page).click()
+    page.wait_for_selector(".dd-list")
+    names = [b.strip() for b in page.locator(".dd-list button:not(.dd-act)").all_inner_texts()]
+    page.evaluate("closeDropdown()")
+    return names
+
+
+def pick_space(page, sid):
+    name = page.evaluate("id => cloud.spaces.find(x => x.id === id).name", sid)
+    picker(page).click()
+    page.locator(".dd-list button", has_text=name).click()
 
 
 def titles(page):
@@ -31,11 +47,11 @@ def test_admin_sees_all_spaces_and_switches(browser, base_url):
     page.wait_for_selector(".scard")
     assert page.evaluate("cloud.admin") is True
     assert "админ" in page.locator(".who").inner_text()
-    opts = picker(page).locator("option").all_inner_texts()
+    opts = space_names(page)
     assert sorted(opts) == ["Отец", "Слово веры · тест"]
     cur = page.evaluate("cloud.space")
     other = "sp2" if cur == "sp1" else "sp1"
-    picker(page).select_option(other)
+    pick_space(page, other)
     page.wait_for_function("id => cloud.space === id && cloud.list", arg=other)
     page.wait_for_selector(".scard")
     want = "Проповедь отца" if other == "sp2" else "Вера"
@@ -58,7 +74,7 @@ def test_member_of_two_spaces_sees_only_them(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ED, **kw)
     wait_home(page)
     assert page.evaluate("cloud.admin") is False
-    assert sorted(picker(page).locator("option").all_inner_texts()) == ["Отец", "Слово веры · тест"]
+    assert sorted(space_names(page)) == ["Отец", "Слово веры · тест"]
     assert "редактор" in page.locator(".who").inner_text()
     ctx.close()
 
@@ -131,8 +147,8 @@ def test_switch_while_editing_saves_and_releases(browser, base_url):
     page.evaluate("state.meta.title = 'Вера перед переходом'; change()")
     page.evaluate("navigate('')")
     page.wait_for_function("screen === 'home'")
-    page.wait_for_selector("select.org-pick")
-    picker(page).select_option("sp2")
+    page.wait_for_selector(".topbar .org-pick")
+    pick_space(page, "sp2")
     page.wait_for_function("cloud.space === 'sp2'")
     page.wait_for_function("fakeCloud.db().sermons.s1.meta.title === 'Вера перед переходом' && !fakeCloud.db().sermons.s1.lock")
     ctx.close()
@@ -183,7 +199,7 @@ def test_slide_settings_follow_space(browser, base_url):
     wait_home(page)
     page.evaluate("cloud.space === 'sp1' || switchSpace('sp1')")
     page.wait_for_function("SLIDES_BASE.margins.side === 90")
-    picker(page).select_option("sp2")
+    pick_space(page, "sp2")
     page.wait_for_function("SLIDES_BASE.margins.side === 140")
     assert "140" in page.evaluate("localStorage.getItem('swp-slides-cache:sp2')")
     assert "90" in page.evaluate("localStorage.getItem('swp-slides-cache:sp1')")

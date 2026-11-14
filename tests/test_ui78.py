@@ -153,13 +153,13 @@ def test_new_outline_author_from_table_not_google(browser, base_url):
     members = {"ivan@x.pl": {"role": "preacher", "firstName": "Валентин", "lastName": "Шух"}, "ed@x.pl": {"role": "editor", "firstName": "Пётр", "lastName": "Сидоров"}}
     ctx, page = cloud_page(browser, base_url, user={"email": "ivan@x.pl", "name": "Гугл Аккаунт"}, members=members, admins=())
     page.wait_for_selector(".home-top")
-    page.wait_for_function("PREACHERS.length === 2")   # список авторов — из таблицы людей
+    page.wait_for_function("PREACHERS.length === 1")   # список авторов — из таблицы людей, только роль «Автор» (этап 10.1.2)
     page.evaluate("newSermon(); closeSettings()")
     assert page.evaluate("preacherName(state.meta)") == "Валентин Шух"
     ctx.close()
     ctx, page = cloud_page(browser, base_url, user={"email": "ed@x.pl", "name": "Гугл Аккаунт"}, members=members, admins=())
     page.wait_for_selector(".home-top")
-    page.wait_for_function("PREACHERS.length === 2")
+    page.wait_for_function("PREACHERS.length === 1")
     page.evaluate("newSermon(); closeSettings()")
     assert page.evaluate("preacherName(state.meta)") == ""   # редактор: поле пустое, даже если он сам проповедует
     ctx.close()

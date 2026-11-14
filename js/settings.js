@@ -8,6 +8,7 @@ function closeSettings(force){
   settingsGuard = null;
   settingsOverlay.classList.remove('open'); closeCalendar(); closeDropdown();   // календарь и список автора (этап 7.8) — вместе с окном
   if (metaOpen){ metaOpen = false; afterMeta(); }
+  if (typeof spwStop === 'function') spwStop();   // окно «Пространства» (space.js) перестаёт слушать выбранное пространство
 }
 
 /* ========= Настройки из репозитория (data/config.json): переводы Библии и подпись перевода (список авторов — с этапа 10 из людей пространства) =========

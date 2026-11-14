@@ -251,13 +251,22 @@ function renderTopbar(){
 }
 
 /* Пространство в шапке главной: название, а у кого их несколько (и у админа) — выбор. Смена — сразу на главную нового */
+/* Пространство в шапке главной: выпадающий список пространств, под чертой — «Настроить пространства…» (этап 10.1.2, админу и редактору).
+   Одно пространство и настраивать нечего — просто название */
 function spacePicker(){
-  if (!multiSpace()) return h('span', { class:'org', text:cloud.spaceName });
-  const sel = h('select', { class:'org-pick', 'aria-label':'Пространство', title:'Пространство: конспекты, люди и настройки слайдов у каждого свои',
-    onchange:e => switchSpace(e.target.value) },
-    cloud.spaces.map(sp => h('option', { value:sp.id, text:sp.name || sp.id })));
-  sel.value = cloud.space;
-  return h('label', { class:'org org-sel' }, sel, ic('down'));
+  if (!multiSpace() && !setupSpaces().length) return h('span', { class:'org', text:cloud.spaceName });
+  const trig = h('button', { type:'button', class:'org-pick', 'aria-haspopup':'listbox', 'aria-label':'Пространство: ' + cloud.spaceName,
+    title:'Пространство: конспекты, люди и настройки слайдов у каждого свои', onclick:() => spaceMenu(trig) }, h('span', { class:'org-name', text:cloud.spaceName }));
+  return h('span', { class:'org org-sel' }, trig, ic('down'));
+}
+function spaceMenu(anchor){
+  const items = cloud.spaces.map(sp => ({ label:sp.name || sp.id, on:sp.id === cloud.space, pick:() => switchSpace(sp.id) }));
+  if (setupSpaces().length) items.push({ sep:true }, { label:'Настроить пространства…', cls:'dd-act', pick:() => openSpaces() });
+  dropdown(anchor, items);
+  if (typeof ddEl !== 'undefined' && ddEl){   // название в шапке короткое, пункты длиннее: список шире кнопки, но не за краем окна
+    ddEl.style.width = ''; ddEl.style.minWidth = Math.max(240, anchor.getBoundingClientRect().width) + 'px';
+    ddEl.style.left = Math.max(8, Math.min(parseFloat(ddEl.style.left), innerWidth - ddEl.offsetWidth - 8)) + 'px';
+  }
 }
 
 /* Состояние сохранения в шапке и счётчики над лентой слайдов — обновляются на каждую правку */

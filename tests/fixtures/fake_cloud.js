@@ -39,12 +39,12 @@
   const me = () => JSON.parse(localStorage.getItem('fake-user') || 'null');
   let rootDb = null;   // корень базы для проверки админа, пока функция работает с одним пространством
   const isAdmin = email => !!rootDb && (rootDb.admins || []).includes(email);
-  const isEditor = (db, email) => { if (isAdmin(email)) return true; const m = db.members[email]; return !!m && m.role !== 'preacher'; };
+  const isEditor = (db, email) => { if (isAdmin(email)) return true; const m = db.members[email]; return !!m && (m.role === 'editor' || m.role === 'admin'); };   // оператор (этап 10.1.2) — не участник
   // «У редактора» (этап 7.3), как в правилах: автор не правит, не берёт замок, не меняет статус и не удаляет; сам ставит только draft / submitted
   const denied = () => fail('permission-denied', 'Missing or insufficient permissions');
   const atEditor = r => !!r && (r.status === 'work' || r.status === 'done' || r.status === 'ready');   // ready — «Презентация готова» (этап 9.7)
   const authorBlocked = (db, email, r, status) => !isEditor(db, email) && (atEditor(r) || (status != null && !['draft', 'submitted'].includes(status)));
-  function notify(){ listeners.forEach(f => f()); }
+  function notify(){ listeners.forEach(f => { try { f(); } catch(e){} }); }   // слушатель удалённого пространства молчит, как в Firestore
   window.addEventListener('storage', e => { if (e.key === KEY) notify(); });   // «база» общая у всех вкладок этого браузера: чужая запись доходит и сюда
   window.fakeCloud = {   // для тестов: «другой человек» правит базу напрямую
     db: load, put(db){ store(db); notify(); },
@@ -168,37 +168,91 @@
       if (fields.lockMinutes != null) x.space.settings = Object.assign({}, x.space.settings, { lockMinutes:fields.lockMinutes });
       store(db); notify();
     },
+    /* Люди (этапы 10 и 10.1.2): ключ — почта или p-<случайный> (без почты); правят админ и редактор; оператор — не участник */
     watchMembers(space, onList){
-      const f = () => { const x = S(load(), space); onList(Object.keys(x.members).map(email => { const m = x.members[email];
-        return { email, role:m.role === 'admin' ? 'editor' : m.role, firstName:m.firstName || '', lastName:m.lastName || '', seen:!!m.seenAt }; })); };
+      const f = () => { const x = S(load(), space); onList(Object.keys(x.members).map(key => { const m = x.members[key];
+        return { key, email:m.email || (key.includes('@') ? key : ''), role:m.role === 'admin' ? 'editor' : m.role, firstName:m.firstName || '', lastName:m.lastName || '',
+          tg:m.tg || '', seenAt:m.seenAt || 0, seen:!!m.seenAt }; })); };
       listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
     },
     async addMember(space, who, p){
       offline();
       const db = load(), x = S(db, space);
-      if (!isAdmin(who.email)) throw denied();
-      if (x.members[p.email]) throw fail('exists', 'Человек с такой почтой уже есть');
-      x.members[p.email] = { role:p.role, firstName:p.firstName || '', lastName:p.lastName || '' };
+      if (!isEditor(x, who.email)) throw denied();
+      const email = String(p.email || '').trim().toLowerCase(), key = email || 'p-' + Math.random().toString(36).slice(2, 14).padEnd(12, '0');
+      if (x.members[key]) throw fail('exists', 'Человек с такой почтой уже есть');
+      x.members[key] = Object.assign({ role:p.role, firstName:p.firstName || '', lastName:p.lastName || '' }, email ? { email } : {}, p.tg ? { tg:p.tg } : {});
       store(db); notify();
+      return key;
     },
-    async updateMember(space, email, fields){
+    async updateMember(space, key, fields){
       offline();
       const db = load(), x = S(db, space), u = me();
-      if (!u || !isAdmin(u.email) || !x.members[email]) throw denied();
-      Object.assign(x.members[email], fields);
+      if (!u || !isEditor(x, u.email) || !x.members[key]) throw denied();
+      Object.assign(x.members[key], fields);
+      if (fields.tg === '') delete x.members[key].tg;
       store(db); notify();
     },
-    async removeMember(space, email){
+    async setMemberEmail(space, who, key, email){
+      calls.move = (calls.move || 0) + 1; offline();
+      const db = load(), x = S(db, space);
+      if (!isEditor(x, who.email) || !x.members[key]) throw denied();
+      email = String(email || '').trim().toLowerCase();
+      const next = email || 'p-' + Math.random().toString(36).slice(2, 14).padEnd(12, '0');
+      if (next === key) return key;
+      if (x.members[next]) throw fail('exists', 'Человек с такой почтой уже есть');
+      const m = Object.assign({}, x.members[key]);
+      delete m.seenAt; delete m.email;
+      if (email) m.email = email;
+      delete x.members[key]; x.members[next] = m;
+      store(db); notify();
+      return next;
+    },
+    async removeMember(space, key){
       offline();
       const db = load(), x = S(db, space), u = me();
-      if (!u || !isAdmin(u.email)) throw denied();
-      delete x.members[email];
+      if (!u || !isEditor(x, u.email)) throw denied();
+      delete x.members[key];
       store(db); notify();
     },
+    /* Последний вход (этап 10.1.2) — при каждом входе */
     async markSeen(space, email){
       calls.seen = (calls.seen || 0) + 1;
       const db = load(), x = S(db, space);
-      if (x.members[email] && !x.members[email].seenAt){ x.members[email].seenAt = Date.now(); store(db); notify(); }
+      if (x.members[email]){ x.members[email].seenAt = Date.now(); store(db); notify(); }
+    },
+    /* Операторы этапа 10.1 (x.operators) → люди с ролью operator; запись операторов удаляется */
+    async migrateOperators(space, who){
+      calls.migrate = (calls.migrate || 0) + 1;
+      const db = load(), x = S(db, space);
+      if (x.operators === undefined) return 0;
+      if (!isEditor(x, who.email)) throw denied();
+      const have = new Set(Object.values(x.members).map(m => (m.tg || '').toLowerCase()).filter(Boolean));
+      let n = 0;
+      Object.keys(x.operators).sort().forEach(id => {
+        const o = x.operators[id], name = String(o.name || '').trim(), sp = name.indexOf(' ');
+        if (!o.tg || have.has(o.tg.toLowerCase())) return;
+        x.members['p-mig' + id.toLowerCase().replace(/[^a-z0-9]/g, '').padEnd(6, '0')] = { role:'operator', firstName:sp < 0 ? name : name.slice(0, sp), lastName:sp < 0 ? '' : name.slice(sp + 1), tg:o.tg };
+        have.add(o.tg.toLowerCase()); n++;
+      });
+      delete x.operators;
+      store(db); notify();
+      return n;
+    },
+    async spaceUsage(space){
+      const x = S(load(), space), series = {};
+      Object.values(x.sermons).forEach(r => { const id = r.meta && r.meta.series; if (id) series[id] = (series[id] || 0) + 1; });
+      return { sermons:Object.keys(x.sermons).length, series };
+    },
+    async deleteSpace(space){
+      calls.delSpace = (calls.delSpace || 0) + 1; offline();
+      const db = load(), x = S(db, space), u = me();
+      if (!u || !isAdmin(u.email)) throw denied();
+      const n = Object.keys(x.sermons).length;
+      if (n) throw fail('not-empty', 'В пространстве есть конспекты', { count:n });
+      if (x === db){ db.space = null; db.members = {}; db.series = {}; delete db.slides; }   // первое пространство лежит в корне
+      else delete db.spaces[space];
+      store(db); notify();
     },
     watchSeries(space, onSeries){
       const f = () => { const x = S(load(), space); onSeries(JSON.parse(JSON.stringify(x.series || {}))); };
@@ -209,17 +263,6 @@
       const db = load(), x = S(db, space);
       if (!isEditor(x, who.email)) throw denied();
       x.series = JSON.parse(JSON.stringify(series || {}));
-      store(db); notify();
-    },
-    watchOperators(space, onOps){
-      const f = () => { const x = S(load(), space); onOps(JSON.parse(JSON.stringify(x.operators || {}))); };
-      listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
-    },
-    async setOperators(space, who, operators){
-      calls.operators = (calls.operators || 0) + 1; offline();
-      const db = load(), x = S(db, space);
-      if (!isEditor(x, who.email)) throw denied();
-      x.operators = JSON.parse(JSON.stringify(operators || {}));
       store(db); notify();
     },
     /* Настройки слайдов пространства: читают все, пишут редактор и админ */

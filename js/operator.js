@@ -114,7 +114,7 @@ function opLinkSheet(key){
       h('div', { class:'sheet-foot wrap' },
         h('button', { type:'button', class:'btn', onclick:() => opCopy(url, false, field) }, ic('dup'), 'Скопировать'),
         h('button', { type:'button', class:'btn', onclick:() => opCopy(opShareLines(url).join('\n'), false, null, 'Текст скопирован') }, ic('dup'), 'Скопировать с форматом'),
-        h('button', { type:'button', class:'btn primary', 'aria-haspopup':Object.keys(OPERATORS).length ? 'listbox' : null, onclick:e => opTelegramPick(e.currentTarget, url) }, ic('telegram'), 'В Telegram')));
+        h('button', { type:'button', class:'btn primary', 'aria-haspopup':tgPeople().length ? 'listbox' : null, onclick:e => opTelegramPick(e.currentTarget, url) }, ic('telegram'), 'В Telegram')));
   }
   settingsOverlay.append(sheet);
   settingsOverlay.classList.add('open');
@@ -145,9 +145,9 @@ function opShareLines(url){
   if (date) lines.push(date);
   return lines;
 }
-/* «В Telegram» (этап 10.1): операторов в пространстве нет — как раньше; есть — список имён по алфавиту, линия и «Другому…» */
+/* «В Telegram» (этапы 10.1 и 10.1.2): ни у кого в «Людях» нет Telegram — как раньше; есть — список имён по алфавиту, линия и «Другому…» */
 function opTelegramPick(anchor, url){
-  const ops = operatorList();
+  const ops = tgPeople();
   if (!ops.length){ opTelegram(url); return; }
   dropdown(anchor, ops.map(o => ({ label:o.name, pick:() => opTelegramTo(o.tg, url) })).concat([{ sep:true }, { label:'Другому…', pick:() => opTelegram(url) }]));
   if (typeof ddEl !== 'undefined' && ddEl){   // кнопка узкая, имена длиннее: список шире кнопки, но не за краем окна

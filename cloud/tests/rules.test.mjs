@@ -190,7 +190,7 @@ describe('пространство', () => {
     await assertFails(upd({ owner: 'x' }));
     await assertFails(updateDoc(doc(db, 'spaces', 'sw'), { name: 'Без отметки времени' }));
   });
-  test('новое пространство заводит только админ, со временем сервера (этап 10); удалить из браузера нельзя', async () => {
+  test('новое пространство заводит только админ, со временем сервера (этап 10)', async () => {
     const make = (who, extra = {}) => setDoc(doc(as(who), 'spaces', 'new'), {
       name: 'Новая', settings: { lockMinutes: 10 },
       createdAt: serverTimestamp(), createdBy: PEOPLE[who], updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra,
@@ -208,8 +208,27 @@ describe('пространство', () => {
     // заведённое пространство админ видит и правит как остальные; участников в нём пока нет
     await assertSucceeds(getDoc(doc(as('admin'), 'spaces', 'new')));
     await assertFails(getDoc(doc(as('ed'), 'spaces', 'new')));
-    await assertFails(deleteDoc(doc(as('admin'), 'spaces', 'sw')));
-    await assertFails(deleteDoc(doc(as('admin'), 'spaces', 'new')));
+  });
+  test('удаляет только админ — вместе с людьми, настройками и сводками (этап 10.1.2)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'spaces', 'empty'), { name: 'Пустое', settings: {} });
+      await setDoc(doc(db, 'spaces', 'empty', 'members', PEOPLE.ed), { email: PEOPLE.ed, role: 'editor' });
+      await setDoc(doc(db, 'spaces', 'empty', 'members', 'p-abc123'), { role: 'operator', firstName: 'Пётр', tg: 'petr_op' });
+      await setDoc(doc(db, 'spaces', 'empty', 'config', 'series'), { series: {}, updatedAt: minutesAgo(1), updatedBy: PEOPLE.ed });
+      await setDoc(doc(db, 'spaces', 'empty', 'config', 'operators'), { operators: {}, updatedAt: minutesAgo(1), updatedBy: PEOPLE.ed });
+      await setDoc(doc(db, 'spaces', 'empty', 'summaries', 'gone'), { title: 'Старое' });
+    });
+    await assertFails(deleteDoc(doc(as('ed'), 'spaces', 'empty')));
+    await assertFails(deleteDoc(doc(as('ed'), 'spaces', 'empty', 'config', 'series')));
+    await assertFails(deleteDoc(doc(as('stranger'), 'spaces', 'other')));
+    const db = as('admin'), b = writeBatch(db);
+    b.delete(doc(db, 'spaces', 'empty', 'members', PEOPLE.ed));
+    b.delete(doc(db, 'spaces', 'empty', 'members', 'p-abc123'));
+    for (const c of ['slides', 'series', 'operators']) b.delete(doc(db, 'spaces', 'empty', 'config', c));
+    b.delete(doc(db, 'spaces', 'empty', 'summaries', 'gone'));
+    b.delete(doc(db, 'spaces', 'empty'));
+    await assertSucceeds(b.commit());
   });
 });
 
@@ -229,36 +248,80 @@ describe('участники', () => {
     await assertSucceeds(getDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.stranger)));
     await assertFails(getDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.ivan)));
   });
-  test('добавляет участников только админ', async () => {
-    const add = (who, email = 'new@example.com', extra = {}) =>
-      setDoc(doc(as(who), 'spaces', 'sw', 'members', email), {
+  test('добавляют админ и редактор (этап 10.1.2), автор — нет', async () => {
+    const add = (who, email = 'new@example.com', extra = {}, s = 'sw') =>
+      setDoc(doc(as(who), 'spaces', s, 'members', email), {
         email, role: 'preacher', firstName: 'Новый', lastName: 'Человек',
         addedBy: PEOPLE[who], addedAt: serverTimestamp(), ...extra,
       });
-    await assertFails(add('ed'));
     await assertFails(add('ivan'));
+    await assertFails(add('ed', 'x@example.com', {}, 'other'));   // редактор — только в своём пространстве
     await assertFails(add('admin', 'New@example.com'));
     await assertFails(add('admin', 'new@example.com', { email: 'other@example.com' }));
     await assertFails(add('admin', 'new@example.com', { role: 'owner' }));
     await assertFails(add('admin', 'new@example.com', { extra: 1 }));
     await assertFails(add('admin', 'not-an-email'));
     await assertFails(add('admin', 'new@example.com', { role: 'admin' }));   // роли admin у участника больше нет
-    await assertSucceeds(add('admin'));
+    await assertFails(add('ed', 'new@example.com', { role: 'admin' }));      // и редактор админом не сделает
+    await assertFails(add('ed', 'new@example.com', { addedBy: PEOPLE.admin }));
+    await assertSucceeds(add('ed'));
+    await assertSucceeds(add('admin', 'new2@example.com'));
     await assertSucceeds(setDoc(doc(as('admin'), 'spaces', 'other', 'members', 'new@example.com'), {
       email: 'new@example.com', role: 'editor', addedBy: PEOPLE.admin, addedAt: serverTimestamp(),
     }));
-    await assertFails(setDoc(doc(as('stranger'), 'spaces', 'other', 'members', 'x@example.com'), {
+    // старая роль admin участника — это редактор: в своём пространстве добавляет
+    await assertSucceeds(setDoc(doc(as('stranger'), 'spaces', 'other', 'members', 'x@example.com'), {
       email: 'x@example.com', role: 'preacher', addedBy: PEOPLE.stranger, addedAt: serverTimestamp(),
     }));
   });
-  test('админ меняет роли и удаляет участников в любом пространстве', async () => {
+  test('человек без почты (p-ключ) и оператор с Telegram (этап 10.1.2)', async () => {
+    const put = (key, data, who = 'ed') => setDoc(doc(as(who), 'spaces', 'sw', 'members', key),
+      { addedBy: PEOPLE[who], addedAt: serverTimestamp(), ...data });
+    await assertSucceeds(put('p-abc123', { role: 'operator', firstName: 'Пётр', tg: 'petr_op' }));
+    await assertSucceeds(put('p-guest42x', { role: 'preacher', firstName: 'Гость', lastName: 'Гостев' }));
+    await assertSucceeds(put('tg@example.com', { email: 'tg@example.com', role: 'editor', tg: 'Ed_Tg1' }));
+    await assertFails(put('p-abc124', { email: 'a@example.com', role: 'operator' }));   // с почтой ключ — почта
+    await assertFails(put('P-ABC125', { role: 'operator' }));
+    await assertFails(put('p-a', { role: 'operator' }));
+    await assertFails(put('guest', { role: 'preacher' }));
+    await assertFails(put('a@example.com', { role: 'preacher' }));   // ключ-почта без поля email
+    for (const tg of ['@petr_op', 'abc', '1petr', 'petr op', 'x'.repeat(33), 5]) {
+      await assertFails(put('p-tgbad1', { role: 'operator', tg }));
+    }
+    await assertFails(put('p-abc126', { role: 'operator' }, 'ivan'));
+    // поправить, убрать Telegram, удалить
+    const mine = doc(as('ed'), 'spaces', 'sw', 'members', 'p-abc123');
+    await assertSucceeds(updateDoc(mine, { tg: 'petr_op2', lastName: 'Оператор' }));
+    await assertSucceeds(updateDoc(mine, { tg: deleteField() }));
+    await assertFails(updateDoc(mine, { tg: '@petr' }));
+    await assertFails(updateDoc(mine, { email: 'p@example.com' }));   // почту не дописать: запись переносится на ключ-почту
+    await assertSucceeds(deleteDoc(mine));
+  });
+  test('оператор с почтой в форму не входит', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'spaces', 'other', 'members', PEOPLE.petr), { email: PEOPLE.petr, role: 'operator' });
+    });
+    const db = as('petr');
+    await assertSucceeds(getDoc(doc(db, 'spaces', 'other', 'members', PEOPLE.petr)));   // свою запись видит (так форма узнаёт, что доступа нет)
+    await assertFails(getDoc(doc(db, 'spaces', 'other')));
+    await assertFails(getDocs(collection(db, 'spaces', 'other', 'members')));
+    await assertFails(getDoc(doc(db, 'spaces', 'other', 'sermons', 'o1')));
+    await assertFails(updateDoc(doc(db, 'spaces', 'other', 'members', PEOPLE.petr), { seenAt: serverTimestamp() }));
+  });
+  test('админ и редактор меняют роли и убирают людей; автор — нет', async () => {
     const db = as('admin');
     await assertSucceeds(updateDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'editor' }));
     await assertFails(updateDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'admin' }));
     await assertSucceeds(deleteDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.petr)));
     await assertSucceeds(updateDoc(doc(db, 'spaces', 'other', 'members', PEOPLE.stranger), { role: 'editor' }));
-    await assertFails(updateDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'editor' }));
-    await assertFails(deleteDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan)));
+    const ed = as('ed');
+    await assertSucceeds(updateDoc(doc(ed, 'spaces', 'closed', 'members', PEOPLE.ivan), { role: 'operator' }));
+    await assertFails(updateDoc(doc(ed, 'spaces', 'closed', 'members', PEOPLE.ivan), { role: 'admin' }));
+    await assertFails(updateDoc(doc(ed, 'spaces', 'closed', 'members', PEOPLE.ivan), { email: 'x@example.com' }));
+    await assertSucceeds(deleteDoc(doc(ed, 'spaces', 'closed', 'members', PEOPLE.petr)));
+    await assertFails(updateDoc(doc(ed, 'spaces', 'other', 'members', PEOPLE.stranger), { role: 'preacher' }));
+    await assertFails(updateDoc(doc(as('ivan'), 'spaces', 'fast', 'members', PEOPLE.petr), { role: 'editor' }));
+    await assertFails(deleteDoc(doc(as('ivan'), 'spaces', 'fast', 'members', PEOPLE.petr)));
   });
   test('со старой ролью admin своё имя поправить можно, роль — нет', async () => {
     const me = doc(as('stranger'), 'spaces', 'other', 'members', PEOPLE.stranger);
@@ -266,11 +329,16 @@ describe('участники', () => {
     await assertFails(updateDoc(me, { role: 'editor' }));
     await assertFails(deleteDoc(me));
   });
-  test('«входил» (seenAt, этап 10): ставит сам человек, время сервера; админ не подделывает', async () => {
+  test('последний вход (seenAt): ставит сам человек при каждом входе, время сервера; админ и редактор не подделывают', async () => {
     const mine = doc(as('ivan'), 'spaces', 'sw', 'members', PEOPLE.ivan);
     await assertFails(updateDoc(mine, { seenAt: minutesAgo(1) }));
     await assertFails(updateDoc(doc(as('ivan'), 'spaces', 'sw', 'members', PEOPLE.petr), { seenAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(mine, { seenAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(mine, { seenAt: serverTimestamp() }));   // и при следующем входе
+    await assertSucceeds(updateDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ed), { seenAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(as('stranger'), 'spaces', 'other', 'members', PEOPLE.stranger), { seenAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan), { seenAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan), { firstName: 'Иоанн' }));
     await assertFails(updateDoc(mine, { seenAt: serverTimestamp(), role: 'editor' }));
     const adm = doc(as('admin'), 'spaces', 'sw', 'members', PEOPLE.ivan);
     await assertFails(updateDoc(adm, { seenAt: serverTimestamp() }));
@@ -813,11 +881,12 @@ describe('настройки слайдов', () => {
     await assertFails(setDoc(cfg(db), body('ed', { slides: 'текст' })));
     await assertFails(setDoc(cfg(db), { updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
   });
-  test('другие документы рядом не заводятся, удалить нельзя, список закрыт', async () => {
+  test('другие документы рядом не заводятся, редактор не удаляет (админ — вместе с пространством), список закрыт', async () => {
     const db = as('admin');
     await assertSucceeds(setDoc(cfg(db), body('admin')));
     await assertFails(setDoc(cfg(db, 'sw', 'other'), body('admin')));
-    await assertFails(deleteDoc(cfg(db)));
+    await assertFails(setDoc(cfg(db, 'sw', 'operators'), { operators: {}, updatedAt: serverTimestamp(), updatedBy: PEOPLE.admin }));
+    await assertFails(deleteDoc(cfg(as('ed'))));
     await assertFails(getDocs(collection(db, 'spaces', 'sw', 'config')));
   });
   test('чужое пространство закрыто', async () => {
@@ -827,35 +896,32 @@ describe('настройки слайдов', () => {
   });
 });
 
-describe('операторы (этап 10.1)', () => {
+describe('операторы этапа 10.1: только перенос в людей (этап 10.1.2)', () => {
   const opr = (db, s = 'sw') => doc(db, 'spaces', s, 'config', 'operators');
-  const body = (who, extra = {}) => ({
-    operators: { o1: { name: 'Пётр Оператор', tg: 'petr_op' } },
-    updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra,
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(opr(ctx.firestore()), { operators: { o1: { name: 'Пётр Оператор', tg: 'petr_op' } }, updatedAt: minutesAgo(5), updatedBy: PEOPLE.ed });
+    });
   });
-  test('редактор и админ записывают, автор только читает (список нужен ему при отправке ссылки)', async () => {
-    await assertSucceeds(setDoc(opr(as('ed')), body('ed')));
-    await assertSucceeds(setDoc(opr(as('admin')), body('admin')));
+  test('участники читают, записать нельзя никому', async () => {
     await assertSucceeds(getDoc(opr(as('ivan'))));
     await assertSucceeds(getDoc(opr(as('ed'))));
-    await assertFails(setDoc(opr(as('ivan')), body('ivan')));
     await assertFails(getDoc(opr(as('stranger'))));
-    await assertFails(setDoc(opr(as('ed'), 'other'), body('ed')));
+    const body = (who) => ({ operators: {}, updatedAt: serverTimestamp(), updatedBy: PEOPLE[who] });
+    await assertFails(setDoc(opr(as('ed')), body('ed')));
+    await assertFails(setDoc(opr(as('admin')), body('admin')));
   });
-  test('только нужные поля, время сервера, подпись; удалить нельзя', async () => {
-    const db = as('ed');
-    await assertFails(setDoc(opr(db), body('ed', { operators: 'текст' })));
-    await assertFails(setDoc(opr(db), body('ed', { slides: {} })));
-    await assertFails(setDoc(opr(db), body('ed', { updatedAt: minutesAgo(1) })));
-    await assertFails(setDoc(opr(db), body('ed', { updatedBy: PEOPLE.admin })));
-    await assertFails(setDoc(opr(db), { series: {}, updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
-    await assertSucceeds(setDoc(opr(db), body('ed')));
-    await assertFails(deleteDoc(opr(db)));
+  test('удаляют редактор и админ; автор — нет', async () => {
+    await assertFails(deleteDoc(opr(as('ivan'))));
+    await assertFails(deleteDoc(opr(as('ed'), 'other')));
+    await assertSucceeds(deleteDoc(opr(as('ed'))));
+    await assertSucceeds(deleteDoc(opr(as('admin'), 'closed')));
   });
-  test('не больше 300 записей', async () => {
-    const many = (n) => Object.fromEntries(Array.from({ length: n }, (_, i) => ['o' + i, { name: 'Имя ' + i, tg: 'user_' + i + 'abc' }]));
-    await assertSucceeds(setDoc(opr(as('ed')), body('ed', { operators: many(300) })));
-    await assertFails(setDoc(opr(as('ed')), body('ed', { operators: many(301) })));
+  test('перенос одной пачкой: люди с ролью operator и удаление документа', async () => {
+    const db = as('ed'), b = writeBatch(db);
+    b.set(doc(db, 'spaces', 'sw', 'members', 'p-mig001'), { role: 'operator', firstName: 'Пётр', lastName: 'Оператор', tg: 'petr_op', addedBy: PEOPLE.ed, addedAt: serverTimestamp() });
+    b.delete(opr(db));
+    await assertSucceeds(b.commit());
   });
 });
 
@@ -873,7 +939,7 @@ describe('серии проповедей (этап 10)', () => {
     await assertFails(getDoc(ser(as('stranger'))));
     await assertFails(setDoc(ser(as('ed'), 'other'), body('ed')));
   });
-  test('только нужные поля, время сервера; удалить нельзя', async () => {
+  test('только нужные поля, время сервера; удаляет только админ (вместе с пространством)', async () => {
     const db = as('ed');
     await assertFails(setDoc(ser(db), body('ed', { series: 'текст' })));
     await assertFails(setDoc(ser(db), body('ed', { slides: {} })));
@@ -881,6 +947,7 @@ describe('серии проповедей (этап 10)', () => {
     await assertFails(setDoc(ser(db), { slides: {}, updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
     await assertSucceeds(setDoc(ser(db), body('ed')));
     await assertFails(deleteDoc(ser(db)));
+    await assertSucceeds(deleteDoc(ser(as('admin'))));
   });
   test('автор ставит серию и свой формат фона в свою проповедь, но не в чужую', async () => {
     const db = as('ivan');

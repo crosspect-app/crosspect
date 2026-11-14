@@ -124,6 +124,24 @@ export function createCloudAPI(fb){
   }
 
   /* История сохранений (этап 9.7): копии конспекта, новые сверху */
+  /* Люди (этап 10.1.2): ключ без почты — p- и 12 латинских строчных букв и цифр (так его узнают правила) */
+  const pKey = () => 'p-' + Array.from({ length: 12 }, () => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]).join('');
+  const TG_RE = /^[A-Za-z][A-Za-z0-9_]{4,31}$/;
+  /* Запись человека: почта — только если есть; Telegram — только если указан; кто и когда добавил (время сервера) */
+  function memberDoc(p, email, me){
+    const d = { role: p.role, firstName: String(p.firstName || '').trim(), lastName: String(p.lastName || '').trim(),
+      addedBy: lower(me.email), addedAt: F.serverTimestamp() };
+    if (email) d.email = email;
+    const tg = String(p.tg || '').trim();
+    if (tg) d.tg = tg;
+    return d;
+  }
+  async function spaceUsage(space){
+    const snap = await F.getDocs(F.collection(db, 'spaces', space, 'summaries'));
+    const series = {};
+    snap.docs.forEach(d => { const x = d.data().series; if (x) series[x] = (series[x] || 0) + 1; });
+    return { sermons: snap.size, series };
+  }
   async function listVersions(space, id){
     const snap = await F.getDocs(F.query(verCol(space, id), F.orderBy('savedAt', 'desc')));
     return snap.docs.map(d => { const x = d.data({ serverTimestamps: 'estimate' });
@@ -173,32 +191,94 @@ export function createCloudAPI(fb){
       await F.updateDoc(F.doc(db, 'spaces', space), upd);
     },
 
-    /* ----- люди пространства (этап 10): spaces/{s}/members/{почта} ----- */
-    /* Живой список: [{ email, role, firstName, lastName, seen }]; seen — входил ли человек (seenAt) */
+    /* ----- люди пространства (этапы 10 и 10.1.2): spaces/{s}/members/{ключ} -----
+       Ключ — почта (с ней человек входит в форму) или p-<случайный> у людей без почты (гость-автор, оператор).
+       Строка: { key, email, role, firstName, lastName, tg, seenAt (мс, последний вход), seen } */
     watchMembers(space, onList, onError){
       return F.onSnapshot(F.collection(db, 'spaces', space, 'members'), snap => {
-        onList(snap.docs.map(d => { const x = d.data(); return { email: d.id, role: x.role === 'admin' ? 'editor' : x.role || 'preacher',
-          firstName: x.firstName || '', lastName: x.lastName || '', seen: !!x.seenAt }; }));
+        onList(snap.docs.map(d => { const x = d.data(); return { key: d.id, email: x.email || (d.id.includes('@') ? d.id : ''),
+          role: x.role === 'admin' ? 'editor' : x.role || 'preacher', firstName: x.firstName || '', lastName: x.lastName || '',
+          tg: x.tg || '', seenAt: ms(x.seenAt), seen: !!x.seenAt }; }));
       }, onError);
     },
+    /* p: { email?, role, firstName, lastName, tg? }. Возвращает ключ записи; почта уже есть — ошибка 'exists' */
     async addMember(space, me, p){
       const email = lower(p.email);
-      const r = F.doc(db, 'spaces', space, 'members', email);
-      if ((await F.getDoc(r)).exists()) throw err('exists', 'Человек с такой почтой уже есть');
-      await F.setDoc(r, { email, role: p.role, firstName: String(p.firstName || '').trim(), lastName: String(p.lastName || '').trim(),
-        addedBy: lower(me.email), addedAt: F.serverTimestamp() });
+      const key = email || pKey();
+      const r = F.doc(db, 'spaces', space, 'members', key);
+      if (email && (await F.getDoc(r)).exists()) throw err('exists', 'Человек с такой почтой уже есть');
+      await F.setDoc(r, memberDoc(p, email, me));
+      return key;
     },
-    async updateMember(space, email, fields){
+    /* fields: role, firstName, lastName, tg ('' — убрать). Почта меняется только переносом: setMemberEmail */
+    async updateMember(space, key, fields){
       const upd = {};
       ['role', 'firstName', 'lastName'].forEach(k => { if (fields[k] != null) upd[k] = k === 'role' ? fields[k] : String(fields[k]).trim(); });
-      await F.updateDoc(F.doc(db, 'spaces', space, 'members', lower(email)), upd);
+      if (fields.tg != null) upd.tg = String(fields.tg).trim() ? String(fields.tg).trim() : F.deleteField();
+      await F.updateDoc(F.doc(db, 'spaces', space, 'members', key), upd);
     },
-    async removeMember(space, email){ await F.deleteDoc(F.doc(db, 'spaces', space, 'members', lower(email))); },
-    /* «Входил»: человек сам отмечает первый вход (время сервера). Уже отмечено — ничего не пишем */
+    /* Почту добавили, сменили или убрали (этап 10.1.2): запись переезжает на новый ключ одной пачкой. «Последний вход» не переезжает:
+       он был у прежней почты. Новая почта уже занята — 'exists'. Возвращает новый ключ */
+    async setMemberEmail(space, me, key, email){
+      email = lower(email);
+      const from = F.doc(db, 'spaces', space, 'members', key);
+      const snap = await F.getDoc(from);
+      if (!snap.exists()) throw err('missing', 'Этого человека уже нет');
+      const nextKey = email || pKey(), to = F.doc(db, 'spaces', space, 'members', nextKey);
+      if (nextKey === key) return key;
+      if (email && (await F.getDoc(to)).exists()) throw err('exists', 'Человек с такой почтой уже есть');
+      const b = F.writeBatch(db);
+      b.set(to, memberDoc(snap.data(), email, me));
+      b.delete(from);
+      await b.commit();
+      return nextKey;
+    },
+    async removeMember(space, key){ await F.deleteDoc(F.doc(db, 'spaces', space, 'members', key.includes('@') ? lower(key) : key)); },
+    /* Последний вход (этап 10.1.2): человек сам ставит время сервера при каждом входе */
     async markSeen(space, email){
-      const r = F.doc(db, 'spaces', space, 'members', lower(email));
+      await F.updateDoc(F.doc(db, 'spaces', space, 'members', lower(email)), { seenAt: F.serverTimestamp() });
+    },
+    /* Операторы этапа 10.1 (config/operators) → люди с ролью «Оператор», одной пачкой; документ удаляется.
+       Кто с таким Telegram уже есть — не повторяется. Документа нет — ничего не делает. Возвращает, сколько людей добавлено */
+    async migrateOperators(space, me){
+      const r = F.doc(db, 'spaces', space, 'config', 'operators');
       const snap = await F.getDoc(r);
-      if (snap.exists() && !snap.data().seenAt) await F.updateDoc(r, { seenAt: F.serverTimestamp() });
+      if (!snap.exists()) return 0;
+      const ops = snap.data().operators || {};
+      const people = await F.getDocs(F.collection(db, 'spaces', space, 'members'));
+      const have = new Set(people.docs.map(d => String(d.data().tg || '').toLowerCase()).filter(Boolean));
+      const b = F.writeBatch(db);
+      let n = 0;
+      Object.keys(ops).sort().forEach(id => {
+        const o = ops[id] || {}, tg = String(o.tg || '').replace(/^@/, ''), name = String(o.name || '').trim().replace(/\s+/g, ' ');
+        if (!TG_RE.test(tg) || have.has(tg.toLowerCase())) return;
+        const sp = name.indexOf(' ');
+        b.set(F.doc(db, 'spaces', space, 'members', pKey()), memberDoc({ role: 'operator', tg,
+          firstName: sp < 0 ? name : name.slice(0, sp), lastName: sp < 0 ? '' : name.slice(sp + 1) }, '', me));
+        have.add(tg.toLowerCase()); n++;
+      });
+      b.delete(r);
+      await b.commit();
+      return n;
+    },
+    /* Сколько конспектов в пространстве (с корзиной) и сколько из них в каждой серии — по сводкам (этап 10.1.2).
+       Только админу и редактору: { sermons, series: { <id>: число } } */
+    spaceUsage,
+    /* Удалить пространство (этап 10.1.2) — только админу и только пустое: ни конспектов, ни корзины (иначе 'not-empty' с count).
+       Вместе с ним — люди, настройки и сводки; сам документ пространства — последним */
+    async deleteSpace(space){
+      const left = await F.getDocs(F.query(col(space), F.limit(1)));
+      if (!left.empty){ const u = await spaceUsage(space); throw err('not-empty', 'В пространстве есть конспекты', { count: Math.max(1, u.sermons) }); }
+      const refs = [];
+      (await F.getDocs(F.collection(db, 'spaces', space, 'members'))).docs.forEach(d => refs.push(d.ref));
+      (await F.getDocs(F.collection(db, 'spaces', space, 'summaries'))).docs.forEach(d => refs.push(d.ref));
+      ['slides', 'series', 'operators'].forEach(c => refs.push(F.doc(db, 'spaces', space, 'config', c)));
+      for (let i = 0; i < refs.length; i += 400){
+        const b = F.writeBatch(db);
+        refs.slice(i, i + 400).forEach(r => b.delete(r));
+        await b.commit();
+      }
+      await F.deleteDoc(F.doc(db, 'spaces', space));
     },
 
     /* ----- серии проповедей (этап 10): spaces/{s}/config/series, series = { <id>: { name, active, format } } ----- */
@@ -210,17 +290,6 @@ export function createCloudAPI(fb){
     async setSeries(space, me, series){
       await F.setDoc(F.doc(db, 'spaces', space, 'config', 'series'),
         { series: JSON.parse(JSON.stringify(series || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
-    },
-
-    /* ----- операторы (этап 10.1): spaces/{s}/config/operators, operators = { <id>: { name, tg } }, tg — имя пользователя Telegram без «@» ----- */
-    watchOperators(space, onOperators, onError){
-      return F.onSnapshot(F.doc(db, 'spaces', space, 'config', 'operators'), snap => {
-        onOperators(snap.exists() ? (snap.data().operators || {}) : {});
-      }, onError);
-    },
-    async setOperators(space, me, operators){
-      await F.setDoc(F.doc(db, 'spaces', space, 'config', 'operators'),
-        { operators: JSON.parse(JSON.stringify(operators || {})), updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
     },
 
     /* Все пространства — только админу (остальным база откажет): [{ id, name, settings }] */

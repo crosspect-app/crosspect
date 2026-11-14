@@ -264,12 +264,12 @@ def test_windows_fit_and_space_tabs_reachable(browser, base_url, sermon):
     page.evaluate("closeSettings(); openMeta()")
     page.wait_for_selector(".overlay.open .sheet")
     sheet_fits(page)
-    page.evaluate("closeSettings(); openSpace()")
+    page.evaluate("closeSettings(); openSpaces()")
     page.wait_for_selector(".space-sheet")
     sheet_fits(page)
     tabs = page.locator(".space-tabs button")
     n = tabs.count()
-    assert n >= 4
+    assert n == 3
     for i in range(n):                                                # каждая вкладка достижима, в том числе «Общее»
         tabs.nth(i).tap()
         assert tabs.nth(i).get_attribute("aria-selected") == "true"

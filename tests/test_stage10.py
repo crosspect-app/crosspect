@@ -1,4 +1,4 @@
-"""Этап 10: окно «Пространство» (люди, серии, общее), новое пространство, «входил», список авторов из людей,
+"""Этап 10: окно «Пространства» (люди, серии, общее; с этапа 10.1.2 — из списка пространств в шапке), новое пространство, последний вход, список авторов из людей,
 серия и формат фона в «О проповеди», фон по серии, колонка и фильтр «Серия». Облако подменено: tests/fixtures/fake_cloud.js."""
 from conftest import cloud_page
 from test_cloud import ADMIN, IVAN, MEMBERS, rec, wait_home
@@ -9,7 +9,7 @@ FMT = {"formats": {"f1": {"name": "Синий", "bg": {"color": "#1030a0"}}, "f2
 
 
 def open_space(page, tab=None):
-    page.evaluate("openSpace()")
+    page.evaluate("openSpaces()")
     page.wait_for_selector(".space-sheet")
     if tab:
         page.locator(".space-tabs button", has_text=tab).click()
@@ -24,7 +24,8 @@ def test_admin_manages_people(browser, base_url):
     wait_home(page)
     open_space(page)
     assert page.locator(".space-tabs button.on").inner_text() == "Люди"
-    assert page.locator(".sp-people .sp-row[data-email]").count() == 4
+    page.wait_for_selector(".sp-people .sp-row[data-key]")
+    assert page.locator(".sp-people .sp-row[data-key]").count() == 4
     # добавить: почта проверяется, повтор не проходит
     add = page.locator(".sp-people .sp-add")
     add.locator("input[aria-label='Имя нового человека']").fill("Анна")
@@ -34,7 +35,7 @@ def test_admin_manages_people(browser, base_url):
     assert page.locator(".sp-add .sp-err").inner_text() == "Проверьте почту"
     add.locator("input[aria-label='Почта нового человека']").fill("IVAN@x.pl")
     add.get_by_role("button", name="Добавить").click()
-    assert page.locator(".sp-add .sp-err").inner_text() == "Этот человек уже есть"
+    assert page.locator(".sp-add .sp-err").inner_text() == "Человек с такой почтой уже есть"
     add.locator("input[aria-label='Почта нового человека']").fill("Anna@X.pl")
     add.get_by_role("button", name="Добавить").click()
     page.wait_for_selector(".sp-row[data-email='anna@x.pl']")
@@ -49,7 +50,7 @@ def test_admin_manages_people(browser, base_url):
     row = page.locator(".sp-row[data-email='anna@x.pl']")
     row.locator("select[aria-label='Роль']").select_option("editor")
     page.wait_for_function("fakeCloud.db().members['anna@x.pl'].role === 'editor'")
-    assert page.locator(".sp-row[data-email='anna@x.pl'] .sp-seen").inner_text() == "ещё не входил"
+    assert page.locator(".sp-row[data-email='anna@x.pl'] .sp-seen").inner_text() == "не входил"
     # убрать — с подтверждением
     page.once("dialog", lambda d: d.accept())
     page.locator(".sp-row[data-email='anna@x.pl']").get_by_role("button", name="Убрать из пространства").click()
@@ -59,31 +60,45 @@ def test_admin_manages_people(browser, base_url):
     ctx.close()
 
 
-def test_seen_mark_and_editor_reads_only(browser, base_url):
+def test_last_seen_and_editor_rights(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ED, members=PEOPLE, admins=())
     wait_home(page)
-    page.wait_for_function("!!fakeCloud.db().members['ed@x.pl'].seenAt")   # первый вход отмечен сам
+    page.wait_for_function("!!fakeCloud.db().members['ed@x.pl'].seenAt")   # вход отмечен сам
+    first = page.evaluate("fakeCloud.db().members['ed@x.pl'].seenAt")
     open_space(page)
-    assert page.locator(".sp-row[data-email='ed@x.pl'] .sp-seen").inner_text() == "входил"
-    assert page.locator(".sp-row[data-email='ivan@x.pl'] .sp-seen").inner_text() == "ещё не входил"
-    assert page.locator(".sp-people input").count() == 0 and page.locator(".sp-people select").count() == 0   # только смотрит
-    assert page.locator(".sp-people .sp-add").count() == 0
-    assert not page.locator(".space-sheet .sp-people input").count()   # редактор видит таблицу без полей (подпись убрана 14.11)
-    # серии редактор ведёт; название и время правки — нет; новое пространство — нет
+    page.wait_for_selector(".sp-row[data-email='ed@x.pl']")
+    assert page.locator(".sp-row[data-email='ed@x.pl'] .sp-seen").inner_text().startswith("сегодня, ")
+    assert page.locator(".sp-row[data-email='ivan@x.pl'] .sp-seen").inner_text() == "не входил"
+    # редактор правит людей (этап 10.1.2), но себе не меняет почту и роль и себя не убирает
+    assert page.locator(".sp-people .sp-add").count() == 1
+    ivan = page.locator(".sp-row[data-email='ivan@x.pl']")
+    ivan.locator("select[aria-label='Роль']").select_option("operator")
+    page.wait_for_function("fakeCloud.db().members['ivan@x.pl'].role === 'operator'")
+    me = page.locator(".sp-row[data-email='ed@x.pl']")
+    assert me.locator("select").count() == 0 and me.locator("input[aria-label='Почта']").count() == 0
+    assert me.get_by_role("button", name="Убрать из пространства").count() == 0
+    # серии редактор ведёт; «Общее» только смотрит; нового пространства нет
     open_space(page, "Серии проповедей")
     assert page.locator(".sp-series .sp-add").count() == 1
     page.locator(".space-tabs button", has_text="Общее").click()
     assert page.locator(".sp-general input[aria-label='Название пространства']").count() == 0
     assert page.locator(".sp-general input[aria-label='Минут без действий']").count() == 0
-    assert page.locator(".sp-general .switch input").count() == 1
+    assert page.locator(".sp-general .switch input").is_disabled()
+    assert page.locator(".sp-general").get_by_role("button", name="Удалить пространство").count() == 0
     assert page.get_by_role("button", name="Новое пространство").count() == 0
     ctx.close()
-    # автору окна нет
+    # при следующем входе время обновляется
+    ctx, page = cloud_page(browser, base_url, user=ED, members=dict(PEOPLE, **{"ed@x.pl": dict(PEOPLE["ed@x.pl"], seenAt=first - 86400000)}), admins=())
+    wait_home(page)
+    page.wait_for_function("t => fakeCloud.db().members['ed@x.pl'].seenAt > t", arg=first - 1000)
+    ctx.close()
+    # автору окна нет, и в выпадающем списке пункта нет
     ctx, page = cloud_page(browser, base_url, user=IVAN, members=PEOPLE, admins=())
     wait_home(page)
     page.evaluate("fillMenu()")
-    assert "Пространство" not in page.inner_text("#menu")
-    page.evaluate("openSpace()")
+    assert "Пространств" not in page.inner_text("#menu")
+    assert page.locator(".topbar .org-pick").count() == 0   # одно пространство и настраивать нечего — просто название
+    page.evaluate("openSpaces()")
     assert page.locator(".space-sheet").count() == 0
     ctx.close()
 
@@ -243,10 +258,16 @@ def test_admin_creates_space_and_renames(browser, base_url):
     page.get_by_role("button", name="Создать", exact=True).click()
     page.wait_for_function("cloud.spaceName === 'Для отца' && cloudOn()")
     wait_home(page)
-    assert page.locator(".org-pick option").all_inner_texts() == ["Для отца", "Słowo Wiary Poznań"]
+    # окно «Пространства» открылось на новом пространстве, на «Людях»
+    page.wait_for_selector(".space-sheet .spw-item.on")
+    assert page.locator(".spw-item.on").inner_text() == "Для отца"
+    assert page.locator(".space-tabs button.on").inner_text() == "Люди"
+    page.wait_for_selector("text=В пространстве пока никого нет")
+    page.evaluate("closeSettings()")
+    page.locator(".topbar .org-pick").click()
+    assert [b.strip() for b in page.locator(".dd-list button").all_inner_texts()] == ["Для отца", "Słowo Wiary Poznań", "Настроить пространства…"]
+    page.keyboard.press("Escape")
     assert page.evaluate("cloud.role") == "admin" and page.evaluate("PREACHERS.length") == 0
-    open_space(page, "Люди")
-    assert "В пространстве пока никого нет" in page.inner_text(".space-sheet")
     assert not page.errors, page.errors
     ctx.close()
 

@@ -210,6 +210,7 @@ body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--
 .org-sel:focus-within{border-color:var(--accent)}
 .org-pick{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-size:13px;padding:6px 30px 6px 11px;max-width:260px;text-overflow:ellipsis;cursor:pointer;outline:none}
 .org-pick option{background:var(--surface-2);color:var(--text)}
+button.org-pick{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}   /* с этапа 10.1.2 — кнопка со списком (spaceMenu) */
 .org-sel .ic{position:absolute;right:8px;width:15px;height:15px;color:var(--muted);pointer-events:none}
 .vsep{width:1px;height:26px;background:var(--line-2)}
 .hd-title{display:flex;flex-direction:column;gap:4px;align-items:flex-start;min-width:0;border:0;background:transparent;padding:3px 8px;margin:-3px -8px;border-radius:8px;text-align:left;color:inherit}
@@ -1031,6 +1032,7 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 .dd-list button:disabled{opacity:.45;cursor:not-allowed;background:transparent;color:#d8cdbd}
 .dd-list hr{border:0;height:1px;background:var(--line-2);margin:6px 4px;flex:none}
 .dd-list .man{color:var(--accent)}
+.dd-list .dd-act{color:var(--accent)}   /* «Настроить пространства…» под чертой (этап 10.1.2) */
 .cal{position:fixed;z-index:80;width:300px;padding:14px;border-radius:18px;background:#1a1a1a;border:1px solid var(--line-2);box-shadow:0 18px 50px rgba(0,0,0,.6)}
 .cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font:600 14px 'Unbounded',sans-serif;letter-spacing:-.01em}
 .cal-nav{display:flex;gap:4px}
@@ -1222,8 +1224,16 @@ body[data-screen="op"] .app-main{min-height:100vh;min-height:100dvh}
   .film-end{width:150px;align-self:flex-start;padding:6px}
 }
 
-/* ---------- Окно «Пространство» (этап 10, space.js): люди, серии, общее ---------- */
-.sheet.space-sheet{max-width:980px}
+/* ---------- Окно «Пространства» (этапы 10 и 10.1.2, space.js): слева пространства, справа люди, серии, общее ---------- */
+.sheet.space-sheet{max-width:1160px}
+.spw{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px;align-items:start}
+.spw-side{display:flex;flex-direction:column;gap:12px;position:sticky;top:0}
+.spw-list{display:flex;flex-direction:column;gap:2px}
+.spw-item{border:0;background:transparent;text-align:left;padding:9px 12px;border-radius:10px;font:500 14px 'Inter',sans-serif;color:var(--muted);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spw-item:hover,.spw-item:focus-visible{background:var(--surface-2);color:var(--text);outline:none}
+.spw-item.on{background:var(--surface-3);color:var(--text)}
+.spw-new{align-self:flex-start}
+.spw-main{min-width:0}
 .space-tabs{width:max-content;max-width:100%;margin:0 0 14px}
 .space-tabs button{white-space:nowrap}
 .sp-body > .hint{margin:0 0 12px}
@@ -1231,37 +1241,34 @@ body[data-screen="op"] .app-main{min-height:100vh;min-height:100dvh}
 .sp-row{display:grid;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;min-height:52px}
 .sp-row:last-child{border-bottom:0}
 .sp-row.sp-head{min-height:0;padding:9px 12px;color:var(--muted);font-size:12px;background:var(--surface-2)}
-.sp-people .sp-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) 140px 120px 36px}
-.sp-series .sp-row{grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1fr)}
-.sp-operators .sp-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 96px 36px}
-.sp-operators .sp-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 132px 36px}
-.sp-operators .sp-row > .sp-err{grid-column:1 / -1;margin-top:-4px}
-.sp-after{margin:10px 0 0}
+.sp-people .sp-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.4fr) 128px 116px 36px}
+.sp-people .sp-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.4fr) 128px 162px}
+.sp-series .sp-row{grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1fr) 36px}
+.sp-series .sp-add{grid-template-columns:minmax(0,1.6fr) auto}
+.sp-row > .sp-err{grid-column:1 / -1;margin-top:-4px}
 .sp-row .input{height:38px}
 .sp-row .hf-sel select{height:36px}
+.sp-tg{display:flex;align-items:center;gap:6px;min-width:0}
+.sp-tg .input{flex:1;min-width:0}
+.sp-tg .sp-check{flex:none}
 .sp-mail{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.sp-role{color:var(--muted)}
 .sp-seen{font-size:12px;color:var(--faint)}
 .sp-seen.on{color:var(--muted)}
+.sp-del-off{display:inline-flex}
+.sp-del-off .icon-btn:disabled{opacity:.35;cursor:not-allowed}
 .sp-fixed .sp-name{font-weight:500;padding-left:2px}
 .sp-add{background:color-mix(in srgb, var(--accent) 5%, transparent)}
-.sp-people .sp-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) 140px 156px}
-.sp-series .sp-add{grid-template-columns:minmax(0,1.6fr) auto}
 .sp-add .sp-err{grid-column:1 / -1}
-.sp-add .sp-err:empty{display:none}
 .sp-err{color:var(--danger, #e07a6a);font-size:12px}
 .sp-err:empty{display:none}
 .sp-empty{padding:14px 12px;margin:0}
 .sp-general{display:flex;flex-direction:column;gap:18px;max-width:560px}
 .sp-general .hint{margin:6px 0 0}
+.sp-general > .hint:first-child{margin:0}
+.sp-danger .sp-err{margin:8px 0 0}
 .sp-inline{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
 .sp-num{width:84px;text-align:center}
-@media (max-width: 760px){
-  .sp-head{display:none !important}
-  .sp-people .sp-row,.sp-people .sp-add{grid-template-columns:1fr 1fr}
-  .sp-people .sp-mail{grid-column:1 / -1}
-  .sp-series .sp-row,.sp-series .sp-add{grid-template-columns:1fr}
-  .sp-operators .sp-row,.sp-operators .sp-add{grid-template-columns:1fr 1fr}
-}
 
 /* ---------- Телефон (этап 10.1.1) ----------
    Вид меняется только в узком окне (max-width:760px), а всё про скорость (стена-картинка, без размытия и движения) — только на телефоне:
@@ -1324,10 +1331,23 @@ body[data-screen="op"] .app-main{min-height:100vh;min-height:100dvh}
   .overlay{padding:12px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))}
   .sheet{max-height:calc(100vh - 24px - env(safe-area-inset-bottom));max-height:calc(100dvh - 24px - env(safe-area-inset-bottom));padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
 
-  /* вкладки «Пространства» прокручиваются вбок */
+  /* окно «Пространства»: список пространств — полосой сверху; полосы прокручиваются вбок; строки таблиц — в две колонки, без шапки */
+  .spw{grid-template-columns:minmax(0,1fr);gap:12px}
+  .spw-side{position:static;flex-direction:row;align-items:center;gap:8px}
+  .spw-list{flex-direction:row;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .spw-list::-webkit-scrollbar{display:none}
+  .spw-item{flex:0 0 auto;max-width:70vw}
+  .spw-new{flex:none}
   .space-tabs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .space-tabs::-webkit-scrollbar{display:none}
   .space-tabs button{flex:0 0 auto}
+  .sp-head{display:none !important}
+  .sp-people .sp-row{grid-template-columns:1fr 1fr 36px}   /* имя, фамилия / почта / Telegram / роль, вход, корзина */
+  .sp-people .sp-row > :nth-child(2){grid-column:2 / -1}
+  .sp-people .sp-row > :nth-child(3),.sp-people .sp-row > :nth-child(4){grid-column:1 / -1}
+  .sp-people .sp-add{grid-template-columns:1fr 1fr}
+  .sp-series .sp-row{grid-template-columns:1fr auto}
+  .sp-series .sp-add{grid-template-columns:1fr}
 }
 @media (hover:none) and (pointer:coarse) and (max-width:760px){
   /* скорость: стена — картинка (motion.js, homeBg), зерна и дымки нет; под окнами без размытия; зерно входа стоит */
