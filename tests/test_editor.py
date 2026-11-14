@@ -327,7 +327,7 @@ def test_autosave_default_is_thirty_seconds(browser, base_url):
     ctx = browser.new_context()   # без подмены облака: форма как у людей
     pg = ctx.new_page()
     pg.goto(base_url + "/index.html")
-    pg.wait_for_selector(".topbar")
+    pg.wait_for_selector(".topbar", state="attached")   # на экране входа шапка скрыта (с 14.11)
     assert pg.evaluate("AUTOSAVE_MS") == 30000
     ctx.close()
 

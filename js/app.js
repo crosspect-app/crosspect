@@ -198,8 +198,7 @@ function renderTopbar(){
     iconBtn('more', 'Ещё', e => { e.stopPropagation(); toggleMenu(); }, 'hd-more'), menuEl);
   if (screen === 'home') MOTION.ui.id = '';   // на главной и экране входа анимации шапки проповеди забываются
   if (screen === 'home' && cloudGate()){
-    topbar.className = 'topbar is-home' + (cloudGate() === 'wait' ? ' is-splash' : '');   // заставка — без шапки (этап 7.8)
-    topbar.append(logoLockup('logo', { href:'#', title:'Crosspect' }), h('div', { class:'grow' }), cloud.user ? more : null);   // до входа в меню пусто — кнопки «⋯» нет; вошли не той почтой — в меню «Выйти»
+    topbar.className = 'topbar is-home is-splash';   // экран входа и заставка — без шапки (этап 7.8; с 14.11 и экран входа): «Войти другой почтой» — на самой карточке
     return;
   }
   if (screen === 'help'){

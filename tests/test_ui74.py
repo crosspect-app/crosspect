@@ -256,7 +256,7 @@ def test_logo_in_headers_gate_and_favicon(browser, base_url):
     assert page.locator(".gate-logo .logo-mark svg").count() == 1
     assert page.locator(".gate-logo .logo-t").text_content() == "Crosspect"
     assert page.evaluate("getComputedStyle(document.querySelector('.gate-logo .logo-t')).textTransform") == "uppercase"
-    assert page.locator(".topbar .logo .logo-mark").count() == 1   # шапка тоже
+    assert not page.locator(".topbar").is_visible()   # экран входа — без шапки (с 14.11)
     assert page.locator("link[rel=icon]").get_attribute("href").startswith("data:image/svg+xml")
     ctx.close()
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, sermons={"s1": three_slides()})
