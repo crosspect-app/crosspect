@@ -23,7 +23,7 @@
 
 1. Слева **Build → Authentication** → **Get started**.
 2. Вкладка **Sign-in method** → **Google** → включить (Enable). Project support email — почта церкви. **Save**.
-3. Вкладка **Settings → Authorized domains** → **Add domain** → `crosspect-app.github.io` → Add.
+3. Вкладка **Settings → Authorized domains** → **Add domain** → `crosspect.app`, затем `www.crosspect.app` и `crosspect-app.github.io` → Add.
 
 ## 4. Веб-приложение (настройки для формы)
 
@@ -68,7 +68,7 @@
 - **Ошибка 403 / Permission denied в Actions** при выкладке — проверить роль из шага 5.3.
 
 ### Облако: настроено (11 ноября 2026)
-- Проект Firebase `crosspect-2dabd` в аккаунте «Słowo Wiary Poznań - Media»: база Firestore (europe-central2, Варшава), вход Google, домен `crosspect-app.github.io` разрешён. Настройки для формы — `js/firebase-config.js` (подключён, пока не используется).
+- Проект Firebase `crosspect-2dabd` в аккаунте «Słowo Wiary Poznań - Media»: база Firestore (europe-central2, Варшава), вход Google, домены `crosspect.app`, `www.crosspect.app` и `crosspect-app.github.io` разрешены. Настройки для формы — `js/firebase-config.js` (подключён, пока не используется).
 - Правила и индексы выложены из `main` (job «Выкладка правил Firestore»); секрет `FIREBASE_SERVICE_ACCOUNT` есть в `crosspect` и `crosspect-backup`, у сервисного аккаунта роль Firebase Admin.
 - Приватный `crosspect-app/crosspect-backup`: ночная копия (первая сделана), восстановление, «Пространства».
 - Пространство «Słowo Wiary Poznań», id `3fSpkDd6m1modjqmIWYL`. Админ всей формы — церковный аккаунт Google (`admins/swpoznan.media@gmail.com`, с этапа 8). Авторов (`preacher`) и редакторов (`editor`) добавлять через `crosspect-backup` → Actions → «Пространства» → `set-member`, новое пространство (например, для отца) — `create-space` (до этапа 10, где это появится в форме). Админа назначает и снимает `set-admin` / `remove-admin`.
