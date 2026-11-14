@@ -257,8 +257,12 @@ const WALL_TITLES = ['Если я не имею любви', 'Вера без д
   'Любов довготерпить', 'Światło świata', 'Chleb życia', 'Miłość cierpliwa jest', 'Dobry pasterz', 'Nie lękaj się', 'Sól ziemi', 'Nowe stworzenie',
   'Łaska i prawda', 'Light of the World', 'Bread of Life', 'Love Is Patient', 'The Good Shepherd', 'Do Not Be Afraid', 'Salt of the Earth',
   'Grace and Truth', 'Let There Be Light'];
-const WALL = { key:'', root:null, el:null, proto:null, vars:null, size:'' };
+const WALL = { key:'', root:null, el:null, proto:null, vars:null, size:'', phone:false };
 const WALL_CELL = 340, WALL_GAP = 22;
+/* На телефоне (isPhone, util.js; этап 10.1.1) стена — одна картинка img/wall-phone.webp: её снимает tools/wall_image.py из самой формы со стандартным фоном
+   (System Template, ключ фона 'null'). Слайды не строятся, wallProtos не вызывается. У пространства с другим фоном по умолчанию — спокойный тёмный фон без картинки.
+   Сменился стандартный фон — переснять картинку (docs/arch/phone.md) */
+const WALL_STD_KEY = 'null';
 /* Фон главной живёт в body и не пересобирается при каждом возврате из конспекта (этап 9.2): стена — сотни слайдов, и снова положить её
    в страницу стоило ~200 мс главного потока, из-за этого после «← Конспекты» движение начиналось с паузой. На других экранах узел
    остаётся на месте, но скрыт (`content-visibility:hidden` хранит его раскладку), показывает его класс body.wall-on (renderMain) */
@@ -266,10 +270,11 @@ function homeBg(){
   if (!WALL.root) WALL.root = h('div', { class:'home-bg', 'aria-hidden':'true' }, h('div', { class:'hb-grain' }), h('div', { class:'hb-haze' }));
   let cfg = null, bg = null;
   try { cfg = slidesCfg(); bg = formatBg(cfg.defaultFormat, cfg); } catch(e){}
-  const key = JSON.stringify(bg);
-  if (!WALL.el || WALL.key !== key){
+  const key = JSON.stringify(bg), phone = isPhone();
+  if (!WALL.el || WALL.key !== key || WALL.phone !== phone){
     const old = WALL.el;
-    WALL.key = key; WALL.el = h('div', { class:'hb-wall' }); WALL.proto = null; WALL.size = ''; WALL.vars = bgVars(bg);
+    WALL.key = key; WALL.phone = phone; WALL.proto = null; WALL.size = ''; WALL.vars = phone ? null : bgVars(bg);
+    WALL.el = phone ? h('div', { class:'hb-img' + (key === WALL_STD_KEY ? '' : ' plain') }) : h('div', { class:'hb-wall' });
     if (old) old.remove();
     WALL.root.prepend(WALL.el);
   }
@@ -297,7 +302,7 @@ function wallProtos(){
 /* Стена по размеру окна: квадрат со стороной в диагональ экрана (с запасом), повёрнут вокруг центра — углы всегда закрыты.
    Ячейки — копии готовых слайдов (cloneNode), со сдвигом в каждом ряду, чтобы одинаковые названия не стояли столбиком */
 function fillWall(){
-  if (!WALL.el || !WALL.el.isConnected) return;
+  if (!WALL.el || !WALL.el.isConnected || WALL.phone) return;
   if (!WALL.proto) wallProtos();
   const W = innerWidth, H = innerHeight, side = Math.hypot(W, H) + 2 * WALL_CELL;
   const cw = WALL_CELL + WALL_GAP, ch = WALL_CELL * 9 / 16 + WALL_GAP;
@@ -314,6 +319,7 @@ function fillWall(){
 }
 function layoutWall(){
   if (!WALL.el) return;
+  if (WALL.phone){ WALL.el.classList.add('ready'); return; }   // картинка: раскладывать нечего
   if (WALL.proto){ fillWall(); WALL.el.classList.add('ready'); return; }
   setTimeout(() => {   // после списка: главная показывается сразу, стена проявляется следом
     if (!WALL.el || !WALL.el.isConnected) return;
@@ -322,4 +328,11 @@ function layoutWall(){
   }, 0);
 }
 let wallResize = 0;
-window.addEventListener('resize', () => { clearTimeout(wallResize); wallResize = setTimeout(() => { if (WALL.el && WALL.el.isConnected && WALL.proto) fillWall(); }, 200); });
+window.addEventListener('resize', () => {
+  if (WALL.phone && isPhone()) return;   // на телефоне стену не пересчитываем (поворот и клавиатура меняют размер окна часто)
+  clearTimeout(wallResize);
+  wallResize = setTimeout(() => {
+    if (WALL.root && WALL.phone !== isPhone() && screen === 'home' && !cloudGate()){ homeBg(); layoutWall(); return; }   // повернули телефон: картинка ↔ стена слайдов
+    if (WALL.el && WALL.el.isConnected && WALL.proto) fillWall();
+  }, 200);
+});

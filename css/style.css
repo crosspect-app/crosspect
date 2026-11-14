@@ -26,7 +26,7 @@ body.light{
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;overflow-x:clip}   /* въезд экрана сбоку не даёт горизонтальной прокрутки (этап 7.8) */
 body{
-  margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+  margin:0; min-height:100vh; min-height:100dvh; background:var(--bg); color:var(--text);
   font-family:'Inter','Segoe UI',Arial,sans-serif; font-weight:400; font-size:14px;
   line-height:1.5; -webkit-font-smoothing:antialiased;
 }
@@ -221,7 +221,7 @@ body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--
 .hd-save.warn{color:var(--warn)}
 .search{display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line-2);min-width:260px;color:var(--muted)}
 .search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:400 13px 'Inter',sans-serif}
-.app-main{min-height:calc(100vh - 57px)}
+.app-main{min-height:calc(100vh - 57px);min-height:calc(100dvh - 57px)}
 
 /* ---------- Главная ---------- */
 .home{max-width:1240px;margin:0 auto;padding:32px max(32px, env(safe-area-inset-right)) 64px;display:flex;flex-direction:column;gap:28px}
@@ -231,7 +231,7 @@ body.light .logo-mark{--lg-cream:#1d1c1a;--lg-yellow:#e0a800;--lg-off:#d6d2c7;--
 .card-wrap{position:relative}
 
 /* Облако: вход, пометки у карточек */
-.gate{min-height:calc(100vh - 80px);display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.gate{min-height:calc(100vh - 80px);min-height:calc(100dvh - 80px);display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .gate-card{width:100%;max-width:460px;padding:32px 28px;border-radius:24px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:14px}
 .gate-logo{display:flex;align-items:center;gap:9px;font:700 15px/1 'Unbounded',sans-serif;text-transform:uppercase;color:var(--accent);letter-spacing:-.01em}
 .gate-logo .logo-mark{height:22px}
@@ -305,7 +305,7 @@ a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
 .empty .chips{margin-top:14px}
 
 /* ---------- Вид «Слайды» ---------- */
-.sv{display:grid;grid-template-columns:214px minmax(0,1fr) 400px;height:calc(100vh - 57px);min-height:560px}
+.sv{display:grid;grid-template-columns:214px minmax(0,1fr) 400px;height:calc(100vh - 57px);height:calc(100dvh - 57px);min-height:560px}
 /* Своя раскладка (layout.js): ширина и порядок из настроек человека, границы тянутся за .sv-resize */
 .sv{position:relative}
 .sv.lay .film{border-right:0}
@@ -512,7 +512,7 @@ a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
 /* ---------- Узкие экраны ---------- */
 @media (max-width:1100px){
   .sv{grid-template-columns:200px minmax(0,1fr);height:auto;min-height:0}
-  .film{grid-row:1 / span 2;max-height:calc(100vh - 57px);position:sticky;top:57px;align-self:start}
+  .film{grid-row:1 / span 2;max-height:calc(100vh - 57px);max-height:calc(100dvh - 57px);position:sticky;top:57px;align-self:start}
   .stage{overflow:visible}
   .side{grid-column:2;border-left:0;border-top:1px solid var(--line);overflow:visible}
   .stage-slide,.note-plate,.ph-big{width:100%}
@@ -546,7 +546,7 @@ a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
   .card-del{top:14px;transform:none}
   .ptable{border-radius:12px}
   .sv{grid-template-columns:1fr}
-  .film{grid-row:auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;max-height:none;position:relative;border-right:0;border-bottom:1px solid var(--line);padding:10px}
+  .film{grid-row:auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;max-height:none;position:relative;top:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px}
   .film-head{display:none}
   .st-box{width:150px}
   .film-end{width:52px;height:auto;align-self:stretch}
@@ -706,9 +706,9 @@ select.input:disabled{opacity:.5;cursor:default}
 .tr-name{font-size:10px;color:var(--faint);letter-spacing:.02em;margin:-4px 0 0 2px}
 
 /* ---------- Выбор типа блока ---------- */
-.overlay{position:fixed;inset:0;z-index:60;background:rgba(5,7,12,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:16px}
+.overlay{position:fixed;inset:0;z-index:60;background:rgba(5,7,12,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:16px;height:100vh;height:100dvh}
 .overlay.open{display:flex}
-.sheet{width:100%;max-width:620px;max-height:calc(100vh - 32px);overflow:auto;background:var(--surface);border:1px solid var(--line-2);border-radius:24px;padding:20px;box-shadow:var(--shadow)}
+.sheet{width:100%;max-width:620px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;background:var(--surface);border:1px solid var(--line-2);border-radius:24px;padding:20px;box-shadow:var(--shadow)}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .sheet-title{font-size:16px;font-weight:600;letter-spacing:-0.02em}
 .types{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -970,7 +970,7 @@ body.wall-on .home-bg .hb-haze{animation-play-state:running}
 /* Этап 7.7: заставка входа расплывается в список; экран проповеди уезжает вправо; заготовка экрана проповеди */
 /* Заставка при открытии: знак крупно, без карточки; строка про облако — только если ждать дольше ~1,5 с */
 .topbar.is-splash{display:none}
-.gate.full{min-height:100vh}   /* заставка при открытии — без шапки (этап 7.8) */
+.gate.full{min-height:100vh;min-height:100dvh}   /* заставка при открытии — без шапки (этап 7.8) */
 .gate-card.splash{background:transparent;border-color:transparent;align-items:center;gap:22px;text-align:center}
 .gate-card.splash .gate-logo{font-size:30px;gap:16px}
 .gate-card.splash .gate-logo .logo-mark{height:46px}
@@ -1066,7 +1066,7 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 .dl-opt-text{font-size:13px;font-weight:400;line-height:1.35;opacity:.72}
 /* страница оператора: тёмная, под телефон; шапки формы нет */
 body[data-screen="op"] .topbar{display:none}
-body[data-screen="op"] .app-main{min-height:100vh}
+body[data-screen="op"] .app-main{min-height:100vh;min-height:100dvh}
 .opv{--ops:1;max-width:680px;margin:0 auto;padding:18px 14px 96px;font-size:calc(16px * var(--ops));line-height:1.5}
 .opv-head{padding:6px 2px 14px;border-bottom:1px solid var(--line-2)}
 .opv-kick{font:600 11px/1.2 'Inter',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
@@ -1261,4 +1261,77 @@ body[data-screen="op"] .app-main{min-height:100vh}
   .sp-people .sp-mail{grid-column:1 / -1}
   .sp-series .sp-row,.sp-series .sp-add{grid-template-columns:1fr}
   .sp-operators .sp-row,.sp-operators .sp-add{grid-template-columns:1fr 1fr}
+}
+
+/* ---------- Телефон (этап 10.1.1) ----------
+   Вид меняется только в узком окне (max-width:760px), а всё про скорость (стена-картинка, без размытия и движения) — только на телефоне:
+   касание без наведения (то же условие, что isPhone() в util.js). На компьютере ничего не меняется, даже в узком окне: стена остаётся стеной */
+.hd-sq,.sq-close,.hd-break{display:none}
+.menu button.only-sm,.menu .only-sm{display:none}
+.hb-img{position:absolute;inset:0;background:url("../img/wall-phone.webp") center top / cover no-repeat;opacity:0;transition:opacity .6s ease-out}
+.hb-img.ready{opacity:1}
+.hb-img.plain{background:linear-gradient(180deg,#191715 0%,var(--bg) 70%)}   /* у пространства свой фон по умолчанию: картинка со стандартным фоном была бы «чужой» */
+@media (max-width:760px){
+  /* поля не меньше 16 px: иначе iPhone увеличивает страницу при касании */
+  input,select,textarea{font-size:16px!important}
+  .rich.speech-text{font-size:16px}
+  .rich.prose{font-size:max(16px, calc(16px * var(--vs)))}
+  .rich.prose.lead{font-size:max(16px, calc(17px * var(--vs)))}
+  input,select,textarea,.rich{scroll-margin-top:130px;scroll-margin-bottom:24px}   /* поле в фокусе не прячется под липкой шапкой (phone.js) */
+
+  /* меню «⋯»: под шапкой, у правого края окна, с прокруткой; top и max-height — placeMenu (misc.js) */
+  .menu{position:fixed;right:max(8px, env(safe-area-inset-right));top:56px;min-width:min(260px, calc(100vw - 16px));max-width:calc(100vw - 16px);overflow-y:auto;overscroll-behavior:contain}
+  .menu button{padding:12px;font-size:15px}
+  .menu button.only-sm{display:flex}
+  .menu .menu-sep.only-sm{display:block}
+
+  /* главная: одна строка — знак, пространство, поиск, «⋯» */
+  .topbar.is-home{flex-wrap:nowrap;gap:8px;min-height:56px;padding:8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left))}
+  .topbar.is-home .logo .logo-t,.topbar.is-home .hd-help,.topbar.is-home .who{display:none}
+  .topbar.is-home .grow{flex:1 1 0;min-width:0}
+  .topbar.is-home .search{display:none}
+  .hd-sq{display:inline-grid}
+  .topbar.is-home.sq-open > :not(.search){display:none}   /* поиск раскрыт: поле на всю шапку, с крестиком */
+  .topbar.is-home.sq-open .search{display:flex;flex:1}
+  .search input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;display:none}   /* свой крестик «Закрыть поиск» вместо встроенного */
+  .topbar.is-home.sq-open .sq-close{display:inline-grid;flex:none;width:30px;height:30px;margin-right:-8px}
+  .org-sel{min-width:0;flex:0 1 auto}
+  .org-pick{max-width:46vw}
+
+  /* конспект: две строки. 1-я — знак, название, «⋯»; 2-я — «Слайды / Текст», статус, «Редактировать / Готово» */
+  .topbar:not(.is-home){flex-wrap:wrap;gap:8px 6px;min-height:0;padding:8px max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left))}
+  .topbar:not(.is-home) .hd-back,.topbar:not(.is-home) .vsep,.topbar:not(.is-home) .grow,.topbar:not(.is-home) .hist,.topbar:not(.is-home) .hd-check{display:none!important}
+  .topbar:not(.is-home) .logo-only{order:0}
+  .topbar:not(.is-home) .hd-title{order:1;flex:1 1 0;min-width:0;max-width:none}
+  .topbar:not(.is-home) .hd-name{max-width:100%;font-size:16px}
+  .topbar:not(.is-home) .actions{order:2;margin-left:auto}
+  .topbar:not(.is-home) .hd-break{display:block;order:3;flex:0 0 100%;height:0}
+  .topbar:not(.is-home) .seg{order:4;flex:none}
+  .topbar:not(.is-home) .seg button{padding:0 9px}
+  .topbar:not(.is-home) .stdrop,.topbar:not(.is-home) .stswitch{order:5;flex:1 1 0;min-width:96px;max-width:max-content}   /* длинный статус («Презентация готова») ужимается с многоточием, а не переносит кнопку на третью строку */
+  .topbar:not(.is-home) .stdrop{padding:7px 8px 7px 10px}
+  .topbar:not(.is-home) .stdrop .dtext{overflow:hidden;text-overflow:ellipsis}
+  .topbar:not(.is-home) .hd-act{order:6;flex:none;margin-left:auto;padding-left:10px;padding-right:10px}
+  .topbar:not(.is-home) .hd-act .ic{display:none}
+  .jpg-btn,.speech-toggle,.stage-info{display:none!important}   /* выгрузку делает Виталий с компьютера; «Развернуть» не нужно: поле растёт по тексту */
+
+  /* «Текст к слайду» растёт по тексту, не меньше ~5 строк, без внутренней прокрутки */
+  .speech{min-height:0}
+  .rich.speech-text{line-height:1.6;min-height:calc(5 * 1.6em + 24px)}
+  body:not(.ro) .rich.prose{min-height:3.4em;padding-top:6px;padding-bottom:6px}   /* в «Тексте» поле открывается касанием: цель крупнее одной строки */
+
+  /* окна по видимой части экрана, низ не под панелью Safari */
+  .overlay{padding:12px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))}
+  .sheet{max-height:calc(100vh - 24px - env(safe-area-inset-bottom));max-height:calc(100dvh - 24px - env(safe-area-inset-bottom));padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+
+  /* вкладки «Пространства» прокручиваются вбок */
+  .space-tabs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .space-tabs::-webkit-scrollbar{display:none}
+  .space-tabs button{flex:0 0 auto}
+}
+@media (hover:none) and (pointer:coarse) and (max-width:760px){
+  /* скорость: стена — картинка (motion.js, homeBg), зерна и дымки нет; под окнами без размытия; зерно входа стоит */
+  .hb-grain,.hb-haze{display:none}
+  .overlay{background:rgba(5,7,12,.75);backdrop-filter:none;-webkit-backdrop-filter:none}
+  .gate-grain{animation:none}
 }

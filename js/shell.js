@@ -7,7 +7,7 @@ const app = $('#app');
 const topbar = h('header', { class:'topbar' });
 const mainEl = h('main', { class:'app-main', id:'main' });
 
-const menuItem = (icon, label, fn, off) => h('button', { type:'button', disabled:!!off, title:off || null, onclick:() => { closeMenu(); fn(); } }, ic(icon), label);   // off — почему пункт неактивен
+const menuItem = (icon, label, fn, off, cls) => h('button', { type:'button', class:cls || null, disabled:!!off, title:off || null, onclick:() => { closeMenu(); fn(); } }, ic(icon), label);   // off — почему пункт неактивен
 const menuEl = h('div', { class:'menu', id:'menu' });
 /* Меню зависит от экрана: выгрузка — только внутри проповеди; «Настройки слайдов» — только админу и редактору.
    Открыть файл в форме нельзя (с этапа 8 проповеди только в облаке). «Новый конспект» и «Скачать файл» из меню убраны (этап 9.2):
@@ -18,6 +18,10 @@ function fillMenu(){
     if (cloud.user) menuEl.append(h('div', { class:'menu-who', text:cloud.user.email }), menuItem('back', 'Выйти', () => cloudSignOut()));
     return;
   }
+  if (screen === 'sermon' && state && histOn()) menuEl.append(   // этап 10.1.1: ↶ ↷ в шапке на телефоне нет — они здесь (на компьютере пункты скрыты, css .only-sm)
+    menuItem('undo', 'Отменить', () => undo(), canUndo() ? '' : 'Нечего отменять', 'only-sm'),
+    menuItem('redo', 'Вернуть', () => redo(), canRedo() ? '' : 'Нечего возвращать', 'only-sm'),
+    h('div', { class:'menu-sep only-sm' }));
   if (screen === 'sermon' && state){   // этап 9.7: копии — всем, кто видит конспект; история — тем, кто может его править
     menuEl.append(menuItem('dup', 'Сделать копию', () => saveAsCopy({ keep:true })),
       menuItem('dup', 'Копировать в пространство…', () => openCopyToSpace(), multiSpace() ? '' : 'У вас одно пространство'));

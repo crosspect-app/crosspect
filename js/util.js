@@ -5,6 +5,10 @@ const $ = (s, r) => (r || document).querySelector(s);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const pad = n => (n < 10 ? '0' : '') + n;
+/* Телефон (этап 10.1.1): касание без наведения и узкое окно. В CSS то же условие — @media (hover:none) and (pointer:coarse) and (max-width:760px).
+   Узкое окно браузера на компьютере с мышью — не телефон: стена и всё про скорость там как на широком экране */
+const PHONE_MQ = '(hover:none) and (pointer:coarse) and (max-width:760px)';
+const isPhone = () => window.matchMedia(PHONE_MQ).matches;
 
 function h(tag, props){
   const el = document.createElement(tag);

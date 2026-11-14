@@ -55,6 +55,24 @@ function exportProgress(title, total){
   };
 }
 function closeMenu(){ menuEl.classList.remove('open'); }
+/* Меню «⋯» (этап 10.1.1): пункты пересобираются при открытии (отмена и возврат зависят от правки), а само меню не выходит за край окна.
+   На телефоне оно fixed (css): под шапкой, с прокруткой, если не влезает по высоте; на любой ширине после открытия сдвигается внутрь окна */
+function toggleMenu(){
+  if (menuEl.classList.contains('open')){ closeMenu(); return; }
+  fillMenu();
+  menuEl.classList.add('open');
+  placeMenu();
+}
+function placeMenu(){
+  menuEl.style.top = menuEl.style.right = menuEl.style.maxHeight = '';
+  if (window.matchMedia('(max-width:760px)').matches){
+    const top = Math.round(topbar.getBoundingClientRect().bottom + 6);
+    menuEl.style.top = top + 'px'; menuEl.style.maxHeight = Math.max(160, innerHeight - top - 12) + 'px';
+  }
+  const r = menuEl.getBoundingClientRect(), edge = 8;
+  const dx = r.left < edge ? edge - r.left : r.right > innerWidth - edge ? innerWidth - edge - r.right : 0;
+  if (dx) menuEl.style.right = (parseFloat(getComputedStyle(menuEl).right) - dx) + 'px';
+}
 document.addEventListener('click', e => { if (!menuEl.contains(e.target)) closeMenu(); });
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){ e.preventDefault(); if (screen === 'sermon') saveSermon(); }

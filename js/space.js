@@ -187,6 +187,12 @@ function drawSpace(){
     h('div', { class:'seg space-tabs', role:'tablist' }, tabs.map(([k, t]) => h('button', { type:'button', role:'tab', class:spaceTab === k ? 'on' : '', 'aria-selected':String(spaceTab === k),
       onclick:() => { spaceTab = k; drawSpace(); } }, t))),
     body));
+  requestAnimationFrame(() => {   // на узком экране полоса вкладок прокручивается: выбранная («Общее») видна целиком (этап 10.1.1)
+    const strip = settingsOverlay.querySelector('.space-tabs'), on = strip && strip.querySelector('.on');
+    if (!on) return;
+    const d = on.getBoundingClientRect().right - strip.getBoundingClientRect().right + 12;
+    if (d > 0) strip.scrollLeft += d;
+  });
 }
 const spaceErr = (e, fallback) => toast(cloudExplain(e) || fallback);
 

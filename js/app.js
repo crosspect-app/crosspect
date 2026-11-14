@@ -195,7 +195,7 @@ function renderTopbar(){
   motionBeforeTopbar();   // запомнить, где стоял статус, чтобы подложка переехала (motion.js)
   topbar.innerHTML = '';
   const more = h('div', { class:'actions' },
-    iconBtn('more', 'Ещё', e => { e.stopPropagation(); menuEl.classList.toggle('open'); }), menuEl);
+    iconBtn('more', 'Ещё', e => { e.stopPropagation(); toggleMenu(); }, 'hd-more'), menuEl);
   if (screen === 'home') MOTION.ui.id = '';   // на главной и экране входа анимации шапки проповеди забываются
   if (screen === 'home' && cloudGate()){
     topbar.className = 'topbar is-home' + (cloudGate() === 'wait' ? ' is-splash' : '');   // заставка — без шапки (этап 7.8)
@@ -209,15 +209,18 @@ function renderTopbar(){
     return;
   }
   if (screen === 'home'){
-    topbar.className = 'topbar is-home';
+    topbar.className = 'topbar is-home' + (homeQuery ? ' sq-open' : '');   // на телефоне поле поиска раскрыто, пока в нём что-то есть (этап 10.1.1)
     logoReset();   // на главной знак всегда обычный: незаконченная анимация сохранения относилась к проповеди
     const q = h('input', { type:'search', placeholder:'Название, автор, место Писания', 'aria-label':'Поиск', value:homeQuery,
       oninput:e => { homeQuery = e.target.value; renderHomeList(); } });
+    const closeSearch = () => { homeQuery = ''; q.value = ''; topbar.classList.remove('sq-open'); renderHomeList(); };
     topbar.append(
       logoLockup('logo', { href:'#', title:'Конспекты' }),
       spacePicker(),
       h('div', { class:'grow' }),
-      h('label', { class:'search' }, ic('search'), q),
+      h('button', { type:'button', class:'icon-btn hd-sq', title:'Поиск', 'aria-label':'Поиск', onclick:() => { topbar.classList.add('sq-open'); q.focus(); } }, ic('search')),   // только на телефоне (css)
+      h('label', { class:'search' }, ic('search'), q,
+        h('button', { type:'button', class:'icon-btn sq-close', title:'Закрыть поиск', 'aria-label':'Закрыть поиск', onclick:closeSearch }, ic('close'))),
       h('button', { type:'button', class:'btn ghost hd-help', title:'Как пользоваться Crosspect', onclick:() => openHelp() }, ic('help'), h('span', { class:'hide-sm', text:'Как пользоваться' })),
       cloudOn() ? h('span', { class:'who hide-sm', title:cloud.user.email, text:(cloud.user.name || cloud.user.email) + ' · ' + (ROLE_NAMES[cloud.role] || '') }) : null,
       more);
@@ -227,12 +230,13 @@ function renderTopbar(){
   const m = state.meta, st = sermonStatus(state);
   topbar.append(
     h('a', { class:'logo logo-only', href:'#', title:'Crosspect: к списку конспектов', 'aria-label':'Crosspect: к списку конспектов' }, logoMark()),   // здесь знак мигает при сохранении (logo.js)
-    h('a', { class:'btn ghost', href:'#', title:'К списку конспектов' }, ic('back'), 'Конспекты'),
+    h('a', { class:'btn ghost hd-back', href:'#', title:'К списку конспектов' }, ic('back'), 'Конспекты'),   // на телефоне скрыта: к списку ведёт знак
     h('span', { class:'vsep' }),
     h('button', { type:'button', class:'hd-title', title:'Изменить название, дату, автора', onclick:() => openMeta() },
       h('span', { class:'hd-name' + (m.title ? '' : ' empty'), text:m.title || 'Без названия' }),
       h('span', { id:'hd-sub', class:'hd-sub', 'data-meta':[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') || 'Дата и автор не указаны' })),   // в правке — ход сохранения (updateStatus)
     cloudSermon() ? statusSwitch() : h('span', { class:'stchip st-' + st.key, text:st.label }),   // переключатель статуса (editor.js)
+    h('span', { class:'hd-break', 'aria-hidden':'true' }),   // только на телефоне: перенос на вторую строку шапки (css)
     h('div', { class:'grow' }),
     h('div', { class:'seg', role:'group', 'aria-label':'Вид конспекта' },
       h('button', { type:'button', class:view === 'slides' ? 'on' : '', onclick:() => setView('slides') }, 'Слайды'),

@@ -397,7 +397,7 @@ function stageBar(b, n){
     h('span', { class:'cap strong', text:(T.slide ? n + ' · ' : '') + T.label }),
     h('div', { class:'grow' }),
     T.slide && h('button', { type:'button', class:'btn', title:'Скопировать название слайда для Holyrics', onclick:() => copyText(slideName(b, n), 'Скопировано: ') }, ic('tag'), 'Название'),
-    (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn', disabled:isCustomSplash(b), title:isCustomSplash(b) ? 'У своей заставки JPEG не собирается: заставку вы делаете сами' : BLANK_JPEG[b.type] ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
+    (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn jpg-btn', disabled:isCustomSplash(b), title:isCustomSplash(b) ? 'У своей заставки JPEG не собирается: заставку вы делаете сами' : BLANK_JPEG[b.type] ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
     T.slide && canFlag() && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo),
       title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную.' + (cloudOn() ? ' Автор тоже её увидит.' : ''), onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
     h('div', { class:'stepper' },
@@ -420,7 +420,7 @@ function stageVisual(b, n){
 function speechBox(b){
   const cnt = h('span', { class:'count' }), show = () => { cnt.textContent = speechInfo(wordCount(b.speech)); };
   show();
-  const toggleBtn = h('button', { type:'button', class:'btn ghost small', onclick:() => {
+  const toggleBtn = h('button', { type:'button', class:'btn ghost small speech-toggle', onclick:() => {
     speechOpen = !speechOpen;
     const sv = stageEl.closest('.sv'); if (sv) sv.classList.toggle('speech-open', speechOpen);
     toggleBtn.textContent = speechOpen ? 'Свернуть ↓' : 'Развернуть ↑';
