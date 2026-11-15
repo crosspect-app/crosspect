@@ -125,7 +125,7 @@ function onRemote(id, r, meta){
 function setRemoteState(r){
   const keep = selId;
   state = applyFlags(normalize(r)); state.savedAt = state.updatedAt;   // отметки редактора — поверх проповеди
-  selId = state.blocks.some(b => b.id === keep) ? keep : null;
+  selId = state.blocks.some(b => b.id === srcId(keep)) ? keep : null;
   histReset();   // другая версия: прежняя история отмены к ней не относится
 }
 /* Перерисовать проповедь, не теряя прокрутку ленты и страницы */

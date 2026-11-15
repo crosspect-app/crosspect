@@ -137,7 +137,7 @@ function pptxNotes(b, n, black){
 }
 async function exportPPTX(){
   if (exporting) return;
-  const list = state.blocks.filter(b => TYPES[b.type].slide);
+  const list = units().filter(b => TYPES[b.type].slide);   // части отрывка — отдельные слайды (этап 10.4)
   if (!list.length){ toast('В конспекте пока нет слайдов'); return; }
   if (!checkNames()) return;   // этап 9.6: названия нужны для файлов Holyrics — как для JPEG и PDF
   exporting = true; motionPause();

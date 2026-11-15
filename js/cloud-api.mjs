@@ -46,7 +46,9 @@ export function summaryOf(d){
     lock: d.lock || null,
     // корзина (этап 9.1): пометки — только у проповеди в корзине (у остальных этих полей нет совсем)
     ...(d.deletedAt ? { deletedAt: d.deletedAt, deletedBy: d.deletedBy || '' } : {}),
-    slides: Math.min(500, blocks.filter(b => b && b.type !== 'note' && b.type !== 'splash').length),   // заметка оператору — не слайд; заставки не считаем (этап 7.7)
+    // заметка оператору — не слайд; заставки не считаем (этап 7.7); отрывок — столько слайдов, сколько у него частей (этап 10.4: split.starts, passage.js)
+    slides: Math.min(500, blocks.filter(b => b && b.type !== 'note' && b.type !== 'splash')
+      .reduce((n, b) => n + (b.type === 'scripture' && b.split && b.split.mode !== 'whole' && Array.isArray(b.split.starts) ? Math.max(1, b.split.starts.length) : 1), 0)),
     refs: refs.join(' · ').slice(0, 2000),
   };
 }

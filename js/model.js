@@ -170,6 +170,7 @@ function normalize(d){
       }
       nb.items = items.map(normItem).filter(Boolean);
       if (!nb.items.length) nb.items = [newScripture('ru')];
+      const sp = normSplit(b.split); if (sp) nb.split = sp; else delete nb.split;   // отрывок по слайдам (этап 10.4, passage.js)
       // вид стихов (в строку / с новой строки, рамка, заглавные, перевод, выравнивание) с 7.1 общий для всех слайдов:
       // собственные значения старых слайдов не используются
       ['parts', 'note', 'showNote', 'ref', 'translation', 'verses', 'autoFirst', 'caps', 'flow', 'frame', 'align', 'valign', 'showTr'].forEach(k => delete nb[k]);

@@ -358,12 +358,14 @@ function fitSlide(sl, b){
 }
 const previewTimers = {};
 function schedulePreview(b){
+  if (passageParts(b)){ unitsOf(b).forEach(schedulePreview); return; }   // отрывок: раскладываются его части (этап 10.4)
   clearTimeout(previewTimers[b.id]);
   previewTimers[b.id] = setTimeout(() => runPreview(b), 90);
 }
 /* Слайд может стоять в нескольких местах сразу (лента, сцена, вид «Текст»): раскладываем каждый,
    а подпись под сценой и пометку «длинный текст» считаем по большому слайду, если он есть */
 function runPreview(b){
+  if (passageParts(b)){ unitsOf(b).forEach(u => runPreview(u)); return; }
   const sls = mainEl.querySelectorAll('.sl[data-id="' + b.id + '"]'); if (!sls.length) return;
   let ratio = null, main = null;
   sls.forEach(sl => {
@@ -402,11 +404,17 @@ function runPreview(b){
   if (stageEl && stageEl._id === b.id) stageEl._fp = fp;
   if (main){
     const info = main.closest('.stage-view') && main.closest('.stage-view').querySelector('.stage-info');
-    if (info){ info.textContent = msg; info.classList.toggle('over', over); }
+    if (info){
+      info.textContent = msg; info.classList.toggle('over', over);
+      // этап 10.4: слишком много стихов на одном слайде — «Разбить» включает «По стихам»
+      const src = srcOf(b);
+      if (over && b.type === 'scripture' && !isPart(b) && splitItem(src) && splitItem(src).verses.length > 1 && !readOnly())
+        info.append(' ', h('button', { type:'button', class:'btn small split-now', onclick:() => { setSplitMode(src, 'verses', suggestPer(src, pct)); change(); rerender(src); } }, 'Разбить'));
+    }
   }
 }
 const previewRO = window.ResizeObserver ? new ResizeObserver(es => es.forEach(e => {
-  const b = state && state.blocks.find(x => x.id === e.target.dataset.id); if (b) schedulePreview(b);
+  const b = unitById(e.target.dataset.id); if (b) schedulePreview(b);
 })) : null;
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
   FM = null;

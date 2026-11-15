@@ -115,7 +115,7 @@ function restoreVersion(v){
   state.meta = src.meta; state.settings = src.settings;
   state.blocks = src.blocks.map(b => { if (TYPES[b.type] && TYPES[b.type].slide) b.todo = b.id in todo ? !!todo[b.id] : defaultTodo(b); return b; });
   applyFlags(state);
-  if (!state.blocks.some(b => b.id === selId)) selId = state.blocks[0] ? state.blocks[0].id : null;
+  if (!state.blocks.some(b => b.id === srcId(selId))) selId = state.blocks[0] ? state.blocks[0].id : null;
   change();
   closeSettings();
   renderAll();

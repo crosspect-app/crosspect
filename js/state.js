@@ -22,6 +22,7 @@ function persistDraft(){
 }
 function change(){
   if (roBlock()) return;   // только просмотр: правка отменяется, подсказка про «Редактировать»
+  passageTidyAll();   // части отрывка: линии и «Текст к слайду» после правки стихов (passage.js)
   state.updatedAt = Math.max(Date.now(), state.updatedAt + 1);   // только вперёд: иначе при отстающих часах правка выглядела бы сохранённой
   histRecord();   // отмена и возврат (history.js): запомнить, как было до правки
   clearTimeout(draftTimer);
@@ -35,7 +36,7 @@ const isDirty = () => state.updatedAt > (state.savedAt || 0) && (state.blocks.le
    [1] Заставка, [2] Писание, [3] Тезис, [1] Заставка, [4] Цитата. _total — число разных номеров (столько файлов в Holyrics) */
 function slideNums(){
   const m = {}; let n = 0, sp = 0;
-  state.blocks.forEach(b => {
+  units().forEach(b => {   // части отрывка (этап 10.4) — отдельные слайды со своими номерами
     if (!TYPES[b.type].slide) return;
     if (b.type === 'splash'){ if (!sp) sp = ++n; m[b.id] = sp; } else m[b.id] = ++n;
   });

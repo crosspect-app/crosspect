@@ -287,7 +287,7 @@ function updateStatus(){
   }
   const fc = $('#film-count');
   if (fc){
-    const n = slideCount(state), sp = state.blocks.filter(b => b.type === 'splash').length, todo = state.blocks.filter(todoOn).length;   // слайды без заставок — как в списке (этап 7.7)
+    const n = slideCount(state), sp = state.blocks.filter(b => b.type === 'splash').length, todo = units().filter(todoOn).length;   // слайды без заставок — как в списке (этап 7.7)
     const words = state.blocks.reduce((t, b) => t + (b.speech ? wordCount(b.speech) : 0), 0), min = words / WORDS_PER_MIN;
     fc.innerHTML = '';
     fc.append(...[h('span', { text:n + ' ' + plural(n, 'слайд', 'слайда', 'слайдов') + (sp ? ' + ' + sp + ' ' + plural(sp, 'заставка', 'заставки', 'заставок') : ''), title:'Как в списке проповедей: заставки считаются отдельно' }),

@@ -58,7 +58,7 @@ function refreshLang(lang){
     b.items.forEach(it => { if (it.kind === 'scripture' && !it.manual && srcKey(it.lang) === lang) syncVerses(it); });
     if (!inSlides()) return;
     schedulePreview(b);   // миниатюра в ленте и слайд на сцене
-    if (b.id !== selId) return;
+    if (b.id !== srcId(selId)) return;   // выбрана часть отрывка — тоже этот блок
     const a = document.activeElement, keep = a && a.classList && a.classList.contains('rich') && sideEl.contains(a);
     if (!keep) rerender(b);
   });

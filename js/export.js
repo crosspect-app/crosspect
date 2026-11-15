@@ -116,7 +116,7 @@ async function exportMany(){
   if (exporting) return;
   // в архив идёт одна заставка — первая (у всех заставок один номер в Holyrics, этап 9.6); своя заставка не входит совсем
   const first = state.blocks.find(b => b.type === 'splash');
-  const list = state.blocks.filter(b => PREVIEW[b.type] && (b.type !== 'splash' || (b === first && !isCustomSplash(b))));
+  const list = units().filter(b => PREVIEW[b.type] && (b.type !== 'splash' || (b === first && !isCustomSplash(b))));   // части отрывка — отдельные JPEG (этап 10.4)
   if (!list.length){ toast('В конспекте нет слайдов для архива: картинки, видео, свободные слайды и своя заставка в него не входят'); return; }
   if (!checkNames()) return;
   if (list.length === 1){ exportOne(list[0]); return; }

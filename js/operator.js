@@ -22,7 +22,7 @@ function opSnapshot(s){
   const m = s.meta || {};
   let n = 0, spN = 0;   // номера — как в Holyrics (slideNums в state.js): все заставки — с номером первой
   const blocks = [];
-  (s.blocks || []).forEach(b => {
+  allUnits((s.blocks || []).filter(Boolean)).forEach(b => {   // части отрывка — отдельные слайды (этап 10.4)
     if (!b || !TYPES[b.type]) return;
     if (b.type === 'note'){ const t = String(b.text || '').trim(); if (t) blocks.push({ t:'note', text:t }); return; }
     if (b.type === 'splash' && !spN) spN = ++n;
@@ -34,8 +34,9 @@ function opSnapshot(s){
           if (it.kind === 'line') return;
           if (it.kind === 'text'){ const x = sanitize(it.html); if (plain(x).trim()) o.items.push({ kind:'text', html:x }); return; }
           const verses = (it.verses || []).filter(v => plain(v.text).trim()).map(v => ({ num:String(v.num || ''), text:sanitize(v.text) }));
-          o.items.push({ kind:'ref', ref:String(it.ref || ''), tr:String(it.translation || ''), verses });
+          o.items.push({ kind:'ref', ref:String((b._part ? b._part.full : it.ref) || ''), tr:String(it.translation || ''), verses });
         });
+        if (b._part) o.part = { k:b._part.k + 1, n:b._part.n, on:b._part.on };
         break;
       case 'thesis': o.html = sanitize(b.text); break;
       case 'quote': o.html = sanitize(b.text); o.author = String(b.author || ''); o.caption = String(b.caption || ''); break;
@@ -351,8 +352,10 @@ function opBlock(b){
       (Array.isArray(b.items) ? b.items : []).forEach(it => {
         if (it.kind === 'text'){ const x = sanitize(it.html); if (x) card.append(h('div', { class:'opv-p opv-verses', html:x })); return; }
         const vs = (Array.isArray(it.verses) ? it.verses : []).map(v => (v.num ? '<sup>' + esc(String(v.num)) + '</sup>' + NBSP : '') + sanitize(v.text)).join(' ');
+        const P = b.part && typeof b.part === 'object' ? b.part : null;
         card.append(h('div', { class:'opv-p' },
           h('div', { class:'opv-ref' }, it.ref || 'Место не указано', it.tr ? h('span', { class:'opv-tr', text:it.tr }) : null),
+          P ? h('div', { class:'opv-part', text:'Слайд ' + (+P.k || 1) + ' из ' + (+P.n || 1) + ' · на экране ' + String(P.on || '') }) : null,
           vs ? h('div', { class:'opv-verses', html:vs }) : null));
       });
       break;

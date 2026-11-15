@@ -5,7 +5,7 @@
    Текст к слайду здесь можно править; чтобы поменять сам слайд, нажмите на миниатюру — откроется вид «Слайды». */
 function renderTextView(){
   const m = state.meta, nums = slideNums();
-  const words = state.blocks.reduce((t, b) => t + (b.speech ? wordCount(b.speech) : 0), 0), min = words / WORDS_PER_MIN;
+  const us = units(), words = us.reduce((t, b) => t + (b.speech ? wordCount(b.speech) : 0), 0), min = words / WORDS_PER_MIN;
   const splashes = state.blocks.filter(b => b.type === 'splash').length, n = slideCount(state);   // слайды без заставок, как в списке (этап 7.7)
   const stats = [n + ' ' + plural(n, 'слайд', 'слайда', 'слайдов'), splashes ? splashes + ' ' + plural(splashes, 'заставка', 'заставки', 'заставок') : '',
     words ? (min < 0.75 ? 'текст меньше минуты' : 'текст около ' + Math.round(min) + ' мин') : ''].filter(Boolean).join(' · ');
@@ -14,7 +14,16 @@ function renderTextView(){
       h('h1', { class:m.title ? '' : 'empty', text:m.title || 'Без названия', title:readOnly() ? 'О проповеди' : 'Изменить название', onclick:() => openMeta() }),
       h('div', { class:'tv-stats', text:[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') }),
       h('div', { class:'tv-stats', text:stats })));
-  state.blocks.forEach(b => { const el = tvBlock(b, nums[b.id]); if (el) doc.append(el); });
+  let grp = null;   // части отрывка (этап 10.4) — в одной обёртке с полосой слева и подписью над первой
+  us.forEach(b => {
+    const el = tvBlock(b, nums[b.id]); if (!el) return;
+    if (!isPart(b)){ grp = null; doc.append(el); return; }
+    if (!grp || grp._src !== b._src){
+      grp = h('div', { class:'tv-passage', style:'--tc:var(--c-scripture)' }, h('div', { class:'tv-pcap', text:'Отрывок · ' + b._part.full + ' · ' + slidesWord(b._part.n) }));
+      grp._src = b._src; doc.append(grp);
+    }
+    grp.append(el);
+  });
   if (!state.blocks.length) doc.append(h('p', { class:'hint', text:'Пока нет ни одного слайда. Добавить их можно в виде «Слайды».' }));
   mainEl.append(h('div', { class:'tv' }, doc, tvSide()));
   state.blocks.forEach(b => { if (PREVIEW[b.type]) schedulePreview(b); });
@@ -67,7 +76,8 @@ function tvSlide(b, n){
         const verses = it.verses.filter(x => plain(x.text).trim())
           .map(x => '<span>' + (x.num ? '<sup>' + esc(x.num) + '</sup>' : '') + sanitize(x.text) + '</span>').join(' ');
         c.append(h('div', null,
-          h('div', { class:'vs-ref' }, it.ref || 'Место не указано', it.translation && h('span', { class:'vs-tr', text:it.translation })),
+          h('div', { class:'vs-ref' }, (b._part ? b._part.full : it.ref) || 'Место не указано', it.translation && h('span', { class:'vs-tr', text:it.translation })),
+          b._part ? h('div', { class:'vs-part', text:partPlate(b._part) }) : null,
           h('div', { class:'vs-verses', html:verses || '<span class="empty-v">Текст не вставлен</span>' })));
       });
       break;
@@ -107,7 +117,7 @@ function sermonChecks(){
     if (b.type === 'video' && b.mode === 'send') out.push({ ok:false, text:'Слайд ' + k + ' — видео пришлют отдельно' });
     if (b.type === 'scripture' && !b.items.some(it => it.kind === 'scripture' && (it.verses || []).some(v => plain(v.text).trim()))) out.push({ ok:false, text:'Слайд ' + k + ' — не выбрано место Писания' });
   });
-  const todo = state.blocks.filter(todoOn).length;
+  const todo = units().filter(todoOn).length;
   if (todo) out.push({ ok:false, text:'Отмечено «доработать»: ' + todo });
   if (out.every(x => x.ok)) out.push({ ok:true, text:'Замечаний нет' });
   return out;

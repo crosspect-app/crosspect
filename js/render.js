@@ -363,12 +363,53 @@ function scriptureEditor(block, it, pi){
     grid.title = it.lang === 'own' ? 'Выберите номера стихов, а текст каждого стиха вставьте ниже. Shift + щелчок — выделить диапазон'
       : 'Нажимайте на номера стихов. Shift + щелчок — выделить диапазон. Текст можно поправить ниже: выделить слово, сделать жирным';
   }
+  if (block.items.findIndex(x => x.kind === 'scripture') === pi) wrap.append(splitSection(block, it));   // «Слайды отрывка» (этап 10.4) — под выбором стихов
   if (it.verses.length){
     const vs = h('div', { class:'verses' });
-    it.verses.forEach((v, vi) => vs.append(autoVerseRow(block, it, pi, vi)));
+    const manual = splitItem(block) === it && block.split && block.split.mode === 'manual' && it.verses.length > 1 && !readOnly();
+    const st = manual ? partStarts(block) : [], nums = manual ? slideNums() : null, us = manual ? unitsOf(block) : [];
+    if (manual) vs.classList.add('manual');
+    it.verses.forEach((v, vi) => {
+      if (manual){
+        const k = st.indexOf(vi), num = us[Math.max(0, k)] ? nums[us[Math.max(0, k)].id] : '';
+        if (vi === 0) vs.append(h('div', { class:'vbreak first' }, h('span', { class:'vb-cap', text:'слайд ' + num })));
+        else vs.append(h('button', { type:'button', class:'vbreak' + (k > 0 ? ' on' : ''), 'aria-pressed':String(k > 0),
+          title:k > 0 ? 'Убрать разрыв: стих ' + v.num + ' останется на предыдущем слайде' : 'Начать новый слайд со стиха ' + v.num,
+          onclick:() => { toggleBreak(block, +v.num); change(); rerender(block); } }, k > 0 ? h('span', { class:'vb-cap', text:'слайд ' + num }) : null));
+      }
+      vs.append(autoVerseRow(block, it, pi, vi));
+    });
     wrap.append(vs);
   }
   return wrap;
+}
+/* «Слайды отрывка» (этап 10.4): весь отрывок на одном слайде, по N стихов или вручную — линиями между стихами */
+function splitSection(block, it){
+  const ok = splitItem(block) === it && (it.verses || []).length > 1;
+  const sp = block.split || {}, mode = ok ? sp.mode || 'whole' : 'whole';
+  const set = (m, per) => { setSplitMode(block, m, per); change(); rerender(block); };
+  const sec = h('div', { class:'split-sec' + (ok ? '' : ' off') },
+    h('span', { class:'lbl', text:'Слайды отрывка' }),
+    toggle([['whole', 'Целиком'], ['verses', 'По стихам'], ['manual', 'Вручную']], mode, v => set(v, v === 'verses' && !sp.per ? suggestPer(block, SQUEEZE[block.id]) : 0)));
+  if (!ok){
+    sec.inert = true;
+    sec.title = (it.verses || []).length > 1 || block.items.length > 1 ? SPLIT_OFF_TIP : 'Выберите несколько стихов, и отрывок можно будет разбить на слайды';
+    return sec;
+  }
+  if (mode === 'verses'){
+    const per = Math.max(1, sp.per || 2), max = it.verses.length;
+    const minus = h('button', { type:'button', title:'Меньше стихов на слайде', 'aria-label':'Меньше стихов на слайде', disabled:per <= 1, onclick:e => { e.preventDefault(); set('verses', per - 1); } }, '−');
+    const plus = h('button', { type:'button', title:'Больше стихов на слайде', 'aria-label':'Больше стихов на слайде', disabled:per >= max, onclick:e => { e.preventDefault(); set('verses', per + 1); } }, '+');
+    sec.append(h('div', { class:'opt-row' }, h('div', { class:'step', style:'margin:0' }, minus, h('span', { text:String(per) }), plus),
+      h('span', { class:'hint', style:'margin:0', text:plural(per, 'стих', 'стиха', 'стихов') + ' на слайде' })));
+  } else if (mode === 'manual') sec.append(h('p', { class:'hint', text:'Нажмите на линию между стихами, чтобы начать с этого стиха новый слайд. Ещё раз — убрать разрыв.' }));
+  const ps = passageParts(block);
+  if (ps){
+    const nums = slideNums(), us = unitsOf(block);
+    sec.append(h('div', { class:'parts' }, us.map(u => h('button', { type:'button', class:'part-row' + (u.id === selId ? ' on' : ''), onclick:() => selectBlock(u.id) },
+      h('span', { class:'pr-n', text:String(nums[u.id]) }), ' — ' + u.items[0].ref + ' · ' + versesWord(u._part.count)))));
+  }
+  return sec;
 }
 function autoVerseRow(block, it, pi, vi){
   const v = it.verses[vi];
@@ -595,6 +636,7 @@ const BODY = {
         const part = partEditor(b, it, i);
         part.append(h('div', { class:'chips' }, chip('plus', 'Стих', () => addVerse(b, it, i))));
         box.append(part);
+        if (b.items.findIndex(x => x.kind === 'scripture') === i) box.append(splitSection(b, it));   // введённое вручную место не разбивается: раздел неактивен
       }
       else box.append(scriptureEditor(b, it, i));
       body.append(box);
@@ -761,8 +803,9 @@ function moveTo(b, at, o){
 }
 function duplicate(b){
   const c = JSON.parse(JSON.stringify(b)); c.id = uid();
-  const had = TYPES[b.type].slide && plain(b.speech).trim();
+  const had = TYPES[b.type].slide && unitsOf(b).some(u => plain(u.speech).trim());
   if (TYPES[b.type].slide) c.speech = '';   // текст к слайду не копируется: иначе он окажется в проповеди дважды
+  if (c.split) delete c.split.speech;   // у отрывка — и тексты к его частям
   state.blocks.splice(state.blocks.indexOf(b) + 1, 0, c);
   selId = c.id;
   motionFilm(() => { change(); renderMain(); }, { add:c.id, hl:c.id, done:() => flash(c.id, b.id) });   // копия вырастает под исходным и ~1 с светится жёлтой рамкой; видны обе
@@ -772,10 +815,11 @@ function duplicate(b){
 function removeBlock(b){
   const i = state.blocks.indexOf(b);
   let heir = null, heirOld = '';
-  if (TYPES[b.type].slide && plain(b.speech).trim()){
+  const said = TYPES[b.type].slide ? unitsOf(b).map(u => u.speech).reduce(joinSpeech, '') : '';   // у отрывка — тексты всех его частей
+  if (plain(said).trim()){
     const prev = state.blocks.slice(0, i).reverse().find(x => TYPES[x.type].slide), next = state.blocks.slice(i + 1).find(x => TYPES[x.type].slide);
-    heir = prev || next || null;
-    if (heir){ heirOld = heir.speech; heir.speech = prev ? joinSpeech(heir.speech, b.speech) : joinSpeech(b.speech, heir.speech); }
+    heir = prev ? unitsOf(prev).slice(-1)[0] : next ? unitsOf(next)[0] : null;   // соседний отрывок: его последняя или первая часть
+    if (heir){ heirOld = heir.speech; heir.speech = prev ? joinSpeech(heir.speech, said) : joinSpeech(said, heir.speech); }
   }
   state.blocks.splice(i, 1);
   { const nb = state.blocks[Math.min(i, state.blocks.length - 1)]; selId = nb ? nb.id : null; }   // выбран следующий слайд (удалили последний — предыдущий)

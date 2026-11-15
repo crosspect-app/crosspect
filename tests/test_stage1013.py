@@ -385,7 +385,8 @@ def test_pdf_pages_break_between_cards(page, sermon):
       return { pages, cards, glyphs:d.glyphs.length };
     }""")
     assert len(res["pages"]) >= 2 and res["glyphs"] > 100
-    for top, cut in res["pages"][:-1]:
+    for pg in res["pages"][:-1]:
+        cut = pg["cut"]
         assert not any(a < cut - 0.5 and b > cut + 0.5 for a, b in res["cards"]), cut   # карточка не разрезана
 
 

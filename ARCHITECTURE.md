@@ -32,7 +32,7 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 ```
 Блоки — слайды по порядку и заметки оператору между ними. Общее: `id, type, collapsed`. У слайдов (`TYPES[type].slide`) ещё `todo` («доработать») и `speech` — «Текст к слайду», HTML (`sanitize`). Поля `done` («готово») больше нет: `normalize` его убирает. По типам:
 - `splash`: только общие поля; название, имя и дата берутся из `meta`
-- `scripture`: (вид стихов — общий, в настройках слайдов) `items:[ {kind:'scripture', lang, book, chapter, sel, verses:[{num,text,orig}], ref, translation} | {kind:'scripture', manual:true, mBook, mChapter, mVerses, translation, verses:[{num,text}]} | {kind:'text', html, align, caps} | {kind:'line'} ]`
+- `scripture`: (вид стихов — общий, в настройках слайдов) `items:[ {kind:'scripture', lang, book, chapter, sel, verses:[{num,text,orig}], ref, translation} | {kind:'scripture', manual:true, mBook, mChapter, mVerses, translation, verses:[{num,text}]} | {kind:'text', html, align, caps} | {kind:'line'} ]`; `split` — отрывок (`js/passage.js`)
 - `thesis`: `name, nameAuto, valign, parts:[ {kind:'text', html, align, scale, caps, frame} | {kind:'line'} ]`; `text` — склейка частей (для названия и старых версий)
 - `quote`: `text, author, caption, scale, caps, half` (`half`: `full` / `left` / `right` — текст на всю ширину или на левой / правой половине слайда, этап 9.3; `normalize` приводит к `full`; в `layoutBox` ставится `data-half` на `.sl-box` и `.sl-author`, CSS `.sl-box-quote[data-half=…]`)
 - `image`: `name, mode('find'|'send'), desc`; `video`: `name, mode('link'|'send'), url, from, to, desc`; `free`: `name, desc`
@@ -54,4 +54,4 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 - JPEG: слайд раскладывается в скрытом контейнере тем же кодом, клонируется вместе с CSS-правилами `.sl*` и шрифтами в SVG foreignObject и рисуется в canvas. Поэтому классы режимов вешаются на `.sl-stage`, а не на `.sl`.
 
 ## Выпуск
-Файл `.github/workflows/ci.yml`: на каждый коммит идут тесты формы (`Тесты`) и правил (`Правила Firestore`); если коммит в `main` и всё прошло, сайт (`index.html`, `css`, `js`, `data`) выкладывается на GitHub Pages, а правила и индексы — в Firebase (`Выкладка правил Firestore`; без секрета `FIREBASE_SERVICE_ACCOUNT` шаг пропускается). Адрес: `https://crosspect-app.github.io/crosspect/`. В Settings → Pages источник должен быть «GitHub Actions».
+Файл `.github/workflows/ci.yml`: на каждый коммит идут тесты формы (`Тесты`) и правил (`Правила Firestore`); если коммит в `main` и всё прошло, сайт (`index.html`, `css`, `js`, `data`) выкладывается на GitHub Pages, а правила и индексы — в Firebase (`Выкладка правил Firestore`; без секрета `FIREBASE_SERVICE_ACCOUNT` шаг пропускается). Адрес: `https://crosspect.app`. В Settings → Pages источник должен быть «GitHub Actions».

@@ -6,8 +6,9 @@
 let filmEl = null, stageEl = null, sideEl = null;
 let filmOnlyTodo = false;   // в ленте только слайды с отметкой «доработать» (для редактора)
 let svFor = null;           // для какой проповеди построен экран «Слайды»: пока она та же, экран обновляется точечно (syncSlides)
-const curBlock = () => (state && state.blocks.find(b => b.id === selId)) || null;
-const blockById = id => (state && state.blocks.find(b => b.id === id)) || null;
+/* Выбранный слайд — «единица»: обычный блок или часть отрывка (passage.js). Части больше нет — последняя часть того же блока */
+const curBlock = () => { const u = unitById(selId); if (u && u.id !== selId) selId = u.id; return u; };
+const blockById = id => (state && state.blocks.find(b => b.id === srcId(id))) || null;   // блок в данных (у части — весь отрывок)
 const inSlides = () => screen === 'sermon' && view === 'slides' && !!filmEl && filmEl.isConnected;
 
 /* Экран «Слайды» с нуля: открыли проповедь, пришли из «Текста», появился первый слайд.
@@ -93,16 +94,16 @@ function filmActs(id){
   return h('div', { class:'st-acts' }, iconBtn('dup', 'Дублировать', B(duplicate)), iconBtn('trash', 'Удалить', B(removeBlock), 'danger'));
 }
 function filmItem(b, n){
-  const id = b.id;
+  const id = b.id, part = isPart(b);
   const btn = h('button', { type:'button', 'data-id':id, style:'--tc:var(--c-' + b.type + ')', onclick:() => { if (!dragClick) selectBlock(id); },
     onkeydown:e => { if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && canArrange()){ e.preventDefault(); const x = blockById(id); if (x) move(x, e.key === 'ArrowUp' ? -1 : 1); } },   // Alt+↑/↓ — переставить с клавиатуры
     class:'st t-' + b.type },
-    h('div', { class:'st-thumb' }, thumbBody(b, n), h('span', { class:'fl', text:'доработать' })),
+    h('div', { class:'st-thumb' }, thumbBody(b, n), h('span', { class:'fl', text:'доработать' }), part ? h('span', { class:'st-pn', text:(b._part.k + 1) + '/' + b._part.n }) : null),
     h('div', { class:'st-cap' },
       TYPES[b.type].slide ? h('span', { class:'st-n' }) : h('span', { class:'st-n' }, ic('note')),
       h('span', { class:'st-name' })));
   // «Дублировать» и «Удалить» (этап 7.4): значки на миниатюре — при наведении и при фокусе; на телефоне и планшете у выбранной видны всегда. Не вложены в кнопку слайда
-  const box = h('div', { class:'st-box', 'data-box':id }, btn);
+  const box = part ? h('div', { class:'st-box ppart', 'data-unit':id }, btn) : h('div', { class:'st-box', 'data-box':id, 'data-unit':id }, btn);
   box._fp = null;
   updateItem(box, b, n);
   return box;
@@ -148,17 +149,45 @@ function updateItem(box, b, n){
   const ph = btn.querySelector('.ph-thumb span'); if (ph) ph.textContent = mediaInfo(b, n).short;
   const mn = btn.querySelector('.mini-note'); if (mn) mn.textContent = (b.text || '').trim() || 'Заметка оператору';
   paintProblem(box, b);
+  if (isPart(b)){ const pn = btn.querySelector('.st-pn'), t = (b._part.k + 1) + '/' + b._part.n; if (pn && pn.textContent !== t) pn.textContent = t; return; }   // у частей отрывка значков нет: они у подписи отрывка
   const acts = box.querySelector('.st-acts');
   if (readOnly()){ if (acts) acts.remove(); }
   else if (!acts) box.append(filmActs(b.id));
 }
+/* Отрывок в ленте (этап 10.4): части в одной обёртке со скобкой слева, над ними подпись и значки «Дублировать» / «Удалить» на весь отрывок.
+   Перетаскивается обёртка целиком; «+» между частями нет */
+function filmGroup(b){
+  const box = h('div', { class:'st-box pgroup', 'data-box':b.id, style:'--tc:var(--c-' + b.type + ')' },
+    h('div', { class:'pg-head' }, h('span', { class:'pg-cap' })), h('div', { class:'pg-body' }));
+  box._parts = new Map();
+  return box;
+}
+function syncGroup(box, b, nums){
+  const cap = box.querySelector('.pg-cap'), t = passageLabel(b); if (cap.textContent !== t) cap.textContent = t;
+  const head = box.firstElementChild, acts = head.querySelector('.st-acts');
+  if (readOnly()){ if (acts) acts.remove(); } else if (!acts) head.append(filmActs(b.id));
+  const body = box.querySelector('.pg-body'), want = [];
+  unitsOf(b).forEach(u => {
+    if (filmOnlyTodo && !todoOn(u)) return;
+    let pb = box._parts.get(u.id);
+    if (pb){ box._parts.delete(u.id); updateItem(pb, u, nums[u.id]); } else pb = filmItem(u, nums[u.id]);
+    want.push([u.id, pb]);
+  });
+  box._parts.forEach(x => x.remove());
+  box._parts = new Map(want);
+  let ref = body.firstChild;
+  want.forEach(([, n]) => { if (n === ref) ref = ref.nextSibling; else body.insertBefore(n, ref); });
+  while (ref){ const nx = ref.nextSibling; ref.remove(); ref = nx; }
+}
+/* Узел миниатюры слайда или части по id */
+const unitBox = id => filmEl && filmEl.querySelector('.st-box[data-unit="' + id + '"]');
 function renderFilm(){
   filmEl.innerHTML = '';
   syncFilm();
 }
 function syncFilm(){
   const nums = slideNums();
-  if (filmOnlyTodo && !state.blocks.some(todoOn)) filmOnlyTodo = false;   // отмеченных не осталось: показываем всё
+  if (filmOnlyTodo && !units().some(todoOn)) filmOnlyTodo = false;   // отмеченных не осталось: показываем всё
   let head = filmEl.querySelector(':scope > .film-head');
   if (!head){ head = h('div', { class:'film-head', id:'film-count' }); filmEl.prepend(head); }
   const arrange = canArrange(), ro = readOnly();
@@ -167,10 +196,12 @@ function syncFilm(){
   filmEl.querySelectorAll(':scope > .st-box').forEach(x => old.set(x.dataset.box, x));
   const want = [];
   state.blocks.forEach((b, i) => {
-    if (filmOnlyTodo && !todoOn(b)) return;
-    let box = old.get(b.id);
-    if (box){ old.delete(b.id); updateItem(box, b, nums[b.id]); }
-    else box = filmItem(b, nums[b.id]);
+    const grp = !!passageParts(b);
+    if (filmOnlyTodo && !unitsOf(b).some(todoOn)) return;
+    let box = old.get(b.id), gap = null;
+    if (box && box.classList.contains('pgroup') !== grp){ gap = box._gap; old.delete(b.id); box.remove(); box = null; }   // отрывок стал одним слайдом или наоборот — новый узел
+    if (box){ old.delete(b.id); if (grp) syncGroup(box, b, nums); else updateItem(box, b, nums[b.id]); }
+    else { box = grp ? filmGroup(b) : filmItem(b, nums[b.id]); if (gap) box._gap = gap; if (grp) syncGroup(box, b, nums); }
     if (arrange){ const g = box._gap || (box._gap = filmGap()); g.dataset.at = String(i); g.classList.toggle('first', !want.length); want.push(g); }   // «+» между слайдами и перед первым: вставить сюда; виден при наведении (этап 9.8)
     want.push(box);
   });
@@ -192,9 +223,9 @@ function syncFilm(){
   if (focus && focus.isConnected && document.activeElement !== focus) focus.focus({ preventScroll:true });
   if (arrange) armDrag(filmEl);
   // новые миниатюры — разложить сразу (шрифты и фон к этому времени готовы: slideAssetsReady в app.js); изменённые — на месте
-  state.blocks.forEach(b => {
+  units().forEach(b => {
     if (!PREVIEW[b.type]) return;
-    const box = filmEl.querySelector(':scope > .st-box[data-box="' + b.id + '"]'); if (!box) return;
+    const box = unitBox(b.id); if (!box) return;
     if (box._fp !== thumbFp(b)){ clearTimeout(previewTimers[b.id]); runPreview(b, box); }
   });
   updateStatus();
@@ -213,12 +244,12 @@ function filmGap(){
 function filmReveal(id, o){
   o = o || {};
   if (!inSlides() || !id) return;
-  const box = filmEl.querySelector(':scope > .st-box[data-box="' + id + '"]'); if (!box) return;
+  const box = unitBox(id); if (!box) return;
   const row = getComputedStyle(filmEl).flexDirection === 'row';
   const pos = el => { let a = 0, e = el; while (e && e !== filmEl){ a += row ? e.offsetLeft : e.offsetTop; e = e.offsetParent; } return a; };
   const view = row ? filmEl.clientWidth : filmEl.clientHeight, cur = row ? filmEl.scrollLeft : filmEl.scrollTop, m = 10;
   let a = pos(box), z = a + (row ? box.offsetWidth : box.offsetHeight);
-  const other = o.with && filmEl.querySelector(':scope > .st-box[data-box="' + o.with + '"]');
+  const other = o.with && unitBox(o.with);
   if (other){ const oa = pos(other), oz = oa + (row ? other.offsetWidth : other.offsetHeight); if (Math.max(z, oz) - Math.min(a, oa) + 2 * m <= view){ a = Math.min(a, oa); z = Math.max(z, oz); } }
   let to = cur;
   if (o.center) to = (a + z) / 2 - view / 2;
@@ -241,7 +272,8 @@ function armDrag(film){
   film.dataset.armed = '1';
   film.addEventListener('pointerdown', e => {
     const it = e.target.closest('.st'); if (!it || e.button > 0 || !canArrange()) return;
-    const d = drag = { id:it.dataset.id, it, box:it.closest('.st-box'), x0:e.clientX, y0:e.clientY, x:e.clientX, y:e.clientY, pid:e.pointerId, mouse:e.pointerType === 'mouse', on:false, at:-1, timer:0, raf:0 };
+    const gb = it.closest('.pgroup') || it.closest('.st-box');   // часть отрывка тянет весь отрывок
+    const d = drag = { id:gb.dataset.box, it, box:gb, x0:e.clientX, y0:e.clientY, x:e.clientX, y:e.clientY, pid:e.pointerId, mouse:e.pointerType === 'mouse', on:false, at:-1, timer:0, raf:0 };
     if (!d.mouse) d.timer = setTimeout(() => { if (drag === d) startDrag(film, d); }, 380);
   });
   film.addEventListener('pointermove', e => {
@@ -342,13 +374,14 @@ function toggleOnlyTodo(){ filmOnlyTodo = !filmOnlyTodo; syncFilm(); }
 /* Обновить подпись и отметки одной миниатюры, не пересобирая ленту */
 function refreshThumb(b){
   if (!inSlides()) return;
-  const box = filmEl.querySelector(':scope > .st-box[data-box="' + b.id + '"]'); if (!box) return;
+  if (b.type === 'scripture'){ syncFilm(); return; }   // Писание может стать отрывком или перестать им быть: лента точечно (части, подпись)
+  const box = unitBox(b.id); if (!box) return;
   updateItem(box, b, slideNums()[b.id]);
   updateStatus();
 }
 
 function selectBlock(id){
-  if (id === selId || !state.blocks.some(b => b.id === id)) return;
+  if (id === selId || !unitById(id)) return;
   selId = id; histSel(id);
   filmEl.querySelectorAll('.st.on').forEach(x => x.classList.remove('on'));
   const it = filmEl.querySelector('.st[data-id="' + id + '"]');
@@ -358,8 +391,8 @@ function selectBlock(id){
   renderStage(); renderSide();
 }
 function stepSel(d){
-  const i = state.blocks.indexOf(curBlock()), j = i + d;
-  if (j >= 0 && j < state.blocks.length) selectBlock(state.blocks[j].id);
+  const us = units(), i = us.indexOf(curBlock()), j = i + d;
+  if (j >= 0 && j < us.length) selectBlock(us[j].id);
 }
 
 /* ----- Сцена: слайд, панель над ним, «Текст к слайду» -----
@@ -392,9 +425,10 @@ function syncStage(){
   else if (sp){ const r = sp.querySelector('.rich'); if (r) r.inert = readOnly(); }   // вход в правку и выход: только доступность
 }
 function stageBar(b, n){
-  const T = TYPES[b.type], i = state.blocks.indexOf(b), total = state.blocks.length;
+  const T = TYPES[b.type], us = units(), i = us.indexOf(b), total = us.length;
+  const P = b._part;
   return h('div', { class:'stage-bar' },
-    h('span', { class:'cap strong', text:(T.slide ? n + ' · ' : '') + T.label }),
+    h('span', { class:'cap strong', text:(T.slide ? n + ' · ' : '') + T.label + (P ? ' · отрывок, слайд ' + (P.k + 1) + ' из ' + P.n : '') }),
     h('div', { class:'grow' }),
     T.slide && h('button', { type:'button', class:'btn', title:'Скопировать название слайда для Holyrics', onclick:() => copyText(slideName(b, n), 'Скопировано: ') }, ic('tag'), 'Название'),
     (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn jpg-btn', disabled:isCustomSplash(b), title:isCustomSplash(b) ? 'У своей заставки JPEG не собирается: заставку вы делаете сами' : BLANK_JPEG[b.type] ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
@@ -446,7 +480,7 @@ function renderSide(){
   sideEl.className = 'side t-' + b.type;
   sideEl.style.setProperty('--tc', 'var(--c-' + b.type + ')');
   const body = h('div', { class:'bbody' });
-  BODY[b.type](b, body, n);
+  BODY[b.type](srcOf(b), body, n);   // у части отрывка правится весь отрывок
   if (readOnly()) body.inert = true;   // просмотр: поля серые (CSS по [inert]), щелчок подсвечивает «Редактировать» (lock.js); плашки «Только просмотр» нет с этапа 9.8
   const capTip = b.type !== 'scripture' ? '' : canEditSlidesCfg()
     ? 'Как выглядят стихи (в строку или с новой строки, рамка, выравнивание), задано для всех слайдов: меню «⋯» → «Настройки слайдов»'
@@ -468,6 +502,7 @@ function syncSide(){
 /* Перерисовать настройки и панель выбранного слайда; миниатюра и предпросмотр обновляются сразу, без паузы */
 function rerender(b, focusKey, offset){
   if (!inSlides()) return;
+  if (b.type === 'scripture'){ rerenderPassage(srcOf(b), focusKey, offset); return; }
   if (b.id === selId){
     const bar = stageEl.querySelector('.stage-bar');
     if (bar) bar.replaceWith(stageBar(b, slideNums()[b.id]));
@@ -477,6 +512,20 @@ function rerender(b, focusKey, offset){
   refreshThumb(b);
   if (PREVIEW[b.type]){ clearTimeout(previewTimers[b.id]); runPreview(b); }
   else updateCounter(b);
+  if (focusKey) focusRich(focusKey, offset);
+}
+/* Писание (и отрывок): части могли появиться, пропасть или сдвинуться — лента и сцена точечно, справа — заново */
+function rerenderPassage(b, focusKey, offset){
+  const cur = curBlock();
+  syncFilm();
+  if (cur && srcOf(cur) === b){
+    const u = curBlock();
+    if (stageEl._id !== u.id) renderStage();
+    else { const bar = stageEl.querySelector('.stage-bar'); if (bar) bar.replaceWith(stageBar(u, slideNums()[u.id])); syncStage(); }
+    renderSide();
+    stageEl._fp = thumbFp(u);
+  }
+  unitsOf(b).forEach(u => { clearTimeout(previewTimers[u.id]); runPreview(u); });
   if (focusKey) focusRich(focusKey, offset);
 }
 /* Данные слайда изменились: пересчитать предпросмотр, подпись и заглушку */

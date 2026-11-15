@@ -1295,6 +1295,47 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .sp-inline{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
 .sp-num{width:84px;text-align:center}
 
+/* ---------- Отрывок по слайдам (этап 10.4) ---------- */
+/* лента: части отрывка в обёртке, жёлтая скобка слева, подпись и значки над первой частью */
+.pgroup{display:flex;flex-direction:column;gap:6px;padding-left:9px}
+.pgroup::before{content:"";position:absolute;left:0;top:7px;bottom:6px;width:5px;border:2px solid var(--c-scripture);border-right:0;border-radius:6px 0 0 6px;opacity:.85}
+.pg-head{position:relative;display:flex;align-items:center;gap:6px;min-height:24px;padding:0 4px;font:600 10.5px/1.3 'Inter',sans-serif;color:var(--c-scripture);letter-spacing:.02em}
+.pg-cap{flex:1;min-width:0;overflow-wrap:anywhere}
+.pg-head .st-acts{right:2px;top:50%;bottom:auto;transform:translateY(-50%);padding:2px;border-radius:9px;background:var(--bg)}
+.pgroup:hover > .pg-head .st-acts,.pg-head:focus-within .st-acts{opacity:1;pointer-events:auto}
+@media (hover:none){ .pg-head .st-acts{opacity:1;pointer-events:auto} }
+.pg-body{display:flex;flex-direction:column;gap:6px}
+.st-pn{position:absolute;left:6px;bottom:6px;z-index:2;font:700 10px/1 'Inter',sans-serif;background:rgba(0,0,0,.6);color:var(--c-scripture);padding:3px 5px;border-radius:5px}
+/* справа: «Слайды отрывка», линии между стихами, список частей */
+.split-sec{display:flex;flex-direction:column;gap:8px}
+.split-sec .lbl{margin-bottom:0}
+.split-sec.off{opacity:.45}
+.split-sec .opt-row{display:flex;align-items:center;gap:10px}
+.split-sec .parts{display:flex;flex-direction:column;gap:2px}
+.part-row{display:flex;gap:4px;align-items:baseline;width:100%;padding:6px 8px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:500 12px/1.3 'Inter',sans-serif;text-align:left;cursor:pointer}
+.part-row:hover{background:var(--surface)}
+.part-row.on{color:var(--text);background:color-mix(in srgb, var(--c-scripture) 14%, transparent)}
+.pr-n{font-weight:700;color:var(--c-scripture)}
+.verses.manual{gap:0}
+.verses.manual .verse{margin:4px 0}
+.vbreak{position:relative;display:block;width:100%;height:18px;margin:0;padding:0;border:0;background:transparent;cursor:pointer}
+.vbreak::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--line-2)}
+.vbreak:hover::before{border-top-color:var(--muted)}
+.vbreak.on::before,.vbreak.first::before{border-top:2px solid var(--c-scripture)}
+.vbreak.first{cursor:default}
+.vb-cap{position:absolute;left:8px;top:50%;transform:translateY(-50%);padding:0 6px;background:var(--surface);color:var(--c-scripture);font:700 9.5px/1.4 'Inter',sans-serif;letter-spacing:.1em;text-transform:uppercase}
+.stage-info .split-now{margin-left:8px;vertical-align:middle}
+/* «Текст»: части отрывка связаны полосой, над ними подпись; у каждой — плашка «Слайд 1 из 2 · на экране …» */
+.tv-passage{position:relative;border-left:3px solid var(--c-scripture);padding-left:14px;margin:6px 0 6px -17px}
+.tv-pcap{padding:14px 0 0;font-size:calc(12px * var(--vs));font-weight:600;color:var(--muted);letter-spacing:.02em}
+.vs-part{display:inline-block;margin:6px 0 8px;padding:3px 9px;border-radius:99px;background:color-mix(in srgb, var(--c-scripture) 22%, transparent);font-size:calc(12px * var(--vs));font-weight:600}
+/* PDF и страница оператора */
+#print-op .op-v{margin:0 0 .8mm}
+#print-op .op-part{display:inline-block;margin:1mm 0 1.4mm;padding:.5mm 2mm;border-radius:3mm;background:#f6ead9;font-size:7pt;font-weight:600;color:#7a5a37}
+#print-op .op-passage{border-left:.9mm solid #e2b07a;padding-left:2.4mm;margin:3mm 0}
+#print-op .op-pcap{font-size:7.5pt;font-weight:600;color:#8a6d45;padding-top:.5mm}
+.opv-part{display:inline-block;margin:4px 0 6px;padding:2px 8px;border-radius:99px;background:color-mix(in srgb, var(--accent) 18%, transparent);font-size:12px;font-weight:600}
+
 /* ---------- Телефон (этап 10.1.1) ----------
    Вид меняется только в узком окне (max-width:760px), а всё про скорость (стена-картинка, без размытия и движения) — только на телефоне:
    касание без наведения (то же условие, что isPhone() в util.js). На компьютере ничего не меняется, даже в узком окне: стена остаётся стеной */
@@ -1379,4 +1420,11 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
   .hb-grain,.hb-haze{display:none}
   .overlay{background:rgba(5,7,12,.75);backdrop-filter:none;-webkit-backdrop-filter:none}
   .gate-grain{animation:none}
+}
+@media (max-width:760px){
+  /* отрывок в ленте-строке (этап 10.4): части рядом, скобка снизу слева, подпись над ними */
+  .st-box.pgroup{width:auto;padding:0 0 0 9px}
+  .pg-body{flex-direction:row}
+  .pgroup .ppart{width:150px}
+  .pg-cap{white-space:nowrap}
 }

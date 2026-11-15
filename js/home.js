@@ -206,7 +206,7 @@ function resetHomeFilters(){ homeView.f = JSON.parse(JSON.stringify(HOME_VIEW_DE
 
 /* Число слайдов в списке и в проповеди — без заставок (этап 7.7). Заметки оператору — не слайды. Картинки, видео и свободные
    слайды, в том числе «пришлю отдельно», считаются: на экране они будут */
-const slideCount = d => (d.blocks ? d.blocks.filter(b => TYPES[b.type].slide && b.type !== 'splash').length : d.slides || 0);
+const slideCount = d => (d.blocks ? allUnits(d.blocks).filter(b => TYPES[b.type].slide && b.type !== 'splash').length : d.slides || 0);
 
 /* Пометка у строки: правки из этого браузера ещё не в облаке */
 function cloudMark(d){

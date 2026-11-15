@@ -103,10 +103,11 @@ async function loadFlags(id){
 /* Наложить отметки на проповедь, пришедшую из облака */
 function applyFlags(s){
   if (!s || !cloudOn() || fl.id !== s.id) return s;
-  s.blocks.forEach(b => {
+  allUnits(s.blocks).forEach(b => {   // части отрывка (этап 10.4) — со своими отметками, id «блок~k»
     const e = fl.map[b.id];
     if (!e || !TYPES[b.type] || !TYPES[b.type].slide) return;
-    b.todo = !!e.t || (!!e.s && e.s !== blockSig(b));
+    const v = !!e.t || (!!e.s && e.s !== blockSig(b));
+    if (b._src) setPartTodo(b._src, b._k, v); else b.todo = v;
   });
   return s;
 }
@@ -128,7 +129,7 @@ function resyncFlags(s){
   if (!cloudOn() || !canFlag()) return;
   if (fl.id !== s.id) Object.assign(fl, { id:s.id, map:{}, loaded:true });
   let changed = false;
-  s.blocks.forEach(b => {
+  allUnits(s.blocks).forEach(b => {
     if (!TYPES[b.type] || !TYPES[b.type].slide) return;
     const e = fl.map[b.id];
     if (!e){ if (!!b.todo !== defaultTodo(b)){ fl.map[b.id] = { t:b.todo ? 1 : 0, s:blockSig(b) }; changed = true; } }   // отметка из старого формата

@@ -7,7 +7,10 @@
    там, где его поставил браузер (Range.getClientRects), — и сохраняется в JPEG. JPEG-страницы складываются в PDF.
    Через SVG foreignObject (как слайды в export.js) нельзя: Safari на iPhone после такой картинки не отдаёт холст,
    а PDF нужнее всего именно с телефона. Текст в PDF — картинкой: искать и выделять его нельзя, читать — как в печати.
-   Страница — где можно, между карточками слайдов и заметками (как break-inside:avoid при печати), строки не режутся. */
+   Страница — где можно, между карточками слайдов и заметками (как break-inside:avoid при печати), строки не режутся.
+   Этап 10.4: слайд Писания переходит на следующую страницу только между стихами, и там повторяется его шапка (номер, тип, место,
+   плашка части); шапка внизу страницы одна не остаётся. Тезис, цитата и заметка не рвутся; «Текст к слайду» — между строками,
+   не меньше двух строк на странице. Места, где можно резать, — pdfCuts. */
 const PDF_MM = 96 / 25.4;   // CSS-пикселей в миллиметре
 const PDF_PAGE = { w:80, h:170, top:6, side:5, bottom:7 };   // мм, как @page op в style.css
 const PDF_SCALE = 3;   // точек холста на CSS-пиксель: страница 907 × 2008, мелкий текст читается при увеличении
@@ -54,27 +57,62 @@ function pdfCollect(root){
       i += len;
     }
   }
-  return { boxes, glyphs, lines, avoid, height:root.scrollHeight };
+  const { cuts, cards } = pdfCuts(root, by, range);
+  return { boxes, glyphs, lines, avoid, cuts, cards, height:root.scrollHeight };
+}
+/* Где можно начать новую страницу: перед карточкой, заметкой, «Текстом к слайду» и отрывком (кроме первой части — она с подписью);
+   внутри слайда Писания — перед стихом, кроме первого (head — шапка слайда, её повторить на новой странице);
+   внутри «Текста к слайду» — между строками, если по обе стороны останется хотя бы две */
+function pdfCuts(root, by, range){
+  const cuts = [], cards = [], top = el => el.getBoundingClientRect().top - by;
+  root.querySelectorAll('.op-atom, .op-passage').forEach(el => { if (!el.dataset.glue) cuts.push({ y:top(el) }); });
+  root.querySelectorAll('.op-slide').forEach(card => {
+    const vs = [...card.querySelectorAll('.op-v')]; if (!vs.length) return;
+    const r = card.getBoundingClientRect(), head = [r.top - by, top(vs[0])];
+    cards.push({ y0:head[0], y1:head[1], y2:r.bottom - by });
+    vs.slice(1).forEach(v => cuts.push({ y:top(v), head }));
+  });
+  root.querySelectorAll('.op-text').forEach(el => {
+    const ys = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode())){ range.selectNodeContents(n); [...range.getClientRects()].forEach(r => { if (r.width > 0) ys.push(r.top - by); }); }
+    const lines = [];
+    ys.sort((a, b) => a - b).forEach(y => { if (!lines.length || y - lines[lines.length - 1] > 2) lines.push(y); });
+    for (let i = 2; i <= lines.length - 2; i++) cuts.push({ y:lines[i] });
+  });
+  return { cuts:cuts.sort((a, b) => a.y - b.y), cards };
 }
 
-/* Где резать страницы: по возможности перед карточкой (заметкой, шапкой), иначе — между строками */
+/* Страницы: { top, cut, head } — кусок блока от top до cut; head — шапка слайда Писания, которую повторить сверху (слайд продолжается) */
 function pdfBreaks(d, pageH){
   const pages = [], starts = d.boxes.map(b => b.y).concat(d.glyphs.map(g => g.y));
-  let top = 0;
+  const cuts = d.cuts || [], cards = d.cards || [];
+  let top = 0, head = null;
   while (top < d.height - 0.5){
-    let cut = top + pageH;
-    if (cut >= d.height){ pages.push([top, d.height]); break; }
-    const blk = d.avoid.filter(b => b.y > top + 1 && b.y < cut && b.y + b.h > cut).sort((a, b) => a.y - b.y)[0];
-    if (blk) cut = blk.y;
-    else for (let moved = true; moved;){
-      moved = false;
-      for (const g of d.glyphs) if (g.y > top + 1 && g.y < cut && g.y + g.h > cut){ cut = g.y; moved = true; }
+    const limit = top + pageH - (head ? head[1] - head[0] : 0);
+    if (limit >= d.height){ pages.push({ top, cut:d.height, head }); break; }
+    const c = cuts.filter(x => x.y > top + 1 && x.y <= limit).pop();
+    let cut, next = null;
+    if (c){ cut = c.y; next = c.head || null; }
+    else {   // ничего не помещается целиком (очень длинный стих или тезис): между строками, как раньше
+      cut = limit;
+      for (let moved = true; moved;){
+        moved = false;
+        for (const g of d.glyphs) if (g.y > top + 1 && g.y < cut && g.y + g.h > cut){ cut = g.y; moved = true; }
+      }
+      if (cut <= top + 1) cut = limit;
+      const card = cards.find(k => k.y1 < cut && k.y2 > cut + 1);
+      if (card) next = [card.y0, card.y1];
     }
-    pages.push([top, cut]);
-    const next = starts.filter(y => y >= cut - 0.01).reduce((m, y) => Math.min(m, y), Infinity);   // пустое место между карточками — не в начало страницы
-    top = Number.isFinite(next) ? Math.max(cut, next - 1) : cut;
+    pages.push({ top, cut, head });
+    head = next;
+    if (head) top = cut;
+    else {
+      const nx = starts.filter(y => y >= cut - 0.01).reduce((m, y) => Math.min(m, y), Infinity);   // пустое место между карточками — не в начало страницы
+      top = Number.isFinite(nx) ? Math.max(cut, nx - 1) : cut;
+    }
   }
-  return pages.length ? pages : [[0, Math.max(1, d.height)]];
+  return pages.length ? pages : [{ top:0, cut:Math.max(1, d.height), head:null }];
 }
 
 function pdfRoundRect(ctx, x, y, w, h, r){
@@ -108,15 +146,25 @@ function pdfPaintBox(ctx, b){
   ctx.restore();
 }
 
-/* Одна страница: холст с полями, на нём кусок блока от top до cut */
-function pdfPage(d, top, cut){
+/* Одна страница: холст с полями, на нём кусок блока от top до cut, а над ним, если слайд продолжается, — его шапка */
+function pdfPage(d, pg){
   const k = PDF_SCALE, cv = document.createElement('canvas');
   cv.width = Math.round(PDF_PAGE.w * PDF_MM * k); cv.height = Math.round(PDF_PAGE.h * PDF_MM * k);
   const ctx = cv.getContext('2d');
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.scale(k, k);
-  ctx.translate(PDF_PAGE.side * PDF_MM, PDF_PAGE.top * PDF_MM - top);
-  ctx.beginPath(); ctx.rect(-PDF_PAGE.side * PDF_MM, top, PDF_PAGE.w * PDF_MM, cut - top); ctx.clip();
+  let at = 0;
+  (pg.head ? [pg.head, [pg.top, pg.cut]] : [[pg.top, pg.cut]]).forEach(([top, cut]) => {
+    ctx.save();
+    ctx.translate(PDF_PAGE.side * PDF_MM, PDF_PAGE.top * PDF_MM + at - top);
+    ctx.beginPath(); ctx.rect(-PDF_PAGE.side * PDF_MM, top, PDF_PAGE.w * PDF_MM, cut - top); ctx.clip();
+    pdfSlice(ctx, d, top, cut);
+    ctx.restore();
+    at += cut - top;
+  });
+  return cv;
+}
+function pdfSlice(ctx, d, top, cut){
   const inPage = o => o.y < cut && o.y + o.h > top;
   d.boxes.filter(inPage).forEach(b => pdfPaintBox(ctx, b));
   const asc = {};   // верх знака от верха его строки: у каждого шрифта свой
@@ -135,7 +183,6 @@ function pdfPage(d, top, cut){
     const t = Math.max(0.6, l.size * 0.07), y = /underline/.test(l.deco) ? l.y + l.h * 0.86 : l.y + l.h * 0.55;
     ctx.fillRect(l.x, y, l.w, t);
   });
-  return cv;
 }
 
 /* PDF из JPEG-страниц: каталог, список страниц, сведения (название), у каждой страницы — содержимое и картинка */
@@ -176,7 +223,7 @@ async function operatorPdfFile(onStep){
     const pages = pdfBreaks(d, (PDF_PAGE.h - PDF_PAGE.top - PDF_PAGE.bottom) * PDF_MM), imgs = [];
     for (let i = 0; i < pages.length; i++){
       if (onStep) onStep(i + 1, pages.length);
-      const cv = pdfPage(d, pages[i][0], pages[i][1]);
+      const cv = pdfPage(d, pages[i]);
       const blob = await new Promise((res, rej) => cv.toBlob(x => x ? res(x) : rej(new Error('браузер не отдал страницу')), 'image/jpeg', 0.9));
       imgs.push({ w:cv.width, h:cv.height, data:new Uint8Array(await blob.arrayBuffer()) });
       cv.width = cv.height = 0;   // память телефона: холст больше не нужен
