@@ -193,6 +193,7 @@ function scheduleSave(ms){
 function autoSave(manual){
   ed.saveT = null;
   if (!editing() || ed.conflict || ed.denied || !isDirty()) return;
+  if (metaNew && metaNew === state.id) return;   // новый конспект: в облако — после «Готово» в «О проповеди» (этап 10.1.3)
   if (ed.saving) return;   // по окончании текущей записи проверим ещё раз
   if (ed.quota && Date.now() - ed.quotaAt < QUOTA_RETRY_MS){ retryLater(QUOTA_RETRY_MS - (Date.now() - ed.quotaAt)); return; }   // запас базы исчерпан: пробуем раз в несколько минут
   ed.pending = cloudWrite(state, { at:ed.myAt, manual:manual === true });   // manual — Ctrl+S: знак играет анимацию; автосохранение — тихая галочка (motion.js)

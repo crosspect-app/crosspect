@@ -24,7 +24,9 @@ const CONTACT_EMAIL = 'swpoznan.media@gmail.com';
      прежний фон; в облаке не хранится). Фон этапа 7.3 (раздел bg) при чтении переносится в формат «Фон пространства»;
    panels — расположение панелей экрана «Слайды» по умолчанию для всего пространства (этап 7.4): порядок слева направо из
      'film' (миниатюры), 'stage' (слайд), 'side' (редактор); у кого нет своей раскладки (layout.js), панели стоят так;
-   pickFormat — «Выбирать формат фона в проповеди» (этап 10): включено — в «О проповеди» есть поле «Формат фона» */
+   pickRoles — кто, кроме админа, может выбрать фон проповеди вручную (этап 10.1.3, «Настройки слайдов → Фон»): 'editor', 'preacher';
+     у них в «О проповеди» есть поле «Формат фона». Прежнее pickFormat:true (этап 10) читается как обе роли */
+const BG_ROLES = ['editor', 'preacher'];   // роли, которым можно разрешить выбирать фон проповеди вручную (этап 10.1.3)
 const SLIDES_DEFAULT = {
   margins:{ side:60, top:60, bottom:60 },
   names:{ maxLength:35 },
@@ -40,7 +42,7 @@ const SLIDES_DEFAULT = {
   formats:{},
   defaultFormat:'system',
   panels:['film', 'stage', 'side'],
-  pickFormat:false
+  pickRoles:[]
 };
 /* Шрифты в списках — только те, что форма загружает и встраивает в JPEG (см. EXPORT_FONTS в export.js) */
 const SLIDE_FONTS = {
@@ -78,6 +80,7 @@ const ICONS = {
   dup:'<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
   trash:'<path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
+  share:'<path d="M12 3.5v11"/><path d="m8 7.5 4-4 4 4"/><path d="M8.5 10.5H6.5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-2"/>',
   save:'<path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 19.5h14"/>',
   open:'<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
   more:'<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>',

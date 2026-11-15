@@ -41,7 +41,8 @@ def to_text_view(page, id="r1"):
 
 
 def press_link(page):
-    page.locator(".tv-side button:has-text('Ссылка для оператора')").click()
+    """Этап 10.1.3: «Ссылка для оператора» стала разделом «Ссылка на конспект» в окне «Поделиться»"""
+    page.locator(".tv-side button:has-text('Поделиться')").click()
     page.wait_for_selector(".oplink-url")
     return page.locator(".oplink-url").input_value()
 
@@ -227,7 +228,7 @@ def test_link_window_has_three_buttons_and_no_disable(browser, base_url):
     page.wait_for_function("state && state.id === 'r1' && ed.id === 'r1' && !ed.busy")
     to_text_view(page)
     url = press_link(page)
-    sheet = page.locator(".oplink")
+    sheet = page.locator(".oplink .share-sec:first-of-type")   # раздел «Ссылка на конспект» окна «Поделиться»
     assert [b.strip() for b in sheet.locator("button").all_inner_texts() if b.strip()] == ["Скопировать", "Скопировать с форматом", "В Telegram"]
     assert sheet.locator(".hint").count() == 0 and "Откройте её на телефоне" not in sheet.inner_text()
     assert sheet.locator(".btn.danger").count() == 0 and "Отключить" not in sheet.inner_text()
@@ -274,8 +275,14 @@ def test_button_visibility_by_role(browser, base_url):
     def items(page, id):
         page.evaluate("id => navigate(sermonHash(id, 'text'))", id)
         page.wait_for_selector(".tv-doc")
+        page.evaluate("fillMenu()")
         menu = page.evaluate("[...document.querySelectorAll('#menu button')].map(b => b.textContent.trim())")
-        return "Ссылка для оператора" in menu, page.locator(".tv-side button:has-text('Ссылка для оператора')").count() == 1
+        assert "Поделиться" in menu and page.locator(".tv-side button:has-text('Поделиться')").count() == 1   # этап 10.1.3: «Поделиться» видят все
+        page.locator(".tv-side button:has-text('Поделиться')").click()
+        page.wait_for_selector(".sheet.share")
+        has = page.locator(".share .share-sec > .lbl", has_text="Ссылка на конспект").count() == 1
+        page.evaluate("closeSettings()")
+        return has, has
 
     ctx, page = cloud_page(browser, base_url, user=IVAN, members=MEMBERS, sermons=sermons)
     wait_home(page)
@@ -295,10 +302,9 @@ def test_busy_by_someone_else_gives_message_and_no_link(browser, base_url):
     page.evaluate("id => navigate(sermonHash(id))", "r1")
     page.wait_for_function("state && state.id === 'r1' && ed.id === 'r1' && !ed.busy")
     to_text_view(page)
-    page.locator(".tv-side button:has-text('Ссылка для оператора')").click()
-    page.wait_for_selector(".toasts .toast")
-    assert "Сейчас конспект правит Ред Акторов" in page.locator(".toasts").inner_text()
-    assert db(page).get("shares", {}) == {} and not page.evaluate("settingsOverlay.classList.contains('open')")
+    page.locator(".tv-side button:has-text('Поделиться')").click()
+    page.wait_for_selector(".oplink .share-sec:first-of-type .hint:has-text('Сейчас конспект правит Ред Акторов')")   # этап 10.1.3: сообщение — в разделе ссылки, PDF остаётся
+    assert db(page).get("shares", {}) == {}
     ctx.close()
 
 
@@ -316,14 +322,14 @@ def test_share_text_is_same_for_copy_and_telegram(browser, base_url):
     assert date == "15 ноября 2026 г."
     body = ["Конспект для оператора слайдов", "Вера и дела | Иван Петров", date]
     # кнопки: у «Скопировать» и «В Telegram» есть значки
-    assert page.locator(".oplink .btn", has_text="Скопировать").locator(".ic").count() == 2 and page.locator(".oplink .btn.primary .ic").count() == 1
+    assert page.locator(".oplink .share-sec:first-of-type .btn", has_text="Скопировать").locator(".ic").count() == 2 and page.locator(".oplink .share-sec:first-of-type .btn.primary .ic").count() == 1
     # «Скопировать»: ссылка, линия, название, автор, дата — простой текст
     page.get_by_role("button", name="Скопировать с форматом").click()
     page.wait_for_selector(".toast:has-text('Текст скопирован')")
     copied = page.evaluate("navigator.clipboard.readText()")
     assert copied == "\n".join([url, LINE] + body)
     # «В Telegram»: тот же текст, адрес Telegram ставит первой строкой сам
-    page.get_by_role("button", name="В Telegram").click()
+    page.locator(".oplink .share-sec:first-of-type").get_by_role("button", name="В Telegram").click()
     opened = page.evaluate("window.__opened")
     from urllib.parse import parse_qs, urlparse
     q = parse_qs(urlparse(opened).query)

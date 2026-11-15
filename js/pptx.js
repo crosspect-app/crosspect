@@ -111,12 +111,13 @@ function makePPTX(slides, title){
   return new Blob([blob], { type:'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 }
 
-/* Чёрный слайд: форма сама его не рисует — картинка, видео, свободный слайд, «своя заставка» или слайд, который редактор отметил «доработать» */
-const pptxIsBlack = b => !PREVIEW[b.type] || isCustomSplash(b) || todoOn(b);
+/* Чёрный слайд: форма сама его не рисует — картинка, видео, свободный слайд или слайд, который редактор отметил «доработать».
+   «Своя заставка» с этапа 10.1.3 — не чёрный слайд, а серая заглушка, как в форме (renderJPEG рисует её сам) */
+const pptxIsBlack = b => !PREVIEW[b.type] || (todoOn(b) && !isCustomSplash(b));
 /* Заметки докладчика (этап 9.5): название файла слайда у каждого, у чёрных — ещё комментарии к заданию. Содержимого слайдов здесь нет */
 function pptxNotes(b, n, black){
   const out = [slideName(b, n)];
-  if (!black) return out.join('\n');
+  if (!black && !isCustomSplash(b)) return out.join('\n');
   const add = (label, v) => { v = String(v == null ? '' : v).trim(); if (v) out.push(label + v); };
   switch (b.type){
     case 'image':
@@ -160,16 +161,17 @@ async function exportPPTX(){
   finally { exporting = false; motionResume(); }
 }
 
-/* «⋯ → Скачать слайды»: окно с выбором — JPEG в архиве или PowerPoint */
-function openDownload(){
+/* «⋯ → Экспорт» (этап 10.1.3; было «Скачать слайды» и «PDF для оператора»): JPEG в архиве, PowerPoint или PDF для оператора */
+function openExport(){
   if (!state || !state.blocks.some(b => TYPES[b.type].slide)){ toast('В конспекте пока нет слайдов'); return; }
   const opt = (icon, title, text, fn) => h('button', { type:'button', class:'btn dl-opt', onclick:() => { closeSettings(); fn(); } },
     h('span', { class:'dl-opt-title' }, ic(icon), title), h('span', { class:'dl-opt-text', text }));
   settingsOverlay.innerHTML = '';
-  settingsOverlay.append(h('div', { class:'sheet dlsheet', role:'dialog', 'aria-label':'Скачать слайды' },
-    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Скачать слайды' }), iconBtn('close', 'Закрыть', closeSettings)),
+  settingsOverlay.append(h('div', { class:'sheet dlsheet', role:'dialog', 'aria-label':'Экспорт' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Экспорт' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('div', { class:'dl-opts' },
-      opt('zip', 'JPEG в архиве', 'Слайды, которые собирает форма, по одному файлу; заставка — одна, первая. Картинки, видео, свободные слайды и своя заставка не входят.', () => exportMany()),
-      opt('frame', 'PowerPoint', 'Один файл .pptx со всеми слайдами по порядку. Заставки — обычными слайдами. На местах картинок, видео, свободных слайдов и своей заставки стоят чёрные слайды, задание к ним — в заметках.', () => exportPPTX()))));
+      opt('zip', 'JPEG (архив ZIP)', 'Слайды, которые собирает форма, по одному файлу; заставка — одна, первая. Картинки, видео, свободные слайды и своя заставка не входят.', () => exportMany()),
+      opt('frame', 'PowerPoint', 'Один файл .pptx со всеми слайдами по порядку. На местах картинок, видео и свободных слайдов — чёрные слайды, задание к ним — в заметках; своя заставка — серая заглушка.', () => exportPPTX()),
+      opt('phone', 'PDF', 'Узкие страницы под экран телефона: слайды по порядку, текст к ним и заметки оператору.', () => exportPDF()))));
   settingsOverlay.classList.add('open');
 }

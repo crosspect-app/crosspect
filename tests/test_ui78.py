@@ -48,8 +48,8 @@ def test_film_plus_at_start_and_end(browser, base_url):
     op = "sel => getComputedStyle(document.querySelector(sel)).opacity"
     assert page.evaluate(op, ".film-gap.first .film-ins") == "0" and page.evaluate(op, ".film > .film-gap:not(.first) .film-ins") == "0"
     plate = page.locator(".film-end .film-plate")
-    assert page.evaluate(op, ".film-end .film-plate") == "1" and plate.inner_text().strip() == "Добавить слайд"
-    assert page.evaluate("[...document.querySelectorAll('.film .film-ins')].every(b => b.title === 'Добавить слайд')")
+    assert page.evaluate(op, ".film-end .film-plate") == "1" and plate.inner_text().strip() == "Добавить"
+    assert page.evaluate("[...document.querySelectorAll('.film .film-ins')].every(b => b.title === 'Добавить')")
     thumb = page.evaluate("(() => { const r = document.querySelector('.film .st-thumb').getBoundingClientRect(); return [r.width, r.height]; })()")
     pl = plate.bounding_box()
     assert abs(pl["width"] - thumb[0]) <= 2 and abs(pl["height"] - thumb[1]) <= 2, (pl, thumb)

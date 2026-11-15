@@ -83,7 +83,7 @@ def test_last_seen_and_editor_rights(browser, base_url):
     page.locator(".space-tabs button", has_text="Общее").click()
     assert page.locator(".sp-general input[aria-label='Название пространства']").count() == 0
     assert page.locator(".sp-general input[aria-label='Минут без действий']").count() == 0
-    assert page.locator(".sp-general .switch input").is_disabled()
+    assert page.locator(".sp-general .switch").count() == 0   # этап 10.1.3: выбор фона переехал в «Настройки слайдов»
     assert page.locator(".sp-general").get_by_role("button", name="Удалить пространство").count() == 0
     assert page.get_by_role("button", name="Новое пространство").count() == 0
     ctx.close()
@@ -115,7 +115,7 @@ def test_series_table_and_meta_field(browser, base_url):
     page.evaluate("openMeta()")
     fixed = page.locator(".meta-sheet .dfield.fixed")
     assert fixed.inner_text() == "Свободная тема"
-    assert page.locator(".meta-sheet [aria-label='Формат фона']").count() == 0   # «Выбирать формат фона» выключено
+    assert page.locator(".meta-sheet [aria-label='Формат фона']").count() == 1   # этап 10.1.3: админ выбирает фон вручную всегда
     page.evaluate("closeSettings()")
     # добавить серии: «Свободная тема» встроена, повтор названия не проходит
     open_space(page, "Серии проповедей")
@@ -177,27 +177,22 @@ def test_background_order_and_own_format(browser, base_url):
     assert page.evaluate(fid, {}) == "f1"                                     # без серии — формат по умолчанию
     assert page.evaluate(fid, {"series": "a2"}) == "f1"                       # у серии «По умолчанию»
     assert page.evaluate(fid, {"series": "a1"}) == "f2"                       # формат серии
-    assert page.evaluate(fid, {"series": "a1", "format": "system"}) == "f2"   # свой формат не действует, пока выбор выключен
-    # «Выбирать формат фона в проповеди» в «Общем»
-    open_space(page, "Общее")
-    page.locator(".sp-general .switch .sw").click()
-    page.wait_for_function("fakeCloud.db().slides.pickFormat === true && slidesCfg().pickFormat")
-    assert page.evaluate("fakeCloud.db().slides.defaultFormat") == "f1"      # остальные настройки слайдов не тронуты
+    # этап 10.1.3: формат, выбранный вручную, действует всегда (выбирать его может админ и роли из «Настроек слайдов → Фон»)
     assert page.evaluate(fid, {"series": "a1", "format": "system"}) == "system"
     assert page.evaluate(fid, {"series": "a1", "format": "gone"}) == "f2"     # формата уже нет — по серии
-    page.evaluate("closeSettings()")
-    # поле в «О проповеди»: «По умолчанию» показывает, какой формат будет
+    # поле в «О проповеди» (админ видит всегда): действующий фон и откуда он
     page.get_by_role("button", name="Новый конспект").first.click()
     page.wait_for_selector(".meta-sheet")
     f = page.locator(".meta-sheet [aria-label='Формат фона']")
-    assert f.inner_text().strip() == "По умолчанию · Синий"
+    assert f.inner_text().strip() == "Синий (по умолчанию)"
     page.locator(".meta-sheet [aria-label='Серия проповедей']").click()
     page.locator(".dd-list button", has_text="Серия").first.click()
-    assert f.inner_text().strip() == "По умолчанию · Зелёный"
+    assert f.inner_text().strip() == "Зелёный (указан для серии)"
     f.click()
     page.locator(".dd-list button", has_text="System Template").click()
     assert page.evaluate("[state.meta.format, sermonFormatId(state)]") == ["system", "system"]
-    page.evaluate("closeSettings()")
+    assert f.inner_text().strip() == "System Template"
+    page.evaluate("closeSettings(true)")
     # удалили формат серии — у серии «По умолчанию»
     page.evaluate("seriesFormatGone('f2')")
     page.wait_for_function("fakeCloud.db().series.a1.format === ''")

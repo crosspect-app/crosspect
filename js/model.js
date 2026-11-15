@@ -255,7 +255,10 @@ function mergeSlides(base, over){
   delete r.bg;
   r.formats = fm.formats; r.defaultFormat = fm.defaultFormat;
   r.panels = normPanels('panels' in o ? o.panels : r.panels);
-  r.pickFormat = o.pickFormat === true || (!('pickFormat' in o) && r.pickFormat === true);   // «Выбирать формат фона в проповеди» (этап 10)
+  // кто выбирает фон проповеди вручную (этап 10.1.3); прежнее «Выбирать формат фона в проповеди» (pickFormat, этап 10) — обе роли
+  const pr = Array.isArray(o.pickRoles) ? o.pickRoles : o.pickFormat === true ? BG_ROLES : 'pickFormat' in o ? [] : r.pickRoles;
+  r.pickRoles = BG_ROLES.filter(k => Array.isArray(pr) && pr.includes(k));
+  delete r.pickFormat;
   return r;
 }
 /* Порядок панелей: ровно те три, каждая один раз; иначе — по умолчанию (этап 7.4) */

@@ -28,11 +28,10 @@ function fillMenu(){
     if (canHistory()) menuEl.append(menuItem('undo', 'История', () => openHistory()));
   }
   if (screen === 'sermon' && view === 'slides' && state && state.blocks.length) menuEl.append(h('div', { class:'menu-sep' }), menuItem('search', 'Найти и заменить', () => findOpen()));   // этап 9.6; то же — Ctrl+F
-  if (screen === 'sermon') menuEl.append(
+  if (screen === 'sermon') menuEl.append(   // этап 10.1.3: «Экспорт» — JPEG, PowerPoint, PDF; «Поделиться» — ссылка (тем, кто правит) и PDF
     h('div', { class:'menu-sep' }),
-    menuItem('zip', 'Скачать слайды', () => openDownload()),   // этап 9.3: выбор — JPEG в архиве или PowerPoint
-    menuItem('phone', 'PDF для оператора', () => operatorPDF()));
-  if (screen === 'sermon' && canEditCloud()) menuEl.append(menuItem('link', 'Ссылка для оператора', () => openOpLink()));   // этап 9: тому, кто может править конспект
+    menuItem('save', 'Экспорт', () => openExport()),
+    menuItem('share', 'Поделиться', () => openShare()));
   const resetItem = screen === 'sermon' && wideScreen();   // «Сбросить настройки экрана» — ширина и порядок панелей; стоит сразу под «Настройки слайдов»
   if (canEditSlidesCfg()) menuEl.append(h('div', { class:'menu-sep' }),
     menuItem('frame', 'Настройки слайдов', () => openSlidesCfg()));   // общие для пространства: админ и редактор

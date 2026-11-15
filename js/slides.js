@@ -179,7 +179,7 @@ function syncFilm(){
     let add = filmEl.querySelector(':scope > .film-end');
     if (!add){
       add = h('div', { class:'film-end' });
-      add.append(h('button', { type:'button', class:'film-ins film-plate', title:'Добавить слайд', onclick:() => openSheet(state.blocks.length) }, ic('plus'), 'Добавить слайд'));
+      add.append(h('button', { type:'button', class:'film-ins film-plate', title:'Добавить', onclick:() => openSheet(state.blocks.length) }, ic('plus'), 'Добавить'));
     }
     add.dataset.at = String(state.blocks.length);
     want.push(add);
@@ -203,7 +203,7 @@ function syncFilm(){
 const canArrange = () => !readOnly() && !filmOnlyTodo;
 function filmGap(){
   const g = h('div', { class:'film-gap' });
-  g.append(h('button', { type:'button', class:'film-ins', title:'Добавить слайд', 'aria-label':'Добавить слайд', onclick:() => openSheet(+g.dataset.at) }, ic('plus')));
+  g.append(h('button', { type:'button', class:'film-ins', title:'Добавить', 'aria-label':'Добавить', onclick:() => openSheet(+g.dataset.at) }, ic('plus')));
   return g;
 }
 
@@ -370,7 +370,7 @@ function renderStage(){
   const n = slideNums()[b.id];
   stageEl.className = 'stage t-' + b.type;
   stageEl.style.setProperty('--tc', 'var(--c-' + b.type + ')');
-  stageEl.append(stageBar(b, n),
+  put(stageEl, stageBar(b, n),
     h('div', { class:'stage-view' }, stageVisual(b, n), h('div', { class:'stage-info' })),
     TYPES[b.type].slide ? speechBox(b) : null);
   stageEl._id = b.id; stageEl._fp = thumbFp(b);

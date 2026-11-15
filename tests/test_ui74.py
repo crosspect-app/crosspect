@@ -149,7 +149,7 @@ def test_splash_panel_has_only_settings(browser, base_url):
     assert "Holyrics" not in side.inner_text()
     assert side.locator(".step").count() == 1
     assert [t.strip() for t in side.locator(".switch").all_inner_texts()] == ["Нижняя строка", "Своя заставка"]
-    assert "чёрный слайд" in side.locator(".own-splash .hint").inner_text() and "архив JPEG" in side.locator(".own-splash .hint").inner_text()
+    assert "серая заглушка" in side.locator(".own-splash .hint").inner_text() and "архив JPEG" in side.locator(".own-splash .hint").inner_text()
     assert not page.errors, page.errors
     ctx.close()
 

@@ -16,7 +16,7 @@ function splashScale(b){
   return Math.min(R.max, Math.max(R.min, Math.round(v)));
 }
 const splashBase = b => splashMax() * splashScale(b) / 100;
-const CUSTOM_SPLASH_TEXT = 'Добавить свою заставку', CUSTOM_SPLASH_PX = 50;   // «своя заставка» на сцене и миниатюрах (этап 9.6)
+const CUSTOM_SPLASH_TEXT = 'Добавить свою заставку', CUSTOM_SPLASH_PX = 100;   // «своя заставка» на сцене, миниатюрах и в PowerPoint (этап 9.6; с 10.1.3 — серая заглушка, текст вдвое крупнее)
 let lastScale = 0;   // масштаб последнего предпросмотра в редакторе   // trGap — запас между текстом и подписью перевода
 /* Размеры 100% в px — в настройках слайдов (kinds): Писание 52,8 (= 48 × 110%), тезис 50,4, цитата 51,48; имя автора цитаты — 52 */
 const basePx = t => slidesCfg().kinds[t].size;
@@ -237,7 +237,7 @@ function splashNameHTML(m){
 function splashDate(s){ const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? m[3] + '/' + m[2] : ''; }
 function layoutSplash(sl, b, px){
   const m = b.meta || state.meta, box = sl.querySelector('.sl-sp-box'), t = sl.querySelector('.sl-sp-title'), foot = sl.querySelector('.sl-sp-foot');
-  // «Своя заставка» (этап 9.6): чёрный экран с крупной жирной надписью; рамки, фона и названия проповеди нет (в PowerPoint тут чёрный слайд)
+  // «Своя заставка» (этап 9.6; с 10.1.3 — серая заглушка, как у картинки и видео, и так же в PowerPoint): рамки, фона и названия проповеди нет
   const custom = !b.meta && isCustomSplash(b);
   sl.classList.toggle('sl-custom', custom);
   if (custom){
@@ -375,7 +375,7 @@ function runPreview(b){
   let over, msg;
   if (isCustomSplash(b)){
     over = false;
-    msg = 'своя заставка: в PowerPoint чёрный слайд, в архив JPEG не входит';
+    msg = 'своя заставка: в PowerPoint — эта заглушка, в архив JPEG не входит';
   } else if (b.type === 'splash'){
     const px = Math.round(ratio * splashBase(b));
     over = px < splashMin3();

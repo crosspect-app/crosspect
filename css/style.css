@@ -174,6 +174,10 @@ body.light .stswitch .sw-opt.on.st-draft,body.light .stchip.st-draft,body.light 
 body.light .stswitch .sw-opt.on.st-submitted,body.light .stchip.st-submitted,body.light .stdrop.st-submitted{background:#d9f0e0;color:#17693a}
 body.light .stswitch .sw-opt.on.st-work,body.light .stchip.st-work,body.light .stdrop.st-work{background:#dce9fb;color:#1d4f8f}
 body.light .stswitch .sw-opt.on.st-ready,body.light .stchip.st-ready,body.light .stdrop.st-ready{background:#ebe0fb;color:#5a3596}
+/* Просмотр (этап 10.1.3): статус в шапке без цвета — выбранное положение на светлой нейтральной подложке, остальные приглушены.
+   В правке и на главной цвета прежние */
+.stswitch.view .sw-opt.on,.stdrop.view,.topbar:not(.is-home) .stchip{background:var(--surface-3)!important;color:var(--text)!important}
+.stswitch.view .sw-opt:not(.on){opacity:.45}
 .stwrap{display:contents}
 /* Свёрнутый переключатель статуса (этап 10.1): кнопка с текущим статусом и стрелкой, список — dropdown() */
 .stdrop{display:none;align-items:center;gap:6px;padding:7px 9px 7px 12px;border:1px solid var(--line-2);border-radius:999px;font:600 12px/1 'Inter',sans-serif;white-space:nowrap;cursor:pointer;transition:background-color .2s,color .2s}
@@ -338,6 +342,8 @@ a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
 .st-n{font-weight:700;color:var(--muted);flex:0 0 16px;display:inline-flex}
 .st-n .ic{width:14px;height:14px}
 .st.on .st-n{color:var(--accent)}
+body.ro .st.on{background:var(--surface-2);box-shadow:0 0 0 2px #8f8a80}   /* просмотр (этап 10.1.3): рамка серая; жёлтая — «можно править» */
+body.ro .st.on .st-n{color:var(--text)}
 .st-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st.done .st.over .st-cap::after{content:"!";color:var(--warn);font-weight:700}
 .st.missing .st-thumb{outline:2px solid var(--danger);outline-offset:-2px}
@@ -350,15 +356,16 @@ a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
 .st.todo .fl{display:block}
 /* Своя заставка (этап 9.6): на сцене и миниатюрах — чёрный экран с крупной жирной надписью (текст и размер ставит layoutSplash) */
 .sl.sl-custom .sl-frame,.sl.sl-custom .sl-panel{display:none}
-.sl.sl-custom .sl-stage{background:#000;box-shadow:none}
+.sl.sl-custom .sl-stage{background:#141414;box-shadow:none;border:calc(1px / var(--s)) dashed #3a3a3a}   /* этап 10.1.3: серая заглушка, как у картинки и видео */
 .sl.sl-custom .sl-sp-box{top:0;bottom:0;left:var(--sl-x);right:var(--sl-x)}
-.sl.sl-custom .sl-sp-title{font-weight:800;color:#fff;letter-spacing:-0.02em;text-transform:none}
+.sl.sl-custom .sl-sp-title{font-family:'Inter',sans-serif;font-weight:600;color:#a39a8e;letter-spacing:0;text-transform:none}
+.film .sl.sl-custom .sl-sp-title{font-size:calc(20px / var(--s))!important;line-height:1.25}   /* в ленте — как текст у заглушки картинки (20 px на экране) */
 .own-splash{display:grid;gap:6px}
 .hint[hidden]{display:none}
 .half-w{display:grid;gap:6px}
 .half-w input[type=range]{width:100%;margin:0;accent-color:var(--accent)}
 .half-w-val{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-.ph-thumb{aspect-ratio:16/9;border:1px dashed #3a3a3a;border-radius:7px;background:#141414;display:flex;align-items:center;justify-content:center;padding:6px;text-align:center;color:var(--muted);font:500 10px/1.3 'Inter',sans-serif;overflow:hidden}
+.ph-thumb{aspect-ratio:16/9;border:1px dashed #3a3a3a;border-radius:7px;background:#141414;display:flex;align-items:center;justify-content:center;padding:6px;text-align:center;color:var(--muted);font:500 20px/1.25 'Inter',sans-serif;overflow:hidden}   /* текст заглушки вдвое крупнее (этап 10.1.3) */
 .ph-thumb span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .st.t-note{padding-top:2px;padding-bottom:2px}
 .mini-note{padding:7px 9px;border-radius:7px;background:#ffde59;color:#141414;font:800 10px/1.3 'Inter',sans-serif;text-transform:uppercase;max-height:58px;overflow:hidden}
@@ -401,12 +408,12 @@ a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
 .note-tag{display:flex;align-items:center;gap:8px;margin-bottom:10px;font:700 11px/1 'Inter',sans-serif;letter-spacing:.14em;text-transform:uppercase}
 .note-text{font:800 clamp(18px,2.6vw,30px)/1.35 'Inter',sans-serif;text-transform:uppercase;white-space:pre-wrap;overflow-wrap:anywhere}
 .note-text.empty{opacity:.45}
-.ph-big{aspect-ratio:16/9;display:flex;gap:18px;align-items:center;justify-content:center;padding:28px;border:1px dashed #3a3a3a;background:var(--surface);text-align:left;color:var(--muted)}
-.ph-big > .ic{width:40px;height:40px;color:var(--text)}
-.ph-name{font-size:20px;font-weight:700;color:var(--text);line-height:1.3}
+.ph-big{aspect-ratio:16/9;display:flex;gap:28px;align-items:center;justify-content:center;padding:28px;border:1px dashed #3a3a3a;background:var(--surface);text-align:left;color:var(--muted)}
+.ph-big > .ic{width:80px;height:80px;color:var(--text);flex:none}   /* этап 10.1.3: значок и текст заглушки вдвое крупнее */
+.ph-name{font-size:40px;font-weight:700;color:var(--text);line-height:1.2}
 .ph-name.empty{font-weight:400;color:var(--muted)}
-.ph-title{margin-top:6px;font-size:14px;color:var(--text)}
-.ph-line{margin-top:4px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.ph-title{margin-top:10px;font-size:28px;color:var(--text)}
+.ph-line{margin-top:6px;font-size:26px;white-space:pre-wrap;overflow-wrap:anywhere}
 .speech{background:var(--surface);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;flex:1 0 auto;min-height:170px}
 .speech-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 8px 6px 16px;border-bottom:1px solid var(--line);min-height:44px}
 .speech .count{font-size:12px;color:var(--muted)}
@@ -641,7 +648,7 @@ a.srow.past:hover,a.srow.past:focus-visible{opacity:1}
 .sl-vlist{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:.45em;row-gap:var(--sc-vgap,.3em);align-items:first baseline;width:fit-content;max-width:100%;margin:0 auto;text-align:left}
 .sl-content.al-left .sl-vlist{margin-left:0}
 .sl-vstack{display:flex;flex-direction:column;gap:var(--sc-vgap,.3em)}   /* с новой строки по центру или справа: номер перед стихом */
-.sl-vn{font-weight:700;font-size:.6em;line-height:1;text-align:right;letter-spacing:0;min-width:1.1em}
+.sl-vn{font-weight:700;font-size:.6em;line-height:1;text-align:right;letter-spacing:0;min-width:1.1em;position:relative;top:-.95em}   /* надстрочный, как sup в строке (этап 10.1.3) */
 /* Рамка пунктиром: вокруг стихов (в строку) и вокруг части тезиса. Толщину проверить на проекторе (ориентир 3 px на 1080) */
 .sl-verse.framed,.sl-part.framed,.sl-vlist.framed,.sl-vstack.framed,.sl-inner.framed{border:3px dashed rgba(236,223,207,.85);border-radius:12px;padding:.45em .7em}   /* с новой строки — одна рамка на все стихи */
 /* Заставка: название посередине, внизу линия, «Имя ФАМИЛИЯ» слева и дата справа */
@@ -1008,6 +1015,15 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 
 /* ---------- Окно «О проповеди» (этап 7.8): воскресенья кнопками, свой календарь, список авторов ---------- */
 .meta-sheet .set-grid{display:flex;flex-direction:column;gap:16px}
+/* Этап 10.1.3: обязательные поля — пустое название или автор подсвечены, ошибка в строке кнопок; просмотр — серые поля без рамки */
+.meta-sheet .sheet-foot{align-items:center}
+.meta-err{flex:1;min-width:0;font-size:13px;color:var(--danger);text-align:right}
+.meta-err:empty{display:none}
+.meta-sheet .field.invalid .input,.meta-sheet .field.invalid .dfield{border-color:var(--danger)}
+.meta-sheet .field.invalid .lbl{color:var(--danger)}
+.meta-sheet .set-grid[inert] .input,.meta-sheet .set-grid[inert] .dfield{background:var(--surface-3);border-color:transparent;color:var(--muted);box-shadow:none}
+.meta-sheet .set-grid[inert] .dfield .ic,.meta-sheet .set-grid[inert] .date-other{display:none}
+.meta-sheet .set-grid[inert] .date-chip:not(.on){opacity:.45}
 .date-chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;border:1px solid var(--line-2);background:var(--surface);color:var(--text);font:500 13px 'Inter',sans-serif;white-space:nowrap;cursor:pointer}
 .chip:hover{border-color:#4a4230}
@@ -1061,6 +1077,13 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 .tv-card2 .btn.wide + .btn.wide{margin-top:8px}
 .oplink .oplink-url{width:100%;margin:12px 0 4px;text-overflow:ellipsis}
 .oplink .sheet-foot{margin-top:14px;gap:8px}
+/* «Поделиться» (этап 10.1.3): «Ссылка на конспект» и «PDF-файл» — разделы одного окна */
+.share .share-sec{display:grid;gap:8px;margin-top:12px}
+.share .share-sec + .share-sec{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.share .share-box{display:grid;gap:10px;justify-items:start}
+.share .share-box .oplink-url{justify-self:stretch}
+.share .share-box .sheet-foot{margin-top:0}
+.share .share-box .hint{margin:0}
 /* «Скачать слайды» (этап 9.3): две большие кнопки с пояснением */
 .dl-opts{display:grid;gap:10px}
 .dl-opt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;height:auto;padding:14px 16px;text-align:left;white-space:normal}
@@ -1196,6 +1219,8 @@ body[data-screen="op"] .app-main{min-height:100vh;min-height:100dvh}
 /* «Готово» в шапке — светлая кнопка (жёлтая «Редактировать» — в просмотре); под названием — «Правка · сохранено в 15:20» */
 .btn.hd-done{background:var(--text);border-color:var(--text);color:#141414;font-weight:600}
 .btn.hd-done:hover{background:#fff4e6;border-color:#fff4e6}
+body.light .btn.hd-done{color:#fff}   /* «Текст» светлый: --text тёмный, кнопка — тёмная со светлой надписью (этап 10.1.3) */
+body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .hd-sub.editing{color:var(--accent)}
 /* Попытка править в просмотре: мягкая подсветка кнопки в шапке (lock.js, nudgeHead) — только opacity и transform */
 .hd-act{position:relative}
@@ -1209,7 +1234,7 @@ body[data-screen="op"] .app-main{min-height:100vh;min-height:100dvh}
   .hd-save.nudge{animation:none!important;color:var(--text)}
 }
 /* Лента (этап 9.8): «+» между любыми слайдами, в том числе перед первым, — только при наведении и только в правке;
-   в конце — пунктирная плашка размером с миниатюру «+ Добавить слайд» */
+   в конце — пунктирная плашка размером с миниатюру «+ Добавить» */
 .film-gap.first{height:12px}
 .film-gap.first .film-ins{opacity:0}
 .film-gap.first:hover .film-ins,.film-gap.first .film-ins:focus-visible{opacity:1}

@@ -105,7 +105,8 @@ def download_file(page):
 
 
 def start_blank(page):
-    """Новая пустая проповедь, как по кнопке «Новая проповедь»; окно «О проповеди» закрыто."""
+    """Новая пустая проповедь, как по кнопке «Новая проповедь»; окно «О проповеди» закрыто без проверки обязательных полей
+    (этап 10.1.3: closeSettings(true) — конспект остаётся и уходит в облако, как после «Готово»)."""
     page.evaluate("newSermon()")
     page.wait_for_selector(".sheet[aria-label='О проповеди']")
-    page.evaluate("closeSettings()")
+    page.evaluate("closeSettings(true)")

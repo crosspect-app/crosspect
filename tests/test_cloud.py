@@ -90,7 +90,7 @@ def test_save_new_sermon_to_cloud(browser, base_url):
     page.evaluate("newSermon()")
     page.wait_for_selector(".sheet[aria-label='О проповеди']")
     page.fill("input[aria-label='Название проповеди']", "Благодать")
-    page.evaluate("closeSettings()")
+    page.evaluate("closeSettings(true)")   # этап 10.1.3: без автора окно не закрыть — закрываем без проверки
     page.evaluate("addBlock('splash', 0)")
     assert page.inner_text("#hd-sub") == "Правка · изменения сохранятся сами"
     page.wait_for_function("document.getElementById('hd-sub').textContent.startsWith('Правка · сохранено в ')", timeout=10000)   # само, без кнопки

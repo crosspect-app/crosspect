@@ -185,7 +185,7 @@ def test_new_sermon_is_draft_and_old_done_counts_as_at_editor(browser, base_url)
     assert page.locator("#app").get_by_role("button", name="Редактировать").is_disabled()
     page.evaluate("newSermon()")
     page.wait_for_selector(".sheet[aria-label='О проповеди']")
-    page.evaluate("closeSettings()")
+    page.evaluate("closeSettings(true)")   # этап 10.1.3: без автора окно не закрыть — закрываем без проверки
     assert st_label(page) == "Черновик"
     page.evaluate("state.meta.title = 'Новая'; change()")
     page.keyboard.press("Control+s")

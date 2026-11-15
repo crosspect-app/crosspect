@@ -49,6 +49,7 @@ function newSermon(){
   if (mine) Object.assign(me, { firstName:mine.firstName || '', lastName:mine.lastName || '' });   // таблица свежее записи при входе
   if (cloud.role === 'preacher' && preacherKey(me)) Object.assign(state.meta, me);
   else Object.assign(state.meta, { firstName:'', lastName:'' });
+  metaNew = state.id;   // этап 10.1.3: пока «О проповеди» не подтвердили, конспекта нет — «Отмена» его не создаёт
   beginCloud(null);   // новая: сразу правка, замок появится с первым сохранением
   persistDraft();   // прежняя проповедь остаётся в списке: у каждой свой черновик
   navigate(sermonHash(state.id));

@@ -5,6 +5,7 @@
 let settingsGuard = null;
 function closeSettings(force){
   if (force !== true && settingsGuard && !settingsGuard()) return;
+  if (force === true && metaOpen && metaNew === (state && state.id)){ metaNew = null; if (editing() && isDirty()) scheduleSave(0); }   // закрыли без вопросов (тесты): конспект остаётся
   settingsGuard = null;
   settingsOverlay.classList.remove('open'); closeCalendar(); closeDropdown();   // календарь и список автора (этап 7.8) — вместе с окном
   if (metaOpen){ metaOpen = false; afterMeta(); }
@@ -453,7 +454,13 @@ function openSlidesCfg(){
     drawFmt(); syncApply();
   };
   drawFmt(); drawBg();
-  const background = h('section', { class:'scfg-sec', title:CFG_TIPS.bg }, h('div', { class:'scfg-cap', text:'Фон' }), fmtRow, bgBox);
+  /* Кто, кроме админа, выбирает фон проповеди вручную (этап 10.1.3; было «Выбирать формат фона в проповеди» в «Пространстве → Общее»).
+     Уходит по «Применить», как остальные настройки окна */
+  const roleSw = (k, label) => sw(label, tmp.pickRoles.includes(k), on => { tmp.pickRoles = BG_ROLES.filter(x => x === k ? on : tmp.pickRoles.includes(x)); syncApply(); });
+  const pickRow = h('div', { class:'scfg-pick', title:'По умолчанию фон определяется по серии проповедей.' },   // подсказки в этом окне — при наведении (этап 7.2)
+    h('div', { class:'opt-row' }, h('span', { class:'lbl', style:'margin:0', text:'Кто может выбрать фон проповеди вручную' }),
+      roleSw('editor', 'Редактор'), roleSw('preacher', 'Автор')));
+  const background = h('section', { class:'scfg-sec', title:CFG_TIPS.bg }, h('div', { class:'scfg-cap', text:'Фон' }), pickRow, fmtRow, bgBox);
 
   /* Место Писания: вид стихов на всех слайдах Писания и расстояния */
   const V = tmp.verses, vbox = h('div', { class:'scfg-verses' });

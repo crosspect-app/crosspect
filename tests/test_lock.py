@@ -350,6 +350,7 @@ def test_new_sermon_edits_right_away(browser, base_url):
     page.wait_for_selector(".sheet[aria-label='О проповеди']")
     assert page.evaluate("ed.mode") == "edit"
     page.fill("input[aria-label='Название проповеди']", "С нуля")
+    page.evaluate("closeSettings(true)")   # этап 10.1.3: новый конспект уходит в облако после «Готово» в «О проповеди»
     page.wait_for_function("Object.values(fakeCloud.db().sermons).some(r => r.meta.title === 'С нуля' && r.lock && r.lock.email === 'admin@x.pl')", timeout=10000)
     ctx.close()
 

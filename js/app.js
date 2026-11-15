@@ -15,6 +15,7 @@ function route(){
   const p = new URLSearchParams(location.hash.slice(1)), id = p.get('s'), help = p.has('help');
   // инструкция открывается поверх работы: правка, замок и история отмены остаются, «Назад» возвращает в тот же конспект
   if (!help && (!id || !state || state.id !== id)) hist.id = null;   // ушли с проповеди: история отмены начнётся заново
+  if (metaNew && (!id || id !== metaNew)) dropNewSermon();   // ушли от нового конспекта, не подтвердив «О проповеди», — как «Отмена» (этап 10.1.3)
   if (screen === 'sermon' && state) persistDraft();   // уходим с проповеди: черновик сохраняем сразу, не ждём паузы
   if (!help && ed.id && ed.id !== id) endCloud();   // ушли с облачной проповеди: сохранить и отпустить замок
   if (p.has('op')){ openOperator(p.get('op')); return; }   // страница оператора (этап 9, operator.js): открывается без входа
@@ -213,7 +214,7 @@ function renderTopbar(){
     const q = h('input', { type:'search', placeholder:'Название, автор, место Писания', 'aria-label':'Поиск', value:homeQuery,
       oninput:e => { homeQuery = e.target.value; renderHomeList(); } });
     const closeSearch = () => { homeQuery = ''; q.value = ''; topbar.classList.remove('sq-open'); renderHomeList(); };
-    topbar.append(
+    put(topbar,
       logoLockup('logo', { href:'#', title:'Конспекты' }),
       spacePicker(),
       h('div', { class:'grow' }),
@@ -231,7 +232,7 @@ function renderTopbar(){
     h('a', { class:'logo logo-only', href:'#', title:'Crosspect: к списку конспектов', 'aria-label':'Crosspect: к списку конспектов' }, logoMark()),   // здесь знак мигает при сохранении (logo.js)
     h('a', { class:'btn ghost hd-back', href:'#', title:'К списку конспектов' }, ic('back'), 'Конспекты'),   // на телефоне скрыта: к списку ведёт знак
     h('span', { class:'vsep' }),
-    h('button', { type:'button', class:'hd-title', title:'Изменить название, дату, автора', onclick:() => openMeta() },
+    h('button', { type:'button', class:'hd-title', title:readOnly() ? 'О проповеди' : 'Изменить название, дату, автора', onclick:() => openMeta() },
       h('span', { class:'hd-name' + (m.title ? '' : ' empty'), text:m.title || 'Без названия' }),
       h('span', { id:'hd-sub', class:'hd-sub', 'data-meta':[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') || 'Дата и автор не указаны' })),   // в правке — ход сохранения (updateStatus)
     cloudSermon() ? statusSwitch() : h('span', { class:'stchip st-' + st.key, text:st.label }),   // переключатель статуса (editor.js)
@@ -299,29 +300,72 @@ function updateStatus(){
 
 /* ----- Окно «О проповеди»: название, дата, автор (раскладка и выбор даты — этап 7.8), серия и формат фона (этап 10) -----
    Одна колонка: название; дата — три ближайших воскресенья кнопками и «Другая дата…» (свой календарь); автор — список
-   (preacherField в render.js), «Имя» и «Фамилия» под ним только при «Ввести вручную»; серия проповедей и (если в пространстве
-   включено «Выбирать формат фона в проповеди») формат фона — space.js. Серия и формат меняют фон слайдов сразу */
-let metaOpen = false;
+   (preacherField в render.js), «Имя» и «Фамилия» под ним только при «Ввести вручную»; серия проповедей и (если этой роли можно
+   выбирать фон вручную) формат фона — space.js. Серия и формат меняют фон слайдов сразу.
+   Этап 10.1.3: название и автор обязательны — в правке окно не закрывается, пока они пусты (дата и серия заполнены всегда).
+   У нового конспекта окно открывается само, «Отмена» отменяет создание; пока окно не подтвердили, в облако он не уходит
+   (metaNew). В просмотре окно открывается только для чтения */
+let metaOpen = false, metaNew = null;   // metaNew — id нового конспекта, у которого «О проповеди» ещё не подтвердили
+const metaMissing = m => [!String(m.title || '').trim() && 'title', !preacherKey(m) && 'author'].filter(Boolean);
+const META_ERR = { 'title,author':'Укажите название и автора проповеди.', title:'Укажите название проповеди.', author:'Укажите автора проповеди.' };
 function openMeta(){
-  if (readOnly()){ roHint(); return; }
-  const m = state.meta;
+  const ro = readOnly(), m = state.meta;
   const upd = () => { change(); refreshSplash(); document.title = (m.title || 'Проповедь') + ' · Crosspect'; };
   const title = h('input', { class:'input', placeholder:'Название проповеди', value:m.title, autocomplete:'off', 'aria-label':'Название проповеди',
     oninput:e => { m.title = e.target.value; upd(); } });
   const fmt = formatField(m, () => { upd(); refreshSlides(); });
+  const titleF = field('Название', title), authorF = preacherField();
+  const err = h('span', { class:'meta-err', role:'alert' });
+  const grid = h('div', { class:'set-grid', title:'Название, автор и дата попадают на заставку' },
+    titleF, dateField(m, upd), authorF,
+    seriesField(m, () => { upd(); refreshSlides(); if (fmt && fmt._refresh) fmt._refresh(); }),
+    fmt);
+  let shown = false;   // ошибку показали: дальше она обновляется на ходу
+  const check = show => {
+    const miss = metaMissing(m);
+    if (show) shown = true;
+    if (shown){
+      titleF.classList.toggle('invalid', miss.includes('title'));
+      authorF.classList.toggle('invalid', miss.includes('author'));
+      err.textContent = META_ERR[miss.join(',')] || '';
+    }
+    return !miss.length;
+  };
+  const foot = ro ? [h('span'), h('button', { type:'button', class:'btn', onclick:() => closeSettings() }, 'Закрыть')]
+    : [metaNew === state.id ? h('button', { type:'button', class:'btn ghost', onclick:() => cancelNewSermon() }, 'Отмена') : h('span'),
+       err, h('button', { type:'button', class:'btn primary', onclick:() => closeSettings() }, 'Готово')];
   settingsOverlay.innerHTML = '';
-  settingsOverlay.append(h('div', { class:'sheet meta-sheet', role:'dialog', 'aria-label':'О проповеди' },
-    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'О проповеди' }), iconBtn('close', 'Закрыть', closeSettings)),
-    h('div', { class:'set-grid', title:'Название, автор и дата попадают на заставку' },
-      field('Название', title),
-      dateField(m, upd),
-      preacherField(),
-      seriesField(m, () => { upd(); refreshSlides(); if (fmt && fmt._refresh) fmt._refresh(); }),
-      fmt),
-    h('div', { class:'sheet-foot' }, h('span'), h('button', { type:'button', class:'btn primary', onclick:closeSettings }, 'Готово'))));
+  settingsOverlay.append(h('div', { class:'sheet meta-sheet' + (ro ? ' ro' : ''), role:'dialog', 'aria-label':'О проповеди' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'О проповеди' }), iconBtn('close', 'Закрыть', () => closeSettings())),
+    grid, h('div', { class:'sheet-foot' }, foot)));
+  if (ro) grid.inert = true;   // просмотр: поля серые, ничего не меняется
+  else {
+    grid.addEventListener('input', () => { if (shown) check(); });
+    settingsGuard = () => {
+      if (!check(true)){ (metaMissing(m)[0] === 'title' ? title : authorF.querySelector('.dfield, input')).focus(); return false; }
+      if (metaNew === state.id){ metaNew = null; if (editing() && isDirty()) scheduleSave(0); }   // подтвердили: теперь конспект уходит в облако
+      return true;
+    };
+    authorF._recheck = () => { if (shown) check(); };   // выбрали автора из списка (render.js)
+  }
   metaOpen = true;
   settingsOverlay.classList.add('open');
-  if (window.matchMedia('(pointer:fine)').matches) title.focus();
+  if (!ro && window.matchMedia('(pointer:fine)').matches) title.focus();
+}
+/* «Отмена» у нового конспекта: его не создаём — черновик в браузере стираем, в облако он не уходил (metaNew) */
+function cancelNewSermon(){
+  dropNewSermon();
+  if (screen === 'sermon') navigate('');
+}
+function dropNewSermon(){
+  const id = metaNew; metaNew = null;
+  if (!id) return;
+  settingsGuard = null; metaOpen = false;
+  settingsOverlay.classList.remove('open'); closeCalendar(); closeDropdown();
+  if (ed.id === id) resetCloud();
+  try { localStorage.removeItem('swp-sermon:' + id); if (LS.get('swp-sermon:last') === id) localStorage.removeItem('swp-sermon:last'); } catch(e){}
+  clearTimeout(draftTimer);   // отложенная запись черновика его бы вернула
+  if (state && state.id === id){ state = blank(); selId = null; screen = 'home'; }   // экран — главная: route не запишет пустой черновик
 }
 
 /* ----- Дата: ближайшие воскресенья и календарь ----- */

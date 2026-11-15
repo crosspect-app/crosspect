@@ -12,7 +12,7 @@
    • «Серии проповедей» (config/series): название, «Активна», формат фона. «Свободная тема» встроена (у проповеди без серии), не меняется
      и не хранится. Удалить можно серию, которой нет ни в одном конспекте (и в корзине): считаем по сводкам. Выключенная остаётся
      в старых проповедях, но в выборе её больше нет;
-   • «Общее»: название, время правки (lockMinutes), «Выбирать формат фона в проповеди» (config/slides, pickFormat), удаление пустого
+   • «Общее»: название, время правки (lockMinutes), удаление пустого
      пространства. Правит админ, редактор только смотрит.
    Окно слушает выбранное пространство само (SPW, spwSelect). Для работы формы люди и серии текущего пространства приходят
    слушателями из cloud.js: setPeople, setSeriesData. Операторы этапа 10.1 (config/operators) переносятся в людей: migrateOps. */
@@ -144,21 +144,23 @@ function seriesField(m, upd){
     [{ id:'', name:FREE_SERIES }].concat(act).map(x => ({ label:x.name, on:(m.series || '') === x.id, pick:() => pick(x.id) }))) }, text, ic('down'));
   return h('div', { class:'field' }, h('span', { class:'lbl', text:'Серия проповедей' }), trig);
 }
-/* «Формат фона» — только если в пространстве включено «Выбирать формат фона в проповеди». «По умолчанию» — формат серии,
-   а у серии с «По умолчанию» — формат по умолчанию пространства. Выбранного формата уже нет — тоже «По умолчанию» */
+/* «Формат фона» (этап 10.1.3) — только у админа и ролей, которым разрешено в «Настройках слайдов → Фон» (canPickBg).
+   В поле — действующий фон и откуда он: «Фон 1 (указан для серии)», «Фон 2 (по умолчанию)», выбранный вручную — без скобок;
+   в списке у форматов те же пометки. Выбрали формат, который подставился бы и сам (формат серии, без него — по умолчанию), —
+   ручной выбор снимается: конспект снова идёт за серией */
 function formatField(m, upd){
   const cfg = slidesCfg();
-  if (!cfg.pickFormat) return null;
-  const own = () => { const f = m.format; return f && (f === SYSTEM_FORMAT || cfg.formats[f]) ? f : ''; };
-  const dflt = () => { const x = m.series && SERIES[m.series], f = x && x.format && (x.format === SYSTEM_FORMAT || cfg.formats[x.format]) ? x.format : cfg.defaultFormat; return formatName(f, cfg); };
-  const label = () => own() ? formatName(own(), cfg) : 'По умолчанию · ' + dflt();
-  const text = h('span', { class:'dtext', text:label() });
-  const pick = id => { if (id) m.format = id; else delete m.format; text.textContent = label(); upd(); };
+  if (!canPickBg(cfg)) return null;
+  const s = { meta:m };
+  const auto = () => seriesFormatOk(s, cfg) || cfg.defaultFormat;
+  const cur = () => sermonFormatId(s, cfg);
+  const text = h('span', { class:'dtext', text:formatLabel(cur(), s, cfg) });
+  const pick = id => { if (id === auto()) delete m.format; else m.format = id; text.textContent = formatLabel(cur(), s, cfg); upd(); };
   const trig = h('button', { type:'button', class:'dfield', 'aria-haspopup':'listbox', 'aria-label':'Формат фона', onclick:() => dropdown(trig,
-    [{ label:'По умолчанию · ' + dflt(), on:!own(), pick:() => pick('') }, { sep:true }].concat(formatList(cfg).map(f => ({ label:f.name, on:own() === f.id, pick:() => pick(f.id) })))) },
+    formatList(cfg).map(f => ({ label:formatLabel(f.id, s, cfg), on:cur() === f.id, pick:() => pick(f.id) }))) },
     text, ic('down'));
   const box = h('div', { class:'field' }, h('span', { class:'lbl', text:'Формат фона' }), trig);
-  box._refresh = () => { text.textContent = label(); };   // сменили серию — «По умолчанию» теперь другой
+  box._refresh = () => { if (m.format && m.format === auto()) delete m.format; text.textContent = formatLabel(cur(), s, cfg); };   // сменили серию: подпись (и ручной выбор, если он совпал с форматом серии) — заново
   return box;
 }
 
@@ -206,7 +208,7 @@ function seriesUse(){
   }
   return SPW.usage ? SPW.usage.series || {} : null;
 }
-/* Настройки слайдов выбранного пространства (форматы фона, pickFormat) */
+/* Настройки слайдов выбранного пространства (форматы фона для серий) */
 const spwCfg = () => SPW.id === cloud.space ? slidesCfg() : mergeSlides(SLIDES_DEFAULT, SPW.slides || null);
 
 /* Пришли новые данные: окно открыто — перерисовать. Пока человек печатает в поле, не мешаем: перерисуем, когда уйдёт из поля */
@@ -410,7 +412,7 @@ function removeSeries(sid, x){
 
 /* Общее: правит админ, редактор только смотрит. Новое пространство — кнопка слева, под списком */
 function spaceGeneral(){
-  const sp = spwSpace(), adm = spwAdmin(), cfg = spwCfg(), mins = +(sp.settings || {}).lockMinutes || 10;
+  const sp = spwSpace(), adm = spwAdmin(), mins = +(sp.settings || {}).lockMinutes || 10;
   const saveSpace = async (fields, input) => {
     try {
       await cloud.api.updateSpace(sp.id, cloud.user, fields);
@@ -439,24 +441,12 @@ function spaceGeneral(){
   const minEl = adm ? h('input', { class:'input sp-num', type:'number', min:'1', max:'120', step:'1', value:String(mins), 'aria-label':'Минут без действий',
     onchange:e => { const v = Math.round(+e.target.value); if (!(v >= 1 && v <= 120)){ e.target.value = String(mins); toast('От 1 до 120 минут'); return; } if (v !== mins) saveSpace({ lockMinutes:v }, e.target); } })
     : h('span', { class:'dfield fixed sp-num', 'aria-disabled':'true' }, String(mins));
-  const slidesReady = sp.id === cloud.space || SPW.slides !== undefined;   // настройки другого пространства ещё не пришли — не перезаписываем их
-  const pick = sw('Выбирать формат фона в проповеди', cfg.pickFormat, async on => {
-    try {
-      const over = sp.id === cloud.space ? SLIDES_BASE : SPW.slides || {};
-      const next = mergeSlides(SLIDES_DEFAULT, Object.assign(JSON.parse(JSON.stringify(over)), { pickFormat:on }));
-      if (sp.id === cloud.space) await pushSlides(next);
-      else { await cloud.api.setSlides(sp.id, cloud.user, next); SPW.slides = next; }
-    } catch(e){ spaceErr(e, 'Не получилось сохранить.'); renderSpaceSheet(true); }
-  });
-  if (!adm || !slidesReady) pick.querySelector('input').disabled = true;
   return h('div', { class:'sp-body sp-general' },
     adm ? null : h('p', { class:'hint', text:'Эти настройки меняет админ.' }),
     field('Название', nameEl),
     h('div', { class:'field' }, h('span', { class:'lbl', text:'Правка без действий' }),
       h('div', { class:'sp-inline' }, h('span', { text:'завершается сама через' }), minEl, h('span', { text:'мин.' })),
       h('p', { class:'hint', text:'Форма сохраняет правки и отпускает конспект, чтобы его могли править другие.' })),
-    h('div', { class:'field' }, pick,
-      h('p', { class:'hint', text:'Включено — в «О проповеди» есть поле «Формат фона», и у каждой проповеди можно выбрать свой фон. Выключено — фон берётся из серии проповеди.' })),
     adm ? deleteSpaceField(sp) : null);
 }
 /* Удалить пространство (этап 10.1.2): только админ и только пустое — ни конспектов, ни корзины */

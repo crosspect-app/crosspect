@@ -24,7 +24,7 @@ def test_reset_layout_goes_right_under_slide_settings(browser, base_url):
     open_sermon(page, "s1")
     items = menu_items(page)
     assert items.index("Сбросить настройки экрана") == items.index("Настройки слайдов") + 1
-    assert items.index("Ссылка для оператора") < items.index("Настройки слайдов")
+    assert items.index("Поделиться") < items.index("Настройки слайдов")   # этап 10.1.3: было «Ссылка для оператора»
     ctx.close()
 
 

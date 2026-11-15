@@ -41,7 +41,7 @@ def test_pdf_count_is_number_of_distinct_numbers(page):
     assert "слайдов: 4" in page.locator(".op-meta").inner_text()
 
 
-# ---------- «Своя заставка»: чёрный экран с надписью, JPEG неактивен ----------
+# ---------- «Своя заставка»: серая заглушка с надписью (с этапа 10.1.3; была чёрная), JPEG неактивен ----------
 
 def test_custom_splash_stage_is_black_with_caption_and_no_jpeg(page, sermon):
     open_sermon(page, sermon)
@@ -50,9 +50,10 @@ def test_custom_splash_stage_is_black_with_caption_and_no_jpeg(page, sermon):
     title = page.locator(".stage .sl-custom .sl-sp-title")
     assert title.inner_text() == "Добавить свою заставку"
     size = page.evaluate("parseFloat(getComputedStyle(document.querySelector('.stage .sl-custom .sl-sp-title')).fontSize)")
-    assert size == 50
+    assert size == 100   # этап 10.1.3: вдвое крупнее
     assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-custom .sl-frame')).display") == "none"
-    assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-custom .sl-sp-title')).fontWeight") in ("700", "800", "900")
+    assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-custom .sl-stage')).backgroundColor") == "rgb(20, 20, 20)"   # серая заглушка, как у картинки
+    assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-custom .sl-stage')).borderTopStyle") == "dashed"
     assert page.locator(".stage-bar button", has_text="JPEG").is_disabled()
     # выключили — снова обычная заставка, кнопка активна
     page.evaluate("delete state.settings.customSplash; renderMain(); selectBlock(state.blocks.find(b => b.type === 'splash').id)")

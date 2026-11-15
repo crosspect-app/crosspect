@@ -31,6 +31,8 @@ function append(el, c){
   if (Array.isArray(c)) { c.forEach(x => append(el, x)); return; }
   el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
 }
+/* put(el, …) — как встроенный el.append(…), но пустые значения (null, false) пропускает: встроенный append превратил бы их в текст «null» */
+function put(el){ for (let i = 1; i < arguments.length; i++) append(el, arguments[i]); return el; }
 function ic(name){ return h('span', { class:'ic', html:'<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || '') + '</svg>' }); }
 function iconBtn(name, title, fn, cls){ return h('button', { type:'button', class:'icon-btn ' + (cls || ''), title:title, 'aria-label':title, onclick:fn }, ic(name)); }
 function chip(name, label, fn, cls){ return h('button', { type:'button', class:'chip ' + (cls || ''), onclick:fn }, ic(name), label); }

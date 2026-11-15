@@ -56,7 +56,8 @@ def test_custom_splash_switch_applies_to_every_splash(page, sermon):
     assert page.errors == []
 
 
-def test_custom_splash_is_black_in_pptx_with_note(page, sermon):
+def test_custom_splash_is_placeholder_in_pptx_with_note(page, sermon):
+    """Этап 10.1.3: своя заставка в PowerPoint — картинка серой заглушки (была чёрный слайд), в заметках — «Своя заставка»"""
     pptx = pytest.importorskip("pptx")
     open_sermon(page, sermon)
     page.evaluate("state.blocks.splice(3, 0, newBlock('splash')); state.settings.customSplash = true")
@@ -64,8 +65,8 @@ def test_custom_splash_is_black_in_pptx_with_note(page, sermon):
     types = page.evaluate("state.blocks.filter(b => TYPES[b.type].slide).map(b => b.type)")
     names = page.evaluate("(() => { const n = slideNums(); return state.blocks.filter(b => TYPES[b.type].slide).map(b => slideName(b, n[b.id])); })()")
     slides = list(prs.slides)
-    for i in [i for i, t in enumerate(types) if t == "splash"]:   # все заставки — чёрные
-        assert not any(sh.shape_type == 13 for sh in slides[i].shapes)
+    for i in [i for i, t in enumerate(types) if t == "splash"]:   # все заставки — серые заглушки (картинкой)
+        assert any(sh.shape_type == 13 for sh in slides[i].shapes)
         assert slides[i].notes_slide.notes_text_frame.text == names[i] + "\nСвоя заставка"
     assert page.errors == []
 
@@ -276,11 +277,11 @@ def test_single_jpeg_and_pdf_use_progress_window(page, sermon):
     assert page.evaluate("window.__w") == [1]
     page.wait_for_function("!document.querySelector('.exp-prog')", timeout=5000)
     assert page.evaluate("[...document.querySelectorAll('.toast')].map(t => t.textContent)")[0].startswith("Скачано: ")
-    # PDF: окно хода, потом одно сообщение про «Сохранить как PDF»
-    page.evaluate("window.print = () => { window.__printed = document.querySelectorAll('.exp-prog').length; }; operatorPDF()")
-    page.wait_for_function("window.__printed !== undefined", timeout=5000)
-    assert page.evaluate("window.__printed") == 0   # окно хода закрыто до печати
-    assert page.evaluate("[...document.querySelectorAll('.toast')].filter(t => t.textContent.includes('Сохранить как PDF')).length") == 1
+    # PDF (с этапа 10.1.3 — файл, а не окно печати): окно хода, потом одно сообщение
+    d = download(page, "exportPDF()")
+    assert d.suggested_filename.endswith(" — оператор.pdf")
+    page.wait_for_function("!document.querySelector('.exp-prog')", timeout=5000)
+    assert page.evaluate("[...document.querySelectorAll('.toast')].map(t => t.textContent)")[0].startswith("Скачан PDF: ")
 
 
 # ---------- Заметки PowerPoint ----------

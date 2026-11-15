@@ -1,8 +1,9 @@
 'use strict';
 
-/* ========= PDF для оператора =========
-   Собирается отдельная страница только для печати и открывается окно печати Chrome: там нужно выбрать «Сохранить как PDF».
-   Подсказки для того, кто готовит слайды (найти, пришлют, описания, ссылки), сюда не попадают. */
+/* ========= PDF для оператора: содержимое страниц =========
+   buildOperatorPrint собирает в #print-op то, что нужно оператору; pdf.js (этап 10.1.3) раскладывает это в узкие страницы
+   и складывает из них PDF-файл (раньше — окно печати Chrome). Подсказки для того, кто готовит слайды (найти, пришлют,
+   описания, ссылки), сюда не попадают. */
 const printEl = h('div', { id:'print-op', 'aria-hidden':'true' });
 document.body.append(printEl);
 const OP_COLORS = { splash:'#8a6d45', scripture:'#c27a52', thesis:'#6b56d8', quote:'#1f8d73', image:'#c44579', video:'#c9532f', free:'#6c7486' };
@@ -55,18 +56,4 @@ function buildOperatorPrint(){
     if (plain(b.speech).trim()) printEl.append(h('div', { class:'op-text', html:sanitize(b.speech) }));   // текст к слайду — тонким серым
   });
   wrapScripts(printEl);
-}
-function operatorPDF(){
-  if (!state.blocks.length){ toast('В конспекте пока нет слайдов'); return; }
-  if (!checkNames()) return;
-  buildOperatorPrint();
-  const title = document.title;
-  document.title = folderName() + ' — оператор';   // Chrome предлагает это имя для PDF
-  document.body.classList.add('op-print');
-  const done = () => { document.body.classList.remove('op-print'); document.title = title; printEl.innerHTML = ''; window.removeEventListener('afterprint', done); };
-  window.addEventListener('afterprint', done);
-  // этап 9.5: пока готовится страница — окно со знаком, потом одно сообщение (без стопки над окном печати)
-  const pr = exportProgress('Готовлю PDF');
-  const go = () => { pr.end(); toast('В окне печати выберите «Сохранить как PDF»'); setTimeout(() => window.print(), 500); };   // окно хода успевает закрыться до печати
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(go); else go();
 }

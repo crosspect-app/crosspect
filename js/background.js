@@ -212,10 +212,22 @@ function formatBg(id, cfg){
 /* Серии проповедей пространства (этап 10, облако: config/series, space.js): { <id>: { name, active, format } }.
    format — id формата фона или '' («По умолчанию»). «Свободная тема» встроена и не хранится: у проповеди без серии */
 let SERIES = {};
-/* Какой формат у проповеди: формат, выбранный в самой проповеди → формат её серии → формат по умолчанию пространства.
-   Свой формат проповеди действует, только пока в пространстве включено «Выбирать формат фона в проповеди» (выключили —
-   выбор не стирается, но не действует). Формат, которого уже нет (удалили), пропускается */
-const sermonOwnFormat = (sermon, cfg) => (cfg.pickFormat && sermon && sermon.meta && sermon.meta.format) || null;
+/* Какой формат у проповеди: формат, выбранный в самой проповеди вручную → формат её серии → формат по умолчанию пространства.
+   Выбрать вручную может админ и роли из «Настроек слайдов → Фон» (pickRoles, этап 10.1.3); выбранный действует для всех.
+   Формат, которого уже нет (удалили), пропускается */
+const sermonOwnFormat = (sermon, cfg) => (sermon && sermon.meta && sermon.meta.format) || null;
+const canPickBg = cfg => { cfg = cfg || slidesCfg(); return !!(cloud.admin || cloud.role === 'admin' || cfg.pickRoles.includes(cloud.role)); };
+const validFormat = (id, cfg) => !!id && (id === SYSTEM_FORMAT || !!cfg.formats[id]);
+/* Формат серии проповеди (действующий) или null */
+const seriesFormatOk = (sermon, cfg) => { const f = seriesFormat(sermon, cfg); return validFormat(f, cfg) ? f : null; };
+/* Откуда фон (этап 10.1.3): пометка у формата — «(указан для серии)», «(по умолчанию)» или '' (выбран вручную) */
+function formatOrigin(id, sermon, cfg){
+  cfg = cfg || slidesCfg();
+  if (id === seriesFormatOk(sermon, cfg)) return 'указан для серии';
+  if (id === cfg.defaultFormat) return 'по умолчанию';
+  return '';
+}
+const formatLabel = (id, sermon, cfg) => { const o = formatOrigin(id, sermon, cfg); return formatName(id, cfg) + (o ? ' (' + o + ')' : ''); };
 const seriesFormat = (sermon, cfg) => { const id = sermon && sermon.meta && sermon.meta.series, x = id && SERIES[id]; return (x && x.format) || null; };
 function sermonFormatId(sermon, cfg){
   cfg = cfg || slidesCfg();

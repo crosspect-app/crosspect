@@ -73,15 +73,43 @@ function opNewKey(){
   return out;
 }
 
-/* ----- «Ссылка для оператора» в форме ----- */
-let opBusy = false;
+/* ----- «⋯ → Поделиться» (этап 10.1.3; было «Ссылка для оператора») -----
+   Видят все, кто видит конспект. Два раздела: «Ссылка на конспект» — только тем, кто может его править (форма делает снимок
+   для страницы оператора, как раньше); «PDF-файл» — всем. PDF собирается сразу, как открыли окно: системное «Поделиться»
+   с файлом (navigator.share) браузер разрешает только сразу после нажатия — ждать сборки после нажатия нельзя.
+   Где делиться файлами нельзя (часть браузеров на компьютере), «В Telegram» скачивает PDF и открывает чат человека */
+let opBusy = false, shareWin = null;
+function openShare(){
+  if (!cloudOn() || screen !== 'sermon' || !state) return;
+  shareFrame(true);
+  if (canEditCloud()) openOpLink();
+}
+/* Окно «Поделиться»; уже открыто для этого конспекта — то же. pdf — начать собирать PDF */
+function shareFrame(pdf){
+  if (shareWin && shareWin.id === state.id && shareWin.sheet.isConnected && settingsOverlay.classList.contains('open')) return shareWin;
+  const w = shareWin = { id:state.id, link:h('div', { class:'share-box' }), pdf:h('div', { class:'share-box' }), file:null, busy:false, sheet:null };
+  const sec = (title, box) => h('section', { class:'share-sec' }, h('div', { class:'lbl', text:title }), box);
+  w.sheet = h('div', { class:'sheet oplink share', role:'dialog', 'aria-label':'Поделиться' },
+    h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Поделиться' }), iconBtn('close', 'Закрыть', () => closeSettings())),
+    canEditCloud() ? sec('Ссылка на конспект', w.link) : null,
+    sec('PDF-файл', w.pdf));
+  settingsOverlay.innerHTML = '';
+  settingsOverlay.append(w.sheet);
+  settingsOverlay.classList.add('open');
+  if (pdf) sharePdf(w); else w.pdf.append(h('p', { class:'hint', text:'PDF соберётся, когда вы откроете «Поделиться».' }));
+  return w;
+}
+const shareLive = w => shareWin === w && w.sheet.isConnected && settingsOverlay.classList.contains('open');
+
+/* Ссылка: снимок для оператора в облаке (делает тот, кто может править конспект) */
 async function openOpLink(){
   if (opBusy || !cloudOn() || screen !== 'sermon' || !state) return;
-  if (!canEditCloud()){ toast(authorWaits() ? atEditorMsg() : 'Ссылку для оператора делает тот, кто может править этот конспект'); return; }
+  const w = shareFrame(false);
+  if (!canEditCloud()){ shareMsg(w.link, authorWaits() ? atEditorMsg() : 'Ссылку делает тот, кто может править этот конспект.'); return; }
   const id = state.id, had = shareKeyNow();
-  if (!had && !state.blocks.length){ toast('В конспекте пока нет слайдов'); return; }
+  if (!had && !state.blocks.length){ shareMsg(w.link, 'В конспекте пока нет слайдов.'); return; }
   opBusy = true;
-  opLinkSheet(null);
+  shareMsg(w.link, 'Делаю ссылку…');
   try {
     // что ещё не ушло в облако, уходит сначала: оператор увидит то же, что лежит в облаке
     if (editing() && isDirty()){ saveNow(); if (ed.pending) await ed.pending; }
@@ -91,33 +119,79 @@ async function openOpLink(){
     const r = await cloud.api.shareOn(cloud.space, id, cloud.user, had || opNewKey(), snap, { minutes:lockMins() });
     opSent[r.key] = JSON.stringify(snap);
     if (state && state.id === id){ state.cloudShare = r.key; if (ed.id === id) ed.remote = r.remote; }
-    opLinkSheet(r.key);   // этап 9.3: сама ссылка не копируется, человек выбирает кнопку
+    if (shareLive(w)) opLinkSheet(r.key);   // этап 9.3: сама ссылка не копируется, человек выбирает кнопку
   } catch(e){
-    closeSettings();
-    if (e.code === 'locked') toast('Сейчас конспект правит ' + lockWho(e.lock) + '. Ссылку можно сделать, когда он закончит');
-    else if (e.code === 'unsaved') toast('Конспект ещё не сохранился в облаке. Попробуйте ещё раз через минуту');
-    else if (e.code !== 'closed') toast(cloudExplain(e) || 'Не получилось сделать ссылку');
+    const msg = e.code === 'locked' ? 'Сейчас конспект правит ' + lockWho(e.lock) + '. Ссылку можно сделать, когда он закончит.'
+      : e.code === 'unsaved' ? 'Конспект ещё не сохранился в облаке. Попробуйте ещё раз через минуту.'
+      : e.code === 'closed' ? '' : (cloudExplain(e) || 'Не получилось сделать ссылку.');
+    if (msg && shareLive(w)) shareMsg(w.link, msg, 'Повторить', () => openOpLink());
   } finally { opBusy = false; }
 }
-
-/* Окно со ссылкой: key — пока нет (делаем), показывается «Делаю ссылку…». Без пояснения и без «Отключить ссылку» (этап 9.2):
-   ссылка живёт, пока жив конспект, и исчезает вместе с ним */
+function shareMsg(box, text, act, fn){
+  box.replaceChildren(h('p', { class:'hint', text }), act ? h('button', { type:'button', class:'btn small', onclick:fn }, act) : '');
+}
+/* Ссылка готова: поле и три кнопки (без пояснения и без «Отключить ссылку», этап 9.2: ссылка живёт, пока жив конспект) */
 function opLinkSheet(key){
-  settingsOverlay.innerHTML = '';
-  const head = h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Ссылка для оператора' }), iconBtn('close', 'Закрыть', closeSettings));
-  const sheet = h('div', { class:'sheet oplink', role:'dialog', 'aria-label':'Ссылка для оператора' }, head);
-  if (!key) sheet.append(h('p', { class:'hint', text:'Делаю ссылку…' }));
-  else {
-    const url = opUrl(key), field = h('input', { type:'text', class:'input oplink-url', readonly:'readonly', value:url, 'aria-label':'Ссылка', onfocus:e => e.target.select() });
-    sheet.append(
-      field,
-      h('div', { class:'sheet-foot wrap' },
-        h('button', { type:'button', class:'btn', onclick:() => opCopy(url, false, field) }, ic('dup'), 'Скопировать'),
-        h('button', { type:'button', class:'btn', onclick:() => opCopy(opShareLines(url).join('\n'), false, null, 'Текст скопирован') }, ic('dup'), 'Скопировать с форматом'),
-        h('button', { type:'button', class:'btn primary', 'aria-haspopup':tgPeople().length ? 'listbox' : null, onclick:e => opTelegramPick(e.currentTarget, url) }, ic('telegram'), 'В Telegram')));
+  const w = shareFrame(false), url = opUrl(key);
+  const field = h('input', { type:'text', class:'input oplink-url', readonly:'readonly', value:url, 'aria-label':'Ссылка', onfocus:e => e.target.select() });
+  w.link.replaceChildren(field,
+    h('div', { class:'sheet-foot wrap' },
+      h('button', { type:'button', class:'btn', onclick:() => opCopy(url, false, field) }, ic('dup'), 'Скопировать'),
+      h('button', { type:'button', class:'btn', onclick:() => opCopy(opShareLines(url).join('\n'), false, null, 'Текст скопирован') }, ic('dup'), 'Скопировать с форматом'),
+      h('button', { type:'button', class:'btn primary', 'aria-haspopup':tgPeople().length ? 'listbox' : null, onclick:e => opTelegramPick(e.currentTarget, url) }, ic('telegram'), 'В Telegram')));
+}
+
+/* PDF-файл: собрать сразу, потом «Отправить PDF…» (системное окно) или «В Telegram» (скачать и открыть чат) */
+const canShareFile = f => !!(navigator.share && navigator.canShare && (() => { try { return navigator.canShare({ files:[f] }); } catch(e){ return false; } })());
+async function sharePdf(w){
+  if (!state.blocks.some(b => TYPES[b.type].slide)){ shareMsg(w.pdf, 'В конспекте пока нет слайдов.'); return; }
+  const miss = missingNames();
+  if (miss.length){
+    const nums = slideNums();
+    shareMsg(w.pdf, 'Для PDF нужны названия слайдов: ' + miss.map(b => nums[b.id]).join(', ') + '.', 'Написать названия', () => { closeSettings(); checkNames(); });
+    return;
   }
-  settingsOverlay.append(sheet);
-  settingsOverlay.classList.add('open');
+  if (exporting){ shareMsg(w.pdf, 'Сейчас собираются другие файлы. Откройте «Поделиться» ещё раз, когда они скачаются.'); return; }
+  shareMsg(w.pdf, 'Готовлю PDF…');
+  exporting = true; w.busy = true;
+  try {
+    const f = await operatorPdfFile((i, n) => { if (shareLive(w) && n > 1) shareMsg(w.pdf, 'Готовлю PDF: страница ' + i + ' из ' + n + '…'); });
+    w.file = f;
+    if (shareLive(w)) sharePdfReady(w);
+  } catch(e){
+    if (shareLive(w)) shareMsg(w.pdf, 'Не получилось собрать PDF: ' + (e && e.message ? e.message : 'ошибка') + '.', 'Повторить', () => sharePdf(w));
+  } finally { exporting = false; w.busy = false; }
+}
+function sharePdfReady(w){
+  const f = w.file;
+  if (canShareFile(f)){
+    w.pdf.replaceChildren(h('div', { class:'sheet-foot wrap' },
+      h('button', { type:'button', class:'btn primary', onclick:() => sharePdfSystem(f) }, ic('share'), 'Отправить PDF…')));
+    return;
+  }
+  w.pdf.replaceChildren(
+    h('p', { class:'hint', text:'PDF скачается, а Telegram откроет чат: перетащите файл в него.' }),
+    h('div', { class:'sheet-foot wrap' },
+      h('button', { type:'button', class:'btn primary', 'aria-haspopup':tgPeople().length ? 'listbox' : null, onclick:e => pdfTelegramPick(e.currentTarget, f) }, ic('telegram'), 'В Telegram')));
+}
+async function sharePdfSystem(f){
+  try { await navigator.share({ files:[f], title:f.name }); }
+  catch(e){ if (!e || e.name !== 'AbortError') toast('Не получилось открыть окно «Поделиться». Скачайте PDF через «Экспорт»'); }   // AbortError — окно просто закрыли
+}
+/* Компьютер без «Поделиться» с файлами: человек из «Людей» с Telegram — скачать и открыть его чат; «Другому…» — скачать и открыть Telegram */
+function pdfTelegramPick(anchor, f){
+  const ops = tgPeople(), go = tg => { download(f, f.name); tgOpen(tg); toast('PDF скачан. Перетащите его в чат Telegram'); };
+  if (!ops.length){ go(''); return; }
+  dropdown(anchor, ops.map(o => ({ label:o.name, pick:() => go(o.tg) })).concat([{ sep:true }, { label:'Другому…', pick:() => go('') }]));
+  if (typeof ddEl !== 'undefined' && ddEl){
+    ddEl.style.minWidth = '220px';
+    ddEl.style.left = Math.max(8, Math.min(parseFloat(ddEl.style.left), innerWidth - 228)) + 'px';
+  }
+}
+/* Открыть чат в Telegram (tg — имя пользователя) или само приложение (tg пустое) */
+function tgOpen(tg){
+  if (tg) window.open('https://t.me/' + encodeURIComponent(tg), '_blank', 'noopener');
+  else { const a = h('a', { href:'tg://' }); document.body.append(a); a.click(); a.remove(); }
 }
 
 /* Копировать: после ожидания ответа облака браузер иногда не даёт писать в буфер без нажатия — тогда молча остаётся кнопка «Скопировать ссылку».

@@ -172,15 +172,15 @@ def test_notes_hold_only_file_name_and_black_slide_comments(page, sermon):
 def test_download_menu_offers_jpeg_and_powerpoint(page, sermon):
     open_sermon(page, sermon)
     page.evaluate("fillMenu()")
-    assert page.evaluate("[...menuEl.querySelectorAll('button')].some(b => b.textContent.trim() === 'Скачать слайды')")
+    assert page.evaluate("[...menuEl.querySelectorAll('button')].some(b => b.textContent.trim() === 'Экспорт')")   # этап 10.1.3: было «Скачать слайды»
     assert not page.evaluate("[...menuEl.querySelectorAll('button')].some(b => b.textContent.includes('Скачать все слайды'))")
-    page.evaluate("openDownload()")
+    page.evaluate("openExport()")
     sheet = page.locator(".sheet.dlsheet")
-    assert sheet.get_by_role("button", name="JPEG в архиве").count() == 1 and sheet.get_by_role("button", name="PowerPoint").count() == 1
+    assert sheet.get_by_role("button", name="JPEG (архив ZIP)").count() == 1 and sheet.get_by_role("button", name="PowerPoint").count() == 1
     with page.expect_download(timeout=120000) as dl:
-        sheet.get_by_role("button", name="JPEG в архиве").click()
+        sheet.get_by_role("button", name="JPEG (архив ZIP)").click()
     assert dl.value.suggested_filename.endswith(".zip")
-    page.evaluate("openDownload()")
+    page.evaluate("openExport()")
     with page.expect_download(timeout=120000) as dl:
         page.locator(".sheet.dlsheet").get_by_role("button", name="PowerPoint").click()
     assert dl.value.suggested_filename.endswith(".pptx")

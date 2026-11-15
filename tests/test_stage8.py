@@ -162,7 +162,7 @@ def test_new_sermon_goes_to_current_space(browser, base_url):
     page.evaluate("newSermon()")
     page.wait_for_selector(".sheet[aria-label='О проповеди']")
     page.fill("input[aria-label='Название проповеди']", "Новая у отца")
-    page.evaluate("closeSettings(); saveNow()")
+    page.evaluate("closeSettings(true); saveNow()")   # этап 10.1.3: без автора окно не закрыть — закрываем без проверки
     page.wait_for_function("Object.values(fakeCloud.db().spaces.sp2.sermons).some(r => r.meta.title === 'Новая у отца')")
     assert not any(r["meta"]["title"] == "Новая у отца" for r in page.evaluate("Object.values(fakeCloud.db().sermons)"))
     ctx.close()

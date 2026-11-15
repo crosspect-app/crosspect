@@ -8,6 +8,8 @@
 function preacherField(){
   const m = state.meta, key = preacherKey(m), list = PREACHERS.slice();
   const upd = () => { change(); refreshSplash(); };
+  const recheck = () => { const f = trig && trig.closest('.author-field'); if (f && f._recheck) f._recheck(); };   // окно «О проповеди» обновляет ошибку (этап 10.1.3)
+  let trig = null;
   const manualNow = !list.length || (!!key && !list.includes(key));
   const first = h('input', { class:'input', placeholder:'Имя', 'aria-label':'Имя', autocomplete:'off', value:manualNow ? m.firstName || '' : '', oninput:e => { m.firstName = e.target.value; upd(); } });
   const last = h('input', { class:'input', placeholder:'Фамилия', 'aria-label':'Фамилия', autocomplete:'off', value:manualNow ? m.lastName || '' : '', oninput:e => { m.lastName = e.target.value; upd(); } });
@@ -24,10 +26,10 @@ function preacherField(){
     else if (k && list.includes(k)){ text.textContent = label(k); text.classList.remove('ph'); names.style.display = 'none'; }
     else { text.textContent = 'Выберите автора'; text.classList.add('ph'); names.style.display = 'none'; }
   };
-  const trig = h('button', { type:'button', class:'dfield', 'aria-haspopup':'listbox', 'aria-label':'Автор', onclick:() => dropdown(trig, [
-      ...list.map(k => ({ label:label(k), on:k === preacherKey(m) && names.style.display === 'none', pick:() => { Object.assign(m, splitPreacher(k)); upd(); show(); } })),
+  trig = h('button', { type:'button', class:'dfield', 'aria-haspopup':'listbox', 'aria-label':'Автор', onclick:() => dropdown(trig, [
+      ...list.map(k => ({ label:label(k), on:k === preacherKey(m) && names.style.display === 'none', pick:() => { Object.assign(m, splitPreacher(k)); upd(); show(); recheck(); } })),
       { sep:true },
-      { label:'Ввести вручную', cls:'man', on:names.style.display !== 'none', pick:() => { m.firstName = ''; m.lastName = ''; first.value = ''; last.value = ''; upd(); show('manual'); first.focus(); } }]) },
+      { label:'Ввести вручную', cls:'man', on:names.style.display !== 'none', pick:() => { m.firstName = ''; m.lastName = ''; first.value = ''; last.value = ''; upd(); show('manual'); recheck(); first.focus(); } }]) },
     text, ic('down'));
   show(manualNow ? 'manual' : '');
   return h('div', { class:'field author-field' }, h('span', { class:'lbl', text:'Автор' }), trig, names);
@@ -614,7 +616,7 @@ const BODY = {
     };
     const sw = (label, on, fn) => h('label', { class:'switch' },
       h('input', { type:'checkbox', checked:on, onchange:e => { fn(e.target.checked); change(); all(); } }), h('span', { class:'sw' }), label);
-    const hint = h('p', { class:'hint', hidden:!isCustomSplash(b), text:'В PowerPoint вместо заставки будет чёрный слайд, в архив JPEG заставка не попадёт.' });   // пояснение — только когда «Своя заставка» включена (этап 9.6)
+    const hint = h('p', { class:'hint', hidden:!isCustomSplash(b), text:'В PowerPoint на месте заставки будет серая заглушка, в архив JPEG заставка не попадёт.' });   // пояснение — только когда «Своя заставка» включена (этап 9.6)
     body.append(
       h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Размер названия' }), splashStepper()),
       sw('Нижняя строка', splashFootOn(b), v => { state.settings.splashFoot = v; }),

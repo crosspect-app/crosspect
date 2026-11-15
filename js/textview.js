@@ -11,7 +11,7 @@ function renderTextView(){
     words ? (min < 0.75 ? 'текст меньше минуты' : 'текст около ' + Math.round(min) + ' мин') : ''].filter(Boolean).join(' · ');
   const doc = h('article', { class:'tv-doc', style:'--vs:' + viewOpts.size },
     h('header', { class:'tv-head' },
-      h('h1', { class:m.title ? '' : 'empty', text:m.title || 'Без названия', title:'Изменить название', onclick:() => openMeta() }),
+      h('h1', { class:m.title ? '' : 'empty', text:m.title || 'Без названия', title:readOnly() ? 'О проповеди' : 'Изменить название', onclick:() => openMeta() }),
       h('div', { class:'tv-stats', text:[fmtDay(m.date), preacherName(m)].filter(Boolean).join(' · ') }),
       h('div', { class:'tv-stats', text:stats })));
   state.blocks.forEach(b => { const el = tvBlock(b, nums[b.id]); if (el) doc.append(el); });
@@ -117,8 +117,8 @@ function tvSide(){
   const card = (title, ...kids) => h('section', { class:'tv-card2' }, h('div', { class:'tv-h', text:title }), kids);
   return h('aside', { class:'tv-side', 'aria-label':'Для оператора и проверка' },
     card('Для оператора',
-      h('button', { type:'button', class:'btn primary wide', title:'Узкие страницы под телефон: названия и номера слайдов, текст Писания, тезисы и цитаты, под каждым слайдом его текст, жёлтые заметки', onclick:() => operatorPDF() }, ic('save'), 'PDF для оператора'),
-      canEditCloud() ? h('button', { type:'button', class:'btn wide', title:'Ссылка для телефона оператора: открывается без входа и обновляется, когда вы сохраняете конспект', onclick:() => openOpLink() }, ic('link'), 'Ссылка для оператора') : null),
+      h('button', { type:'button', class:'btn primary wide', onclick:() => openExport() }, ic('save'), 'Экспорт'),
+      h('button', { type:'button', class:'btn wide', onclick:() => openShare() }, ic('share'), 'Поделиться')),
     card('Показать',
       toggle([['all', 'Всё'], ['slides', 'Только слайды']], viewOpts.showText ? 'all' : 'slides', val => { viewOpts.showText = val === 'all'; LS.set('swp-view', JSON.stringify(viewOpts)); renderMain(); }),
       h('div', { class:'size' }, h('button', { type:'button', title:'Мельче', onclick:() => setSize(-0.1) }, 'A−'), h('button', { type:'button', title:'Крупнее', onclick:() => setSize(0.1) }, 'A+'))),
