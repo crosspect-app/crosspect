@@ -308,17 +308,12 @@ describe('участники', () => {
     await assertFails(getDoc(doc(db, 'spaces', 'other', 'sermons', 'o1')));
     await assertFails(updateDoc(doc(db, 'spaces', 'other', 'members', PEOPLE.petr), { seenAt: serverTimestamp() }));
   });
-  test('Claude User (этап 10.5): редактор добавляет его с Telegram, в форму он не входит, автор его не добавит', async () => {
-    const put = (key, data, who = 'ed') => setDoc(doc(as(who), 'spaces', 'sw', 'members', key),
-      { addedBy: PEOPLE[who], addedAt: serverTimestamp(), ...data });
-    await assertSucceeds(put('p-claude1', { role: 'claude', firstName: 'Виталий', tg: 'vitaliy_b' }));
-    await assertSucceeds(updateDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'claude' }));
-    await assertFails(put('p-claude2', { role: 'claude' }, 'ivan'));
-    await assertFails(put('p-claude3', { role: 'Claude' }));
-    const db = as('ivan');   // Иван теперь Claude User: участником не считается
-    await assertFails(getDoc(doc(db, 'spaces', 'sw')));
-    await assertFails(getDocs(collection(db, 'spaces', 'sw', 'members')));
-    await assertSucceeds(updateDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'preacher' }));
+  test('роли «Claude User» больше нет (этап 10.5): записать её нельзя', async () => {
+    const put = (key, data) => setDoc(doc(as('ed'), 'spaces', 'sw', 'members', key),
+      { addedBy: PEOPLE.ed, addedAt: serverTimestamp(), ...data });
+    await assertFails(put('p-claude1', { role: 'claude', firstName: 'Виталий', tg: 'vitaliy_b' }));
+    await assertFails(updateDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'claude' }));
+    await assertSucceeds(put('p-oper01', { role: 'operator', firstName: 'Виталий', tg: 'vitaliy_b' }));
   });
   test('админ и редактор меняют роли и убирают людей; автор — нет', async () => {
     const db = as('admin');
@@ -1215,6 +1210,48 @@ describe('сводки для списка (этап 8)', () => {
     b.delete(sermon(db, 'sw', 'petr1'));
     b.delete(sum('sw', 'petr1')(db));
     await assertSucceeds(b.commit());
+  });
+});
+
+describe('фотобанк (этап 10.5)', () => {
+  const author = (db, id = 'lewis-cs') => doc(db, 'authors', id);
+  const preset = (extra = {}) => ({ x: 0.25, y: 1, h: 0.9, side: 'left', filter: 'bw', mirror: true, ...extra });
+  const body = (who, extra = {}) => ({ first: 'Клайв', last: 'Льюис', caption: 'писатель · 1898–1963', aliases: ['К. С. Льюис'],
+    updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra });
+  test('админ пишет описание и вид по умолчанию, дописывает и удаляет', async () => {
+    const db = as('admin');
+    await assertSucceeds(setDoc(author(db), body('admin')));
+    await assertSucceeds(setDoc(author(db), { preset: preset(), updatedAt: serverTimestamp(), updatedBy: PEOPLE.admin }, { merge: true }));
+    await assertSucceeds(setDoc(author(db, 'ten-boom'), { preset: preset({ side: 'right', x: 0.8, y: 1.1, h: 1.2, filter: 'none', mirror: false }),
+      updatedAt: serverTimestamp(), updatedBy: PEOPLE.admin }));
+    await assertSucceeds(deleteDoc(author(db, 'ten-boom')));
+  });
+  test('читает любой, кто вошёл; без входа — нет', async () => {
+    await assertSucceeds(setDoc(author(as('admin')), body('admin')));
+    for (const who of ['ed', 'ivan', 'stranger']) {
+      await assertSucceeds(getDoc(author(as(who))));
+      await assertSucceeds(getDocs(collection(as(who), 'authors')));
+    }
+    await assertFails(getDoc(author(anon())));
+  });
+  test('редактор и автор не пишут и не удаляют', async () => {
+    await assertSucceeds(setDoc(author(as('admin')), body('admin')));
+    await assertFails(setDoc(author(as('ed')), body('ed')));
+    await assertFails(setDoc(author(as('ed')), { preset: preset(), updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }, { merge: true }));
+    await assertFails(setDoc(author(as('ivan')), body('ivan')));
+    await assertFails(deleteDoc(author(as('ed'))));
+  });
+  test('неверные поля, вид по умолчанию и id не проходят', async () => {
+    const db = as('admin');
+    await assertFails(setDoc(author(db), body('admin', { extra: 1 })));
+    await assertFails(setDoc(author(db), body('admin', { updatedBy: PEOPLE.ed })));
+    await assertFails(setDoc(author(db), body('admin', { caption: 'x'.repeat(201) })));
+    await assertFails(setDoc(author(db), body('admin', { aliases: 'К. С. Льюис' })));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ side: 'top' }) })));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ filter: 'neon' }) })));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ h: 5 }) })));
+    await assertFails(setDoc(author(db), body('admin', { preset: { x: 0.2, y: 1, h: 0.9 } })));
+    await assertFails(setDoc(author(db, 'Lewis CS'), body('admin')));
   });
 });
 

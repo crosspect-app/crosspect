@@ -9,7 +9,7 @@ rules_version = '2';
 //                                    (cloud/scripts/admin.mjs); человек видит только свою запись
 //   spaces/{s}                       пространство (церковь). Создаёт, правит и удаляет (с этапа 10.1.2) админ
 //                                    в форме; список всех видит админ
-//   spaces/{s}/members/{key}         человек и роль: editor | preacher | operator | claude (старая роль admin
+//   spaces/{s}/members/{key}         человек и роль: editor | preacher | operator (старая роль admin
 //                                    участника считается редактором). key — почта (с ней человек входит в форму)
 //                                    или p-<случайный> (без почты, этап 10.1.2). Оператор в форму не входит.
 //                                    Добавляют, меняют и убирают админ и редактор (этап 10.1.2); tg — имя
@@ -30,6 +30,8 @@ rules_version = '2';
 //                                    их в members и удаляет документ; писать сюда больше нельзя
 //   people/{email}/prefs/screen      раскладка экрана у человека: видит и правит только он сам
 //   shares/{key}                     снимок для оператора: читается по ключу без входа
+//   authors/{id}                     фотобанк (этап 10.5): правки описания автора и вид фото по умолчанию; читает
+//                                    любой, кто вошёл, пишет только админ всей формы
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -144,7 +146,7 @@ service cloud.firestore {
         return d.keys().hasAll(['role'])
           && d.keys().hasOnly(['email', 'role', 'firstName', 'lastName', 'tg', 'addedBy', 'addedAt', 'seenAt'])
           && (('email' in d) ? (d.email == key && isEmail(key)) : key.matches('p-[a-z0-9]{6,24}'))
-          && d.role in ['editor', 'preacher', 'operator', 'claude']
+          && d.role in ['editor', 'preacher', 'operator']
           && optStr(d, 'firstName', 100) && optStr(d, 'lastName', 100)
           && (!('tg' in d) || isTg(d.tg));
       }
@@ -163,7 +165,7 @@ service cloud.firestore {
           && !('seenAt' in request.resource.data)
           && request.resource.data.addedBy == me()
           && request.resource.data.addedAt == request.time;
-        // Админ и редактор правят всех (роль — только editor, preacher, operator или claude — «Claude User», этап 10.5). Каждый участник может поправить
+        // Админ и редактор правят всех (роль — только editor, preacher или operator). Каждый участник может поправить
         // своё имя и фамилию и отметить вход (seenAt); так и со старой ролью admin, которую validMember не пропустит.
         allow update: if request.resource.data.get('addedBy', null) == resource.data.get('addedBy', null)
           && request.resource.data.get('addedAt', null) == resource.data.get('addedAt', null)
@@ -416,6 +418,35 @@ service cloud.firestore {
         && request.resource.data.layout is map
         && request.resource.data.layout.size() <= 20
         && request.resource.data.updatedAt == request.time;
+    }
+
+    // ---------- фотобанк (этап 10.5) ----------
+    // Картинки и начальные описания — в репозитории (img/authors/). Здесь — правки описаний и вид фото по умолчанию
+    // (preset: положение и размер в долях слайда, сторона фото, фильтр, отражение). Общие для всех пространств.
+    function validPreset(p) {
+      return p is map
+        && p.keys().hasAll(['x', 'y', 'h', 'side', 'filter', 'mirror'])
+        && p.keys().hasOnly(['x', 'y', 'h', 'side', 'filter', 'mirror'])
+        && p.x is number && p.x >= -2 && p.x <= 3
+        && p.y is number && p.y >= -2 && p.y <= 4
+        && p.h is number && p.h >= 0.15 && p.h <= 3
+        && p.side in ['left', 'right']
+        && p.filter in ['none', 'bw', 'bwHard', 'bwSoft', 'sepia', 'warm', 'cool', 'muted', 'tone']
+        && p.mirror is bool;
+    }
+    function validAuthor(d) {
+      return d.keys().hasAll(['updatedAt', 'updatedBy'])
+        && d.keys().hasOnly(['first', 'last', 'caption', 'aliases', 'preset', 'updatedAt', 'updatedBy'])
+        && optStr(d, 'first', 100) && optStr(d, 'last', 100) && optStr(d, 'caption', 200)
+        && (!('aliases' in d) || (d.aliases is list && d.aliases.size() <= 20))
+        && (!('preset' in d) || validPreset(d.preset))
+        && d.updatedAt == request.time
+        && d.updatedBy == me();
+    }
+    match /authors/{id} {
+      allow get, list: if signedIn();
+      allow create, update: if isAdmin() && id.matches('[a-z0-9-]{1,60}') && validAuthor(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     // Свои пространства: запрос по всем «members» с условием email == моя почта.

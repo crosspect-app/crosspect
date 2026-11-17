@@ -12,8 +12,10 @@ const PHOTO_FILTERS = [['none', 'Оригинал'], ['bw', 'ЧБ'], ['bwHard', 
   ['warm', 'Тёплый'], ['cool', 'Холодный'], ['muted', 'Приглушённый'], ['tone', 'В цвет фона']];
 const PHOTO_TONE_DEFAULT = '#c9702a';   // «В цвет фона» у System Template: цвет пятен прежнего фона
 
-/* ----- Фотобанк ----- */
-const photoBank = { list:[], byId:new Map(), loaded:false, failed:false, p:null };
+/* ----- Фотобанк -----
+   Описания — img/authors/authors.json; поверх — правки админа из облака (authors/{id}: first, last, caption, aliases, preset —
+   вид фото по умолчанию). Правки приходят из cloud.js (watchAuthors → setBankEdits) */
+const photoBank = { base:[], edits:{}, list:[], byId:new Map(), loaded:false, failed:false, p:null };
 function loadPhotoBank(){
   if (photoBank.p) return photoBank.p;
   photoBank.p = fetch(PHOTO_DIR + 'authors.json', { cache:'no-cache' })
@@ -22,12 +24,30 @@ function loadPhotoBank(){
     .catch(() => { photoBank.failed = true; photoBank.p = null; setPhotoBank([]); });
   return photoBank.p;
 }
+const strList = v => Array.isArray(v) ? v.map(x => String(x).trim()).filter(Boolean) : [];
 function setPhotoBank(list){
-  photoBank.list = list.filter(a => a && typeof a.id === 'string' && a.file && +a.w > 0 && +a.h > 0)
-    .map(a => Object.assign({}, a, { first:String(a.first || ''), last:String(a.last || ''), aliases:Array.isArray(a.aliases) ? a.aliases.map(String) : [] }));
-  photoBank.byId = new Map(photoBank.list.map(a => [a.id, a]));
+  photoBank.base = list.filter(a => a && typeof a.id === 'string' && a.file && +a.w > 0 && +a.h > 0);
   photoBank.loaded = true;
+  bankRebuild();
+}
+function setBankEdits(map){ photoBank.edits = map && typeof map === 'object' ? map : {}; if (photoBank.loaded) bankRebuild(); }
+function bankRebuild(){
+  photoBank.list = photoBank.base.map(a => {
+    const e = photoBank.edits[a.id] || {}, pick = k => typeof e[k] === 'string' ? e[k] : a[k];
+    return Object.assign({}, a, { first:String(pick('first') || ''), last:String(pick('last') || ''), caption:String(pick('caption') || ''),
+      aliases:strList(Array.isArray(e.aliases) ? e.aliases : a.aliases), preset:normPreset(e.preset) });
+  });
+  photoBank.byId = new Map(photoBank.list.map(a => [a.id, a]));
   photoRepaintAll();
+  if (typeof photoBankChanged === 'function') photoBankChanged();   // окно «Фотобанк» (photobank.js)
+}
+/* Вид фото по умолчанию для автора: положение и размер в долях слайда, сторона фото (left / right), фильтр, отражение */
+function normPreset(p){
+  if (!p || typeof p !== 'object' || !(p.side === 'left' || p.side === 'right')) return null;
+  const n = (v, a, b) => { v = Number(v); return isFinite(v) ? Math.min(b, Math.max(a, v)) : null; };
+  const x = n(p.x, -2, 3), y = n(p.y, -2, 4), hh = n(p.h, PHOTO_H.min, PHOTO_H.max);
+  if (x == null || y == null || hh == null) return null;
+  return { x, y, h:hh, side:p.side, filter:PHOTO_FILTERS.some(f => f[0] === p.filter) ? p.filter : 'none', mirror:p.mirror !== false };
 }
 const bankEntry = id => (id && photoBank.byId.get(id)) || null;
 const bankName = a => [a.first, a.last].filter(Boolean).join(' ');
@@ -41,12 +61,10 @@ function photoMatches(a, q){
   return photoHay(a).some(x => { const t = x.split(' '); return ws.every(w => t.some(y => y.startsWith(w))); });
 }
 function photoSearch(q, b){
-  const me = photoNorm(quoteAuthor(b || {})), exact = a => me && photoHay(a).includes(me) ? 0 : 1;
+  const me = photoNorm(q) || photoNorm(quoteAuthor(b || {})), exact = a => me && photoHay(a).includes(me) ? 0 : 1;
   return photoBank.list.filter(a => photoMatches(a, q))
     .sort((x, y) => exact(x) - exact(y) || x.last.localeCompare(y.last, 'ru') || x.first.localeCompare(y.first, 'ru'));
 }
-/* Совпадение с именем и фамилией цитаты — для подсказки «есть в фотобанке» */
-function photoFor(b){ const me = photoNorm(quoteAuthor(b)); return me ? photoBank.list.find(a => photoHay(a).includes(me)) || null : null; }
 
 /* ----- Где стоит фото ----- */
 const photoHalf = b => b.type === 'quote' && (b.half === 'left' || b.half === 'right') ? b.half : null;
@@ -207,89 +225,99 @@ function photoDrag(e, id){
   hit.addEventListener('pointermove', move); hit.addEventListener('pointerup', up); hit.addEventListener('pointercancel', up);
 }
 
-/* «Текст слева» ↔ «Текст справа»: сдвинутое фото переходит в другую зону зеркально. «Во всю ширину» фото прячет, но хранит */
+/* «Текст слева» ↔ «Текст справа»: сдвинутое фото переходит в другую зону зеркально. «Во всю ширину» фото прячет, но хранит.
+   Из «Во всю ширину» (фото поставлено по виду по умолчанию для другой стороны) — тоже зеркально, если фото оказалось бы на стороне текста */
+const photoSideFor = half => half === 'left' ? 'right' : 'left';   // фото — с другой стороны от текста
 function photoHalfSwitch(b, v){
-  const was = photoHalf(b);
-  if (b.photo && b.photo.x != null && was && (v === 'left' || v === 'right') && v !== was) b.photo.x = +(1 - b.photo.x).toFixed(4);
+  const was = photoHalf(b), p = b.photo;
+  if (!p || p.x == null || !(v === 'left' || v === 'right') || v === was) return;
+  if (was || (photoSideFor(v) === 'right') !== (p.x > 0.5)) p.x = +(1 - p.x).toFixed(4);
 }
 
-/* ----- Блок «Фото автора» в правой панели ----- */
-const photoUI = {};   // id цитаты → { q: текст поиска, pick: открыт выбор (при уже выбранном фото) }
+/* ----- Выбор автора из фотобанка: подсказки под «Имя» и «Фамилия» (render.js) -----
+   Выбрали подсказку — имя, фамилия и подпись берутся из банка (прежние затираются; вернуть — ↶), у цитаты появляется фото,
+   поставленное по виду по умолчанию для этого автора. Не выбрали — автор введён вручную, без фото */
+function presetPhoto(b, a){
+  const out = { id:a.id, x:null, y:null, h:null, filter:'none', mirror:true }, ps = a.preset;
+  if (!ps) return out;
+  const side = photoHalf(b) ? photoSideFor(photoHalf(b)) : ps.side;
+  return Object.assign(out, { x:side === ps.side ? ps.x : +(1 - ps.x).toFixed(4), y:ps.y, h:ps.h, filter:ps.filter, mirror:ps.mirror });
+}
+function pickAuthor(b, a){
+  Object.assign(b, { first:a.first, last:a.last, caption:a.caption || '' });
+  b.photo = presetPhoto(b, a);
+  change(); rerender(b);
+}
+/* Подсказки: input — поле «Имя» или «Фамилия», box — список под полями. Показываем, пока человек печатает */
+function authorSuggest(b, input, box){
+  const close = () => { box.innerHTML = ''; box.hidden = true; box._items = []; box._at = -1; };
+  const mark = i => { box._at = i; [...box.children].forEach((x, k) => x.classList.toggle('on', k === i)); };
+  const fill = () => {
+    if (!photoBank.loaded){ loadPhotoBank().then(() => { if (document.activeElement === input) fill(); }); return close(); }
+    // ищем по обоим полям; не нашлось — по полю, в котором печатают (меняют автора: в другом поле ещё прежний)
+    const cur = b.photo && b.photo.id, look = q => q.trim() ? photoSearch(q, b).filter(a => a.id !== cur) : [];
+    let found = look(quoteAuthor(b)); if (!found.length) found = look(input.value);
+    found = found.slice(0, 6);
+    if (!found.length) return close();
+    box.innerHTML = ''; box.hidden = false; box._items = found; box._at = -1;
+    found.forEach((a, i) => box.append(h('button', { type:'button', class:'au-item', role:'option', tabindex:'-1',
+      onpointerdown:e => e.preventDefault(), onclick:() => { close(); pickAuthor(b, a); } },
+      h('img', { src:PHOTO_DIR + a.file, alt:'', loading:'lazy' }),
+      h('span', { class:'au-text' }, h('span', { class:'au-name', text:bankName(a) }), a.caption ? h('span', { class:'au-cap', text:a.caption }) : null))));
+  };
+  input.addEventListener('input', fill);
+  input.addEventListener('blur', () => setTimeout(close, 0));
+  input.addEventListener('keydown', e => {
+    if (box.hidden || !box._items.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); const n = box._items.length; mark(((box._at + (e.key === 'ArrowDown' ? 1 : -1)) % n + n) % n); }
+    else if (e.key === 'Enter' && box._at >= 0){ e.preventDefault(); const a = box._items[box._at]; close(); pickAuthor(b, a); }
+    else if (e.key === 'Escape'){ e.stopPropagation(); close(); }
+  });
+  close();
+}
+
+/* ----- Блок «Фото» в правой панели: только у цитаты «Текст слева / справа» с выбранным из банка автором ----- */
 function photoPanel(b){
+  const p = b.photo; if (!p) return null;
   const el = h('div', { class:'ph-panel' });
   el._b = b;
   photoPanelFill(el, b);
   if (!photoBank.loaded) loadPhotoBank();
   return el;
 }
-function photoSearchRefresh(b){
-  const el = sideEl && sideEl.querySelector('.ph-panel');
-  if (el && el._b === b){ const ui = photoUI[b.id]; if (!ui || !ui.q) photoPanelFill(el, b); }
+/* Сбросить — к виду по умолчанию для автора, если админ его задал, иначе к общему: снизу по центру пустой зоны, 90 % высоты, «Оригинал» */
+function photoReset(b){
+  const a = bankEntry(b.photo.id); if (!a) return;
+  b.photo = presetPhoto(b, a); change(); rerender(b);
 }
-function setPhoto(b, a){
-  b.photo = { id:a.id, x:null, y:null, h:null, filter:b.photo ? b.photo.filter : 'none', mirror:true };
-  // имя и фамилия — из банка, если поля пустые; заполненные не трогаем
-  if (!String(b.first || '').trim() && !String(b.last || '').trim()){ b.first = a.first; b.last = a.last; }
-  photoUI[b.id] = {};
-  change(); rerender(b);
+/* Админ: запомнить, как стоит фото сейчас, — видом по умолчанию для этого автора (облако, authors/{id}.preset) */
+async function photoSavePreset(b, btn){
+  const box = photoBox(b), p = b.photo; if (!box || !cloud.admin) return;
+  const preset = { x:+((box.left + box.width / 2) / SL.W).toFixed(4), y:+((box.top + box.height) / SL.H).toFixed(4), h:+(box.height / SL.H).toFixed(4),
+    side:photoSideFor(photoHalf(b)), filter:p.filter || 'none', mirror:p.mirror !== false };
+  btn.disabled = true;
+  try { await cloud.api.setAuthor(cloud.user, p.id, { preset }); toast('Вид по умолчанию сохранён: ' + bankName(box.entry)); }
+  catch(e){ toast(cloudExplain(e) || 'Не удалось сохранить вид по умолчанию.'); }
+  btn.disabled = false;
 }
 function photoPanelFill(el, b){
-  const ui = photoUI[b.id] || (photoUI[b.id] = {}), p = b.photo, a = p && bankEntry(p.id);
-  const kids = [h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Фото автора' }))];
-  if (p && a && !ui.pick){
-    kids.push(h('div', { class:'ph-cur' },
-      h('img', { class:'ph-thumb', src:PHOTO_DIR + a.file, alt:'' }),
-      h('span', { class:'ph-cur-name', text:bankName(a) }),
-      h('button', { type:'button', class:'btn small', onclick:() => { ui.pick = true; ui.q = ''; photoPanelFill(el, b); } }, 'Заменить'),
-      h('button', { type:'button', class:'btn small', onclick:() => { b.photo = null; change(); rerender(b); } }, 'Убрать')));
+  const p = b.photo, a = p && bankEntry(p.id);
+  const kids = [h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Фото' }))];
+  const noPhoto = h('button', { type:'button', class:'btn small ph-off', onclick:() => { b.photo = null; change(); rerender(b); } }, 'Без фото');
+  if (!a){
+    kids.push(h('div', { class:'ph-cur' }, h('span', { class:'ph-cur-name hint', text:photoBank.loaded ? 'Этого фото больше нет в фотобанке' : 'Загружаю фотобанк…' }), noPhoto));
+  } else {
+    kids.push(h('div', { class:'ph-cur' }, h('img', { class:'ph-cur-img', src:PHOTO_DIR + a.file, alt:'' }), h('span', { class:'ph-cur-name', text:bankName(a) }), noPhoto));
     kids.push(h('label', { class:'field' }, h('span', { class:'lbl', text:'Фильтр' }),
       h('label', { class:'hf-sel' }, h('select', { class:'ph-filter', 'aria-label':'Фильтр фото',
         onchange:e => { p.filter = e.target.value; change(); updateCounter(b); } },
         PHOTO_FILTERS.map(([v, t]) => h('option', { value:v, text:t, selected:p.filter === v }))), ic('down'))));
     const row = h('div', { class:'ph-acts' });
     if (a.faces !== 'front') row.append(sw('Не отражать', p.mirror === false, v => { p.mirror = !v; change(); updateCounter(b); }));
-    row.append(h('button', { type:'button', class:'btn small ph-reset', onclick:() => { Object.assign(p, { x:null, y:null, h:null, filter:'none' }); change(); rerender(b); } }, 'Сбросить'));
+    row.append(h('button', { type:'button', class:'btn small ph-reset', onclick:() => photoReset(b) }, 'Сбросить'));
     kids.push(row);
-  } else {
-    if (p && !a && photoBank.loaded) kids.push(h('p', { class:'hint', text:'Выбранного фото больше нет в фотобанке.' }));
-    const q = h('input', { class:'input ph-q', type:'search', placeholder:'Поиск по фотобанку', value:ui.q || '', 'aria-label':'Поиск по фотобанку', autocomplete:'off', spellcheck:'false',
-      oninput:e => { ui.q = e.target.value; fillList(); } });
-    const list = h('div', { class:'ph-list', role:'listbox', 'aria-label':'Фото в фотобанке' });
-    const fillList = () => {
-      list.innerHTML = '';
-      if (!photoBank.loaded){ list.append(h('p', { class:'hint', text:'Загружаю фотобанк…' })); return; }
-      const query = ui.q || '', found = photoSearch(query, b);
-      found.forEach(x => list.append(h('button', { type:'button', class:'ph-item' + (p && p.id === x.id ? ' on' : ''), role:'option', title:bankName(x), onclick:() => setPhoto(b, x) },
-        h('img', { src:PHOTO_DIR + x.file, alt:'', loading:'lazy' }), h('span', { text:bankName(x) }))));
-      const who = String(query).trim() || quoteAuthor(b);
-      if (!found.length || (!query && who && !photoFor(b)))
-        list.append(h('div', { class:'ph-none' },
-          h('p', { class:'hint', text:!photoBank.list.length ? 'В фотобанке пока нет фото.' : query.trim() ? 'Фото не нашлось.' : 'Фото этого автора в фотобанке нет.' }),
-          who ? h('button', { type:'button', class:'btn small ph-ask', onclick:e => photoAsk(e.currentTarget, who) }, ic('telegram'), 'Попросить фото') : null));
-    };
-    fillList();
-    kids.push(q, list);
-    if (ui.pick) kids.push(h('button', { type:'button', class:'btn small', onclick:() => { ui.pick = false; photoPanelFill(el, b); } }, 'Отмена'));
+    if (cloud.admin && cloudOn()) kids.push(h('button', { type:'button', class:'btn small ph-preset', title:'Так фото встанет у всех, кто потом выберет этого автора',
+      onclick:e => photoSavePreset(b, e.currentTarget) }, 'Сделать видом по умолчанию'));
   }
-  const had = el.contains(document.activeElement) && document.activeElement.classList.contains('ph-q');
   el.innerHTML = ''; el.append(...kids);
-  if (had){ const q = el.querySelector('.ph-q'); if (q){ q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
-}
-
-/* «Попросить фото»: сообщение в Telegram тем, у кого в «Людях» роль «Claude User» (их несколько — список);
-   никого нет — Telegram с выбором чата. Запрос живёт вне формы: Виталий присылает фото в беседу «Фотобанк» */
-const claudePeople = () => (cloud.people || []).filter(p => p.role === 'claude' && p.tg).map(p => ({ name:preacherName(p) || '@' + p.tg, tg:p.tg }))
-  .sort((x, y) => x.name.localeCompare(y.name, 'ru'));
-function photoAskText(who){
-  const m = (state && state.meta) || {}, title = String(m.title || '').trim();
-  const url = location.origin + location.pathname + sermonHash(state.id);
-  return { url, text:['Нужно фото автора цитаты: ' + who, title ? 'Конспект: ' + title : ''].filter(Boolean).join('\n') };
-}
-function photoAsk(anchor, who){
-  const { url, text } = photoAskText(who), list = claudePeople();
-  const to = tg => window.open('https://t.me/' + encodeURIComponent(tg) + '?text=' + encodeURIComponent(text + '\n' + url), '_blank', 'noopener');
-  const any = () => window.open('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text), '_blank', 'noopener');
-  if (!list.length) any();
-  else if (list.length === 1) to(list[0].tg);
-  else dropdown(anchor, list.map(x => ({ label:x.name, pick:() => to(x.tg) })));
 }

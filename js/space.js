@@ -18,8 +18,8 @@
    слушателями из cloud.js: setPeople, setSeriesData. Операторы этапа 10.1 (config/operators) переносятся в людей: migrateOps. */
 
 const FREE_SERIES = 'Свободная тема';
-const ROLE_LABEL = { editor:'Редактор', preacher:'Автор', operator:'Оператор', claude:'Claude User' };   // claude (этап 10.5) — получает «Попросить фото» в Telegram
-const NO_LOGIN = { operator:'Оператор в форму не входит', claude:'Claude User в форму не входит' };
+const ROLE_LABEL = { editor:'Редактор', preacher:'Автор', operator:'Оператор' };
+const NO_LOGIN = { operator:'Оператор в форму не входит' };
 const canSpace = () => cloudOn() && (cloud.role === 'admin' || cloud.role === 'editor');
 /* Пространства, которые человек настраивает: админ — все, редактор — те, где он редактор */
 const setupSpaces = () => cloudOn() ? cloud.spaces.filter(sp => sp.role === 'admin' || sp.role === 'editor') : [];

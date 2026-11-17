@@ -703,13 +703,15 @@ const BODY = {
     body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Место текста' })),
       toggle([['full', 'Во всю ширину'], ['left', 'Текст слева'], ['right', 'Текст справа']], b.half || 'full', v => { photoHalfSwitch(b, v); b.half = v; change(); rerender(b); })));
     if (b.half === 'left' || b.half === 'right') body.append(halfWidthRow(b));
-    // этап 10.5: имя и фамилия отдельно (на слайде фамилия жирным); набранное поднимает совпадение в поиске фото
-    const who = () => { change(); updateCounter(b); photoSearchRefresh(b); };
-    body.append(h('div', { class:'grid-2' },
-      field('Имя', input(b, 'first', 'Корри', { oninput:e => { b.first = e.target.value; who(); } })),
-      field('Фамилия', input(b, 'last', 'тен Бум', { oninput:e => { b.last = e.target.value; who(); } }))));
+    // этап 10.5: имя и фамилия отдельно (на слайде фамилия жирным); пока печатают — подсказки из фотобанка (photos.js)
+    const who = () => { change(); updateCounter(b); };
+    const fi = input(b, 'first', 'Корри', { autocomplete:'off', oninput:e => { b.first = e.target.value; who(); } });
+    const la = input(b, 'last', 'тен Бум', { autocomplete:'off', oninput:e => { b.last = e.target.value; who(); } });
+    const sugg = h('div', { class:'au-sugg', role:'listbox', 'aria-label':'Авторы из фотобанка' });
+    authorSuggest(b, fi, sugg); authorSuggest(b, la, sugg);
+    body.append(h('div', { class:'au-wrap' }, h('div', { class:'grid-2' }, field('Имя', fi), field('Фамилия', la)), sugg));
     body.append(field('Подпись — мелко под автором', input(b, 'caption', 'Книга, год, откуда цитата', { oninput:e => { b.caption = e.target.value; change(); updateCounter(b); } })));
-    if (b.half === 'left' || b.half === 'right') body.append(photoPanel(b));
+    if ((b.half === 'left' || b.half === 'right') && b.photo) body.append(photoPanel(b));
   },
   image(b, body, n){
     body.append(nameField(b, n));

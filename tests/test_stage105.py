@@ -1,5 +1,6 @@
 """Этап 10.5: автор цитаты — отдельно имя и фамилия; фото автора из фотобанка у цитаты «Текст слева / справа»
-(положение, размер, фильтр, отражение, «Сбросить», JPEG, PowerPoint), «Попросить фото», роль «Claude User», tools/author_photo.py."""
+(положение, размер, фильтр, отражение, «Сбросить», JPEG, PowerPoint); автор выбирается подсказкой из фотобанка или вводится сам;
+вид фото по умолчанию и окно «Фотобанк» — только у админа; роли «Claude User» больше нет; tools/author_photo.py."""
 import io
 import json
 import subprocess
@@ -26,8 +27,8 @@ def person_png(w=300, hh=600):
 
 
 BANK = [
-    {"id": "lewis-cs", "first": "Клайв", "last": "Льюис", "aliases": ["К. С. Льюис", "C. S. Lewis"], "file": "lewis-cs.webp", "w": 200, "h": 550, "faces": "right"},
-    {"id": "ten-boom", "first": "Корри", "last": "тен Бум", "aliases": ["Corrie ten Boom"], "file": "ten-boom.webp", "w": 200, "h": 550, "faces": "right"},
+    {"id": "lewis-cs", "first": "Клайв", "last": "Льюис", "caption": "писатель · 1898–1963", "aliases": ["К. С. Льюис", "C. S. Lewis"], "file": "lewis-cs.webp", "w": 200, "h": 550, "faces": "right"},
+    {"id": "ten-boom", "first": "Корри", "last": "тен Бум", "caption": "автор «Убежища» · 1892–1983", "aliases": ["Corrie ten Boom"], "file": "ten-boom.webp", "w": 200, "h": 550, "faces": "right"},
     {"id": "teresa", "first": "Мать", "last": "Тереза", "aliases": [], "file": "teresa.webp", "w": 200, "h": 550, "faces": "front"},
 ]
 
@@ -135,17 +136,153 @@ def test_search_aliases_and_match_on_top(page, sermon):
     assert not page.errors, page.errors
 
 
-def test_pick_photo_fills_empty_names_only(page, sermon):
+def sugg(page):
+    return page.locator(".side .au-sugg .au-item")
+
+
+def test_pick_from_suggestions_replaces_names_and_caption(page, sermon):
+    open_quote(page, sermon, caption="Старая подпись")
+    page.locator(".side input[placeholder='тен Бум']").fill("льюис")
+    assert sugg(page).count() == 1 and "писатель · 1898–1963" in sugg(page).first.inner_text()
+    sugg(page).first.click()
+    b = q(page)
+    assert (b["first"], b["last"], b["caption"]) == ("Клайв", "Льюис", "писатель · 1898–1963")
+    assert b["photo"] == {"id": "lewis-cs", "x": None, "y": None, "h": None, "filter": "none", "mirror": True}
+    assert page.locator(".side .au-sugg").is_hidden()
+    # выбрали другого — всё прежнее затирается; ↶ возвращает
+    page.locator(".side input[placeholder='Корри']").fill("Корри")
+    page.locator(".side input[placeholder='Корри']").press("ArrowDown")
+    page.locator(".side input[placeholder='Корри']").press("Enter")
+    b = q(page)
+    assert (b["first"], b["last"], b["photo"]["id"]) == ("Корри", "тен Бум", "ten-boom")
+    page.evaluate("undo()")
+    b = q(page)
+    assert b["photo"]["id"] == "lewis-cs"
+    assert not page.errors, page.errors
+
+
+def test_manual_author_without_photo_and_no_ask(page, sermon):
     open_quote(page, sermon)
-    page.locator(".ph-panel .ph-q").fill("льюис")
-    page.locator(".ph-panel .ph-item").first.click()
+    page.locator(".side input[placeholder='Корри']").fill("Джон")
+    page.locator(".side input[placeholder='тен Бум']").fill("Пайпер")
+    assert sugg(page).count() == 0
     b = q(page)
-    assert b["photo"]["id"] == "lewis-cs" and b["first"] == "Клайв" and b["last"] == "Льюис"
-    page.locator(".ph-panel button", has_text="Заменить").click()
-    page.locator(".ph-panel .ph-q").fill("бум")
-    page.locator(".ph-panel .ph-item").first.click()
+    assert (b["first"], b["last"], b["photo"]) == ("Джон", "Пайпер", None)
+    assert page.locator(".side .ph-panel").count() == 0
+    side = page.locator(".side").inner_text()
+    assert "Попросить фото" not in side and "фото нет" not in side.lower()
+    assert not page.errors, page.errors
+
+
+def test_search_only_by_names_not_caption(page, sermon):
+    open_quote(page, sermon)
+    ids = lambda qq: page.evaluate("q => photoSearch(q, null).map(a => a.id)", qq)
+    assert ids("писатель") == [] and ids("1898") == []
+    page.locator(".side input[placeholder='тен Бум']").fill("писатель")
+    assert sugg(page).count() == 0
+
+
+def test_edit_name_keeps_photo_and_no_photo_button(page, sermon):
+    open_quote(page, sermon)
+    page.locator(".side input[placeholder='тен Бум']").fill("бум")
+    sugg(page).first.click()
+    page.locator(".side input[placeholder='Корри']").fill("Корнелия")
+    assert q(page)["photo"]["id"] == "ten-boom"   # связь с банком остаётся
+    page.locator(".side .ph-panel button", has_text="Без фото").click()
     b = q(page)
-    assert b["photo"]["id"] == "ten-boom" and b["last"] == "Льюис"   # заполненные поля не трогаем
+    assert b["photo"] is None and (b["first"], b["last"]) == ("Корнелия", "тен Бум")
+    assert page.locator(".side .ph-panel").count() == 0
+    assert not page.errors, page.errors
+
+
+PRESET = {"x": 0.3, "y": 1.05, "h": 1.2, "side": "left", "filter": "bw", "mirror": False}
+
+
+def set_preset(page, id="lewis-cs", preset=PRESET, **extra):
+    page.evaluate("([id, f]) => { const db = fakeCloud.db(); db.authors = db.authors || {}; db.authors[id] = Object.assign(db.authors[id] || {}, f); fakeCloud.put(db); }",
+                  [id, dict(preset=preset, **extra)])
+    page.wait_for_function("id => { const a = bankEntry(id); return a && !!a.preset; }", arg=id)
+
+
+def test_preset_applies_on_pick_and_reset_mirrored_for_other_side(page, sermon):
+    open_quote(page, sermon, photo={"id": "ten-boom", "x": 0.2, "y": 1, "h": 0.5}, first="Корри", last="тен Бум")
+    set_preset(page)
+    assert q(page)["photo"]["x"] == 0.2   # поставленные фото не меняются
+    # «Текст справа» → фото слева, как у вида по умолчанию
+    page.locator(".side input[placeholder='тен Бум']").fill("льюис")
+    sugg(page).first.click()
+    assert q(page)["photo"] == {"id": "lewis-cs", "x": 0.3, "y": 1.05, "h": 1.2, "filter": "bw", "mirror": False}
+    page.evaluate("Object.assign(state.blocks.find(b => b.id === 'q1').photo, { x:0.5, filter:'none' })")
+    page.locator(".side .toggle button", has_text="Текст слева").click()   # фото справа
+    page.locator(".ph-panel button", has_text="Сбросить").click()
+    assert q(page)["photo"] == {"id": "lewis-cs", "x": 0.7, "y": 1.05, "h": 1.2, "filter": "bw", "mirror": False}
+    assert not page.errors, page.errors
+
+
+def test_preset_from_full_width_lands_on_photo_side(page, sermon):
+    open_quote(page, sermon, half="full")
+    set_preset(page)
+    page.locator(".side input[placeholder='тен Бум']").fill("льюис")
+    sugg(page).first.click()
+    assert q(page)["photo"]["x"] == 0.3
+    page.locator(".side .toggle button", has_text="Текст слева").click()   # фото должно быть справа
+    assert q(page)["photo"]["x"] == 0.7
+    assert not page.errors, page.errors
+
+
+def test_admin_saves_preset(page, sermon):
+    open_quote(page, sermon, photo={"id": "lewis-cs", "x": 0.25, "y": 0.98, "h": 0.8, "filter": "sepia", "mirror": True}, half="left", halfW=50)
+    page.locator(".ph-panel button", has_text="Сделать видом по умолчанию").click()
+    page.wait_for_function("(() => { const a = (fakeCloud.db().authors || {})['lewis-cs']; return a && a.preset; })()")
+    ps = page.evaluate("fakeCloud.db().authors['lewis-cs'].preset")
+    assert ps == {"x": 0.25, "y": 0.98, "h": 0.8, "side": "right", "filter": "sepia", "mirror": True}
+    assert not page.errors, page.errors
+
+
+def test_preset_button_and_photobank_only_for_admin(browser, base_url, sermon):
+    from conftest import cloud_page
+    ctx, pg = cloud_page(browser, base_url, user={"email": "ed@x.pl", "name": "Ред"}, members={"ed@x.pl": {"role": "editor"}}, admins=())
+    try:
+        pg.wait_for_selector(".home-top")
+        open_quote(pg, sermon, photo={"id": "lewis-cs"})
+        pg.wait_for_selector(".ph-panel .ph-reset")
+        assert pg.locator(".ph-panel", has_text="Сделать видом по умолчанию").count() == 0
+        assert pg.evaluate("typeof openPhotoBank") == "function"
+        pg.evaluate("openPhotoBank()")
+        assert pg.locator(".pb-sheet").count() == 0
+        items = pg.evaluate("(() => { const out = []; const d = dropdown; window.dropdown = (a, it) => { out.push(...it.map(x => x.label)); }; spaceMenu(document.body); window.dropdown = d; return out; })()")
+        assert "Фотобанк…" not in items
+        with pytest.raises(Exception):
+            pg.evaluate("cloud.api.setAuthor(cloud.user, 'lewis-cs', { first:'X' })")
+        assert not pg.errors, pg.errors
+    finally:
+        ctx.close()
+
+
+def test_photobank_window_edits_names_for_everyone(page, sermon):
+    open_quote(page, sermon)
+    items = page.evaluate("(() => { const out = []; const d = dropdown; window.dropdown = (a, it) => { out.push(...it.map(x => x.label)); }; spaceMenu(document.body); window.dropdown = d; return out; })()")
+    assert "Фотобанк…" in items
+    page.evaluate("openPhotoBank()")
+    sheet = page.locator(".pb-sheet")
+    sheet.wait_for()
+    assert sheet.locator(".pb-row").count() == 3
+    sheet.locator(".pb-q").fill("льюис")
+    assert sheet.locator(".pb-row").count() == 1
+    row = sheet.locator(".pb-row").first
+    assert row.locator(".pb-save").is_disabled()
+    row.locator("input[placeholder='Подпись']").fill("писатель, богослов · 1898–1963")
+    row.locator("input[placeholder='Другие написания']").fill("К. С. Льюис; Джек Льюис")
+    row.locator(".pb-save").click()
+    page.wait_for_function("(() => { const a = (fakeCloud.db().authors || {})['lewis-cs']; return a && a.caption; })()")
+    saved = page.evaluate("fakeCloud.db().authors['lewis-cs']")
+    assert saved["caption"] == "писатель, богослов · 1898–1963" and saved["aliases"] == ["К. С. Льюис", "Джек Льюис"]
+    page.wait_for_function("bankEntry('lewis-cs').caption === 'писатель, богослов · 1898–1963'")
+    assert page.evaluate("photoSearch('джек', null).map(a => a.id)") == ["lewis-cs"]
+    page.evaluate("closeSettings(true)")
+    page.locator(".side input[placeholder='тен Бум']").fill("джек")
+    sugg(page).first.click()
+    assert q(page)["caption"] == "писатель, богослов · 1898–1963"
     assert not page.errors, page.errors
 
 
@@ -289,33 +426,16 @@ def test_pdf_and_operator_snapshot_without_photo(page, sermon):
     assert "lewis-cs" not in snap and "Клайв Льюис" in snap
 
 
-# ---------- Попросить фото и Claude User ----------
+# ---------- Роли «Claude User» больше нет ----------
 
-def test_ask_photo_goes_to_claude_user_in_telegram(page, sermon):
-    open_quote(page, sermon, first="Джон", last="Пайпер")
-    page.evaluate("() => { window._opened = []; window.open = u => { window._opened.push(u); }; }")
-    page.evaluate("""setPeople([{ key:'p-claude1', role:'claude', firstName:'Виталий', tg:'vitaliy_b' },
-                               { key:'p-op1', role:'operator', firstName:'Пётр', tg:'petr_op' }]); photoRepaintAll();""")
-    panel = page.locator(".side .ph-panel")
-    assert "Фото этого автора в фотобанке нет." in panel.inner_text()
-    panel.get_by_role("button", name="Попросить фото").click()
-    url = page.evaluate("window._opened[0]")
-    assert url.startswith("https://t.me/vitaliy_b?text=")
-    from urllib.parse import unquote
-    text = unquote(url.split("?text=")[1])
-    assert text.startswith("Нужно фото автора цитаты: Джон Пайпер") and "#s=" in text
-    # никого с ролью Claude User — Telegram с выбором чата
-    page.evaluate("setPeople([]); window._opened = []")
-    panel.get_by_role("button", name="Попросить фото").click()
-    assert page.evaluate("window._opened[0]").startswith("https://t.me/share/url?url=")
-    assert not page.errors, page.errors
-
-
-def test_claude_role_label_and_no_login(page):
-    assert page.evaluate("ROLE_LABEL.claude") == "Claude User"
-    assert page.evaluate("NO_LOGIN.claude") == "Claude User в форму не входит"
+def test_no_claude_role(page):
+    assert page.evaluate("'claude' in ROLE_LABEL") is False
+    assert page.evaluate("typeof photoAsk") == "undefined"
     rules = (ROOT / "cloud" / "firestore.rules").read_text(encoding="utf-8")
-    assert "['editor', 'preacher', 'operator', 'claude']" in rules
+    assert "['editor', 'preacher', 'operator']" in rules and "'claude'" not in rules
+    # старая запись с этой ролью показывается оператором
+    page.evaluate("() => { const db = fakeCloud.db(); db.members['p-old001'] = { role:'claude', firstName:'Виталий', tg:'vitaliy_b' }; fakeCloud.put(db); }")
+    page.wait_for_function("(cloud.people || []).some(p => p.key === 'p-old001' && p.role === 'operator')")
 
 
 # ---------- Скрипт фотобанка ----------
@@ -325,7 +445,7 @@ def test_author_photo_script(tmp_path):
     bank = tmp_path / "bank"
     run = lambda *a: subprocess.run([sys.executable, str(ROOT / "tools" / "author_photo.py"), str(src), "--bank", str(bank), *a],
                                     capture_output=True, text=True)
-    r = run("--id", "lewis-cs", "--first", "Клайв", "--last", "Льюис", "--aliases", "К. С. Льюис; C. S. Lewis", "--faces", "left", "--source", "Тест")
+    r = run("--id", "lewis-cs", "--first", "Клайв", "--last", "Льюис", "--caption", "писатель · 1898–1963", "--aliases", "К. С. Льюис; C. S. Lewis", "--faces", "left", "--source", "Тест")
     assert r.returncode == 0, r.stderr
     im = Image.open(bank / "lewis-cs.webp")
     assert im.format == "WEBP" and im.mode == "RGBA" and im.height == 1600
@@ -333,6 +453,7 @@ def test_author_photo_script(tmp_path):
     left = im.getpixel((20, 800)); assert left[2] > 200 and left[0] < 60   # было «смотрит влево»: развёрнуто, слева теперь синее
     lst = json.loads((bank / "authors.json").read_text(encoding="utf-8"))
     assert lst[0]["id"] == "lewis-cs" and lst[0]["faces"] == "right" and lst[0]["aliases"] == ["К. С. Льюис", "C. S. Lewis"]
+    assert lst[0]["caption"] == "писатель · 1898–1963"
     assert lst[0]["w"] == im.width and lst[0]["h"] == 1600 and lst[0]["source"] == "Тест" and lst[0]["added"]
     r = run("--id", "teresa", "--first", "Мать", "--last", "Тереза", "--faces", "front")
     assert r.returncode == 0, r.stderr

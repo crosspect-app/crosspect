@@ -7,7 +7,7 @@
 
 Пример:
   python3 tools/author_photo.py lewis.png --id lewis-cs --first Клайв --last Льюис \\
-      --aliases "К. С. Льюис; C. S. Lewis; Клайв Стейплз Льюис" --faces left --source "Wikimedia Commons, общественное достояние"
+      --caption "писатель · 1898–1963" --aliases "К. С. Льюис; C. S. Lewis; Клайв Стейплз Льюис" --faces left --source "Wikimedia Commons, общественное достояние"
 
 Повторный запуск с тем же --id заменяет фото и запись (дата добавления остаётся прежней).
 """
@@ -62,6 +62,7 @@ def main(argv=None):
     ap.add_argument('--id', required=True, help='латиница, цифры и дефис: lewis-cs')
     ap.add_argument('--first', default='', help='имя, как на слайде (обычным)')
     ap.add_argument('--last', default='', help='фамилия, как на слайде (жирным)')
+    ap.add_argument('--caption', default='', help='подпись: описание и годы через « · », «писатель · 1898–1963»')
     ap.add_argument('--aliases', default='', help='другие написания через «;»')
     ap.add_argument('--faces', required=True, choices=['right', 'left', 'front'], help='куда смотрит человек на исходной картинке')
     ap.add_argument('--source', default='', help='откуда фото')
@@ -80,7 +81,7 @@ def main(argv=None):
     items = load(lst)
     old = next((x for x in items if x['id'] == a.id), None)
     entry = {
-        'id': a.id, 'first': a.first.strip(), 'last': a.last.strip(),
+        'id': a.id, 'first': a.first.strip(), 'last': a.last.strip(), 'caption': a.caption.strip(),
         'aliases': [s.strip() for s in a.aliases.split(';') if s.strip()],
         'file': file, 'w': im.width, 'h': im.height,
         'faces': 'front' if a.faces == 'front' else 'right',

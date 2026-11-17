@@ -1369,15 +1369,29 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .ph-panel{display:grid;gap:10px}
 .ph-cur{display:flex;align-items:center;gap:10px}
 .ph-cur-name{flex:1;min-width:0;font-weight:600}
-.ph-thumb{width:44px;height:44px;object-fit:contain;object-position:bottom;background:var(--surface-2);border-radius:8px}
+.ph-cur-img{width:44px;height:44px;object-fit:contain;object-position:bottom;background:var(--surface-2);border-radius:8px}
 .ph-acts{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.ph-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px;max-height:260px;overflow-y:auto}
-.ph-item{display:grid;gap:4px;justify-items:center;padding:6px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);color:var(--text);font:500 11px/1.2 'Inter',sans-serif;text-align:center;cursor:pointer}
-.ph-item:hover,.ph-item.on{border-color:var(--accent)}
-.ph-item img{width:64px;height:64px;object-fit:contain;object-position:bottom}
-.ph-none{grid-column:1/-1;display:grid;gap:8px;justify-items:start}
-.ph-none .hint{margin:0}
-.ph-ask .ic{width:15px;height:15px}
+.ph-preset{justify-self:start}
+.au-wrap{position:relative}
+.au-sugg{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:30;display:grid;gap:2px;padding:4px;background:var(--surface);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.au-sugg[hidden]{display:none}
+.au-item{display:flex;align-items:center;gap:10px;padding:5px 8px;border:0;border-radius:8px;background:none;color:var(--text);text-align:left;cursor:pointer;font:inherit}
+.au-item:hover,.au-item.on{background:var(--surface-2)}
+.au-item img{width:36px;height:36px;object-fit:contain;object-position:bottom;flex:none}
+.au-text{display:grid;min-width:0}
+.au-name{font-weight:600}
+.au-cap{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Окно «Фотобанк» (этап 10.5, photobank.js) */
+.pb-top{display:grid;gap:6px;margin-bottom:12px}
+.pb-list{display:grid;gap:8px;max-height:min(66vh,720px);overflow-y:auto;padding-right:4px}
+.pb-row{display:grid;grid-template-columns:56px 1fr 96px;gap:12px;align-items:center;padding:8px;border:1px solid var(--line-2);border-radius:12px}
+.pb-head{display:grid;grid-template-columns:56px 1fr 96px;gap:12px;padding:0 9px;position:sticky;top:0;background:var(--surface);z-index:1;font:600 11px/1.6 'Inter',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pb-row.changed{border-color:rgba(255,214,102,.6)}
+.pb-img{width:56px;height:56px;object-fit:contain;object-position:bottom;background:var(--surface-2);border-radius:8px}
+.pb-fields{display:grid;grid-template-columns:1fr 1fr 1.4fr 1.4fr;gap:8px;min-width:0}
+.pb-acts{display:grid;gap:4px;justify-items:end}
+.pb-preset{margin:0;font-size:12px}
 
 /* ---------- Телефон (этап 10.1.1) ----------
    Вид меняется только в узком окне (max-width:760px), а всё про скорость (стена-картинка, без размытия и движения) — только на телефоне:
@@ -1471,3 +1485,4 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
   .pgroup .ppart{width:150px}
   .pg-cap{white-space:nowrap}
 }
+

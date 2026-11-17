@@ -199,7 +199,7 @@ export function createCloudAPI(fb){
     watchMembers(space, onList, onError){
       return F.onSnapshot(F.collection(db, 'spaces', space, 'members'), snap => {
         onList(snap.docs.map(d => { const x = d.data(); return { key: d.id, email: x.email || (d.id.includes('@') ? d.id : ''),
-          role: x.role === 'admin' ? 'editor' : x.role || 'preacher', firstName: x.firstName || '', lastName: x.lastName || '',
+          role: x.role === 'admin' ? 'editor' : x.role === 'claude' ? 'operator' : x.role || 'preacher', firstName: x.firstName || '', lastName: x.lastName || '',
           tg: x.tg || '', seenAt: ms(x.seenAt), seen: !!x.seenAt }; }));
       }, onError);
     },
@@ -504,6 +504,24 @@ export function createCloudAPI(fb){
     },
     /* Список копий, новые сверху: [{ id, savedAt (мс), savedBy, name, status, v, meta, settings, blocks }] */
     versions: listVersions,
+
+    /* Фотобанк (этап 10.5): authors/{id} — правки описания автора поверх img/authors/authors.json и вид фото по умолчанию (preset).
+       Общие для всех пространств: читает любой, кто вошёл, пишет только админ всей формы. onMap({ id: { first, last, caption, aliases, preset } }) */
+    watchAuthors(onMap, onError){
+      return F.onSnapshot(F.collection(db, 'authors'), snap => {
+        const out = {};
+        snap.docs.forEach(d => { const x = d.data(); out[d.id] = { first: x.first, last: x.last, caption: x.caption, aliases: x.aliases, preset: x.preset || null }; });
+        onMap(out);
+      }, onError);
+    },
+    /* fields: { first?, last?, caption?, aliases?, preset? } — дописываются к записи, остальное остаётся */
+    async setAuthor(me, id, fields){
+      const d = {};
+      ['first', 'last', 'caption'].forEach(k => { if (fields[k] != null) d[k] = String(fields[k]).trim().slice(0, k === 'caption' ? 200 : 100); });
+      if (fields.aliases) d.aliases = fields.aliases.map(x => String(x).trim().slice(0, 100)).filter(Boolean).slice(0, 20);
+      if (fields.preset) d.preset = JSON.parse(JSON.stringify(fields.preset));
+      await F.setDoc(F.doc(db, 'authors', id), Object.assign(d, { updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) }), { merge: true });
+    },
 
     /* Настройки слайдов пространства (этап 7.1): документ config/slides, общий для всех проповедей.
        Читают все участники, пишут админ и редактор. onCfg(slides | null) на каждое изменение; null — документа ещё нет */

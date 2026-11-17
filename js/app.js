@@ -252,7 +252,8 @@ function renderTopbar(){
 }
 
 /* Пространство в шапке главной: название, а у кого их несколько (и у админа) — выбор. Смена — сразу на главную нового */
-/* Пространство в шапке главной: выпадающий список пространств, под чертой — «Настроить пространства…» (этап 10.1.2, админу и редактору).
+/* Пространство в шапке главной: выпадающий список пространств, под чертой — «Настроить пространства…» (этап 10.1.2, админу и редактору)
+   и «Фотобанк…» (этап 10.5, только админу).
    Одно пространство и настраивать нечего — просто название */
 function spacePicker(){
   if (!multiSpace() && !setupSpaces().length) return h('span', { class:'org', text:cloud.spaceName });
@@ -263,6 +264,7 @@ function spacePicker(){
 function spaceMenu(anchor){
   const items = cloud.spaces.map(sp => ({ label:sp.name || sp.id, on:sp.id === cloud.space, pick:() => switchSpace(sp.id) }));
   if (setupSpaces().length) items.push({ sep:true }, { label:'Настроить пространства…', cls:'dd-act', pick:() => openSpaces() });
+  if (cloud.admin) items.push({ label:'Фотобанк…', cls:'dd-act', pick:() => openPhotoBank() });   // этап 10.5, photobank.js
   dropdown(anchor, items);
   if (typeof ddEl !== 'undefined' && ddEl){   // название в шапке короткое, пункты длиннее: список шире кнопки, но не за краем окна
     ddEl.style.width = ''; ddEl.style.minWidth = Math.max(240, anchor.getBoundingClientRect().width) + 'px';

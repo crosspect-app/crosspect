@@ -300,7 +300,7 @@ def test_admin_creates_space_and_renames(browser, base_url):
     page.wait_for_selector("text=В пространстве пока никого нет")
     page.evaluate("closeSettings()")
     page.locator(".topbar .org-pick").click()
-    assert [b.strip() for b in page.locator(".dd-list button").all_inner_texts()] == ["Для отца", "Słowo Wiary Poznań", "Настроить пространства…"]
+    assert [b.strip() for b in page.locator(".dd-list button").all_inner_texts()] == ["Для отца", "Słowo Wiary Poznań", "Настроить пространства…", "Фотобанк…"]   # фотобанк — только админу (этап 10.5)
     page.keyboard.press("Escape")
     assert page.evaluate("cloud.role") == "admin" and page.evaluate("PREACHERS.length") == 0
     assert not page.errors, page.errors

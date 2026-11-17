@@ -171,7 +171,7 @@
     /* Люди (этапы 10 и 10.1.2): ключ — почта или p-<случайный> (без почты); правят админ и редактор; оператор — не участник */
     watchMembers(space, onList){
       const f = () => { const x = S(load(), space); onList(Object.keys(x.members).map(key => { const m = x.members[key];
-        return { key, email:m.email || (key.includes('@') ? key : ''), role:m.role === 'admin' ? 'editor' : m.role, firstName:m.firstName || '', lastName:m.lastName || '',
+        return { key, email:m.email || (key.includes('@') ? key : ''), role:m.role === 'admin' ? 'editor' : m.role === 'claude' ? 'operator' : m.role, firstName:m.firstName || '', lastName:m.lastName || '',
           tg:m.tg || '', seenAt:m.seenAt || 0, seen:!!m.seenAt }; })); };
       listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
     },
@@ -289,6 +289,17 @@
       if (l && l.email !== my) cur.lock = null;
       Object.assign(cur, { status, updatedAt:tick(db), updatedBy:my });
       store(db); notify(); return view(x, cur);
+    },
+    /* Фотобанк (этап 10.5): db.authors[id] — правки описаний и вид по умолчанию; читают все вошедшие, пишет только админ */
+    watchAuthors(onMap){
+      const f = () => { const db = load(); onMap(JSON.parse(JSON.stringify(db.authors || {}))); };
+      listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
+    },
+    async setAuthor(who, id, fields){
+      calls.authors = (calls.authors || 0) + 1; offline();
+      const db = load(); if (!isAdmin(who.email)) throw denied();
+      db.authors = db.authors || {}; db.authors[id] = Object.assign(db.authors[id] || {}, JSON.parse(JSON.stringify(fields)), { updatedBy:who.email });
+      store(db); notify();
     },
     /* Настройки экрана человека (этап 7.2): у каждой почты своя запись */
     async getPrefs(who){ offline(); const db = load(); const p = (db.prefs || {})[who.email]; return p ? JSON.parse(JSON.stringify(p)) : null; },
