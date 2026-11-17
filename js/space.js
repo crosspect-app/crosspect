@@ -176,6 +176,7 @@ function openSpaces(id, tab){
   if (!list.length) return;
   const pick = list.find(x => x.id === id) || list.find(x => x.id === cloud.space) || list[0];
   spwSelect(pick.id, tab || 'people');
+  settingsGuard = () => spLeave();   // несохранённая правка таблицы: спросить перед закрытием
   settingsOverlay.classList.add('open');
 }
 function spwStop(){
@@ -233,7 +234,7 @@ function drawSpace(){
   const side = h('div', { class:'spw-side' },
     h('div', { class:'spw-list', role:'tablist', 'aria-label':'Пространства', 'aria-orientation':'vertical' }, setupSpaces().map(x =>
       h('button', { type:'button', role:'tab', class:'spw-item' + (x.id === SPW.id ? ' on' : ''), 'aria-selected':String(x.id === SPW.id), 'data-id':x.id,
-        onclick:() => { if (x.id !== SPW.id) spwSelect(x.id); } }, x.name || x.id))),
+        onclick:() => { if (x.id !== SPW.id && spLeave()) spwSelect(x.id); } }, x.name || x.id))),
     cloud.admin ? h('button', { type:'button', class:'btn small spw-new', onclick:() => openNewSpace(() => drawSpace()) }, ic('plus'), 'Новое пространство') : null);
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(h('div', { class:'sheet wide space-sheet', role:'dialog', 'aria-label':'Пространства',
@@ -242,7 +243,7 @@ function drawSpace(){
     h('div', { class:'spw' }, side,
       h('div', { class:'spw-main' },
         h('div', { class:'seg space-tabs', role:'tablist' }, tabs.map(([k, t]) => h('button', { type:'button', role:'tab', class:SPW.tab === k ? 'on' : '', 'aria-selected':String(SPW.tab === k),
-          onclick:() => { SPW.tab = k; SPW.order = null; drawSpace(); } }, t))),
+          onclick:() => { if (SPW.tab !== k && spLeave()){ SPW.tab = k; drawSpace(); } } }, t))),
         body))));
   requestAnimationFrame(() => {   // на узком экране полосы прокручиваются: выбранное пространство и вкладка видны целиком (этап 10.1.1)
     settingsOverlay.querySelectorAll('.space-tabs, .spw-list').forEach(strip => {
@@ -256,172 +257,236 @@ function drawSpace(){
 const spaceErr = (e, fallback) => toast(cloudExplain(e) || fallback);
 const loadingBody = () => h('div', { class:'sp-body' }, h('p', { class:'hint sp-empty', text:'Загружаю…' }));
 
-/* Люди: админ и редактор правят прямо в таблице, изменения уходят сразу */
+/* ----- Таблицы «Люди» и «Серии проповедей» (этап 10.4.1): просмотр и правка -----
+   Просмотр — только текст, кнопка «Изменить» (админ и редактор). Правка — вся таблица сразу: поля тёмные с жёлтой рамкой, как в конспекте,
+   изменения копятся в черновике (SPW.edit) и уходят в облако одной кнопкой «Сохранить»; «Отменить» всё возвращает.
+   Пока идёт правка, строки не сортируются: новые — внизу; по алфавиту — после «Сохранить» или «Отменить».
+   Ушли с несохранёнными изменениями (другая вкладка, пространство, крестик, Esc) — форма спросит */
+const spEditing = tab => !!(SPW && SPW.edit && SPW.edit.tab === tab);
+const clone = x => JSON.parse(JSON.stringify(x));
+function spDirty(){
+  const e = SPW && SPW.edit;
+  if (!e) return false;
+  if (e.tab === 'series') return JSON.stringify(e.draft) !== JSON.stringify(e.base) || e.order.some(id => !e.base[id] && normName(e.draft[id].name));
+  return e.rows.some(r => r.del ? !r.isNew : r.isNew ? personFilled(r) : personChanged(r));
+}
+/* Уйти из правки: изменений нет или человек согласился их выбросить */
+function spLeave(){
+  if (!spDirty()) { if (SPW) SPW.edit = null; return true; }
+  if (!confirm('Изменения в таблице не сохранены. Выйти без сохранения?')) return false;
+  SPW.edit = null;
+  return true;
+}
+function spStartEdit(tab){
+  if (tab === 'series'){
+    const base = clone(SPW.series || {});
+    SPW.edit = { tab, base, draft:clone(base), order:seriesList(base).map(x => x.id), err:{} };
+  } else {
+    SPW.edit = { tab, rows:(SPW.people || []).map(p => Object.assign(clone(p), { orig:clone(p) })), err:{} };
+  }
+  drawSpace();
+  const first = settingsOverlay.querySelector('.sp-table.editing input');
+  if (first) first.focus();
+}
+function spCancel(){ if (spLeave()) drawSpace(); }
+/* Полоса над таблицей: подсказка и «Изменить» в просмотре; в правке — «Правка таблицы» и сколько изменений */
+function spBar(tab, hint){
+  if (spEditing(tab)) return h('div', { class:'sp-bar editing' }, h('span', { class:'sp-mode', text:'Правка таблицы. Сохраните, когда закончите' }));
+  return h('div', { class:'sp-bar' }, h('p', { class:'hint', text:hint || '' }),
+    canSpace() ? h('button', { type:'button', class:'btn primary small sp-edit', onclick:() => spStartEdit(tab) }, ic('edit'), 'Изменить') : null);
+}
+function spFoot(tab, onSave){
+  if (!spEditing(tab)) return null;
+  const save = h('button', { type:'button', class:'btn small sp-save', onclick:async () => { save.disabled = true; try { await onSave(); } finally { save.disabled = false; } } }, 'Сохранить');
+  return h('div', { class:'sp-foot' }, h('span'), h('div', { class:'chips' },
+    h('button', { type:'button', class:'btn ghost small', onclick:spCancel }, 'Отменить'), save));
+}
+const errLine = msg => h('span', { class:'sp-err', role:'alert', text:msg || '' });
+
+/* ----- Люди ----- */
+const PERSON_KEYS = ['firstName', 'lastName', 'email', 'tg', 'role'];
+const personFilled = r => !!(normName(r.firstName) || normName(r.lastName) || String(r.email || '').trim() || String(r.tg || '').trim());
+const personChanged = r => PERSON_KEYS.some(k => String(r[k] || '') !== String(r.orig[k] || ''));
 function peopleTable(){
   const list = SPW.people;
   if (!list) return loadingBody();
-  const sid = SPW.id, adm = spwAdmin();
+  const sid = SPW.id, adm = spwAdmin(), edit = spEditing('people');
   const self = p => !adm && !!p.email && p.email === myEmail();   // редактор себе почту и роль не меняет и себя не убирает
-  const save = (p, fields) => cloud.api.updateMember(sid, p.key, fields).catch(e => { spaceErr(e, 'Не получилось сохранить.'); renderSpaceSheet(true); });
-  const rows = list.map(p => {
-    const err = h('span', { class:'sp-err', role:'alert' });
-    const nameIn = (k, ph) => h('input', { class:'input', value:p[k] || '', placeholder:ph, 'aria-label':ph, maxlength:'100', autocomplete:'off',
-      onchange:e => {
-        const v = normName(e.target.value);
-        const other = k === 'firstName' ? p.lastName : p.firstName;
-        if (!v && !other && !p.email){ err.textContent = 'Укажите имя или фамилию'; e.target.value = p[k] || ''; return; }
-        err.textContent = ''; e.target.value = v;
-        if (v !== (p[k] || '')){ p[k] = v; save(p, { [k]:v }); }
-      } });
-    const mail = self(p) ? h('span', { class:'sp-mail', title:'Свою почту вам поменяет админ', text:p.email })
-      : h('input', { class:'input', type:'email', value:p.email || '', placeholder:'Почта Google', 'aria-label':'Почта', autocomplete:'off', spellcheck:'false', autocapitalize:'off',
-        onchange:e => changeMail(sid, p, e.target, err) });
-    const tgIn = h('input', { class:'input', value:p.tg ? '@' + p.tg : '', placeholder:'@имя в Telegram', 'aria-label':'Telegram', autocomplete:'off', autocapitalize:'off', spellcheck:'false',
-      onchange:e => changeTg(p, e.target, err, save) });
-    const tg = h('span', { class:'sp-tg' }, tgIn,
-      p.tg ? iconBtn('telegram', 'Проверить: откроется профиль в Telegram, посмотрите, тот ли это человек', () => openTgProfile(p.tg), 'sp-check') : null);
-    const role = self(p) ? h('span', { class:'sp-role', title:'Свою роль вам поменяет админ', text:ROLE_LABEL[p.role] || p.role })
-      : h('label', { class:'hf-sel' }, h('select', { 'aria-label':'Роль', onchange:e => save(p, { role:e.target.value }) },
-        Object.keys(ROLE_LABEL).map(r => h('option', { value:r, text:ROLE_LABEL[r], selected:p.role === r }))), ic('down'));
-    const seen = p.role === 'operator' ? h('span', { class:'sp-seen', title:'Оператор в форму не входит', text:'—' })
-      : !p.email ? h('span', { class:'sp-seen', title:'Без почты в форму не войти', text:'—' })
-      : p.seenAt ? h('span', { class:'sp-seen on', title:'Последний вход в форму', text:seenWhen(p.seenAt) })
-      : h('span', { class:'sp-seen', title:'Ещё ни разу не входил под этой почтой', text:'не входил' });
-    return h('div', { class:'sp-row', role:'row', 'data-key':p.key, 'data-email':p.email || null },
-      nameIn('firstName', 'Имя'), nameIn('lastName', 'Фамилия'), mail, tg, role, seen,
-      self(p) ? h('span') : iconBtn('trash', 'Убрать из пространства', () => removePerson(sid, p), 'danger'), err);
-  });
+  const seen = p => p.isNew ? h('span', { class:'sp-seen', text:'' })
+    : p.role === 'operator' ? h('span', { class:'sp-seen', title:'Оператор в форму не входит', text:'—' })
+    : !p.email ? h('span', { class:'sp-seen', title:'Без почты в форму не войти', text:'—' })
+    : p.seenAt ? h('span', { class:'sp-seen on', title:'Последний вход в форму', text:seenWhen(p.seenAt) })
+    : h('span', { class:'sp-seen', title:'Ещё ни разу не входил под этой почтой', text:'не входил' });
   const head = h('div', { class:'sp-row sp-head', role:'row' },
     [['Имя'], ['Фамилия'], ['Почта', 'С почтой человек входит в форму'], ['Telegram', 'С Telegram ему можно отправить ссылку на конспект'], ['Роль'], ['Последний вход'], ['']]
       .map(([t, tip]) => h('span', { role:'columnheader', text:t, title:tip || null })));
-  return h('div', { class:'sp-body' },
-    h('div', { class:'sp-table sp-people', role:'table', 'aria-label':'Люди' }, head,
-      list.length ? rows : h('p', { class:'hint sp-empty', text:'В пространстве пока никого нет' }),
-      addPersonRow(sid)));
+  let rows;
+  if (!edit){
+    const txt = (v, cls) => h('span', { class:'sp-cell' + (cls ? ' ' + cls : ''), text:v || '' });
+    rows = list.map(p => h('div', { class:'sp-row', role:'row', 'data-key':p.key, 'data-email':p.email || null },
+      txt(p.firstName), txt(p.lastName), txt(p.email, 'sp-mail'),
+      h('span', { class:'sp-tg' }, txt(p.tg ? '@' + p.tg : ''),
+        p.tg ? iconBtn('telegram', 'Проверить: откроется профиль в Telegram, посмотрите, тот ли это человек', () => openTgProfile(p.tg), 'sp-check') : null),
+      txt(ROLE_LABEL[p.role] || p.role, 'sp-role'), seen(p), h('span')));
+  } else {
+    const E = SPW.edit;
+    rows = E.rows.filter(r => !r.del).map(r => {
+      const id = r.key || r.tmp;
+      const inp = (k, ph, extra) => h('input', Object.assign({ class:'input', value:r[k] || '', placeholder:ph, 'aria-label':ph, autocomplete:'off',
+        oninput:e => { r[k] = e.target.value; } }, extra || {}));
+      const mail = self(r) ? h('span', { class:'sp-mail', title:'Свою почту вам поменяет админ', text:r.email })
+        : inp('email', 'Почта Google', { type:'email', spellcheck:'false', autocapitalize:'off' });
+      const tg = h('span', { class:'sp-tg' }, h('input', { class:'input', value:r.tg ? (String(r.tg).startsWith('@') ? r.tg : '@' + r.tg) : '', placeholder:'@имя в Telegram', 'aria-label':'Telegram',
+        autocomplete:'off', autocapitalize:'off', spellcheck:'false', oninput:e => { r.tg = e.target.value; } }));
+      const role = self(r) ? h('span', { class:'sp-role', title:'Свою роль вам поменяет админ', text:ROLE_LABEL[r.role] || r.role })
+        : h('label', { class:'hf-sel' }, h('select', { 'aria-label':'Роль', onchange:e => { r.role = e.target.value; } },
+          Object.keys(ROLE_LABEL).map(k => h('option', { value:k, text:ROLE_LABEL[k], selected:r.role === k }))), ic('down'));
+      const del = self(r) ? h('span') : iconBtn('trash', r.isNew ? 'Убрать строку' : 'Убрать из пространства', () => { r.del = true; drawSpace(); }, 'danger');
+      return h('div', { class:'sp-row' + (r.isNew ? ' sp-new' : ''), role:'row', 'data-key':r.key || null, 'data-email':r.email || null, 'data-tmp':r.tmp || null },
+        inp('firstName', 'Имя', { maxlength:'100' }), inp('lastName', 'Фамилия', { maxlength:'100' }), mail, tg, role, seen(r), del, errLine(E.err[id]));
+    });
+    rows.push(h('div', { class:'sp-row sp-addline', role:'row' }, h('button', { type:'button', class:'btn ghost small sp-addrow', onclick:() => {
+      SPW.edit.rows.push({ tmp:'n' + Math.random().toString(36).slice(2, 8), isNew:true, firstName:'', lastName:'', email:'', tg:'', role:'preacher' });
+      drawSpace();
+      const ins = settingsOverlay.querySelectorAll('.sp-people .sp-new input[aria-label="Имя"]');
+      if (ins.length) ins[ins.length - 1].focus();
+    } }, ic('plus'), 'Добавить человека')));
+  }
+  return h('div', { class:'sp-body' }, spBar('people'),
+    h('div', { class:'sp-table sp-people' + (edit ? ' editing' : ''), role:'table', 'aria-label':'Люди' }, head,
+      rows.length ? rows : h('p', { class:'hint sp-empty', text:'В пространстве пока никого нет' })),
+    spFoot('people', () => savePeople(sid)));
 }
-/* Почту добавили, сменили или стёрли: запись переезжает на новый ключ (cloud-api.mjs, setMemberEmail) */
-async function changeMail(sid, p, input, err){
-  const v = input.value.trim().toLowerCase();
-  if (v === (p.email || '')){ input.value = p.email || ''; err.textContent = ''; return; }
-  if (v && !EMAIL_RE.test(v)){ err.textContent = 'Проверьте почту'; return; }
-  if (!v && !preacherKey(p)){ err.textContent = 'Укажите имя или фамилию, потом уберите почту'; input.value = p.email || ''; return; }
-  if (v && (SPW.people || []).some(x => x.key !== p.key && x.email === v)){ err.textContent = 'Человек с такой почтой уже есть'; return; }
-  err.textContent = '';
-  try { await cloud.api.setMemberEmail(sid, cloud.user, p.key, v); }
-  catch(e){ err.textContent = e && e.code === 'exists' ? 'Человек с такой почтой уже есть' : cloudExplain(e) || 'Не получилось сохранить'; input.value = p.email || ''; }
-}
-/* Telegram: пусто — убрать; иначе проверить и сохранить как имя пользователя без «@» */
-function changeTg(p, input, err, save){
-  const raw = input.value.trim();
-  if (!raw || raw === '@'){ input.value = ''; err.textContent = ''; if (p.tg) save(p, { tg:'' }); return; }
-  const r = tgCheck(raw);
-  if (r.err){ err.textContent = r.err; return; }
-  if (tgTaken(SPW.people, r.tg, p.key)){ err.textContent = 'Этот Telegram уже указан у другого человека'; return; }
-  err.textContent = ''; input.value = '@' + r.tg;
-  if (r.tg !== p.tg) save(p, { tg:r.tg });
-}
-function addPersonRow(sid){
-  const f = h('input', { class:'input', placeholder:'Имя', maxlength:'100', 'aria-label':'Имя нового человека', autocomplete:'off' });
-  const l = h('input', { class:'input', placeholder:'Фамилия', maxlength:'100', 'aria-label':'Фамилия нового человека', autocomplete:'off' });
-  const m = h('input', { class:'input', type:'email', placeholder:'Почта Google', 'aria-label':'Почта нового человека', autocomplete:'off', spellcheck:'false', autocapitalize:'off' });
-  const t = h('input', { class:'input', placeholder:'@имя в Telegram', 'aria-label':'Telegram нового человека', autocomplete:'off', spellcheck:'false', autocapitalize:'off' });
-  const r = h('select', { 'aria-label':'Роль нового человека' }, Object.keys(ROLE_LABEL).map(k => h('option', { value:k, text:ROLE_LABEL[k], selected:k === 'preacher' })));
-  const err = h('span', { class:'sp-err', role:'alert' });
-  const add = async () => {
-    const first = normName(f.value), last = normName(l.value), email = m.value.trim().toLowerCase(), people = SPW.people || [];
-    let tg = '';
-    err.textContent = '';
-    if (!first && !last){ err.textContent = 'Укажите имя или фамилию'; f.focus(); return; }
-    if (email && !EMAIL_RE.test(email)){ err.textContent = 'Проверьте почту'; m.focus(); return; }
-    if (email && people.some(p => p.email === email)){ err.textContent = 'Человек с такой почтой уже есть'; m.focus(); return; }
-    if (t.value.trim() && t.value.trim() !== '@'){
-      const c = tgCheck(t.value);
-      if (c.err){ err.textContent = c.err; t.focus(); return; }
-      if (tgTaken(people, c.tg)){ err.textContent = 'Этот Telegram уже указан у другого человека'; t.focus(); return; }
-      tg = c.tg;
+/* Проверить черновик «Людей»: ошибки — у строк (E.err), true — можно сохранять. Пустые новые строки просто выпадают */
+function checkPeople(E){
+  E.err = {};
+  E.rows = E.rows.filter(r => !(r.isNew && (r.del || !personFilled(r))));
+  const live = E.rows.filter(r => !r.del), mails = new Map(), tgs = new Map();
+  /* Повтор почты или Telegram: ошибка — у строки, которую правили (новая или изменённая), а не просто у нижней */
+  const touched = (r, k) => r.isNew || String(r[k] || '') !== String(r.orig[k] || '');
+  const dup = (r, other, k, m) => { const t = touched(r, k) || !touched(other, k) ? r : other, tid = t.key || t.tmp; if (!E.err[tid]) E.err[tid] = m; };
+  live.forEach(r => {
+    const id = r.key || r.tmp, bad = m => { if (!E.err[id]) E.err[id] = m; };
+    r.firstName = normName(r.firstName); r.lastName = normName(r.lastName);
+    r.email = String(r.email || '').trim().toLowerCase();
+    if (!r.firstName && !r.lastName && (r.isNew || !r.email)) bad(r.isNew || !r.orig.email ? 'Укажите имя или фамилию' : 'Укажите имя или фамилию, потом уберите почту');
+    if (r.email && !EMAIL_RE.test(r.email)) bad('Проверьте почту');
+    if (r.email){ if (mails.has(r.email)) dup(r, mails.get(r.email), 'email', 'Человек с такой почтой уже есть'); else mails.set(r.email, r); }
+    const raw = String(r.tg || '').trim();
+    if (!raw || raw === '@') r.tg = '';
+    else {
+      const c = tgCheck(raw);
+      if (c.err) bad(c.err);
+      else { const k = c.tg.toLowerCase(), was = String(r.orig && r.orig.tg || '').toLowerCase(); r.tg = c.tg;
+        if (tgs.has(k)){ const o = tgs.get(k); (r.isNew || was !== k) || String(o.orig && o.orig.tg || '').toLowerCase() === k ? bad('Этот Telegram уже указан у другого человека') : (E.err[o.key || o.tmp] = E.err[o.key || o.tmp] || 'Этот Telegram уже указан у другого человека'); }
+        else tgs.set(k, r); }
     }
-    btn.disabled = true;
-    try {
-      await cloud.api.addMember(sid, cloud.user, { email, role:r.value, firstName:first, lastName:last, tg });
-      toast('Добавили: ' + preacherName({ firstName:first, lastName:last }));
-      renderSpaceSheet(true);
-    } catch(e){ err.textContent = e && e.code === 'exists' ? 'Человек с такой почтой уже есть' : cloudExplain(e) || 'Не получилось добавить'; btn.disabled = false; }
-  };
-  const btn = h('button', { type:'button', class:'btn primary small', onclick:add }, ic('plus'), 'Добавить');
-  [f, l, m, t].forEach(x => x.addEventListener('keydown', e => { if (e.key === 'Enter') add(); }));
-  return h('div', { class:'sp-row sp-add', role:'row' }, f, l, m, t, h('label', { class:'hf-sel' }, r, ic('down')), h('span', { class:'sp-add-act' }, btn), err);
+  });
+  return !Object.keys(E.err).length;
 }
-async function removePerson(sid, p){
-  const who = personLabel(p);
-  const tail = p.email && p.role !== 'operator' ? ' Войти сюда этот человек больше не сможет, а его конспекты останутся.' : '';
-  if (!confirm('Убрать из пространства: ' + who + '?' + tail)) return;
-  try { await cloud.api.removeMember(sid, p.key); toast('Убрали из пространства: ' + who); }
-  catch(e){ spaceErr(e, 'Не получилось убрать.'); }
+async function savePeople(sid){
+  const E = SPW.edit, api = cloud.api;
+  if (!checkPeople(E)){ drawSpace(); return; }
+  const gone = E.rows.filter(r => r.del && !r.isNew);
+  if (gone.length){
+    const logins = gone.some(p => p.orig.email && p.orig.role !== 'operator');
+    if (!confirm('Убрать из пространства: ' + gone.map(p => personLabel(p.orig)).join(', ') + '?' + (logins ? ' Войти сюда они больше не смогут, а их конспекты останутся.' : ''))) return;
+  }
+  let failed = false;
+  const fail = (r, e, msg) => { failed = true; E.err[r.key || r.tmp] = e && e.code === 'exists' ? 'Человек с такой почтой уже есть' : cloudExplain(e) || msg; };
+  for (const r of gone){
+    try { await api.removeMember(sid, r.key); r.done = true; } catch(e){ failed = true; r.del = false; E.err[r.key] = cloudExplain(e) || 'Не получилось убрать'; }
+  }
+  E.rows = E.rows.filter(r => !r.done);
+  for (const r of E.rows.filter(x => !x.del)){
+    if (r.isNew){
+      try { await api.addMember(sid, cloud.user, { email:r.email, role:r.role, firstName:r.firstName, lastName:r.lastName, tg:r.tg }); r.isNew = false; r.orig = clone(r); r.saved = true; }
+      catch(e){ fail(r, e, 'Не получилось добавить'); }
+      continue;
+    }
+    const fields = {};
+    ['firstName', 'lastName', 'tg', 'role'].forEach(k => { if (String(r[k] || '') !== String(r.orig[k] || '')) fields[k] = r[k] || ''; });
+    try {
+      if (Object.keys(fields).length){ await api.updateMember(sid, r.key, fields); Object.assign(r.orig, fields); }
+      if (r.email !== (r.orig.email || '')){ await api.setMemberEmail(sid, cloud.user, r.key, r.email); r.orig.email = r.email; }
+    } catch(e){ fail(r, e, 'Не получилось сохранить'); }
+  }
+  if (failed){ drawSpace(); return; }
+  SPW.edit = null;
+  toast('Сохранено');
+  drawSpace();
 }
 
-/* Серии проповедей: админ и редактор. Название, «Активна» и формат меняются сразу; удалить — только серию, которой нет в конспектах */
+/* ----- Серии проповедей ----- */
 function seriesTable(){
   const map = SPW.series;
   if (!map) return loadingBody();
-  const sid = SPW.id, cfg = spwCfg(), use = seriesUse();
-  /* Порядок строк замирает, пока открыта вкладка: переименовали или добавили серию — строка остаётся на месте, новая — внизу.
-     По алфавиту — при следующем открытии вкладки или окна */
-  const ids = Object.keys(map), sorted = seriesList(map).map(x => x.id);
-  SPW.order = (SPW.order || sorted).filter(id => map[id]);
-  ids.filter(id => !SPW.order.includes(id)).forEach(id => SPW.order.push(id));
-  const list = SPW.order.map(id => Object.assign({ id }, map[id]));
-  /* Пишем всегда от последних данных (SPW.series), а не от снимка этой отрисовки: пока курсор в поле, окно не перерисовывается,
-     и запись по старому снимку стирала только что выбранный фон другой строки */
-  const latest = () => JSON.parse(JSON.stringify(SPW.series || map));
-  const fmtSel = (cur, on) => h('label', { class:'hf-sel' }, h('select', { 'aria-label':'Формат фона', onchange:e => on(e.target.value) },
-    [['', 'По умолчанию']].concat(formatList(cfg).map(f => [f.id, f.name])).map(([v, t]) => h('option', { value:v, text:t, selected:v === (cur && (cur === SYSTEM_FORMAT || cfg.formats[cur]) ? cur : '') }))), ic('down'));
-  const upd = (id, fields) => { const next = latest(); if (!next[id]) return Promise.resolve(false); Object.assign(next[id], fields); return writeSeries(sid, next); };
-  const delBtn = x => {
-    const n = use ? use[x.id] || 0 : null;
-    if (n === 0) return iconBtn('trash', 'Удалить серию', () => removeSeries(sid, x), 'danger');
-    const tip = n == null ? 'Проверяю, выбрана ли серия в конспектах' : 'Выбрана в конспектах: ' + n;
-    const b = iconBtn('trash', tip, null, 'danger'); b.disabled = true;
-    return h('span', { class:'sp-del-off', title:tip }, b);
-  };
-  const rows = list.map(x => h('div', { class:'sp-row', role:'row', 'data-id':x.id },
-    h('input', { class:'input', value:x.name, maxlength:'100', 'aria-label':'Название серии', autocomplete:'off', onchange:e => {
-      const v = normName(e.target.value);
-      if (!v || seriesNameTaken(latest(), v, x.id)){ toast(v ? 'Серия с таким названием уже есть' : 'У серии должно быть название'); e.target.value = x.name; return; }
-      if (v !== x.name) upd(x.id, { name:v });
-    } }),
-    sw('Активна', x.active, on => upd(x.id, { active:on })),
-    fmtSel(x.format, v => upd(x.id, { format:v })),
-    delBtn(x)));
+  const sid = SPW.id, cfg = spwCfg(), use = seriesUse(), edit = spEditing('series'), E = SPW.edit;
+  const fmtName = id => id && (id === SYSTEM_FORMAT || cfg.formats[id]) ? formatName(id, cfg) : 'По умолчанию';
+  const useText = id => { const n = use ? use[id] || 0 : null; return n == null ? '…' : n ? String(n) : '—'; };
+  const head = h('div', { class:'sp-row sp-head', role:'row' }, ['Название', 'Активна', 'Формат фона', 'В конспектах', ''].map(t => h('span', { role:'columnheader', text:t })));
   const free = h('div', { class:'sp-row sp-fixed', role:'row', title:'Встроенная серия: у проповедей без серии. Её нельзя изменить' },
-    h('span', { class:'sp-name', text:FREE_SERIES }), h('span', { class:'muted', text:'Всегда активна' }), h('span', { class:'muted', text:'По умолчанию' }), h('span'));
-  const name = h('input', { class:'input', placeholder:'Название новой серии', maxlength:'100', 'aria-label':'Название новой серии', autocomplete:'off' });
-  const err = h('span', { class:'sp-err', role:'alert' });
-  const add = async () => {
-    const v = normName(name.value);
-    err.textContent = '';
-    if (!v){ name.focus(); return; }
-    const next = latest();
-    if (seriesNameTaken(next, v)){ err.textContent = 'Серия с таким названием уже есть'; name.focus(); return; }
-    const nid = newSeriesId(next);
-    next[nid] = { name:v, active:true, format:'' };
-    if (!(await writeSeries(sid, next))) return;
-    toast('Серия добавлена: ' + v);
-    renderSpaceSheet(true);   // новая строка — внизу таблицы, сразу; фокус — на её формате фона
-    const sel = settingsOverlay.querySelector('.sp-series .sp-row[data-id="' + nid + '"] select');
-    if (sel) sel.focus();
-  };
-  name.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+    h('span', { class:'sp-name', text:FREE_SERIES }), h('span', { class:'muted', text:'Всегда' }), h('span', { class:'muted', text:'По умолчанию' }), h('span', { class:'muted', text:'—' }), h('span'));
+  let rows;
+  if (!edit){
+    rows = seriesList(map).map(x => h('div', { class:'sp-row', role:'row', 'data-id':x.id },
+      h('span', { class:'sp-cell sp-name', text:x.name }),
+      h('span', { class:'sp-state' + (x.active ? ' on' : ''), text:x.active ? 'Активна' : 'Выключена' }),
+      h('span', { class:'sp-cell', text:fmtName(x.format) }),
+      h('span', { class:'sp-cell muted', text:useText(x.id) }), h('span')));
+  } else {
+    const fmtSel = x => h('label', { class:'hf-sel' }, h('select', { 'aria-label':'Формат фона', onchange:e => { x.format = e.target.value; } },
+      [['', 'По умолчанию']].concat(formatList(cfg).map(f => [f.id, f.name])).map(([v, t]) => h('option', { value:v, text:t, selected:v === (x.format && (x.format === SYSTEM_FORMAT || cfg.formats[x.format]) ? x.format : '') }))), ic('down'));
+    const delBtn = id => {
+      const n = E.base[id] ? (use ? use[id] || 0 : null) : 0;
+      if (n === 0) return iconBtn('trash', 'Удалить серию', () => { delete E.draft[id]; E.order = E.order.filter(x => x !== id); drawSpace(); }, 'danger');
+      const tip = n == null ? 'Проверяю, выбрана ли серия в конспектах' : 'Выбрана в конспектах: ' + n;
+      const b = iconBtn('trash', tip, null, 'danger'); b.disabled = true;
+      return h('span', { class:'sp-del-off', title:tip }, b);
+    };
+    rows = E.order.filter(id => E.draft[id]).map(id => {
+      const x = E.draft[id];
+      return h('div', { class:'sp-row' + (E.base[id] ? '' : ' sp-new'), role:'row', 'data-id':id },
+        h('input', { class:'input', value:x.name, maxlength:'100', placeholder:'Название серии', 'aria-label':'Название серии', autocomplete:'off', oninput:e => { x.name = e.target.value; } }),
+        sw('Активна', x.active, on => { x.active = on; }),
+        fmtSel(x), h('span', { class:'sp-cell muted', text:E.base[id] ? useText(id) : '—' }), delBtn(id), errLine(E.err[id]));
+    });
+    rows.push(h('div', { class:'sp-row sp-addline', role:'row' }, h('button', { type:'button', class:'btn ghost small sp-addrow', onclick:() => {
+      const id = newSeriesId(Object.assign({}, SPW.series, E.draft));
+      E.draft[id] = { name:'', active:true, format:'' }; E.order.push(id);
+      drawSpace();
+      const inp = settingsOverlay.querySelector('.sp-series .sp-row[data-id="' + id + '"] input');
+      if (inp) inp.focus();
+    } }, ic('plus'), 'Добавить серию')));
+  }
   return h('div', { class:'sp-body' },
-    h('p', { class:'hint', text:'Серию выбирают в «О проповеди». Фон слайдов проповеди — формат её серии. Выключенная серия остаётся в прошлых проповедях, но выбрать её больше нельзя.' }),
-    h('div', { class:'sp-table sp-series', role:'table', 'aria-label':'Серии проповедей' },
-      h('div', { class:'sp-row sp-head', role:'row' }, ['Название', 'Активна', 'Формат фона', ''].map(t => h('span', { role:'columnheader', text:t }))),
-      free, rows,
-      h('div', { class:'sp-row sp-add', role:'row' }, name, h('span', { class:'sp-add-act' }, h('button', { type:'button', class:'btn primary small', onclick:add }, ic('plus'), 'Добавить серию')), err)));
+    spBar('series', 'Серию выбирают в «О проповеди». Фон слайдов проповеди — формат её серии. Выключенная серия остаётся в прошлых проповедях, но выбрать её больше нельзя.'),
+    h('div', { class:'sp-table sp-series' + (edit ? ' editing' : ''), role:'table', 'aria-label':'Серии проповедей' }, head, free, rows),
+    spFoot('series', () => saveSeries(sid)));
 }
-function removeSeries(sid, x){
-  if (!confirm('Удалить серию «' + x.name + '»?')) return;
-  const next = JSON.parse(JSON.stringify(SPW.series || {})); delete next[x.id];
-  writeSeries(sid, next).then(ok => { if (ok) toast('Серия удалена: ' + x.name); });
+/* Сохранить черновик серий: пустые новые строки выпадают; изменения ложатся поверх последних данных из облака (SPW.series),
+   чтобы не стереть то, что за это время поменял другой человек */
+async function saveSeries(sid){
+  const E = SPW.edit;
+  E.err = {};
+  E.order = E.order.filter(id => E.draft[id] && (E.base[id] || normName(E.draft[id].name)));
+  Object.keys(E.draft).forEach(id => { if (!E.order.includes(id)) delete E.draft[id]; });
+  const seen = new Set();
+  E.order.forEach(id => {
+    const x = E.draft[id], v = normName(x.name), k = v.toLowerCase();
+    x.name = v;
+    if (!v) E.err[id] = 'У серии должно быть название';
+    else if (seen.has(k) || k === FREE_SERIES.toLowerCase()) E.err[id] = 'Серия с таким названием уже есть';
+    seen.add(k);
+  });
+  if (Object.keys(E.err).length){ drawSpace(); return; }
+  const next = clone(SPW.series || {});
+  Object.keys(E.base).forEach(id => { if (!E.draft[id]) delete next[id]; });
+  E.order.forEach(id => { next[id] = Object.assign({}, next[id], E.draft[id]); });
+  if (!(await writeSeries(sid, next))) return;
+  SPW.edit = null;
+  toast('Сохранено');
+  drawSpace();
 }
 
 /* Общее: правит админ, редактор только смотрит. Новое пространство — кнопка слева, под списком */

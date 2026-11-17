@@ -47,8 +47,12 @@ def test_editor_sees_only_his_spaces_and_switches_inside(browser, base_url):
     page.wait_for_selector(".sp-row[data-email='anna@x.pl']")
     assert page.evaluate("cloud.space") == "sp1"   # текущее пространство формы не меняется
     # правка людей другого пространства уходит туда
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
     page.locator(".sp-row[data-email='anna@x.pl'] input[aria-label='Фамилия']").fill("Новак")
     page.locator(".sp-row[data-email='anna@x.pl'] input[aria-label='Фамилия']").press("Tab")
+    assert page.evaluate("fakeCloud.db().spaces.sp2.members['anna@x.pl'].lastName") != "Новак"
+    page.locator(".sp-save").click()
     page.wait_for_function("fakeCloud.db().spaces.sp2.members['anna@x.pl'].lastName === 'Новак'")
     assert page.evaluate("PREACHERS") == ["Петров Иван"]   # авторы текущего пространства не смешались
     page.evaluate("closeSettings()")
@@ -60,14 +64,18 @@ def test_person_without_email_and_moving_email(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ED, members=MEMBERS, admins=())
     wait_home(page)
     open_window(page)
-    add = page.locator(".sp-people .sp-add")
-    add.locator("input[aria-label='Почта нового человека']").fill("guest@x.pl")
-    add.get_by_role("button", name="Добавить").click()
-    assert page.locator(".sp-add .sp-err").inner_text() == "Укажите имя или фамилию"
-    add.locator("input[aria-label='Почта нового человека']").fill("")
-    add.locator("input[aria-label='Имя нового человека']").fill("Гость")
-    add.locator("input[aria-label='Фамилия нового человека']").fill("Гостев")
-    add.get_by_role("button", name="Добавить").click()
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
+    page.locator(".sp-people .sp-addrow").click()
+    new = page.locator(".sp-people .sp-new").last
+    new.locator("input[aria-label='Почта Google']").fill("guest@x.pl")
+    page.locator(".sp-save").click()
+    assert new.locator(".sp-err").inner_text() == "Укажите имя или фамилию"
+    new.locator("input[aria-label='Почта Google']").fill("")
+    new.locator("input[aria-label='Имя']").fill("Гость")
+    new.locator("input[aria-label='Фамилия']").fill("Гостев")
+    page.locator(".sp-save").click()
+    page.wait_for_selector(".sp-table.editing", state="detached")
     page.wait_for_function("Object.keys(fakeCloud.db().members).some(k => k.startsWith('p-'))")
     key = page.evaluate("Object.keys(fakeCloud.db().members).find(k => k.startsWith('p-'))")
     m = page.evaluate("k => fakeCloud.db().members[k]", key)
@@ -76,24 +84,29 @@ def test_person_without_email_and_moving_email(browser, base_url):
     row.wait_for()
     assert row.locator(".sp-seen").inner_text() == "—" and row.locator(".sp-seen").get_attribute("title") == "Без почты в форму не войти"
     page.wait_for_function("PREACHERS.includes('Гостев Гость')")   # автор без почты — в списке авторов
-    # почту дописали: запись переехала на ключ-почту
-    mail = row.locator("input[aria-label='Почта']")
+    # почту дописали: запись переехала на ключ-почту (при сохранении)
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
+    mail = row.locator("input[aria-label='Почта Google']")
     mail.fill("ivan@x.pl")
-    mail.press("Tab")
-    assert row.locator(".sp-err").inner_text() == "Человек с такой почтой уже есть"
+    page.locator(".sp-save").click()
+    assert row.locator(".sp-err").inner_text() == "Человек с такой почтой уже есть"   # ошибка — у строки, которую правили
     mail.fill("не почта")
-    mail.press("Tab")
+    page.locator(".sp-save").click()
     assert row.locator(".sp-err").inner_text() == "Проверьте почту"
+    assert page.evaluate("k => !!fakeCloud.db().members[k]", key)
     mail.fill("Guest@X.pl")
-    mail.press("Tab")
+    page.locator(".sp-save").click()
     page.wait_for_function("k => !fakeCloud.db().members[k] && fakeCloud.db().members['guest@x.pl']", arg=key)
     assert page.evaluate("fakeCloud.db().members['guest@x.pl']")["firstName"] == "Гость"
     page.wait_for_selector(".sp-row[data-email='guest@x.pl']")
     assert page.locator(".sp-row[data-email='guest@x.pl'] .sp-seen").inner_text() == "не входил"
     # и обратно без почты
-    mail = page.locator(".sp-row[data-email='guest@x.pl'] input[aria-label='Почта']")
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
+    mail = page.locator(".sp-row[data-email='guest@x.pl'] input[aria-label='Почта Google']")
     mail.fill("")
-    mail.press("Tab")
+    page.locator(".sp-save").click()
     page.wait_for_function("!fakeCloud.db().members['guest@x.pl'] && Object.keys(fakeCloud.db().members).some(k => k.startsWith('p-'))")
     assert not page.errors, page.errors
     ctx.close()
@@ -128,12 +141,15 @@ def test_delete_series_only_when_unused(browser, base_url):
     page.wait_for_function("cloud.list && cloud.list.size === 2")
     open_window(page)
     page.locator(".space-tabs button", has_text="Серии проповедей").click()
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
     for sid, tip in (("a1", "Выбрана в конспектах: 1"), ("a2", "Выбрана в конспектах: 1")):   # корзина тоже считается
         cell = page.locator(f".sp-row[data-id='{sid}'] .sp-del-off")
         assert cell.get_attribute("title") == tip
         assert cell.locator("button").is_disabled()
-    page.once("dialog", lambda d: d.accept())
     page.locator(".sp-row[data-id='a3']").get_by_role("button", name="Удалить серию").click()
+    assert page.evaluate("!!fakeCloud.db().series.a3")   # убрана из черновика, в облаке — до «Сохранить»
+    page.locator(".sp-save").click()
     page.wait_for_function("!fakeCloud.db().series.a3 && fakeCloud.db().series.a1")
     page.wait_for_function("!SERIES.a3")
     assert not page.errors, page.errors

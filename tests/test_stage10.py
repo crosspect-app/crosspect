@@ -26,34 +26,49 @@ def test_admin_manages_people(browser, base_url):
     assert page.locator(".space-tabs button.on").inner_text() == "Люди"
     page.wait_for_selector(".sp-people .sp-row[data-key]")
     assert page.locator(".sp-people .sp-row[data-key]").count() == 4
-    # добавить: почта проверяется, повтор не проходит
-    add = page.locator(".sp-people .sp-add")
-    add.locator("input[aria-label='Имя нового человека']").fill("Анна")
-    add.locator("input[aria-label='Фамилия нового человека']").fill("Ковальская")
-    add.locator("input[aria-label='Почта нового человека']").fill("не почта")
-    add.get_by_role("button", name="Добавить").click()
-    assert page.locator(".sp-add .sp-err").inner_text() == "Проверьте почту"
-    add.locator("input[aria-label='Почта нового человека']").fill("IVAN@x.pl")
-    add.get_by_role("button", name="Добавить").click()
-    assert page.locator(".sp-add .sp-err").inner_text() == "Человек с такой почтой уже есть"
-    add.locator("input[aria-label='Почта нового человека']").fill("Anna@X.pl")
-    add.get_by_role("button", name="Добавить").click()
+    # добавить: почта проверяется, повтор не проходит; до «Сохранить» в облаке ничего
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
+    page.locator(".sp-people .sp-addrow").click()
+    row = page.locator(".sp-people .sp-new").last
+    row.locator("input[aria-label='Имя']").fill("Анна")
+    row.locator("input[aria-label='Фамилия']").fill("Ковальская")
+    row.locator("input[aria-label='Почта Google']").fill("не почта")
+    page.locator(".sp-save").click()
+    assert row.locator(".sp-err").inner_text() == "Проверьте почту"
+    row.locator("input[aria-label='Почта Google']").fill("IVAN@x.pl")
+    page.locator(".sp-save").click()
+    assert row.locator(".sp-err").inner_text() == "Человек с такой почтой уже есть"
+    assert page.locator(".sp-table.editing").count() >= 1
+    row.locator("input[aria-label='Почта Google']").fill("Anna@X.pl")
+    assert page.evaluate("!fakeCloud.db().members['anna@x.pl']")
+    page.locator(".sp-save").click()
+    page.wait_for_selector(".sp-table.editing", state="detached")
     page.wait_for_selector(".sp-row[data-email='anna@x.pl']")
     m = page.evaluate("fakeCloud.db().members['anna@x.pl']")
     assert m["role"] == "preacher" and m["firstName"] == "Анна" and m["lastName"] == "Ковальская"
     page.wait_for_function("PREACHERS.includes('Ковальская Анна')")   # сразу в списке авторов
-    # правка прямо в таблице
+    # правка в таблице: фамилия и роль уходят в облако только по «Сохранить»
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
     row = page.locator(".sp-row[data-email='anna@x.pl']")
     row.locator("input[aria-label='Фамилия']").fill("Новак")
     row.locator("input[aria-label='Фамилия']").press("Tab")
-    page.wait_for_function("fakeCloud.db().members['anna@x.pl'].lastName === 'Новак'")
-    row = page.locator(".sp-row[data-email='anna@x.pl']")
     row.locator("select[aria-label='Роль']").select_option("editor")
+    assert page.evaluate("fakeCloud.db().members['anna@x.pl'].lastName") == "Ковальская"
+    assert page.evaluate("fakeCloud.db().members['anna@x.pl'].role") == "preacher"
+    page.locator(".sp-save").click()
+    page.wait_for_function("fakeCloud.db().members['anna@x.pl'].lastName === 'Новак'")
     page.wait_for_function("fakeCloud.db().members['anna@x.pl'].role === 'editor'")
+    page.wait_for_selector(".sp-table.editing", state="detached")
     assert page.locator(".sp-row[data-email='anna@x.pl'] .sp-seen").inner_text() == "не входил"
-    # убрать — с подтверждением
-    page.once("dialog", lambda d: d.accept())
+    # убрать — при сохранении, с одним подтверждением
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
     page.locator(".sp-row[data-email='anna@x.pl']").get_by_role("button", name="Убрать из пространства").click()
+    assert page.evaluate("!!fakeCloud.db().members['anna@x.pl']")
+    page.once("dialog", lambda d: d.accept())
+    page.locator(".sp-save").click()
     page.wait_for_function("!fakeCloud.db().members['anna@x.pl']")
     page.wait_for_function("!PREACHERS.includes('Новак Анна')")
     assert not page.errors, page.errors
@@ -70,16 +85,22 @@ def test_last_seen_and_editor_rights(browser, base_url):
     assert page.locator(".sp-row[data-email='ed@x.pl'] .sp-seen").inner_text().startswith("сегодня, ")
     assert page.locator(".sp-row[data-email='ivan@x.pl'] .sp-seen").inner_text() == "не входил"
     # редактор правит людей (этап 10.1.2), но себе не меняет почту и роль и себя не убирает
-    assert page.locator(".sp-people .sp-add").count() == 1
+    assert page.locator(".sp-edit").count() == 1
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
+    assert page.locator(".sp-people .sp-addrow").count() == 1
     ivan = page.locator(".sp-row[data-email='ivan@x.pl']")
     ivan.locator("select[aria-label='Роль']").select_option("operator")
-    page.wait_for_function("fakeCloud.db().members['ivan@x.pl'].role === 'operator'")
     me = page.locator(".sp-row[data-email='ed@x.pl']")
-    assert me.locator("select").count() == 0 and me.locator("input[aria-label='Почта']").count() == 0
+    assert me.locator("select").count() == 0 and me.locator("input[aria-label='Почта Google']").count() == 0
     assert me.get_by_role("button", name="Убрать из пространства").count() == 0
+    assert page.evaluate("fakeCloud.db().members['ivan@x.pl'].role") != "operator"
+    page.locator(".sp-save").click()
+    page.wait_for_function("fakeCloud.db().members['ivan@x.pl'].role === 'operator'")
+    page.wait_for_selector(".sp-table.editing", state="detached")
     # серии редактор ведёт; «Общее» только смотрит; нового пространства нет
     open_space(page, "Серии проповедей")
-    assert page.locator(".sp-series .sp-add").count() == 1
+    assert page.locator(".sp-edit").count() == 1
     page.locator(".space-tabs button", has_text="Общее").click()
     assert page.locator(".sp-general input[aria-label='Название пространства']").count() == 0
     assert page.locator(".sp-general input[aria-label='Минут без действий']").count() == 0
@@ -120,23 +141,39 @@ def test_series_table_and_meta_field(browser, base_url):
     # добавить серии: «Свободная тема» встроена, повтор названия не проходит
     open_space(page, "Серии проповедей")
     assert page.locator(".sp-series .sp-fixed").inner_text().startswith("Свободная тема")
-    name = page.locator("input[aria-label='Название новой серии']")
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
     for n in ["Нагорная проповедь", "Псалмы"]:
-        name.fill(n)
-        page.get_by_role("button", name="Добавить серию").click()
-        page.wait_for_function("n => Object.values(fakeCloud.db().series || {}).some(x => x.name === n)", arg=n)
-        name = page.locator("input[aria-label='Название новой серии']")
-    name.fill("псалмы ")
-    page.get_by_role("button", name="Добавить серию").click()
-    assert page.locator(".sp-series .sp-err").inner_text() == "Серия с таким названием уже есть"
-    name.fill("свободная тема")
-    page.get_by_role("button", name="Добавить серию").click()
-    assert page.locator(".sp-series .sp-err").inner_text() == "Серия с таким названием уже есть"
+        page.locator(".sp-series .sp-addrow").click()
+        page.locator(".sp-series .sp-new input[aria-label='Название серии']").last.fill(n)
+    page.locator(".sp-save").click()
+    page.wait_for_selector(".sp-table.editing", state="detached")
+    page.wait_for_function("['Нагорная проповедь', 'Псалмы'].every(n => Object.values(fakeCloud.db().series || {}).some(x => x.name === n))")
+    page.wait_for_function("Object.values(SERIES).filter(x => x.name === 'Псалмы').length === 1")
     sid = page.evaluate("Object.keys(SERIES).find(id => SERIES[id].name === 'Нагорная проповедь')")
     psid = page.evaluate("Object.keys(SERIES).find(id => SERIES[id].name === 'Псалмы')")
+    # повтор названия (с пробелом и в другом регистре) и «Свободная тема» не проходят, в облако ничего не уходит
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
+    page.locator(".sp-series .sp-addrow").click()
+    new = page.locator(".sp-series .sp-new input[aria-label='Название серии']").last
+    new.fill("псалмы ")
+    page.locator(".sp-save").click()
+    assert page.locator(".sp-series .sp-new .sp-err").inner_text() == "Серия с таким названием уже есть"
+    new.fill("свободная тема")
+    page.locator(".sp-save").click()
+    assert page.locator(".sp-series .sp-new .sp-err").inner_text() == "Серия с таким названием уже есть"
+    assert page.evaluate("Object.keys(fakeCloud.db().series).length") == 2
+    page.once("dialog", lambda d: d.accept())
+    page.get_by_role("button", name="Отменить", exact=True).click()
+    page.wait_for_selector(".sp-table.editing", state="detached")
     # формат серии
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
     page.locator(f".sp-row[data-id='{sid}'] select[aria-label='Формат фона']").select_option("f1")
+    page.locator(".sp-save").click()
     page.wait_for_function("id => fakeCloud.db().series[id].format === 'f1'", arg=sid)
+    page.wait_for_selector(".sp-table.editing", state="detached")
     page.evaluate("closeSettings()")
     # в «О проповеди» — список из «Свободной темы» и активных серий
     page.evaluate("openMeta()")
@@ -150,7 +187,10 @@ def test_series_table_and_meta_field(browser, base_url):
     page.wait_for_function("id => (fakeCloud.db().sermons.s1.meta || {}).series === id", arg=sid)
     # выключили серию: в проповеди осталась, в списке её нет; сменили — вернуть нельзя
     open_space(page, "Серии проповедей")
+    page.locator(".sp-edit").click()
+    page.wait_for_selector(".sp-table.editing")
     page.locator(f".sp-row[data-id='{sid}'] .switch .sw").click()
+    page.locator(".sp-save").click()
     page.wait_for_function("id => fakeCloud.db().series[id].active === false", arg=sid)
     page.evaluate("closeSettings(); openMeta()")
     trig = page.locator(".meta-sheet [aria-label='Серия проповедей']")

@@ -1267,9 +1267,7 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .sp-row:last-child{border-bottom:0}
 .sp-row.sp-head{min-height:0;padding:9px 12px;color:var(--muted);font-size:12px;background:var(--surface-2)}
 .sp-people .sp-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.4fr) 128px 116px 36px}
-.sp-people .sp-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.4fr) 128px 162px}
-.sp-series .sp-row{grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1fr) 36px}
-.sp-series .sp-add{grid-template-columns:minmax(0,1.6fr) auto}
+.sp-series .sp-row{grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1fr) 100px 36px}
 .sp-row > .sp-err{grid-column:1 / -1;margin-top:-4px}
 .sp-row .input{height:38px}
 .sp-row .hf-sel select{height:36px}
@@ -1283,8 +1281,26 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .sp-del-off{display:inline-flex}
 .sp-del-off .icon-btn:disabled{opacity:.35;cursor:not-allowed}
 .sp-fixed .sp-name{font-weight:500;padding-left:2px}
-.sp-add{background:color-mix(in srgb, var(--accent) 5%, transparent)}
-.sp-add .sp-err{grid-column:1 / -1}
+.sp-table .sp-row.sp-addline{display:flex;min-height:48px}
+/* Просмотр и правка таблиц (этап 10.4.1): просмотр — текст; правка — как поля конспекта (этап 9.8): тёмные, с приглушённой жёлтой рамкой */
+.sp-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;min-height:36px}
+.sp-bar .hint{margin:0}
+.sp-bar .sp-edit{flex:none;margin-left:auto}
+.sp-mode{color:var(--accent);font-weight:500;font-size:13px}
+.sp-cell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sp-cell.sp-name{font-weight:500}
+.sp-state{font-size:12px;color:var(--faint)}
+.sp-state.on{color:var(--ok)}
+.sp-table{transition:border-color var(--motion) var(--ease-out)}
+.sp-table.editing{border-color:color-mix(in srgb, var(--accent) 38%, transparent)}
+.sp-table.editing .input,.sp-table.editing .hf-sel{background:#1d1c1a;border-color:color-mix(in srgb, var(--accent) 28%, transparent)}
+.sp-table.editing .input:hover,.sp-table.editing .hf-sel:hover{border-color:color-mix(in srgb, var(--accent) 50%, transparent)}
+.sp-table.editing .input:focus,.sp-table.editing .hf-sel:focus-within{border-color:var(--accent)}
+.sp-table.editing .sp-addrow{border:1px dashed var(--line-2)}
+.sp-row.sp-new{background:color-mix(in srgb, var(--accent) 4%, transparent)}
+.sp-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+.btn.sp-save{background:var(--text);border-color:var(--text);color:#141414;font-weight:600}
+.btn.sp-save:hover{background:#fff4e6;border-color:#fff4e6}
 .sp-err{color:var(--danger, #e07a6a);font-size:12px}
 .sp-err:empty{display:none}
 .sp-empty{padding:14px 12px;margin:0}
@@ -1411,9 +1427,9 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
   .sp-people .sp-row{grid-template-columns:1fr 1fr 36px}   /* имя, фамилия / почта / Telegram / роль, вход, корзина */
   .sp-people .sp-row > :nth-child(2){grid-column:2 / -1}
   .sp-people .sp-row > :nth-child(3),.sp-people .sp-row > :nth-child(4){grid-column:1 / -1}
-  .sp-people .sp-add{grid-template-columns:1fr 1fr}
-  .sp-series .sp-row{grid-template-columns:1fr auto}
-  .sp-series .sp-add{grid-template-columns:1fr}
+  .sp-series .sp-row{grid-template-columns:auto 1fr 36px}
+  .sp-series .sp-row > :nth-child(1){grid-column:1 / -1}
+  .sp-series .sp-row > :nth-child(4){display:none}   /* «В конспектах» на телефоне не видно */
 }
 @media (hover:none) and (pointer:coarse) and (max-width:760px){
   /* скорость: стена — картинка (motion.js, homeBg), зерна и дымки нет; под окнами без размытия; зерно входа стоит */

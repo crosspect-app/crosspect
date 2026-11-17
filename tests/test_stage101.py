@@ -28,12 +28,27 @@ def opened(page):
     return page.evaluate("window.__opened")
 
 
-def add_person(page, first, tg, role="operator"):
-    add = page.locator(".sp-people .sp-add")
-    add.locator("input[aria-label='Имя нового человека']").fill(first)
-    add.locator("input[aria-label='Telegram нового человека']").fill(tg)
-    add.locator("select[aria-label='Роль нового человека']").select_option(role)
-    add.get_by_role("button", name="Добавить").click()
+def edit_people(page):
+    if not page.locator(".sp-table.editing").count():
+        page.locator(".sp-edit").click()
+        page.wait_for_selector(".sp-table.editing")
+
+
+def save_people(page):
+    page.locator(".sp-save").click()
+
+
+def add_person(page, first, tg, role="operator", save=True):
+    """Новая строка в правке «Людей»; save=False — только заполнить (последняя новая строка)."""
+    edit_people(page)
+    page.locator(".sp-people .sp-addrow").click()
+    row = page.locator(".sp-people .sp-new").last
+    row.locator("input[aria-label='Имя']").fill(first)
+    row.locator("input[aria-label='Telegram']").fill(tg)
+    row.locator("select[aria-label='Роль']").select_option(role)
+    if save:
+        save_people(page)
+    return row
 
 
 def tg_members(page):
@@ -51,7 +66,8 @@ def test_add_normalizes_all_inputs(browser, base_url, raw):
     assert m["tg"] == "ivan_op" and m["firstName"] == "Иван" and m["role"] == "operator" and "email" not in m
     assert m["key"].startswith("p-")
     page.wait_for_selector(f".sp-row[data-key='{m['key']}']")
-    assert page.locator(f".sp-row[data-key='{m['key']}'] input[aria-label='Telegram']").input_value() == "@ivan_op"
+    page.wait_for_selector(".sp-table.editing", state="detached")
+    assert page.locator(f".sp-row[data-key='{m['key']}'] .sp-tg").inner_text().strip() == "@ivan_op"
     assert not page.errors, page.errors
     ctx.close()
 
@@ -70,8 +86,9 @@ def test_add_rejects_bad_username(browser, base_url, raw, msg):
     ctx, page = cloud_page(browser, base_url, user=ED, members=PEOPLE)
     wait_home(page)
     open_people(page)
-    add_person(page, "Иван", raw)
-    assert page.locator(".sp-people .sp-add .sp-err").inner_text() == msg
+    row = add_person(page, "Иван", raw)
+    assert row.locator(".sp-err").inner_text() == msg
+    assert page.locator(".sp-table.editing").count() == 1
     assert len(page.evaluate("fakeCloud.db().members")) == len(PEOPLE)   # ничего не сохранилось
     ctx.close()
 
@@ -82,41 +99,51 @@ def test_add_needs_name_and_rejects_duplicate(browser, base_url):
     put_people(page, TG_PEOPLE)
     open_people(page)
     page.wait_for_selector(".sp-row[data-key='p-op0000001']")
-    add_person(page, "", "new_one")
-    assert page.locator(".sp-people .sp-add .sp-err").inner_text() == "Укажите имя или фамилию"
-    add_person(page, "Другой Пётр", "@PETR_op")   # регистр не важен
-    assert page.locator(".sp-people .sp-add .sp-err").inner_text() == "Этот Telegram уже указан у другого человека"
+    row = add_person(page, "", "new_one")
+    assert row.locator(".sp-err").inner_text() == "Укажите имя или фамилию"
+    row.locator("input[aria-label='Имя']").fill("Другой Пётр")
+    row.locator("input[aria-label='Telegram']").fill("@PETR_op")   # регистр не важен
+    save_people(page)
+    page.locator(".sp-people .sp-err", has_text="Этот Telegram уже указан у другого человека").first.wait_for()
     assert len(tg_members(page)) == 2
     ctx.close()
 
 
-def test_edit_rows_save_at_once_and_validate(browser, base_url):
+def test_edit_rows_save_on_button_and_validate(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ED, members=PEOPLE)
     wait_home(page)
     put_people(page, TG_PEOPLE)
     open_people(page)
+    page.wait_for_selector(".sp-row[data-key='p-op0000001']")
+    edit_people(page)
     sel = ".sp-row[data-key='p-op0000001']"
     tg = page.locator(sel + " input[aria-label='Telegram']")
     tg.fill("петя")
-    tg.press("Tab")
+    save_people(page)
     assert page.locator(sel + " .sp-err").inner_text() == "Имя пользователя в Telegram — латиницей, от 5 до 32 символов"
     tg.fill("anna_live")
-    tg.press("Tab")
-    assert page.locator(sel + " .sp-err").inner_text() == "Этот Telegram уже указан у другого человека"
+    save_people(page)
+    page.locator(".sp-people .sp-err", has_text="Этот Telegram уже указан у другого человека").first.wait_for()
     assert page.evaluate("fakeCloud.db().members['p-op0000001'].tg") == "petr_op"
     tg.fill("t.me/petr_new")
-    tg.press("Tab")
+    assert page.evaluate("fakeCloud.db().members['p-op0000001'].tg") == "petr_op"   # до «Сохранить» в облаке прежнее
+    save_people(page)
     page.wait_for_function("fakeCloud.db().members['p-op0000001'].tg === 'petr_new'")
-    assert page.locator(sel + " input[aria-label='Telegram']").input_value() == "@petr_new"
+    page.wait_for_selector(".sp-table.editing", state="detached")
+    assert page.locator(sel + " .sp-tg").inner_text().strip() == "@petr_new"
     # пусто — Telegram убран, кнопки «Проверить» нет
-    tg = page.locator(sel + " input[aria-label='Telegram']")
-    tg.fill("")
-    tg.press("Tab")
+    edit_people(page)
+    page.locator(sel + " input[aria-label='Telegram']").fill("")
+    save_people(page)
     page.wait_for_function("!fakeCloud.db().members['p-op0000001'].tg")
+    page.wait_for_selector(".sp-table.editing", state="detached")
     page.wait_for_function("s => !document.querySelector(s + ' .sp-check')", arg=sel)
-    # удалить — с подтверждением
-    page.once("dialog", lambda d: d.accept())
+    # удалить — при сохранении, с подтверждением
+    edit_people(page)
     page.locator(".sp-row[data-key='p-op0000002']").get_by_role("button", name="Убрать из пространства").click()
+    assert page.evaluate("!!fakeCloud.db().members['p-op0000002']")
+    page.once("dialog", lambda d: d.accept())
+    save_people(page)
     page.wait_for_function("!fakeCloud.db().members['p-op0000002']")
     assert not page.errors, page.errors
     ctx.close()
