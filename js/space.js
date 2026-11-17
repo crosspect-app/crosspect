@@ -242,7 +242,7 @@ function drawSpace(){
     h('div', { class:'spw' }, side,
       h('div', { class:'spw-main' },
         h('div', { class:'seg space-tabs', role:'tablist' }, tabs.map(([k, t]) => h('button', { type:'button', role:'tab', class:SPW.tab === k ? 'on' : '', 'aria-selected':String(SPW.tab === k),
-          onclick:() => { SPW.tab = k; drawSpace(); } }, t))),
+          onclick:() => { SPW.tab = k; SPW.order = null; drawSpace(); } }, t))),
         body))));
   requestAnimationFrame(() => {   // на узком экране полосы прокручиваются: выбранное пространство и вкладка видны целиком (этап 10.1.1)
     settingsOverlay.querySelectorAll('.space-tabs, .spw-list').forEach(strip => {
@@ -363,10 +363,19 @@ async function removePerson(sid, p){
 function seriesTable(){
   const map = SPW.series;
   if (!map) return loadingBody();
-  const sid = SPW.id, cfg = spwCfg(), list = seriesList(map), use = seriesUse();
+  const sid = SPW.id, cfg = spwCfg(), use = seriesUse();
+  /* Порядок строк замирает, пока открыта вкладка: переименовали или добавили серию — строка остаётся на месте, новая — внизу.
+     По алфавиту — при следующем открытии вкладки или окна */
+  const ids = Object.keys(map), sorted = seriesList(map).map(x => x.id);
+  SPW.order = (SPW.order || sorted).filter(id => map[id]);
+  ids.filter(id => !SPW.order.includes(id)).forEach(id => SPW.order.push(id));
+  const list = SPW.order.map(id => Object.assign({ id }, map[id]));
+  /* Пишем всегда от последних данных (SPW.series), а не от снимка этой отрисовки: пока курсор в поле, окно не перерисовывается,
+     и запись по старому снимку стирала только что выбранный фон другой строки */
+  const latest = () => JSON.parse(JSON.stringify(SPW.series || map));
   const fmtSel = (cur, on) => h('label', { class:'hf-sel' }, h('select', { 'aria-label':'Формат фона', onchange:e => on(e.target.value) },
     [['', 'По умолчанию']].concat(formatList(cfg).map(f => [f.id, f.name])).map(([v, t]) => h('option', { value:v, text:t, selected:v === (cur && (cur === SYSTEM_FORMAT || cfg.formats[cur]) ? cur : '') }))), ic('down'));
-  const upd = (id, fields) => { const next = JSON.parse(JSON.stringify(map)); Object.assign(next[id], fields); return writeSeries(sid, next); };
+  const upd = (id, fields) => { const next = latest(); if (!next[id]) return Promise.resolve(false); Object.assign(next[id], fields); return writeSeries(sid, next); };
   const delBtn = x => {
     const n = use ? use[x.id] || 0 : null;
     if (n === 0) return iconBtn('trash', 'Удалить серию', () => removeSeries(sid, x), 'danger');
@@ -377,7 +386,7 @@ function seriesTable(){
   const rows = list.map(x => h('div', { class:'sp-row', role:'row', 'data-id':x.id },
     h('input', { class:'input', value:x.name, maxlength:'100', 'aria-label':'Название серии', autocomplete:'off', onchange:e => {
       const v = normName(e.target.value);
-      if (!v || seriesNameTaken(map, v, x.id)){ toast(v ? 'Серия с таким названием уже есть' : 'У серии должно быть название'); e.target.value = x.name; return; }
+      if (!v || seriesNameTaken(latest(), v, x.id)){ toast(v ? 'Серия с таким названием уже есть' : 'У серии должно быть название'); e.target.value = x.name; return; }
       if (v !== x.name) upd(x.id, { name:v });
     } }),
     sw('Активна', x.active, on => upd(x.id, { active:on })),
@@ -391,10 +400,15 @@ function seriesTable(){
     const v = normName(name.value);
     err.textContent = '';
     if (!v){ name.focus(); return; }
-    if (seriesNameTaken(map, v)){ err.textContent = 'Серия с таким названием уже есть'; name.focus(); return; }
-    const next = JSON.parse(JSON.stringify(map));
-    next[newSeriesId(map)] = { name:v, active:true, format:'' };
-    if (await writeSeries(sid, next)) toast('Серия добавлена: ' + v);
+    const next = latest();
+    if (seriesNameTaken(next, v)){ err.textContent = 'Серия с таким названием уже есть'; name.focus(); return; }
+    const nid = newSeriesId(next);
+    next[nid] = { name:v, active:true, format:'' };
+    if (!(await writeSeries(sid, next))) return;
+    toast('Серия добавлена: ' + v);
+    renderSpaceSheet(true);   // новая строка — внизу таблицы, сразу; фокус — на её формате фона
+    const sel = settingsOverlay.querySelector('.sp-series .sp-row[data-id="' + nid + '"] select');
+    if (sel) sel.focus();
   };
   name.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
   return h('div', { class:'sp-body' },
