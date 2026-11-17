@@ -1,7 +1,8 @@
 'use strict';
 
 /* ========= Тексты Библии: XML (формат Holyrics / Beblia), грузятся по требованию ========= */
-const BIBLE_SRC = ['https://raw.githubusercontent.com/Beblia/Holy-Bible-XML-Format/master/', 'https://cdn.jsdelivr.net/gh/Beblia/Holy-Bible-XML-Format@master/'];
+/* Свои копии переводов (этап 10.6): сначала рядом с config.json, запасной адрес — сам сайт (data/bibles/). Чужих адресов нет */
+const BIBLE_SRC = [new URL('bibles/', CONFIG_URL_DEFAULT).href, 'data/bibles/'];
 const bibles = {};
 /* Чистка стиха: сноски [60] и метки [1-6а], ударения, мягкие переносы, скобки разметки, пропущенный пробел после знака («Давида.Господь»), «***» у объединённых стихов */
 const cleanVerse = t => String(t || '').replace(/[\u00ad\u0301]/g, '').replace(/\[\d[^\]]*\]/g, '').replace(/[\[\]{}|]/g, '')

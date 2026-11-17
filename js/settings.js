@@ -37,7 +37,7 @@ function applyConfig(cfg, url){
     Object.assign(LANGS, next);
   }
   if (Array.isArray(cfg.groups) && cfg.groups.length){ TR_GROUPS.length = 0; cfg.groups.forEach(g => TR_GROUPS.push(g)); }
-  if (cfg.bibleBase) BIBLE_SRC[0] = cfg.bibleBase;
+  if (cfg.bibleBase) BIBLE_SRC[0] = abs(cfg.bibleBase);   // «bibles/» — рядом с config.json
   if (typeof cfg.scriptureFooter === 'string' && cfg.scriptureFooter.includes('{name}')) TR_FOOTER = cfg.scriptureFooter.replace(/^\s*\*\s*/, '· ');   // со звёздочкой — прежний вид: теперь точка (этап 7.2)
   // список авторов (preachers) с этапа 10 берётся из людей пространства (space.js), а не отсюда
   // разделы "limits" и "slides" больше не действуют: лимиты и настройки слайдов — общие для пространства, в облаке

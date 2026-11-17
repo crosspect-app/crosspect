@@ -4,23 +4,25 @@
    Слайд раскладывается тем же кодом, что и предпросмотр, в полном кадре 1920×1080, затем вместе со стилями
    и встроенными шрифтами рисуется браузером на холст (SVG foreignObject) и сохраняется в JPEG.
    Один слайд — обычным файлом; несколько — ZIP-архивом с папкой «дата название». */
-const EXPORT_FONTS = 'https://fonts.googleapis.com/css2?family=Unbounded:wght@200..900&family=Inter:wght@400;700&family=Noto+Sans+Hebrew:wght@400;700&display=block';
+const EXPORT_FONTS = 'css/fonts.css';   // свои шрифты (этап 10.6), те же файлы, что и на странице
 let fontCssP = null;
 function toBase64(buf){
   const u8 = new Uint8Array(buf); let s = '';
   for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
   return btoa(s);
 }
-/* Шрифты для картинки: CSS Google Fonts, в котором ссылки на файлы заменены самими файлами */
+/* Шрифты для картинки: css/fonts.css, в котором ссылки на файлы заменены самими файлами */
 function exportFonts(){
   if (fontCssP) return fontCssP;
   fontCssP = (async () => {
-    const r = await fetch(EXPORT_FONTS); if (!r.ok) throw new Error('шрифты не загрузились');
-    const css = await r.text();
-    const urls = Array.from(new Set((css.match(/url\((https:[^)]+)\)/g) || []).map(u => u.slice(4, -1))));
+    const cssUrl = new URL(EXPORT_FONTS, document.baseURI).href;
+    const r = await fetch(cssUrl); if (!r.ok) throw new Error('шрифты не загрузились');
+    const css = (await r.text()).replace(/font-display:\s*swap/g, 'font-display:block');
+    const re = /url\(\s*([^)\s]+)\s*\)/g;
+    const urls = Array.from(new Set((css.match(re) || []).map(m => new URL(m.replace(re, '$1'), cssUrl).href)));
     const map = {};
     await Promise.all(urls.map(async u => { const f = await fetch(u); if (!f.ok) throw new Error('шрифт не загрузился'); map[u] = 'data:font/woff2;base64,' + toBase64(await f.arrayBuffer()); }));
-    return css.replace(/url\((https:[^)]+)\)/g, (m, u) => 'url(' + map[u] + ')');
+    return css.replace(re, (m, u) => 'url(' + map[new URL(u, cssUrl).href] + ')');
   })();
   fontCssP.catch(() => { fontCssP = null; });
   return fontCssP;

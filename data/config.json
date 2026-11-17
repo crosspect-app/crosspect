@@ -1,7 +1,7 @@
 {
   "about": "Настройки формы Crosspect («Слово веры», Познань). Описание полей — в README.md.",
-  "version": "2026-11-06.2",
-  "bibleBase": "https://raw.githubusercontent.com/Beblia/Holy-Bible-XML-Format/master/",
+  "version": "2026-11-17.1",
+  "bibleBase": "bibles/",
   "scriptureFooter": "· {name}",
   "groups": [
     [

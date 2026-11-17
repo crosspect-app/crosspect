@@ -32,8 +32,9 @@ def problems(cfg):
             out.append(f"нет строки «{key}»")
     if isinstance(cfg.get("scriptureFooter"), str) and "{name}" not in cfg["scriptureFooter"]:
         out.append("в «scriptureFooter» нет {name}: форма такую подпись не примет")
-    if isinstance(cfg.get("bibleBase"), str) and not cfg["bibleBase"].startswith("https://"):
-        out.append("«bibleBase» должен быть ссылкой https://…")
+    bb = cfg.get("bibleBase")
+    if isinstance(bb, str) and bb.strip() and not (bb.startswith("https://") or (re.match(r"^[\w./-]+/$", bb) and not bb.startswith("/"))):
+        out.append("«bibleBase» должен быть ссылкой https://… или папкой рядом с файлом, например bibles/")
     groups = cfg.get("groups")
     ids = set()
     if not isinstance(groups, list) or not groups:
