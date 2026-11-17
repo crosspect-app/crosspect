@@ -145,7 +145,7 @@ function slideEl(b){
     h('div', { class:'sl-sp-foot' }, h('div', { class:'sl-hr' }), h('div', { class:'sl-sp-row' }, h('span', { class:'sl-sp-name' }), h('span', { class:'sl-sp-date' }))));
   else {
     kids.push(h('div', { class:'sl-box sl-box-' + b.type }, h('div', { class:'sl-inner' })));
-    if (b.type === 'quote') kids.push(h('div', { class:'sl-author' }));
+    if (b.type === 'quote'){ kids.splice(2, 0, h('div', { class:'sl-photo' }, h('img', { alt:'' }))); kids.push(h('div', { class:'sl-author' })); }   // фото автора (этап 10.5) — над фоном и рамкой, под текстом
   }
   // масштаб берём от последнего разложенного слайда: иначе новый предпросмотр на миг рисуется мелким и сбоку виден чёрный фон
   // поля, шрифты и расстояния — переменными на самом слайде: так они попадают и в JPEG, и в пример в окне настроек
@@ -224,9 +224,8 @@ function boxHTML(b){
 }
 /* Автор «Жан Кальвин» → ЖАН **КАЛЬВИН**; подпись («Наставление») — мелко второй строкой */
 function authorHTML(b){
-  const name = String(b.author || '').trim(), src = String(b.caption || '').trim();
-  const w = name.split(/\s+/).filter(Boolean), last = w.pop() || '';
-  const nm = last ? (w.length ? esc(typoText(w.join(' '))) + ' ' : '') + '<b>' + esc(last) + '</b>' : '';
+  const f = String(b.first || '').trim(), l = String(b.last || '').trim(), src = String(b.caption || '').trim();   // этап 10.5: жирным — всё поле «Фамилия»
+  const nm = (f ? esc(typoText(f)) + (l ? ' ' : '') : '') + (l ? '<b>' + esc(typoText(l)) + '</b>' : '');
   return nm + (src ? '<span class="src">' + esc(typoText(src)) + '</span>' : '');
 }
 /* Заставка: «Имя ФАМИЛИЯ» (фамилия жирным) и дата «дд/мм» */
@@ -348,6 +347,7 @@ function fitSlide(sl, b){
   if (w < SL.W && !sl.closest('.film, .scfg, .hb-wall')) lastScale = w / SL.W;   // масштаб берём с крупных слайдов, не с миниатюр
   const fit = b.type === 'scripture' ? layoutAt : b.type === 'splash' ? layoutSplash : layoutBox;
   if (!PREVIEW[b.type]) return 1;   // пустой слайд (картинка, видео, свободный): только рамка и фон
+  if (b.type === 'quote') paintPhoto(sl, b);   // фото автора (этап 10.5, photos.js) от текста не зависит
   const base = b.type === 'scripture' ? scrPx() : b.type === 'splash' ? splashBase(b) : basePx(b.type) * blkScale(b) / 100;
   if (fit(sl, b, base)) return 1;
   let lo = SL.min, hi = base;

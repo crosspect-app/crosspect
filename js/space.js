@@ -18,7 +18,8 @@
    слушателями из cloud.js: setPeople, setSeriesData. Операторы этапа 10.1 (config/operators) переносятся в людей: migrateOps. */
 
 const FREE_SERIES = 'Свободная тема';
-const ROLE_LABEL = { editor:'Редактор', preacher:'Автор', operator:'Оператор' };
+const ROLE_LABEL = { editor:'Редактор', preacher:'Автор', operator:'Оператор', claude:'Claude User' };   // claude (этап 10.5) — получает «Попросить фото» в Telegram
+const NO_LOGIN = { operator:'Оператор в форму не входит', claude:'Claude User в форму не входит' };
 const canSpace = () => cloudOn() && (cloud.role === 'admin' || cloud.role === 'editor');
 /* Пространства, которые человек настраивает: админ — все, редактор — те, где он редактор */
 const setupSpaces = () => cloudOn() ? cloud.spaces.filter(sp => sp.role === 'admin' || sp.role === 'editor') : [];
@@ -313,7 +314,7 @@ function peopleTable(){
   const sid = SPW.id, adm = spwAdmin(), edit = spEditing('people');
   const self = p => !adm && !!p.email && p.email === myEmail();   // редактор себе почту и роль не меняет и себя не убирает
   const seen = p => p.isNew ? h('span', { class:'sp-seen', text:'' })
-    : p.role === 'operator' ? h('span', { class:'sp-seen', title:'Оператор в форму не входит', text:'—' })
+    : NO_LOGIN[p.role] ? h('span', { class:'sp-seen', title:NO_LOGIN[p.role], text:'—' })
     : !p.email ? h('span', { class:'sp-seen', title:'Без почты в форму не войти', text:'—' })
     : p.seenAt ? h('span', { class:'sp-seen on', title:'Последний вход в форму', text:seenWhen(p.seenAt) })
     : h('span', { class:'sp-seen', title:'Ещё ни разу не входил под этой почтой', text:'не входил' });
@@ -389,7 +390,7 @@ async function savePeople(sid){
   if (!checkPeople(E)){ drawSpace(); return; }
   const gone = E.rows.filter(r => r.del && !r.isNew);
   if (gone.length){
-    const logins = gone.some(p => p.orig.email && p.orig.role !== 'operator');
+    const logins = gone.some(p => p.orig.email && !NO_LOGIN[p.orig.role]);
     if (!confirm('Убрать из пространства: ' + gone.map(p => personLabel(p.orig)).join(', ') + '?' + (logins ? ' Войти сюда они больше не смогут, а их конспекты останутся.' : ''))) return;
   }
   let failed = false;

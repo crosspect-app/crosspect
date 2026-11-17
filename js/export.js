@@ -36,8 +36,11 @@ function slideCSS(){
   });
   return (SLIDE_CSS = out);
 }
-async function renderJPEG(b){
+/* layer (этап 10.5, для PowerPoint с фото автора): 'back' — слайд без фото и без текста, 'text' — только текст на прозрачном (PNG);
+   без layer — весь слайд с фото */
+async function renderJPEG(b, layer){
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  const ph = await photoReady(b);
   const fontCss = await exportFonts();
   const host = h('div', { style:'position:fixed;left:-40000px;top:0;width:1920px;height:1080px;overflow:hidden;pointer-events:none', 'aria-hidden':'true' });
   const sl = slideEl(b); sl.style.width = '1920px';
@@ -48,9 +51,14 @@ async function renderJPEG(b){
     const root = getComputedStyle(document.documentElement);
     stage.style.setProperty('--noise', root.getPropertyValue('--noise').trim());   // поля и расстояния уже стоят на самом слайде (slideEl)
     stage.style.transform = 'none'; stage.style.boxShadow = 'none';
+    // фото автора: в картинке-SVG ссылки blob: не открываются — подставляем саму картинку (data:)
+    const pim = stage.querySelector('.sl-photo img');
+    if (pim){ if (ph && !layer) pim.src = photoDataUrl(ph.variant); else pim.remove(); }
+    if (layer === 'back') stage.querySelectorAll('.sl-box, .sl-author').forEach(x => x.remove());
+    if (layer === 'text'){ stage.querySelectorAll('.sl-frame, .sl-panel').forEach(x => x.remove()); stage.style.background = 'transparent'; }
     const wrap = document.createElement('div');
     wrap.className = 'sl';
-    wrap.setAttribute('style', 'width:1920px;height:1080px;aspect-ratio:auto;border-radius:0;position:relative;overflow:hidden;background:#000');
+    wrap.setAttribute('style', 'width:1920px;height:1080px;aspect-ratio:auto;border-radius:0;position:relative;overflow:hidden;background:' + (layer === 'text' ? 'transparent' : '#000'));
     const st = document.createElement('style'); st.textContent = fontCss + '\n' + slideCSS();
     wrap.append(st, stage);
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><foreignObject x="0" y="0" width="1920" height="1080">' +
@@ -60,9 +68,9 @@ async function renderJPEG(b){
     await img.decode();
     await new Promise(r => setTimeout(r, 60));   // шрифты внутри картинки успевают подключиться
     const cv = document.createElement('canvas'); cv.width = 1920; cv.height = 1080;
-    const ctx = cv.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1920, 1080);
+    const ctx = cv.getContext('2d'); if (layer !== 'text'){ ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1920, 1080); }
     ctx.drawImage(img, 0, 0, 1920, 1080);
-    return await new Promise((res, rej) => cv.toBlob(x => x ? res(x) : rej(new Error('браузер не отдал картинку')), 'image/jpeg', 0.93));
+    return await new Promise((res, rej) => cv.toBlob(x => x ? res(x) : rej(new Error('браузер не отдал картинку')), layer === 'text' ? 'image/png' : 'image/jpeg', 0.93));
   } finally { host.remove(); }
 }
 function download(blob, name){

@@ -81,7 +81,7 @@ async function cloudUser(user){
    Старая роль admin у участника (до этапа 8) — это редактор. Оператор (этап 10.1.2) в форму не входит, даже если у него есть почта */
 async function spacesFor(email){
   cloud.admin = cloud.api.isAdmin ? await cloud.api.isAdmin(email) : false;
-  const mine = (await cloud.api.spacesOf(email)).filter(m => m.role !== 'operator');
+  const mine = (await cloud.api.spacesOf(email)).filter(m => m.role !== 'operator' && m.role !== 'claude');   // claude — «Claude User» (этап 10.5), тоже без входа
   let list;
   if (cloud.admin){
     const all = await cloud.api.allSpaces();

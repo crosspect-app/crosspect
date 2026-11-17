@@ -701,11 +701,15 @@ const BODY = {
       h('input', { type:'checkbox', checked:!!b.frame, onchange:e => { b.frame = e.target.checked; change(); updateCounter(b); } }),
       h('span', { class:'sw' }), 'Обводка пунктиром'));
     body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Место текста' })),
-      toggle([['full', 'Во всю ширину'], ['left', 'Текст слева'], ['right', 'Текст справа']], b.half || 'full', v => { b.half = v; change(); rerender(b); })));
+      toggle([['full', 'Во всю ширину'], ['left', 'Текст слева'], ['right', 'Текст справа']], b.half || 'full', v => { photoHalfSwitch(b, v); b.half = v; change(); rerender(b); })));
     if (b.half === 'left' || b.half === 'right') body.append(halfWidthRow(b));
+    // этап 10.5: имя и фамилия отдельно (на слайде фамилия жирным); набранное поднимает совпадение в поиске фото
+    const who = () => { change(); updateCounter(b); photoSearchRefresh(b); };
     body.append(h('div', { class:'grid-2' },
-      field('Автор', input(b, 'author', 'Имя Фамилия', { oninput:e => { b.author = e.target.value; change(); updateCounter(b); } })),
-      field('Подпись — мелко под автором', input(b, 'caption', 'Книга, год, откуда цитата', { oninput:e => { b.caption = e.target.value; change(); updateCounter(b); } }))));
+      field('Имя', input(b, 'first', 'Корри', { oninput:e => { b.first = e.target.value; who(); } })),
+      field('Фамилия', input(b, 'last', 'тен Бум', { oninput:e => { b.last = e.target.value; who(); } }))));
+    body.append(field('Подпись — мелко под автором', input(b, 'caption', 'Книга, год, откуда цитата', { oninput:e => { b.caption = e.target.value; change(); updateCounter(b); } })));
+    if (b.half === 'left' || b.half === 'right') body.append(photoPanel(b));
   },
   image(b, body, n){
     body.append(nameField(b, n));
@@ -958,7 +962,7 @@ function slideText(b){
   switch (b.type){
     case 'scripture':  return b.items.filter(it => it.kind !== 'line').map(it => it.kind === 'text' ? plain(it.html).trim() : P(it)).filter(Boolean).join('\n\n');
     case 'thesis':     return plain(b.text).trim();
-    case 'quote':      return '«' + plain(b.text).trim() + '»' + (b.author || b.caption ? '\n— ' + [b.author, b.caption].filter(Boolean).join(', ') : '');
+    case 'quote':      return '«' + plain(b.text).trim() + '»' + (quoteAuthor(b) || b.caption ? '\n— ' + [quoteAuthor(b), b.caption].filter(Boolean).join(', ') : '');
     case 'splash':     return state.meta.title || '';
     case 'video':      return [b.url, b.desc].filter(Boolean).join('\n');
     default:           return b.desc || '';

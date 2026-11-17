@@ -1352,6 +1352,33 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 #print-op .op-pcap{font-size:7.5pt;font-weight:600;color:#8a6d45;padding-top:.5mm}
 .opv-part{display:inline-block;margin:4px 0 6px;padding:2px 8px;border-radius:99px;background:color-mix(in srgb, var(--accent) 18%, transparent);font-size:12px;font-weight:600}
 
+/* ---------- Фото автора цитаты (этап 10.5, photos.js) ---------- */
+.sl-photo{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.sl-photo img{position:absolute;display:none;max-width:none}
+.stage-slide.ph-on{position:relative;overflow:visible}
+.stage-slide.ph-on > .sl{border-radius:16px}
+.ph-layer{position:absolute;inset:0;pointer-events:none}
+.ph-ghost{position:absolute;inset:0;clip-path:polygon(evenodd,-9999px -9999px,9999px -9999px,9999px 9999px,-9999px 9999px,-9999px -9999px,0 0,0 100%,100% 100%,100% 0,0 0)}   /* за краем слайда фото видно полупрозрачным */
+.ph-ghost img{position:absolute;opacity:.32;max-width:none}
+.ph-hit{position:absolute;pointer-events:auto;cursor:move;border:1px dashed transparent;touch-action:none}
+.ph-hit:hover,.ph-hit.drag{border-color:rgba(255,214,102,.8)}
+.ph-corner{position:absolute;width:14px;height:14px;border:2px solid var(--accent);background:#151612;border-radius:3px;opacity:0;transition:opacity .15s}
+.ph-hit:hover .ph-corner,.ph-hit.drag .ph-corner{opacity:1}
+.ph-corner.c-nw{left:-8px;top:-8px;cursor:nwse-resize}.ph-corner.c-se{right:-8px;bottom:-8px;cursor:nwse-resize}
+.ph-corner.c-ne{right:-8px;top:-8px;cursor:nesw-resize}.ph-corner.c-sw{left:-8px;bottom:-8px;cursor:nesw-resize}
+.ph-panel{display:grid;gap:10px}
+.ph-cur{display:flex;align-items:center;gap:10px}
+.ph-cur-name{flex:1;min-width:0;font-weight:600}
+.ph-thumb{width:44px;height:44px;object-fit:contain;object-position:bottom;background:var(--surface-2);border-radius:8px}
+.ph-acts{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ph-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px;max-height:260px;overflow-y:auto}
+.ph-item{display:grid;gap:4px;justify-items:center;padding:6px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);color:var(--text);font:500 11px/1.2 'Inter',sans-serif;text-align:center;cursor:pointer}
+.ph-item:hover,.ph-item.on{border-color:var(--accent)}
+.ph-item img{width:64px;height:64px;object-fit:contain;object-position:bottom}
+.ph-none{grid-column:1/-1;display:grid;gap:8px;justify-items:start}
+.ph-none .hint{margin:0}
+.ph-ask .ic{width:15px;height:15px}
+
 /* ---------- Телефон (этап 10.1.1) ----------
    Вид меняется только в узком окне (max-width:760px), а всё про скорость (стена-картинка, без размытия и движения) — только на телефоне:
    касание без наведения (то же условие, что isPhone() в util.js). На компьютере ничего не меняется, даже в узком окне: стена остаётся стеной */

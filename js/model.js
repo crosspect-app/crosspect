@@ -66,12 +66,24 @@ function newBlock(type){
     case 'splash':     return Object.assign({ id, type }, slide);   // настройки заставки (размер, «своя», нижняя строка) — общие на проповедь, в state.settings
     case 'scripture':  return Object.assign({ id, type, items:[newScripture()] }, slide);   // вид стихов — общий для всех слайдов (настройки слайдов, verses)
     case 'thesis':     return Object.assign({ id, type, name:'', nameAuto:true, text:'', valign:'center', scale:100, parts:[newThesisPart()] }, slide);
-    case 'quote':      return Object.assign({ id, type, text:'', author:'', caption:'', scale:100, caps:false, half:'full', halfW:50, frame:false }, slide);   // frame — обводка текста пунктиром (этап 9.5)   // half: «Во всю ширину» / текст слева / текст справа (этап 9.3); halfW — ширина области текста при «слева / справа», % слайда (этап 9.5)
+    case 'quote':      return Object.assign({ id, type, text:'', first:'', last:'', caption:'', photo:null, scale:100, caps:false, half:'full', halfW:50, frame:false }, slide);   // frame — обводка текста пунктиром (этап 9.5)   // half: «Во всю ширину» / текст слева / текст справа (этап 9.3); halfW — ширина области текста при «слева / справа», % слайда (этап 9.5)
     case 'image':      return Object.assign({ id, type, name:'', mode:'find', desc:'' }, slide);
     case 'video':      return Object.assign({ id, type, name:'', mode:'link', url:'', from:'', to:'', desc:'' }, slide);
     case 'free':       return Object.assign({ id, type, name:'', desc:'' }, slide);
     case 'note':       return { id, type, text:'' };
   }
+}
+/* Автор цитаты (этап 10.5): «Имя Фамилия» из двух полей — для названия слайда, «Текста», PDF, оператора и счёта символов */
+const quoteAuthor = b => [b.first, b.last].map(x => String(x || '').trim()).filter(Boolean).join(' ');
+/* Фото автора у цитаты (этап 10.5): id из фотобанка; x — середина фото, y — нижний край, h — высота, всё в долях слайда (null — по умолчанию);
+   filter — один из PHOTO_FILTERS; mirror:false — «Не отражать». Неверное — к умолчанию, без id — фото нет */
+const PHOTO_FILTER_IDS = ['none', 'bw', 'bwHard', 'bwSoft', 'sepia', 'warm', 'cool', 'muted', 'tone'];
+const PHOTO_H = { def:0.9, min:0.15, max:3 };
+function normPhoto(p){
+  if (!p || typeof p !== 'object' || typeof p.id !== 'string' || !/^[a-z0-9-]{1,60}$/.test(p.id)) return null;
+  const num = (v, a, z) => typeof v === 'number' && isFinite(v) && v >= a && v <= z ? v : null;
+  return { id:p.id, x:num(p.x, -2, 3), y:num(p.y, -2, 4), h:num(p.h, PHOTO_H.min, PHOTO_H.max),
+    filter:PHOTO_FILTER_IDS.includes(p.filter) ? p.filter : 'none', mirror:p.mirror !== false };
 }
 /* Проповедник: имя и фамилия хранятся раздельно (на заставке — «Имя ФАМИЛИЯ»). В списке проповедников — «Фамилия Имя» */
 function splitPreacher(s){
@@ -188,9 +200,14 @@ function normalize(d){
     }
     if (b.type === 'quote'){
       // раньше подпись писали в поле автора через запятую: «Жан Кальвин, Наставление»
-      const a = String(b.author || '').trim();
-      if (b.caption == null && a.includes(',')){ const i = a.indexOf(','); nb.author = a.slice(0, i).trim(); nb.caption = a.slice(i + 1).trim(); }
-      else { nb.author = a; nb.caption = String(b.caption || '').trim(); }
+      // этап 10.5: вместо одного «Автора» — имя и фамилия; у старых цитат фамилия — последнее слово, имя — остальное
+      let a = String(b.author || '').trim();
+      if (b.caption == null && a.includes(',')){ const i = a.indexOf(','); nb.caption = a.slice(i + 1).trim(); a = a.slice(0, i).trim(); }
+      else nb.caption = String(b.caption || '').trim();
+      if (typeof b.first === 'string' || typeof b.last === 'string'){ nb.first = String(b.first || ''); nb.last = String(b.last || ''); }
+      else { const w = a.split(/\s+/).filter(Boolean); nb.last = w.pop() || ''; nb.first = w.join(' '); }
+      delete nb.author;
+      nb.photo = normPhoto(b.photo);
       nb.half = oneOf(b.half, ['full', 'left', 'right'], 'full');
       nb.halfW = clampHalfW(b.halfW);
       nb.frame = !!b.frame;

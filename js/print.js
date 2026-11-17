@@ -31,7 +31,7 @@ function opSlide(b, n){
       break;
     case 'quote':
       card.append(h('div', { class:'op-verses', html:'«' + sanitize(b.text) + '»' }));
-      if (b.author || b.caption) card.append(h('div', { class:'op-author', text:'— ' + [b.author, b.caption].filter(Boolean).join(', ') }));
+      { const a = b.author != null ? b.author : quoteAuthor(b); if (a || b.caption) card.append(h('div', { class:'op-author', text:'— ' + [a, b.caption].filter(Boolean).join(', ') })); }
       break;
     case 'video':
       card.append(h('div', { class:'op-name', text:cleanName(b.name) || 'Видео' }));

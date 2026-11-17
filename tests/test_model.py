@@ -34,7 +34,8 @@ def test_old_file_meta_and_quote(page, sermon):
     assert meta["firstName"] == "Андрей" and meta["lastName"] == "Ковальчук"
     assert "preacher" not in meta
     quote = page.evaluate("state.blocks.find(b => b.type === 'quote')")
-    assert quote["author"] == "Жан Кальвин" and quote["caption"] == "Наставление в христианской вере"
+    assert quote["first"] == "Жан" and quote["last"] == "Кальвин" and "author" not in quote
+    assert quote["caption"] == "Наставление в христианской вере"
     scr = page.evaluate("state.blocks.find(b => b.type === 'scripture')")
     # вид стихов с этапа 7.1 общий (настройки слайдов): своих полей у слайда больше нет
     assert not any(k in scr for k in ("caps", "flow", "frame", "align", "valign", "showTr"))

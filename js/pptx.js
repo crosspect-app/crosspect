@@ -42,7 +42,7 @@ function pptxSlideXml(s, n){
   const pic = s.jpeg ? '<p:pic><p:nvPicPr><p:cNvPr id="2" name="Слайд ' + n + '" descr="' + xmlText(s.alt || '') + '"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>' +
     '<p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>' +
     '<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + PPTX_W + '" cy="' + PPTX_H + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>' : '';
-  return PPTX_HEAD + '<p:sld ' + PPTX_NS + '><p:cSld>' + bg + '<p:spTree>' + PPTX_GROUP + pic + '</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>';
+  return PPTX_HEAD + '<p:sld ' + PPTX_NS + '><p:cSld>' + bg + '<p:spTree>' + PPTX_GROUP + pic + pptxPhotoXml(s) + '</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>';
 }
 function pptxNotesXml(text){
   return PPTX_HEAD + '<p:notes ' + PPTX_NS + '><p:cSld><p:spTree>' + PPTX_GROUP +
@@ -59,13 +59,31 @@ function pptxNotesMasterXml(){
     '</p:spTree></p:cSld>' + PPTX_CLRMAP + '</p:notesMaster>';
 }
 
-/* slides: [{ jpeg: Uint8Array | null (чёрный слайд), notes: 'текст заметок докладчика', alt: 'подпись картинки' }] → Blob .pptx */
+/* Фото автора (этап 10.5): фон слайда — картинка без фото и текста, над ним фото отдельной картинкой (его можно подвинуть),
+   над фото — текст прозрачной картинкой (текст всегда поверх фото). Часть фото за краем слайда обрезана (srcRect): в PowerPoint
+   обрезку можно снять. Чем ближе к краю — тем меньше 1 px = PPTX_W / 1920 EMU */
+function pptxPhotoXml(s){
+  if (!s.photo) return '';
+  const P = s.photo, E = PPTX_W / 1920, l = Math.max(0, P.left), t = Math.max(0, P.top), r = Math.min(1920, P.left + P.width), bt = Math.min(1080, P.top + P.height);
+  if (r <= l || bt <= t) return pptxPicXml(4, 'rId5', 'Текст', 0, 0, PPTX_W, PPTX_H, '');
+  const pc = v => Math.round(v * 100000);
+  const crop = '<a:srcRect l="' + pc((l - P.left) / P.width) + '" t="' + pc((t - P.top) / P.height) + '" r="' + pc((P.left + P.width - r) / P.width) + '" b="' + pc((P.top + P.height - bt) / P.height) + '"/>';
+  return pptxPicXml(3, 'rId4', 'Фото автора', Math.round(l * E), Math.round(t * E), Math.round((r - l) * E), Math.round((bt - t) * E), crop) +
+    pptxPicXml(4, 'rId5', 'Текст', 0, 0, PPTX_W, PPTX_H, '');
+}
+function pptxPicXml(id, rid, name, x, y, cx, cy, crop){
+  return '<p:pic><p:nvPicPr><p:cNvPr id="' + id + '" name="' + name + '"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>' +
+    '<p:blipFill><a:blip r:embed="' + rid + '"/>' + crop + '<a:stretch><a:fillRect/></a:stretch></p:blipFill>' +
+    '<p:spPr><a:xfrm><a:off x="' + x + '" y="' + y + '"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>';
+}
+/* slides: [{ jpeg: Uint8Array | null (чёрный слайд), notes: 'текст заметок докладчика', alt: 'подпись картинки',
+   photo: { png, text, left, top, width, height } — фото автора и слой текста (этап 10.5) }] → Blob .pptx */
 function makePPTX(slides, title){
   const enc = new TextEncoder(), files = [];
   const add = (name, xml) => files.push({ name, data:enc.encode(xml) });
   const withNotes = slides.map(s => !!String(s.notes || '').trim());
   const notesIdx = []; let nn = 0; withNotes.forEach((w, i) => { notesIdx[i] = w ? ++nn : 0; });
-  const ct = [['Default', 'rels', 'application/vnd.openxmlformats-package.relationships+xml'], ['Default', 'xml', 'application/xml'], ['Default', 'jpg', 'image/jpeg'],
+  const ct = [['Default', 'rels', 'application/vnd.openxmlformats-package.relationships+xml'], ['Default', 'xml', 'application/xml'], ['Default', 'jpg', 'image/jpeg'], ['Default', 'png', 'image/png'],
     ['Override', '/ppt/presentation.xml', PPTX_CT + 'presentation.main+xml'], ['Override', '/ppt/slideMasters/slideMaster1.xml', PPTX_CT + 'slideMaster+xml'],
     ['Override', '/ppt/slideLayouts/slideLayout1.xml', PPTX_CT + 'slideLayout+xml'], ['Override', '/ppt/notesMasters/notesMaster1.xml', PPTX_CT + 'notesMaster+xml'],
     ['Override', '/ppt/theme/theme1.xml', 'application/vnd.openxmlformats-officedocument.theme+xml'], ['Override', '/ppt/theme/theme2.xml', 'application/vnd.openxmlformats-officedocument.theme+xml'],
@@ -99,6 +117,10 @@ function makePPTX(slides, title){
   slides.forEach((s, i) => {
     const n = i + 1, rels = [['rId1', 'slideLayout', '../slideLayouts/slideLayout1.xml']];
     if (s.jpeg){ rels.push(['rId2', 'image', '../media/image' + n + '.jpg']); files.push({ name:'ppt/media/image' + n + '.jpg', data:s.jpeg }); }
+    if (s.photo){
+      rels.push(['rId4', 'image', '../media/photo' + n + '.png'], ['rId5', 'image', '../media/text' + n + '.png']);
+      files.push({ name:'ppt/media/photo' + n + '.png', data:s.photo.png }, { name:'ppt/media/text' + n + '.png', data:s.photo.text });
+    }
     if (notesIdx[i]) rels.push(['rId3', 'notesSlide', '../notesSlides/notesSlide' + notesIdx[i] + '.xml']);
     add('ppt/slides/slide' + n + '.xml', pptxSlideXml(s, n));
     add('ppt/slides/_rels/slide' + n + '.xml.rels', pptxRels(rels));
@@ -148,8 +170,10 @@ async function exportPPTX(){
       pr.step(i + 1);
       const b = list[i], n = nums[b.id], bl = pptxIsBlack(b);
       if (bl) black++;
+      const ph = bl ? null : await photoReady(b), buf = async x => new Uint8Array(await x.arrayBuffer());
       slides.push({
-        jpeg:bl ? null : new Uint8Array(await (await renderJPEG(b)).arrayBuffer()),
+        jpeg:bl ? null : await buf(await renderJPEG(b, ph ? 'back' : undefined)),
+        photo:ph ? { png:await photoPng(ph.variant), text:await buf(await renderJPEG(b, 'text')), left:ph.left, top:ph.top, width:ph.width, height:ph.height } : null,
         alt:slideName(b, n),
         notes:pptxNotes(b, n, bl)
       });

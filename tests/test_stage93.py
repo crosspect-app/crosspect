@@ -2,7 +2,7 @@
 from conftest import cloud_page, start_blank
 
 MEASURE = """half => {
-  const b = Object.assign(newBlock('quote'), { text:'Вера — живое, смелое доверие к Божьей благодати', author:'Мартин Лютер', caption:'Предисловие', half });
+  const b = Object.assign(newBlock('quote'), { text:'Вера — живое, смелое доверие к Божьей благодати', first:'Мартин', last:'Лютер', caption:'Предисловие', half });
   const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-40000px;top:0;width:1920px;height:1080px';
   const sl = slideEl(b); sl.style.width = '1920px'; host.append(sl); document.body.append(host); fitSlide(sl, b);
   const s = sl.getBoundingClientRect();

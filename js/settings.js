@@ -74,7 +74,7 @@ const CFG_SAMPLES = {
     verses:[{ num:'17', text:'Так и вера, если не имеет дел, мертва сама по себе.' }, { num:'18', text:'Но скажет кто-нибудь: ты имеешь веру, а я имею дела: покажи мне веру твою без дел твоих, а я покажу тебе веру мою из дел моих.' }] }] }),
   thesis:() => ({ id:'cfg-sample', type:'thesis', valign:'center', parts:[{ kind:'text', html:'Вера без дел мертва', align:'center', scale:100, caps:true, frame:false },
     { kind:'text', html:'• слышать слово<br>• исполнять слово', align:'center', scale:100, caps:false, frame:false }] }),
-  quote:() => ({ id:'cfg-sample', type:'quote', text:'Вера — живое, смелое доверие к Божьей благодати', author:'Мартин Лютер', caption:'Предисловие к Посланию к Римлянам', scale:100, caps:false })
+  quote:() => ({ id:'cfg-sample', type:'quote', text:'Вера — живое, смелое доверие к Божьей благодати', first:'Мартин', last:'Лютер', caption:'Предисловие к Посланию к Римлянам', scale:100, caps:false })
 };
 const CFG_KINDS = [
   ['splash', 'Заставка: название', 'splash'], ['foot', 'Заставка: имя и дата', 'splash'],

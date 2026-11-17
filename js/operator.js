@@ -39,7 +39,7 @@ function opSnapshot(s){
         if (b._part) o.part = { k:b._part.k + 1, n:b._part.n, on:b._part.on };
         break;
       case 'thesis': o.html = sanitize(b.text); break;
-      case 'quote': o.html = sanitize(b.text); o.author = String(b.author || ''); o.caption = String(b.caption || ''); break;
+      case 'quote': o.html = sanitize(b.text); o.author = quoteAuthor(b);   // снимок для оператора — по-прежнему одной строкой (этап 10.5) o.caption = String(b.caption || ''); break;
       case 'video': o.name = cleanName(b.name); o.from = String(b.from || ''); o.to = String(b.to || ''); break;
       case 'image': case 'free': o.name = cleanName(b.name); break;
     }

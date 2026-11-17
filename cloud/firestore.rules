@@ -9,7 +9,7 @@ rules_version = '2';
 //                                    (cloud/scripts/admin.mjs); человек видит только свою запись
 //   spaces/{s}                       пространство (церковь). Создаёт, правит и удаляет (с этапа 10.1.2) админ
 //                                    в форме; список всех видит админ
-//   spaces/{s}/members/{key}         человек и роль: editor | preacher | operator (старая роль admin
+//   spaces/{s}/members/{key}         человек и роль: editor | preacher | operator | claude (старая роль admin
 //                                    участника считается редактором). key — почта (с ней человек входит в форму)
 //                                    или p-<случайный> (без почты, этап 10.1.2). Оператор в форму не входит.
 //                                    Добавляют, меняют и убирают админ и редактор (этап 10.1.2); tg — имя
@@ -144,7 +144,7 @@ service cloud.firestore {
         return d.keys().hasAll(['role'])
           && d.keys().hasOnly(['email', 'role', 'firstName', 'lastName', 'tg', 'addedBy', 'addedAt', 'seenAt'])
           && (('email' in d) ? (d.email == key && isEmail(key)) : key.matches('p-[a-z0-9]{6,24}'))
-          && d.role in ['editor', 'preacher', 'operator']
+          && d.role in ['editor', 'preacher', 'operator', 'claude']
           && optStr(d, 'firstName', 100) && optStr(d, 'lastName', 100)
           && (!('tg' in d) || isTg(d.tg));
       }
@@ -163,7 +163,7 @@ service cloud.firestore {
           && !('seenAt' in request.resource.data)
           && request.resource.data.addedBy == me()
           && request.resource.data.addedAt == request.time;
-        // Админ и редактор правят всех (роль — только editor, preacher или operator). Каждый участник может поправить
+        // Админ и редактор правят всех (роль — только editor, preacher, operator или claude — «Claude User», этап 10.5). Каждый участник может поправить
         // своё имя и фамилию и отметить вход (seenAt); так и со старой ролью admin, которую validMember не пропустит.
         allow update: if request.resource.data.get('addedBy', null) == resource.data.get('addedBy', null)
           && request.resource.data.get('addedAt', null) == resource.data.get('addedAt', null)

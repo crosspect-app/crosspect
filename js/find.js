@@ -24,7 +24,8 @@ function findFields(b){
       break;
     case 'quote':
       html(b.id + ':t', 'Текст цитаты', () => b.text || '', v => { b.text = v; });
-      text(b.id + ':author', 'Автор цитаты', () => b.author || '', v => { b.author = v; });
+      text(b.id + ':first', 'Имя автора цитаты', () => b.first || '', v => { b.first = v; });
+      text(b.id + ':last', 'Фамилия автора цитаты', () => b.last || '', v => { b.last = v; });
       text(b.id + ':caption', 'Подпись цитаты', () => b.caption || '', v => { b.caption = v; });
       break;
     case 'image': case 'video': case 'free':

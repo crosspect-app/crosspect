@@ -34,7 +34,7 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 - `splash`: только общие поля; название, имя и дата берутся из `meta`
 - `scripture`: (вид стихов — общий, в настройках слайдов) `items:[ {kind:'scripture', lang, book, chapter, sel, verses:[{num,text,orig}], ref, translation} | {kind:'scripture', manual:true, mBook, mChapter, mVerses, translation, verses:[{num,text}]} | {kind:'text', html, align, caps} | {kind:'line'} ]`; `split` — отрывок (`js/passage.js`)
 - `thesis`: `name, nameAuto, valign, parts:[ {kind:'text', html, align, scale, caps, frame} | {kind:'line'} ]`; `text` — склейка частей (для названия и старых версий)
-- `quote`: `text, author, caption, scale, caps, half` (`half`: `full` / `left` / `right` — текст на всю ширину или на левой / правой половине слайда, этап 9.3; `normalize` приводит к `full`; в `layoutBox` ставится `data-half` на `.sl-box` и `.sl-author`, CSS `.sl-box-quote[data-half=…]`)
+- `quote`: `text, first, last, caption, scale, caps, half, halfW, frame, photo` (этап 10.5: `first` / `last` вместо `author` — `normalize` делит старое поле, фамилия — последнее слово; «Имя Фамилия» — `quoteAuthor(b)`; `photo` — `{ id, x, y, h, filter, mirror }` или `null`, `normPhoto`, см. `js/photos.js`) (`half`: `full` / `left` / `right` — текст на всю ширину или на левой / правой половине слайда, этап 9.3; `normalize` приводит к `full`; в `layoutBox` ставится `data-half` на `.sl-box` и `.sl-author`, CSS `.sl-box-quote[data-half=…]`)
 - `image`: `name, mode('find'|'send'), desc`; `video`: `name, mode('link'|'send'), url, from, to, desc`; `free`: `name, desc`
 - `note`: `text` (не слайд: без номера, `done`, `todo`, `speech`)
 

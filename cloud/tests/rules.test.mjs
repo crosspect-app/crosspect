@@ -308,6 +308,18 @@ describe('участники', () => {
     await assertFails(getDoc(doc(db, 'spaces', 'other', 'sermons', 'o1')));
     await assertFails(updateDoc(doc(db, 'spaces', 'other', 'members', PEOPLE.petr), { seenAt: serverTimestamp() }));
   });
+  test('Claude User (этап 10.5): редактор добавляет его с Telegram, в форму он не входит, автор его не добавит', async () => {
+    const put = (key, data, who = 'ed') => setDoc(doc(as(who), 'spaces', 'sw', 'members', key),
+      { addedBy: PEOPLE[who], addedAt: serverTimestamp(), ...data });
+    await assertSucceeds(put('p-claude1', { role: 'claude', firstName: 'Виталий', tg: 'vitaliy_b' }));
+    await assertSucceeds(updateDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'claude' }));
+    await assertFails(put('p-claude2', { role: 'claude' }, 'ivan'));
+    await assertFails(put('p-claude3', { role: 'Claude' }));
+    const db = as('ivan');   // Иван теперь Claude User: участником не считается
+    await assertFails(getDoc(doc(db, 'spaces', 'sw')));
+    await assertFails(getDocs(collection(db, 'spaces', 'sw', 'members')));
+    await assertSucceeds(updateDoc(doc(as('ed'), 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'preacher' }));
+  });
   test('админ и редактор меняют роли и убирают людей; автор — нет', async () => {
     const db = as('admin');
     await assertSucceeds(updateDoc(doc(db, 'spaces', 'sw', 'members', PEOPLE.ivan), { role: 'editor' }));

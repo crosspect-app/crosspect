@@ -77,10 +77,9 @@ function scriptureNamePart(b){
   return (abbr.toUpperCase() + (ch ? ' ' + ch + (vs ? '_' + vs : '') : '')).trim();
 }
 function quoteNamePart(b){
-  const a = String(b.author || '').split(',')[0].trim();
-  if (!a) return 'цитата';
-  const w = a.split(/\s+/), last = w.pop();
-  return 'цитата ' + (w.length ? w.join(' ') + ' ' : '') + last.toUpperCase();
+  const f = String(b.first || '').trim(), l = String(b.last || '').trim();   // этап 10.5: фамилия — заглавными целиком («Корри ТЕН БУМ»)
+  if (!f && !l) return 'цитата';
+  return 'цитата ' + (f ? f + (l ? ' ' : '') : '') + l.toUpperCase();
 }
 /* «Заставка Название проповеди»: длинное название обрезается по длине названия слайда (целыми словами, если получается) */
 function splashNamePart(){

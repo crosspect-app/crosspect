@@ -120,7 +120,7 @@ def test_quote_dashed_frame_switch(page):
 # ---------- Ширина текста у цитаты ----------
 
 HALF = """([half, w]) => {
-  const b = Object.assign(newBlock('quote'), { text:'Вера — живое, смелое доверие к Божьей благодати', author:'Мартин Лютер', caption:'Предисловие', half });
+  const b = Object.assign(newBlock('quote'), { text:'Вера — живое, смелое доверие к Божьей благодати', first:'Мартин', last:'Лютер', caption:'Предисловие', half });
   if (w !== null) b.halfW = w;
   const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-40000px;top:0;width:1920px;height:1080px';
   const sl = slideEl(b); sl.style.width = '1920px'; host.append(sl); document.body.append(host); fitSlide(sl, b);

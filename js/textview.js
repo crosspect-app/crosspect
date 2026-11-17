@@ -90,7 +90,7 @@ function tvSlide(b, n){
       break;
     case 'quote':
       c.append(h('blockquote', { class:'vs-quote', html:'«' + sanitize(b.text) + '»' }));
-      if (b.author || b.caption) c.append(h('div', { class:'vs-author', text:'— ' + [b.author, b.caption].filter(Boolean).join(', ') }));
+      if (quoteAuthor(b) || b.caption) c.append(h('div', { class:'vs-author', text:'— ' + [quoteAuthor(b), b.caption].filter(Boolean).join(', ') }));
       break;
     default: {
       const M = mediaInfo(b, n);
