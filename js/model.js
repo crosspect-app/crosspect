@@ -83,7 +83,7 @@ function normPhoto(p){
   if (!p || typeof p !== 'object' || typeof p.id !== 'string' || !/^[a-z0-9-]{1,60}$/.test(p.id)) return null;
   const num = (v, a, z) => typeof v === 'number' && isFinite(v) && v >= a && v <= z ? v : null;
   return { id:p.id, x:num(p.x, -2, 3), y:num(p.y, -2, 4), h:num(p.h, PHOTO_H.min, PHOTO_H.max),
-    filter:PHOTO_FILTER_IDS.includes(p.filter) ? p.filter : 'none', mirror:p.mirror !== false };
+    filter:PHOTO_FILTER_IDS.includes(p.filter) ? p.filter : 'none', mirror:p.mirror !== false, ...(p.off === true ? { off:true } : {}) };
 }
 /* Проповедник: имя и фамилия хранятся раздельно (на заставке — «Имя ФАМИЛИЯ»). В списке проповедников — «Фамилия Имя» */
 function splitPreacher(s){

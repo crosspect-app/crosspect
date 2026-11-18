@@ -1372,6 +1372,8 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .ph-cur-img{width:44px;height:44px;object-fit:contain;object-position:bottom;background:var(--surface-2);border-radius:8px}
 .ph-acts{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .ph-preset{justify-self:start}
+.ph-onoff{margin-left:auto}
+.ph-cur.off .ph-cur-img,.ph-cur.off .ph-cur-name{opacity:.45}
 .au-wrap{position:relative}
 .au-sugg{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:30;display:grid;gap:2px;padding:4px;background:var(--surface);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .au-sugg[hidden]{display:none}

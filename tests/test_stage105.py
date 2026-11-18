@@ -182,16 +182,27 @@ def test_search_only_by_names_not_caption(page, sermon):
     assert sugg(page).count() == 0
 
 
-def test_edit_name_keeps_photo_and_no_photo_button(page, sermon):
+def test_edit_name_keeps_photo_and_on_slide_switch(page, sermon):
     open_quote(page, sermon)
     page.locator(".side input[placeholder='тен Бум']").fill("бум")
     sugg(page).first.click()
     page.locator(".side input[placeholder='Корри']").fill("Корнелия")
     assert q(page)["photo"]["id"] == "ten-boom"   # связь с банком остаётся
-    page.locator(".side .ph-panel button", has_text="Без фото").click()
+    page.evaluate("Object.assign(state.blocks.find(b => b.id === 'q1').photo, { x:0.3, filter:'sepia' })")
+    page.locator(".side .ph-panel .switch", has_text="На слайде").click()
     b = q(page)
-    assert b["photo"] is None and (b["first"], b["last"]) == ("Корнелия", "тен Бум")
-    assert page.locator(".side .ph-panel").count() == 0
+    assert b["photo"]["off"] is True and b["photo"]["x"] == 0.3 and (b["first"], b["last"]) == ("Корнелия", "тен Бум")
+    assert page.evaluate("photoBox(state.blocks.find(b => b.id === 'q1'))") is None   # не видно нигде: слайд, JPEG, PowerPoint
+    assert page.locator(".side .ph-panel .ph-filter").count() == 0 and page.locator(".side .ph-panel .ph-reset").count() == 0
+    assert page.locator(".side .ph-panel", has_text="Без фото").count() == 0
+    # включили — всё как было
+    page.locator(".side .ph-panel .switch", has_text="На слайде").click()
+    b = q(page)
+    assert "off" not in b["photo"] and b["photo"]["x"] == 0.3 and b["photo"]["filter"] == "sepia"
+    assert page.evaluate("!!photoBox(state.blocks.find(b => b.id === 'q1'))")
+    # в файле сохраняется; неверное значение — включено
+    assert page.evaluate("normPhoto({ id:'ten-boom', off:true }).off") is True
+    assert page.evaluate("'off' in normPhoto({ id:'ten-boom', off:'да' })") is False
     assert not page.errors, page.errors
 
 

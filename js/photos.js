@@ -74,7 +74,7 @@ function photoZoneX(b){ const z = 1 - clampHalfW(b.halfW) / 100; return photoHal
 const photoFlip = (b, a) => photoHalf(b) === 'left' && a.faces !== 'front' && b.photo.mirror !== false;
 /* Рамка фото в пикселях кадра 1920×1080 или null (нет фото, «Во всю ширину», нет такого id, банк ещё грузится) */
 function photoBox(b){
-  const p = b.photo, a = p && photoHalf(b) && bankEntry(p.id); if (!a) return null;
+  const p = b.photo, a = p && !p.off && photoHalf(b) && bankEntry(p.id); if (!a) return null;   // off — выключено переключателем «На слайде», фото хранится
   const hh = (p.h == null ? PHOTO_H.def : p.h) * SL.H, w = hh * a.w / a.h;
   const cx = (p.x == null ? photoZoneX(b) : p.x) * SL.W, bottom = (p.y == null ? 1 : p.y) * SL.H;
   return { left:cx - w / 2, top:bottom - hh, width:w, height:hh, entry:a, flip:photoFlip(b, a) };
@@ -276,7 +276,8 @@ function authorSuggest(b, input, box){
   close();
 }
 
-/* ----- Блок «Фото» в правой панели: только у цитаты «Текст слева / справа» с выбранным из банка автором ----- */
+/* ----- Блок «Фото» в правой панели: только у цитаты «Текст слева / справа» с выбранным из банка автором.
+   Переключатель «На слайде» прячет фото, не забывая его (этап 10.5, решение Виталия 18 ноября 2026: «Без фото» терял выбор) ----- */
 function photoPanel(b){
   const p = b.photo; if (!p) return null;
   const el = h('div', { class:'ph-panel' });
@@ -303,11 +304,14 @@ async function photoSavePreset(b, btn){
 function photoPanelFill(el, b){
   const p = b.photo, a = p && bankEntry(p.id);
   const kids = [h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Фото' }))];
-  const noPhoto = h('button', { type:'button', class:'btn small ph-off', onclick:() => { b.photo = null; change(); rerender(b); } }, 'Без фото');
+  // «На слайде»: выключили — фото не видно нигде, но выбор, положение и фильтр хранятся; включили — всё как было
+  const onSlide = h('span', { class:'ph-onoff' }, sw('На слайде', !p.off, v => { if (v) delete p.off; else p.off = true; change(); rerender(b); }));
   if (!a){
-    kids.push(h('div', { class:'ph-cur' }, h('span', { class:'ph-cur-name hint', text:photoBank.loaded ? 'Этого фото больше нет в фотобанке' : 'Загружаю фотобанк…' }), noPhoto));
+    kids.push(h('div', { class:'ph-cur' }, h('span', { class:'ph-cur-name hint', text:photoBank.loaded ? 'Этого фото больше нет в фотобанке' : 'Загружаю фотобанк…' }), onSlide));
   } else {
-    kids.push(h('div', { class:'ph-cur' }, h('img', { class:'ph-cur-img', src:PHOTO_DIR + a.file, alt:'' }), h('span', { class:'ph-cur-name', text:bankName(a) }), noPhoto));
+    kids.push(h('div', { class:'ph-cur' + (p.off ? ' off' : '') }, h('img', { class:'ph-cur-img', src:PHOTO_DIR + a.file, alt:'' }), h('span', { class:'ph-cur-name', text:bankName(a) }), onSlide));
+  }
+  if (a && !p.off){
     kids.push(h('label', { class:'field' }, h('span', { class:'lbl', text:'Фильтр' }),
       h('label', { class:'hf-sel' }, h('select', { class:'ph-filter', 'aria-label':'Фильтр фото',
         onchange:e => { p.filter = e.target.value; change(); updateCounter(b); } },
