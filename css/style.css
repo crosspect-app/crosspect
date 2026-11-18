@@ -1049,6 +1049,22 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 .dd-list hr{border:0;height:1px;background:var(--line-2);margin:6px 4px;flex:none}
 .dd-list .man{color:var(--accent)}
 .dd-list .dd-act{color:var(--accent)}   /* «Настроить пространства…» под чертой (этап 10.1.2) */
+.dd-list .usage-warn::before,.dd-list .usage-crit::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;background:#ffde59;vertical-align:1px}   /* «Лимиты базы» от 80 % (этап 10.5.4) */
+.dd-list .usage-crit{color:var(--danger)}
+.dd-list .usage-crit::before{background:var(--danger)}
+.org-sel .usage-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#ffde59;border:2px solid var(--bg);box-sizing:border-box}
+.org-sel .usage-dot.crit{background:var(--danger)}
+.org-sel .usage-dot[hidden]{display:none}
+.usage-sheet{width:min(460px,calc(100vw - 32px))}
+.usage-list{display:flex;flex-direction:column;gap:16px;margin-top:6px}
+.usage-top{display:flex;justify-content:space-between;gap:12px;font-size:13px}
+.usage-val{color:var(--muted);text-align:right}
+.usage-bar{height:8px;margin:6px 0 4px;border-radius:4px;background:var(--surface-3);overflow:hidden}
+.usage-bar span{display:block;height:100%;border-radius:4px;background:var(--ok)}
+.usage-bar.warn span{background:#ffde59}
+.usage-bar.crit span{background:var(--danger)}
+.usage-foot{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:20px;font-size:12px}
+.usage-link{color:var(--accent)}
 .cal{position:fixed;z-index:80;width:300px;padding:14px;border-radius:18px;background:#1a1a1a;border:1px solid var(--line-2);box-shadow:0 18px 50px rgba(0,0,0,.6)}
 .cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font:600 14px 'Unbounded',sans-serif;letter-spacing:-.01em}
 .cal-nav{display:flex;gap:4px}

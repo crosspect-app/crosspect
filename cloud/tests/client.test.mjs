@@ -722,7 +722,7 @@ describe('форматы фона (этап 7.5)', () => {
 });
 
 test('explain: понятные тексты для людей', () => {
-  assert.match(explain({ code: 'resource-exhausted' }), /перегружено до 9:00/);
+  assert.match(explain({ code: 'resource-exhausted' }), /исчерпала бесплатный лимит, заработает около 9:00/);
   assert.equal(explain({ code: 'conflict' }), 'conflict');
   assert.match(explain({ code: 'permission-denied' }), /Нет прав/);
   assert.match(explain({ code: 'unavailable' }), /Нет связи/);

@@ -11,6 +11,7 @@ function closeSettings(force){
   if (metaOpen){ metaOpen = false; afterMeta(); }
   if (typeof spwStop === 'function') spwStop();   // окно «Пространства» (space.js) перестаёт слушать выбранное пространство
   if (typeof pbStop === 'function') pbStop();     // окно «Фотобанк» (photobank.js)
+  if (typeof usageClose === 'function') usageClose();   // окно «Лимиты базы» (usage.js)
   if (typeof pickStop === 'function') pickStop(); // окно выбора фото у цитаты (photopick.js)
 }
 

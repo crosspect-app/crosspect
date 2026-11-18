@@ -340,8 +340,8 @@ def test_quota_exhausted_keeps_edits_in_browser(browser, base_url):
     page.evaluate("localStorage.setItem('fake-quota', '1')")
     page.evaluate("state.blocks[1].speech = 'в запас'; change()")
     page.wait_for_function("ed.quota === true", timeout=10000)
-    assert "перегружено до 9:00" in status(page)
-    assert "перегружено до 9:00" in page.inner_text(".toast")
+    assert "исчерпала лимит на сегодня" in status(page)
+    assert "исчерпала бесплатный лимит" in page.inner_text(".toast")
     assert "нет прав" not in status(page).lower()
     assert page.evaluate("JSON.parse(localStorage.getItem('swp-sermon:s1')).blocks[1].speech") == "в запас"
     assert page.evaluate("fakeCloud.db().sermons.s1.blocks[1].speech") == "<b>раз</b>"

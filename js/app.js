@@ -254,18 +254,19 @@ function renderTopbar(){
 
 /* Пространство в шапке главной: название, а у кого их несколько (и у админа) — выбор. Смена — сразу на главную нового */
 /* Пространство в шапке главной: выпадающий список пространств, под чертой — «Настроить пространства» (этап 10.1.2, админу и редактору)
-   и «Фотобанк» (этап 10.5, только админу).
+   «Фотобанк» (этап 10.5) и «Лимиты базы» (этап 10.5.4) — только админу.
    Одно пространство и настраивать нечего — просто название */
 function spacePicker(){
   if (!multiSpace() && !setupSpaces().length) return h('span', { class:'org', text:cloud.spaceName });
   const trig = h('button', { type:'button', class:'org-pick', 'aria-haspopup':'listbox', 'aria-label':'Пространство: ' + cloud.spaceName,
     title:'Пространство: конспекты, люди и настройки слайдов у каждого свои', onclick:() => spaceMenu(trig) }, h('span', { class:'org-name', text:cloud.spaceName }));
-  return h('span', { class:'org org-sel' }, trig, ic('down'));
+  return h('span', { class:'org org-sel' }, trig, ic('down'), cloud.admin ? usageDot() : null);   // точка «лимиты базы» (usage.js, этап 10.5.4)
 }
 function spaceMenu(anchor){
   const items = cloud.spaces.map(sp => ({ label:sp.name || sp.id, on:sp.id === cloud.space, pick:() => switchSpace(sp.id) }));
   if (setupSpaces().length) items.push({ sep:true }, { label:'Настроить пространства', cls:'dd-act', pick:() => openSpaces() });
   if (cloud.admin) items.push({ label:'Фотобанк', cls:'dd-act', pick:() => openPhotoBank() });   // этап 10.5, photobank.js
+  if (cloud.admin) items.push({ label:'Лимиты базы', cls:'dd-act' + usageItemCls(), tip:usageHint() || null, pick:() => openUsage() });   // этап 10.5.4, usage.js
   dropdown(anchor, items);
   if (typeof ddEl !== 'undefined' && ddEl){   // название в шапке короткое, пункты длиннее: список шире кнопки, но не за краем окна
     ddEl.style.width = ''; ddEl.style.minWidth = Math.max(240, anchor.getBoundingClientRect().width) + 'px';

@@ -528,6 +528,17 @@ export function createCloudAPI(fb){
       }, onError);
       return () => { u1(); u2(); };
     },
+    /* Лимиты базы (этап 10.5.4): usage/current пишет только служебный скрипт (crosspect-backup), читает только админ всей формы.
+       onData(null | { at (мс), day ('ГГГГ-ММ-ДД' по тихоокеанскому времени), month ('ГГГГ-ММ'), reads, writes, dataBytes, egressBytes (число или null) }) */
+    watchUsage(onData, onError){
+      const num = v => typeof v === 'number' && isFinite(v) ? v : null;
+      return F.onSnapshot(F.doc(db, 'usage', 'current'), snap => {
+        if (!snap.exists()){ onData(null); return; }
+        const x = snap.data(), t = x.updatedAt;
+        onData({ at: t && t.toMillis ? t.toMillis() : 0, day: String(x.day || ''), month: String(x.month || ''),
+          reads: num(x.reads), writes: num(x.writes), dataBytes: num(x.dataBytes), egressBytes: num(x.egressBytes) });
+      }, onError);
+    },
     /* Картинка фото: Uint8Array (WebP) или null, если записи нет */
     async bankFile(id){
       const s = await F.getDoc(F.doc(db, 'bankFiles', id));
@@ -748,7 +759,7 @@ export function createCloudAPI(fb){
 export function explain(e){
   const c = (e && e.code) || '';
   if (c === 'conflict') return 'conflict';
-  if (/resource-exhausted/.test(c)) return 'Облако перегружено до 9:00: бесплатный дневной запас базы закончился. Правки лежат в этом браузере и уйдут в облако сами, когда запас обновится.';
+  if (/resource-exhausted/.test(c)) return 'База на сегодня исчерпала бесплатный лимит, заработает около 9:00. Изменения сохранены в этом браузере.';
   if (c === 'lost-lock' || c === 'locked') return 'Проповедь сейчас правит другой человек.';
   if (c === 'missing') return 'Этой проповеди уже нет в облаке.';
   if (c === 'trashed') return 'Этот конспект в корзине. Верните его из корзины, чтобы править.';

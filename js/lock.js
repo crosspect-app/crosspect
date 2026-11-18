@@ -353,7 +353,7 @@ async function closeEdit(reason){
   if (res !== 'ok'){
     if (reason === 'button'){
       if (res === 'offline') toast('Нет связи с облаком. Правки остаются в этом браузере и уйдут в облако, когда появится сеть');
-      if (res === 'quota') toast('Облако перегружено до 9:00. Правки остаются в этом браузере и уйдут в облако, когда запас обновится');
+      if (res === 'quota') toast('База на сегодня исчерпала бесплатный лимит, заработает около 9:00. Изменения сохранены в этом браузере.');
     }
     if (reason === 'idle') ed.lastAct = Date.now();
     return res;
@@ -501,7 +501,7 @@ function cloudStatusLine(){
   if (ed.mode === 'edit'){
     if (ed.conflict) return ['warn pick', 'Не сохранено: в облаке другая версия. Выбрать', () => conflictSheet(ed.conflict)];
     if (ed.denied) return ['warn', 'Облако не приняло правку'];
-    if (ed.quota) return ['warn', 'Облако перегружено до 9:00: правки в этом браузере, уйдут в облако сами'];
+    if (ed.quota) return ['warn', 'База исчерпала лимит на сегодня, заработает около 9:00. Изменения сохранены в этом браузере'];
     if (ed.offline || ed.slow) return ['warn', 'Нет связи: правки в этом браузере, уйдут в облако, когда появится сеть'];
     return ['', ''];
   }

@@ -83,7 +83,7 @@
     async get(space, id){ const x = S(load(), space), r = x.sermons[id]; return r ? view(x, r) : null; },
     async save(space, s, who, opts){
       calls.save++; offline();
-      if (localStorage.getItem('fake-quota') === '1') throw fail('resource-exhausted', 'Облако перегружено до 9:00');   // дневной запас базы исчерпан
+      if (localStorage.getItem('fake-quota') === '1') throw fail('resource-exhausted', 'База на сегодня исчерпала бесплатный лимит, заработает около 9:00. Изменения сохранены в этом браузере.');   // дневной запас базы исчерпан
       opts = opts || {};
       const db = load(), x = S(db, space), cur = x.sermons[s.id], L = opts.lock || null, my = who.email;
       if (authorBlocked(x, my, cur && (s.cloudAt || opts.force) ? cur : null, opts.status)) throw denied();
@@ -299,6 +299,16 @@
         const db = load(), ph = {};
         Object.entries(db.bankPhotos || {}).forEach(([id, x]) => { ph[id] = Object.assign({}, x, { thumb:x.thumb ? fromB64(x.thumb) : null }); });
         onData('people', JSON.parse(JSON.stringify(db.bankPeople || {}))); onData('photos', ph);
+      };
+      listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
+    },
+    /* Лимиты базы (этап 10.5.4): db.usage.current — как в usage/current; читает только админ, клиент не пишет */
+    watchUsage(onData, onError){
+      const f = () => {
+        const u = me();
+        if (!u || !isAdmin(u.email)){ if (onError) onError(denied()); return; }
+        const x = (load().usage || {}).current;
+        onData(x ? JSON.parse(JSON.stringify(x)) : null);
       };
       listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
     },
