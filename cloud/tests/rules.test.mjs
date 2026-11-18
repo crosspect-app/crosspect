@@ -1251,6 +1251,19 @@ describe('фотобанк (этап 10.5)', () => {
     await assertFails(setDoc(author(db), body('admin', { preset: preset({ filter: 'neon' }) })));
     await assertFails(setDoc(author(db), body('admin', { preset: preset({ h: 5 }) })));
     await assertFails(setDoc(author(db), body('admin', { preset: { x: 0.2, y: 1, h: 0.9 } })));
+  });
+  test('вид по умолчанию с обрезкой, поворотом, обводкой и углами (этап 10.5.3)', async () => {
+    const db = as('admin');
+    const fx = { crop: { l: 0.1, t: 0, r: 0.2, b: 0 }, rot: -35.5, outline: { w: 12, color: '#F2C14E' }, round: 0.25 };
+    await assertSucceeds(setDoc(author(db), body('admin', { preset: preset(fx) }), { merge: true }));
+    await assertSucceeds(setDoc(author(db), body('admin', { preset: preset({ rot: 180, round: 0, outline: { w: 0, color: '#ffffff' } }) }), { merge: true }));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ crop: { l: 0.6, t: 0, r: 0.5, b: 0 } }) })));   // остаётся меньше 10 %
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ crop: { l: 0.1 } }) })));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ rot: 200 }) })));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ outline: { w: 31, color: '#ffffff' } }) })));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ outline: { w: 5, color: 'red' } }) })));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ round: 0.6 }) })));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ off: true }) })));   // видимость в вид по умолчанию не входит
     await assertFails(setDoc(author(db, 'Lewis CS'), body('admin')));
   });
 });

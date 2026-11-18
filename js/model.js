@@ -79,11 +79,31 @@ const quoteAuthor = b => [b.first, b.last].map(x => String(x || '').trim()).filt
    filter — один из PHOTO_FILTERS; mirror:false — «Не отражать». Неверное — к умолчанию, без id — фото нет */
 const PHOTO_FILTER_IDS = ['none', 'bw', 'bwHard', 'bwSoft', 'sepia', 'warm', 'cool', 'muted', 'tone'];
 const PHOTO_H = { def:0.9, min:0.15, max:3 };
+/* Этап 10.5.3 — правки фото на слайде (поля есть, только если не по умолчанию): crop {l,t,r,b} — обрезка в долях картинки, как она видна
+   на слайде (после отражения; остаётся хотя бы 10 % по каждой стороне); rot — поворот в градусах, −180…180, по часовой; outline {w, color} —
+   обводка, w от 0 до 30 px слайда, color — #rrggbb; round — скругление углов 0…0,5 (только у фото «с фоном») */
+const PHOTO_OUT = { max:30, color:'#ffffff' }, PHOTO_CROP_MIN = 0.1;
+function normPhotoCrop(c){
+  if (!c || typeof c !== 'object') return null;
+  const n = v => typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1 - PHOTO_CROP_MIN ? +v.toFixed(4) : 0;
+  const r = { l:n(c.l), t:n(c.t), r:n(c.r), b:n(c.b) };
+  if (r.l + r.r > 1 - PHOTO_CROP_MIN + 1e-9 || r.t + r.b > 1 - PHOTO_CROP_MIN + 1e-9) return null;
+  return r.l || r.t || r.r || r.b ? r : null;
+}
 function normPhoto(p){
   if (!p || typeof p !== 'object' || typeof p.id !== 'string' || !/^[a-z0-9-]{1,60}$/.test(p.id)) return null;
   const num = (v, a, z) => typeof v === 'number' && isFinite(v) && v >= a && v <= z ? v : null;
-  return { id:p.id, x:num(p.x, -2, 3), y:num(p.y, -2, 4), h:num(p.h, PHOTO_H.min, PHOTO_H.max),
+  const out = { id:p.id, x:num(p.x, -2, 3), y:num(p.y, -2, 4), h:num(p.h, PHOTO_H.min, PHOTO_H.max),
     filter:PHOTO_FILTER_IDS.includes(p.filter) ? p.filter : 'none', mirror:p.mirror !== false, ...(p.off === true ? { off:true } : {}) };
+  const crop = normPhotoCrop(p.crop), rot = num(p.rot, -180, 180), round = num(p.round, 0, 0.5), o = p.outline && typeof p.outline === 'object' ? p.outline : null;
+  if (crop) out.crop = crop;
+  if (rot) out.rot = +rot.toFixed(1);
+  if (o){
+    const w = num(o.w, 0, PHOTO_OUT.max) || 0, color = typeof o.color === 'string' && /^#[0-9a-f]{6}$/i.test(o.color) ? o.color.toLowerCase() : PHOTO_OUT.color;
+    if (w > 0 || color !== PHOTO_OUT.color) out.outline = { w:+w.toFixed(1), color };
+  }
+  if (round) out.round = +round.toFixed(3);
+  return out;
 }
 /* Проповедник: имя и фамилия хранятся раздельно (на заставке — «Имя ФАМИЛИЯ»). В списке проповедников — «Фамилия Имя» */
 function splitPreacher(s){
