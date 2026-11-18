@@ -23,7 +23,7 @@ def picker(page):
 
 
 def space_names(page):
-    """Названия пространств в списке переключателя (без «Настроить пространства…» под чертой)"""
+    """Названия пространств в списке переключателя (без «Настроить пространства» под чертой)"""
     picker(page).click()
     page.wait_for_selector(".dd-list")
     names = [b.strip() for b in page.locator(".dd-list button:not(.dd-act)").all_inner_texts()]

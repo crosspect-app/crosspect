@@ -262,7 +262,7 @@ def test_preset_button_and_photobank_only_for_admin(browser, base_url, sermon):
         pg.evaluate("openPhotoBank()")
         assert pg.locator(".pb-sheet").count() == 0
         items = pg.evaluate("(() => { const out = []; const d = dropdown; window.dropdown = (a, it) => { out.push(...it.map(x => x.label)); }; spaceMenu(document.body); window.dropdown = d; return out; })()")
-        assert "Фотобанк…" not in items
+        assert "Фотобанк" not in items
         with pytest.raises(Exception):
             pg.evaluate("cloud.api.setAuthor(cloud.user, 'lewis-cs', { first:'X' })")
         assert not pg.errors, pg.errors
@@ -273,7 +273,7 @@ def test_preset_button_and_photobank_only_for_admin(browser, base_url, sermon):
 def test_photobank_window_edits_names_for_everyone(page, sermon):
     open_quote(page, sermon)
     items = page.evaluate("(() => { const out = []; const d = dropdown; window.dropdown = (a, it) => { out.push(...it.map(x => x.label)); }; spaceMenu(document.body); window.dropdown = d; return out; })()")
-    assert "Фотобанк…" in items
+    assert "Фотобанк" in items
     page.evaluate("openPhotoBank()")
     sheet = page.locator(".pb-sheet")
     sheet.wait_for()

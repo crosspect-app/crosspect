@@ -1,4 +1,4 @@
-"""Этап 10.1.2: люди, роли, пространства. «Настроить пространства…» в выпадающем списке пространств, слева список, справа вкладки;
+"""Этап 10.1.2: люди, роли, пространства. «Настроить пространства» в выпадающем списке пространств, слева список, справа вкладки;
 человек без почты (p-ключ), почта переносом записи; права редактора; удаление пустого пространства и неиспользуемой серии.
 Облако подменено: tests/fixtures/fake_cloud.js (первое пространство sp1 — в корне базы, другие — в spaces)."""
 from conftest import cloud_page
@@ -9,7 +9,7 @@ MEMBERS = {"ed@x.pl": {"role": "editor", "firstName": "Эд", "lastName": "Ре�
            "ivan@x.pl": {"role": "preacher", "firstName": "Иван", "lastName": "Петров"}}
 
 
-def open_window(page, item="Настроить пространства…"):
+def open_window(page, item="Настроить пространства"):
     page.locator(".topbar .org-pick").click()
     page.locator(".dd-list button", has_text=item).click()
     page.wait_for_selector(".space-sheet")
@@ -22,7 +22,7 @@ def test_menu_item_under_line_and_single_space(browser, base_url):
     page.locator(".topbar .org-pick").click()
     items = page.locator(".dd-list > *")
     assert [items.nth(i).evaluate("e => e.tagName") for i in range(items.count())] == ["BUTTON", "HR", "BUTTON"]
-    assert page.locator(".dd-list button.dd-act").inner_text() == "Настроить пространства…"
+    assert page.locator(".dd-list button.dd-act").inner_text() == "Настроить пространства"
     page.locator(".dd-list button.dd-act").click()
     page.wait_for_selector(".space-sheet")
     assert page.locator(".spw-item").all_inner_texts() == ["Слово веры · тест"]
