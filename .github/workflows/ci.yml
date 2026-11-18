@@ -99,6 +99,7 @@ jobs:
         run: |
           mkdir _site
           cp -r index.html css js data img fonts _site/
+          cp favicon.ico favicon.svg favicon-48.png favicon-192.png apple-touch-icon.png _site/
           # номер выпуска в ссылках на файлы: браузер не смешает старые и новые файлы после обновления
           sed -i "s/__BUILD__/${GITHUB_SHA::8}/g" _site/index.html
       - uses: actions/configure-pages@v5
