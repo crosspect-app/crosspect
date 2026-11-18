@@ -427,17 +427,39 @@ service cloud.firestore {
 
     // ---------- фотобанк (этап 10.5) ----------
     // Картинки и начальные описания — в репозитории (img/authors/). Здесь — правки описаний и вид фото по умолчанию
-    // (preset: положение и размер в долях слайда, сторона фото, фильтр, отражение). Общие для всех пространств.
+    // (preset: положение и размер в долях слайда, сторона фото, фильтр, отражение и — с этапа 10.5.3 — обрезка, поворот, обводка, углы). Общие для всех пространств.
+    function validPresetCrop(c) {
+      return c is map
+        && c.keys().hasOnly(['l', 't', 'r', 'b'])
+        && c.keys().hasAll(['l', 't', 'r', 'b'])
+        && c.l is number && c.l >= 0 && c.l <= 0.9
+        && c.t is number && c.t >= 0 && c.t <= 0.9
+        && c.r is number && c.r >= 0 && c.r <= 0.9
+        && c.b is number && c.b >= 0 && c.b <= 0.9
+        && c.l + c.r <= 0.9 && c.t + c.b <= 0.9;
+    }
+    function validPresetOutline(o) {
+      return o is map
+        && o.keys().hasOnly(['w', 'color'])
+        && o.keys().hasAll(['w', 'color'])
+        && o.w is number && o.w >= 0 && o.w <= 30
+        && o.color is string && o.color.matches('^#[0-9a-fA-F]{6}$');
+    }
     function validPreset(p) {
       return p is map
         && p.keys().hasAll(['x', 'y', 'h', 'side', 'filter', 'mirror'])
-        && p.keys().hasOnly(['x', 'y', 'h', 'side', 'filter', 'mirror'])
+        && p.keys().hasOnly(['x', 'y', 'h', 'side', 'filter', 'mirror', 'crop', 'rot', 'outline', 'round'])
         && p.x is number && p.x >= -2 && p.x <= 3
         && p.y is number && p.y >= -2 && p.y <= 4
         && p.h is number && p.h >= 0.15 && p.h <= 3
         && p.side in ['left', 'right']
         && p.filter in ['none', 'bw', 'bwHard', 'bwSoft', 'sepia', 'warm', 'cool', 'muted', 'tone']
-        && p.mirror is bool;
+        && p.mirror is bool
+        // этап 10.5.3: обрезка (доли картинки), поворот (градусы), обводка (px слайда), скругление углов — необязательные
+        && (!('crop' in p) || validPresetCrop(p.crop))
+        && (!('rot' in p) || (p.rot is number && p.rot >= -180 && p.rot <= 180))
+        && (!('outline' in p) || validPresetOutline(p.outline))
+        && (!('round' in p) || (p.round is number && p.round >= 0 && p.round <= 0.5));
     }
     function validAuthor(d) {
       return d.keys().hasAll(['updatedAt', 'updatedBy'])

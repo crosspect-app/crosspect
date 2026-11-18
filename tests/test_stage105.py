@@ -356,8 +356,10 @@ def test_drag_resize_and_reset(page, sermon):
     p2 = q(page)["photo"]
     assert p2["h"] > p["h"] + 0.05
     assert abs((p2["y"]) - p["y"]) < 0.002   # противоположный (нижний левый) угол на месте
-    # фильтр и «Сбросить»
-    page.locator(".ph-panel select.ph-filter").select_option("bw")
+    # фильтр (этап 10.5.3: в панели над фото) и «Сбросить»
+    page.locator(".stage .ph-hit").click()
+    page.locator(".ph-bar .ph-b-filter").click()
+    page.locator(".ph-bar .ph-opt[data-f='bw']").click()
     assert q(page)["photo"]["filter"] == "bw"
     page.locator(".ph-panel button", has_text="Сбросить").click()
     p3 = q(page)["photo"]
