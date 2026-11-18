@@ -1,6 +1,7 @@
 # Фотобанк (этап 10.5.2): фото из папки img/authors/ публичного репозитория — в базу (bankPeople, bankPhotos, bankFiles).
 # Первый запуск переносит фото этапа 10.5; дальше — пачки фото, которые Claude готовит в беседе «Фотобанк».
 # Можно запускать сколько угодно раз: то, что уже есть в базе, не трогается (кроме «Заменить»).
+# Шаблон: cloud/private-repo/.github/workflows/photobank.yml в публичном репозитории crosspect-app/crosspect.
 name: Фотобанк
 
 on:
@@ -20,35 +21,38 @@ on:
         type: boolean
         default: false
 
-concurrency: photobank
+permissions:
+  contents: read
+
+concurrency:
+  group: database
+  cancel-in-progress: false
 
 jobs:
   photobank:
+    name: Фотобанк
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           repository: crosspect-app/crosspect
+          path: app
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: cloud/package-lock.json
-      - name: Зависимости
-        working-directory: cloud
-        run: npm ci --omit=dev
+      - run: npm ci --omit=dev
+        working-directory: app/cloud
       - name: Фотобанк
-        working-directory: cloud
         env:
-          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           CMD: ${{ inputs.command }}
           REPLACE: ${{ inputs.replace }}
           DRY: ${{ inputs.dry_run }}
         run: |
-          printf '%s' "$KEY" > "$RUNNER_TEMP/key.json"
-          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          test -n "$FIREBASE_SERVICE_ACCOUNT" || { echo "::error::Нет секрета FIREBASE_SERVICE_ACCOUNT"; exit 1; }
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/key.json"
           args=("$CMD")
           if [ "$CMD" = upload ] && [ "$REPLACE" = true ]; then args+=(--replace); fi
           if [ "$CMD" = upload ] && [ "$DRY" = true ]; then args+=(--dry-run); fi
-          node scripts/photobank.mjs "${args[@]}"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json" node app/cloud/scripts/photobank.mjs "${args[@]}"
           rm -f "$RUNNER_TEMP/key.json"
