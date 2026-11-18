@@ -242,6 +242,7 @@ function renderTopbar(){
       h('button', { type:'button', class:view === 'slides' ? 'on' : '', onclick:() => setView('slides') }, 'Слайды'),
       h('button', { type:'button', class:view === 'text' ? 'on' : '', onclick:() => setView('text') }, 'Текст')),
     h('div', { class:'grow' }),
+    showButton(),   // «Показ» (show.js, этап 10.5.1)
     histTools() || '',   // ↶ ↷ — пока проповедь правится (history.js)
     checkEl(),   // галочка автосохранения (motion.js)
     h('span', { id:'hd-save', class:'hd-save' }),

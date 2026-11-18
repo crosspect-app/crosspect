@@ -103,6 +103,7 @@ const ICONS = {
   flag:'<path d="M5.5 21V4"/><path d="M5.5 4.5h11l-2.5 4 2.5 4h-11"/>',
   back:'<path d="m15 18-6-6 6-6"/>',
   next:'<path d="m9 18 6-6-6-6"/>',
+  play:'<path d="M8 5.5v13l10.5-6.5z"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/>',
   lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',

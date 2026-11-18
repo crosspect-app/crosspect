@@ -1395,6 +1395,19 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .pb-acts{display:grid;gap:4px;justify-items:end}
 .pb-preset{margin:0;font-size:12px}
 
+/* ---------- Показ слайдов (этап 10.5.1, show.js): весь экран, чёрные поля; классы .show-*, не .sl-*, чтобы правила не попали в JPEG ---------- */
+.hd-show{flex:none;gap:6px}
+.slideshow{position:fixed;inset:0;height:100dvh;z-index:100000;background:#000;color:#fff;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.slideshow.idle{cursor:none}
+.show-view{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.show-slide{position:absolute;overflow:hidden;visibility:hidden;--k:1}
+.show-slide.on{visibility:visible}
+.show-slide > *{border-radius:0}
+.show-slide .ph-big{width:960px;height:540px;box-sizing:border-box;border-radius:0;transform:scale(var(--k));transform-origin:0 0}
+.show-end{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 20px 'Inter',sans-serif;color:#6f685f}
+.show-count{position:absolute;right:18px;bottom:12px;font:500 14px 'Inter',sans-serif;color:rgba(255,255,255,.55);text-shadow:0 0 6px #000;transition:opacity .25s;pointer-events:none}
+.slideshow.idle .show-count{opacity:0}
+
 /* ---------- Телефон (этап 10.1.1) ----------
    Вид меняется только в узком окне (max-width:760px), а всё про скорость (стена-картинка, без размытия и движения) — только на телефоне:
    касание без наведения (то же условие, что isPhone() в util.js). На компьютере ничего не меняется, даже в узком окне: стена остаётся стеной */
@@ -1436,7 +1449,9 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
   .topbar:not(.is-home) .logo-only{order:0}
   .topbar:not(.is-home) .hd-title{order:1;flex:1 1 0;min-width:0;max-width:none}
   .topbar:not(.is-home) .hd-name{max-width:100%;font-size:16px}
-  .topbar:not(.is-home) .actions{order:2;margin-left:auto}
+  .topbar:not(.is-home) .hd-show{order:2;margin-left:auto;padding:0 10px}
+  .topbar:not(.is-home) .hd-show span{display:none}
+  .topbar:not(.is-home) .actions{order:2;margin-left:0}
   .topbar:not(.is-home) .hd-break{display:block;order:3;flex:0 0 100%;height:0}
   .topbar:not(.is-home) .seg{order:4;flex:none}
   .topbar:not(.is-home) .seg button{padding:0 9px}

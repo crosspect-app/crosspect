@@ -182,7 +182,7 @@ function paintPhotoLayer(holder, sl, b, box, url){
 /* Перерисовать фото на всех слайдах (банк или картинка пришли, фото двигают): только положение, без раскладки текста */
 function photoRepaintAll(id){
   if (typeof mainEl === 'undefined' || !mainEl || !state) return;
-  mainEl.querySelectorAll('.sl').forEach(sl => {
+  document.querySelectorAll('.sl').forEach(sl => {
     if (id && sl.dataset.id !== id) return;
     const b = typeof unitById === 'function' ? unitById(sl.dataset.id) : null;
     if (b && b.type === 'quote') paintPhoto(sl, b);
