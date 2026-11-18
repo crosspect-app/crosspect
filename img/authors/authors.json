@@ -1,6 +1,7 @@
 [
  {
   "id": "calvin",
+  "person": "calvin",
   "first": "Жан",
   "last": "Кальвин",
   "caption": "реформатор, богослов · 1509–1564",
@@ -10,7 +11,9 @@
    "Иоанн Кальвин",
    "Джон Кальвин"
   ],
+  "kind": "cut",
   "file": "calvin.webp",
+  "thumb": "calvin.thumb.webp",
   "w": 1642,
   "h": 1600,
   "faces": "right",
@@ -19,13 +22,16 @@
  },
  {
   "id": "luther",
+  "person": "luther",
   "first": "Мартин",
   "last": "Лютер",
   "caption": "реформатор · 1483–1546",
   "aliases": [
    "Martin Luther"
   ],
+  "kind": "cut",
   "file": "luther.webp",
+  "thumb": "luther.thumb.webp",
   "w": 1830,
   "h": 1600,
   "faces": "right",

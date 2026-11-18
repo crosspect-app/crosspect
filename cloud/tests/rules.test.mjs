@@ -7,7 +7,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, collectionGroup,
-  query, where, serverTimestamp, writeBatch, Timestamp, runTransaction, deleteField,
+  query, where, serverTimestamp, writeBatch, Timestamp, runTransaction, deleteField, Bytes,
 } from 'firebase/firestore';
 
 const PROJECT = 'demo-crosspect';
@@ -1252,6 +1252,80 @@ describe('фотобанк (этап 10.5)', () => {
     await assertFails(setDoc(author(db), body('admin', { preset: preset({ h: 5 }) })));
     await assertFails(setDoc(author(db), body('admin', { preset: { x: 0.2, y: 1, h: 0.9 } })));
     await assertFails(setDoc(author(db, 'Lewis CS'), body('admin')));
+  });
+});
+
+describe('фотобанк: люди и фото (этап 10.5.2)', () => {
+  const by = (who) => ({ updatedAt: serverTimestamp(), updatedBy: PEOPLE[who] });
+  const bytes = (n) => Bytes.fromUint8Array(new Uint8Array(n).fill(7));
+  const person = (who, extra = {}) => ({ first: 'Клайв', last: 'Льюис', caption: 'писатель · 1898–1963', aliases: ['К. С. Льюис'], ...by(who), ...extra });
+  const photo = (who, extra = {}) => Object.fromEntries(Object.entries({ person: 'lewis-cs', kind: 'cut', faces: 'right', w: 800, h: 1600, order: 0, source: 'тест',
+    thumb: bytes(5000), ...by(who), ...extra }).filter(([, v]) => v !== undefined));   // faces: undefined — без поля
+  const file = (who, n = 300000) => ({ img: bytes(n), ...by(who) });
+  const P = (db, id = 'lewis-cs') => doc(db, 'bankPeople', id), F = (db, id = 'f1') => doc(db, 'bankPhotos', id), I = (db, id = 'f1') => doc(db, 'bankFiles', id);
+  /* фото и картинка — одной записью, как в форме */
+  const addPhoto = (db, who, id = 'f1', meta = {}, n = 300000) => { const b = writeBatch(db); b.set(F(db, id), photo(who, meta)); b.set(I(db, id), file(who, n)); return b.commit(); };
+  const seedPerson = () => env.withSecurityRulesDisabled(async (ctx) => { await setDoc(P(ctx.firestore()), { first: 'Клайв', last: 'Льюис' }); });
+
+  test('админ: человек, фото с картинкой, порядок, вид по умолчанию, удаление', async () => {
+    const db = as('admin');
+    await assertSucceeds(setDoc(P(db), person('admin')));
+    await assertSucceeds(addPhoto(db, 'admin'));
+    await assertSucceeds(addPhoto(db, 'admin', 'f2', { kind: 'bg', faces: undefined, order: 1, w: 2400, h: 1600 }));
+    await assertSucceeds(setDoc(F(db), { order: 3, preset: { x: 0.25, y: 1, h: 0.9, side: 'left', filter: 'bw', mirror: true }, ...by('admin') }, { merge: true }));
+    await assertSucceeds(setDoc(F(db), { source: 'другой', ...by('admin') }, { merge: true }));
+    const b = writeBatch(db);
+    b.delete(F(db)); b.delete(I(db)); b.delete(F(db, 'f2')); b.delete(I(db, 'f2')); b.delete(P(db));
+    await assertSucceeds(b.commit());
+  });
+  test('читают все вошедшие; без входа — нет; список картинок не читается', async () => {
+    await seedPerson();
+    await assertSucceeds(addPhoto(as('admin'), 'admin'));
+    for (const who of ['ed', 'ivan', 'stranger']) {
+      await assertSucceeds(getDoc(P(as(who)))); await assertSucceeds(getDocs(collection(as(who), 'bankPeople')));
+      await assertSucceeds(getDocs(collection(as(who), 'bankPhotos'))); await assertSucceeds(getDoc(I(as(who))));
+      await assertFails(getDocs(collection(as(who), 'bankFiles')));
+    }
+    await assertFails(getDoc(P(anon()))); await assertFails(getDoc(F(anon()))); await assertFails(getDoc(I(anon())));
+  });
+  test('редактор и автор не пишут и не удаляют', async () => {
+    await seedPerson();
+    await assertSucceeds(addPhoto(as('admin'), 'admin'));
+    for (const who of ['ed', 'ivan']) {
+      await assertFails(setDoc(P(as(who), 'x'), person(who)));
+      await assertFails(addPhoto(as(who), who, 'f9'));
+      await assertFails(setDoc(F(as(who)), { order: 5, ...by(who) }, { merge: true }));
+      await assertFails(deleteDoc(F(as(who)))); await assertFails(deleteDoc(I(as(who)))); await assertFails(deleteDoc(P(as(who))));
+    }
+  });
+  test('размеры картинки и миниатюры, поля, тип, человек', async () => {
+    await seedPerson();
+    const db = as('admin');
+    await assertFails(addPhoto(db, 'admin', 'big', {}, 921601));                       // больше 900 КБ
+    await assertSucceeds(addPhoto(db, 'admin', 'max', {}, 921600));
+    await assertFails(addPhoto(db, 'admin', 't', { thumb: bytes(41000) }));            // миниатюра больше 40 КБ
+    await assertFails(addPhoto(db, 'admin', 'k', { kind: 'png' }));
+    await assertFails(addPhoto(db, 'admin', 'nf', { faces: 'left' }));                  // в банке «влево» не бывает: отражено при загрузке
+    await assertFails(addPhoto(db, 'admin', 'bgf', { kind: 'bg' }));                   // у «с фоном» нет «куда смотрит»
+    await assertFails(addPhoto(db, 'admin', 'np', { person: 'nobody' }));              // человека нет
+    await assertFails(addPhoto(db, 'admin', 'x1', { extra: 1 }));
+    await assertFails(addPhoto(db, 'admin', 'x2', { w: 1.5 }));
+    await assertFails(addPhoto(db, 'admin', 'x3', { updatedBy: PEOPLE.ed }));
+    await assertFails(addPhoto(db, 'admin', 'Bad Id'));
+    await assertFails(setDoc(F(db, 'alone'), photo('admin')));                          // фото без картинки
+    await assertFails(setDoc(I(db, 'alone'), file('admin')));                           // картинка без фото
+    await assertFails(setDoc(P(db, 'y'), person('admin', { caption: 'x'.repeat(201) })));
+    await assertFails(setDoc(P(db, 'y'), person('admin', { aliases: 'К. С. Льюис' })));
+  });
+  test('после загрузки картинка, человек и размеры не меняются', async () => {
+    await seedPerson();
+    const db = as('admin');
+    await assertSucceeds(addPhoto(db, 'admin'));
+    await assertFails(setDoc(I(db), file('admin', 1000)));
+    await assertFails(setDoc(F(db), { w: 10, ...by('admin') }, { merge: true }));
+    await assertFails(setDoc(F(db), { person: 'other', ...by('admin') }, { merge: true }));
+    await assertFails(setDoc(F(db), { thumb: bytes(10), ...by('admin') }, { merge: true }));
+    await assertFails(setDoc(F(db), { preset: { x: 0.2 }, ...by('admin') }, { merge: true }));
   });
 });
 

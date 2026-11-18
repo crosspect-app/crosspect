@@ -33,10 +33,21 @@ BANK = [
 ]
 
 
+def bank_db(bank=BANK, body=None):
+    """Фотобанк в подменённом облаке (этап 10.5.2): человек и одно фото «без фона» с тем же id, картинка — PNG в base64."""
+    import base64
+    if body is None:
+        im = Image.open(io.BytesIO(person_png())).crop((50, 50, 250, 600)); buf = io.BytesIO(); im.save(buf, "PNG"); body = buf.getvalue()
+    b64 = base64.b64encode(body).decode()
+    people = {a.get("person", a["id"]): {"first": a["first"], "last": a["last"], "caption": a.get("caption", ""), "aliases": a.get("aliases", [])} for a in bank}
+    photos = {a["id"]: {"person": a.get("person", a["id"]), "kind": a.get("kind", "cut"), "w": a["w"], "h": a["h"], "order": a.get("order", 0),
+                        "source": "", "thumb": b64, **({"faces": a["faces"]} if a.get("kind", "cut") == "cut" else {})} for a in bank}
+    return people, photos, {a["id"]: b64 for a in bank}
+
+
 def with_bank(page, bank=BANK):
-    im = Image.open(io.BytesIO(person_png())).crop((50, 50, 250, 600)); buf = io.BytesIO(); im.save(buf, "PNG"); body = buf.getvalue()
-    page.route("**/img/authors/authors.json", lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps(bank, ensure_ascii=False)))
-    page.route("**/img/authors/*.webp", lambda r: r.fulfill(status=200, content_type="image/png", body=body))
+    people, photos, files = bank_db(bank)
+    page.evaluate("""([p, f, x]) => { const db = fakeCloud.db(); db.bankPeople = p; db.bankPhotos = f; db.bankFiles = x; fakeCloud.put(db); }""", [people, photos, files])
 
 
 def quote_sermon(sermon, **q):
@@ -210,7 +221,7 @@ PRESET = {"x": 0.3, "y": 1.05, "h": 1.2, "side": "left", "filter": "bw", "mirror
 
 
 def set_preset(page, id="lewis-cs", preset=PRESET, **extra):
-    page.evaluate("([id, f]) => { const db = fakeCloud.db(); db.authors = db.authors || {}; db.authors[id] = Object.assign(db.authors[id] || {}, f); fakeCloud.put(db); }",
+    page.evaluate("([id, f]) => { const db = fakeCloud.db(); Object.assign(db.bankPhotos[id], f); fakeCloud.put(db); }",
                   [id, dict(preset=preset, **extra)])
     page.wait_for_function("id => { const a = bankEntry(id); return a && !!a.preset; }", arg=id)
 
@@ -244,8 +255,8 @@ def test_preset_from_full_width_lands_on_photo_side(page, sermon):
 def test_admin_saves_preset(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs", "x": 0.25, "y": 0.98, "h": 0.8, "filter": "sepia", "mirror": True}, half="left", halfW=50)
     page.locator(".ph-panel button", has_text="Сделать видом по умолчанию").click()
-    page.wait_for_function("(() => { const a = (fakeCloud.db().authors || {})['lewis-cs']; return a && a.preset; })()")
-    ps = page.evaluate("fakeCloud.db().authors['lewis-cs'].preset")
+    page.wait_for_function("(() => { const a = (fakeCloud.db().bankPhotos || {})['lewis-cs']; return a && a.preset; })()")
+    ps = page.evaluate("fakeCloud.db().bankPhotos['lewis-cs'].preset")
     assert ps == {"x": 0.25, "y": 0.98, "h": 0.8, "side": "right", "filter": "sepia", "mirror": True}
     assert not page.errors, page.errors
 
@@ -264,7 +275,7 @@ def test_preset_button_and_photobank_only_for_admin(browser, base_url, sermon):
         items = pg.evaluate("(() => { const out = []; const d = dropdown; window.dropdown = (a, it) => { out.push(...it.map(x => x.label)); }; spaceMenu(document.body); window.dropdown = d; return out; })()")
         assert "Фотобанк" not in items
         with pytest.raises(Exception):
-            pg.evaluate("cloud.api.setAuthor(cloud.user, 'lewis-cs', { first:'X' })")
+            pg.evaluate("cloud.api.setBankPerson(cloud.user, 'lewis-cs', { first:'X' })")
         assert not pg.errors, pg.errors
     finally:
         ctx.close()
@@ -285,8 +296,8 @@ def test_photobank_window_edits_names_for_everyone(page, sermon):
     row.locator("input[placeholder='Подпись']").fill("писатель, богослов · 1898–1963")
     row.locator("input[placeholder='Другие написания']").fill("К. С. Льюис; Джек Льюис")
     row.locator(".pb-save").click()
-    page.wait_for_function("(() => { const a = (fakeCloud.db().authors || {})['lewis-cs']; return a && a.caption; })()")
-    saved = page.evaluate("fakeCloud.db().authors['lewis-cs']")
+    page.wait_for_function("fakeCloud.db().bankPeople['lewis-cs'].caption === 'писатель, богослов · 1898–1963'")
+    saved = page.evaluate("fakeCloud.db().bankPeople['lewis-cs']")
     assert saved["caption"] == "писатель, богослов · 1898–1963" and saved["aliases"] == ["К. С. Льюис", "Джек Льюис"]
     page.wait_for_function("bankEntry('lewis-cs').caption === 'писатель, богослов · 1898–1963'")
     assert page.evaluate("photoSearch('джек', null).map(a => a.id)") == ["lewis-cs"]
@@ -459,18 +470,17 @@ def test_author_photo_script(tmp_path):
     r = run("--id", "lewis-cs", "--first", "Клайв", "--last", "Льюис", "--caption", "писатель · 1898–1963", "--aliases", "К. С. Льюис; C. S. Lewis", "--faces", "left", "--source", "Тест")
     assert r.returncode == 0, r.stderr
     im = Image.open(bank / "lewis-cs.webp")
-    assert im.format == "WEBP" and im.mode == "RGBA" and im.height == 1600
-    assert abs(im.width - round(200 * 1600 / 550)) <= 1   # прозрачные поля обрезаны
-    left = im.getpixel((20, 800)); assert left[2] > 200 and left[0] < 60   # было «смотрит влево»: развёрнуто, слева теперь синее
+    assert im.format == "WEBP" and im.mode == "RGBA" and (im.width, im.height) == (200, 550)   # прозрачные поля обрезаны, мелкое не растягивается (10.5.2)
+    left = im.getpixel((20, 400)); assert left[2] > 200 and left[0] < 60   # было «смотрит влево»: развёрнуто, слева теперь синее
     lst = json.loads((bank / "authors.json").read_text(encoding="utf-8"))
     assert lst[0]["id"] == "lewis-cs" and lst[0]["faces"] == "right" and lst[0]["aliases"] == ["К. С. Льюис", "C. S. Lewis"]
     assert lst[0]["caption"] == "писатель · 1898–1963"
-    assert lst[0]["w"] == im.width and lst[0]["h"] == 1600 and lst[0]["source"] == "Тест" and lst[0]["added"]
+    assert lst[0]["w"] == im.width and lst[0]["h"] == 550 and lst[0]["source"] == "Тест" and lst[0]["added"]
     r = run("--id", "teresa", "--first", "Мать", "--last", "Тереза", "--faces", "front")
     assert r.returncode == 0, r.stderr
     lst = json.loads((bank / "authors.json").read_text(encoding="utf-8"))
     assert [a["id"] for a in lst] == ["lewis-cs", "teresa"] and lst[1]["faces"] == "front"   # по фамилии
-    im = Image.open(bank / "teresa.webp"); assert im.getpixel((20, 800))[0] > 200   # анфас не развёрнут
+    im = Image.open(bank / "teresa.webp"); assert im.getpixel((20, 400))[0] > 200   # анфас не развёрнут
     opaque = tmp_path / "o.png"; Image.new("RGB", (10, 10)).save(opaque)
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "author_photo.py"), str(opaque), "--bank", str(bank), "--id", "x", "--last", "Икс", "--faces", "right"], capture_output=True, text=True)
     assert r.returncode != 0 and "прозрачного фона" in r.stderr
@@ -481,4 +491,6 @@ def test_bank_file_is_valid():
     assert isinstance(lst, list)
     for a in lst:
         assert (ROOT / "img" / "authors" / a["file"]).exists(), a["id"]
-        assert a["faces"] in ("right", "front") and a["w"] > 0 and a["h"] == 1600 and (a["first"] or a["last"])
+        assert (ROOT / "img" / "authors" / a["thumb"]).exists(), a["id"]
+        assert a["kind"] in ("cut", "bg") and a["person"] and a["w"] > 0 and 0 < a["h"] <= 1600 and (a["first"] or a["last"])
+        assert a["kind"] == "bg" or a["faces"] in ("right", "front")

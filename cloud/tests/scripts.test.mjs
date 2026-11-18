@@ -217,3 +217,23 @@ describe('бэкап и восстановление', () => {
     assert.ok(!existsSync(join(dir, 'spaces/b1/sermons/new.json')));
   });
 });
+
+describe('фотобанк: перенос из папки (этап 10.5.2)', () => {
+  const REPO_BANK = new URL('../../img/authors/', import.meta.url).pathname;
+  test('upload: фото этапа 10.5 из репозитория, правки authors/{id} переносятся, повторный запуск ничего не меняет', async () => {
+    await db.doc('authors/calvin').set({ caption: 'реформатор · 1509–1564 (правка)', preset: { x: 0.3, y: 1, h: 0.9, side: 'left', filter: 'bw', mirror: true } });
+    const out = run('photobank.mjs', 'upload', '--dir', REPO_BANK);
+    assert.match(out, /Новых людей: 2, новых фото: 2/);
+    const p = (await db.doc('bankPeople/calvin').get()).data();
+    assert.equal(p.last, 'Кальвин'); assert.equal(p.caption, 'реформатор · 1509–1564 (правка)');
+    const f = (await db.doc('bankPhotos/calvin').get()).data();
+    assert.equal(f.person, 'calvin'); assert.equal(f.kind, 'cut'); assert.equal(f.faces, 'right'); assert.equal(f.order, 0);
+    assert.deepEqual(f.preset, { x: 0.3, y: 1, h: 0.9, side: 'left', filter: 'bw', mirror: true });
+    assert.ok(f.thumb.length > 1000 && f.thumb.length <= 40960);
+    const img = (await db.doc('bankFiles/calvin').get()).data().img;
+    assert.deepEqual(Buffer.from(img), readFileSync(join(REPO_BANK, 'calvin.webp')));   // картинка та же, id фото = старый id
+    assert.ok(!(await db.doc('bankPhotos/luther').get()).data().preset);
+    assert.match(run('photobank.mjs', 'upload', '--dir', REPO_BANK), /Новых людей: 0, новых фото: 0, заменено: 0, уже были: 2/);
+    assert.match(run('photobank.mjs', 'list'), /Людей: 2, фото: 2/);
+  });
+});

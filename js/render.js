@@ -709,7 +709,11 @@ const BODY = {
     const la = input(b, 'last', 'тен Бум', { autocomplete:'off', oninput:e => { b.last = e.target.value; who(); } });
     const sugg = h('div', { class:'au-sugg', role:'listbox', 'aria-label':'Авторы из фотобанка' });
     authorSuggest(b, fi, sugg); authorSuggest(b, la, sugg);
-    body.append(h('div', { class:'au-wrap' }, h('div', { class:'grid-2' }, field('Имя', fi), field('Фамилия', la)), sugg));
+    // этап 10.5.2: «Из фотобанка» — окно выбора человека и фото (photopick.js), есть всегда, даже без фото
+    body.append(h('div', { class:'au-wrap' },
+      h('div', { class:'lbl-row au-head' }, h('span', { class:'lbl', text:'Автор цитаты' }),
+        h('button', { type:'button', class:'btn small au-bank', disabled:readOnly() ? true : null, onclick:() => openPhotoPick(b, false) }, 'Из фотобанка')),
+      h('div', { class:'grid-2' }, field('Имя', fi), field('Фамилия', la)), sugg));
     body.append(field('Подпись — мелко под автором', input(b, 'caption', 'Книга, год, откуда цитата', { oninput:e => { b.caption = e.target.value; change(); updateCounter(b); } })));
     if ((b.half === 'left' || b.half === 'right') && b.photo) body.append(photoPanel(b));
   },

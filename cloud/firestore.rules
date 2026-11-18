@@ -30,8 +30,13 @@ rules_version = '2';
 //                                    их в members и удаляет документ; писать сюда больше нельзя
 //   people/{email}/prefs/screen      раскладка экрана у человека: видит и правит только он сам
 //   shares/{key}                     снимок для оператора: читается по ключу без входа
-//   authors/{id}                     фотобанк (этап 10.5): правки описания автора и вид фото по умолчанию; читает
-//                                    любой, кто вошёл, пишет только админ всей формы
+//   authors/{id}                     фотобанк этапа 10.5: правки описаний и вид по умолчанию. С этапа 10.5.2 форма их
+//                                    не читает: скрипт cloud/scripts/photobank.mjs переносит их в bankPeople / bankPhotos
+//   bankPeople/{id}                  фотобанк (этап 10.5.2): человек — имя, фамилия, подпись, другие написания
+//   bankPhotos/{id}                  фото человека: без фона (cut) или с фоном (bg), размеры, порядок, вид по умолчанию,
+//                                    миниатюра (bytes ≤ 40 КБ)
+//   bankFiles/{id}                   картинка фото (bytes ≤ 900 КБ), отдельно от списка. Фотобанк общий для всех
+//                                    пространств: читает любой, кто вошёл, пишет и удаляет только админ всей формы
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -446,6 +451,56 @@ service cloud.firestore {
     match /authors/{id} {
       allow get, list: if signedIn();
       allow create, update: if isAdmin() && id.matches('[a-z0-9-]{1,60}') && validAuthor(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // ---------- фотобанк (этап 10.5.2) ----------
+    // Люди и их фото, картинки — прямо в базе (поле bytes), без платного хранилища. Картинка не меняется: новое фото — новый id.
+    function bankStamp(d) {
+      return d.updatedAt == request.time && d.updatedBy == me();
+    }
+    function validBankPerson(d) {
+      return d.keys().hasAll(['updatedAt', 'updatedBy'])
+        && d.keys().hasOnly(['first', 'last', 'caption', 'aliases', 'updatedAt', 'updatedBy'])
+        && optStr(d, 'first', 100) && optStr(d, 'last', 100) && optStr(d, 'caption', 200)
+        && (!('aliases' in d) || (d.aliases is list && d.aliases.size() <= 20))
+        && bankStamp(d);
+    }
+    function validBankPhoto(d) {
+      return d.keys().hasAll(['person', 'kind', 'w', 'h', 'order', 'thumb', 'updatedAt', 'updatedBy'])
+        && d.keys().hasOnly(['person', 'kind', 'faces', 'w', 'h', 'order', 'source', 'preset', 'thumb', 'updatedAt', 'updatedBy'])
+        && d.person is string && d.person.matches('[a-z0-9-]{1,60}')
+        && ((d.kind == 'cut' && d.faces in ['right', 'front']) || (d.kind == 'bg' && !('faces' in d)))
+        && d.w is int && d.w > 0 && d.w <= 4000
+        && d.h is int && d.h > 0 && d.h <= 4000
+        && d.order is int && d.order >= 0 && d.order <= 10000
+        && optStr(d, 'source', 300)
+        && (!('preset' in d) || validPreset(d.preset))
+        && d.thumb is bytes && d.thumb.size() <= 40960
+        && bankStamp(d);
+    }
+    match /bankPeople/{id} {
+      allow get, list: if signedIn();
+      allow create, update: if isAdmin() && id.matches('[a-z0-9-]{1,60}') && validBankPerson(request.resource.data);
+      allow delete: if isAdmin();
+    }
+    match /bankPhotos/{id} {
+      allow get, list: if signedIn();
+      allow create: if isAdmin() && id.matches('[a-z0-9-]{1,60}') && validBankPhoto(request.resource.data)
+        && existsAfter(/databases/$(database)/documents/bankPeople/$(request.resource.data.person))
+        && existsAfter(/databases/$(database)/documents/bankFiles/$(id));
+      // после загрузки меняются только порядок, вид по умолчанию и источник
+      allow update: if isAdmin() && validBankPhoto(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['order', 'preset', 'source', 'updatedAt', 'updatedBy']);
+      allow delete: if isAdmin();
+    }
+    match /bankFiles/{id} {
+      allow get: if signedIn();
+      allow create: if isAdmin() && id.matches('[a-z0-9-]{1,60}')
+        && request.resource.data.keys().hasOnly(['img', 'updatedAt', 'updatedBy'])
+        && request.resource.data.img is bytes && request.resource.data.img.size() <= 921600
+        && bankStamp(request.resource.data)
+        && existsAfter(/databases/$(database)/documents/bankPhotos/$(id));
       allow delete: if isAdmin();
     }
 

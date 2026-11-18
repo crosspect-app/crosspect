@@ -505,22 +505,71 @@ export function createCloudAPI(fb){
     /* Список копий, новые сверху: [{ id, savedAt (мс), savedBy, name, status, v, meta, settings, blocks }] */
     versions: listVersions,
 
-    /* Фотобанк (этап 10.5): authors/{id} — правки описания автора поверх img/authors/authors.json и вид фото по умолчанию (preset).
-       Общие для всех пространств: читает любой, кто вошёл, пишет только админ всей формы. onMap({ id: { first, last, caption, aliases, preset } }) */
-    watchAuthors(onMap, onError){
-      return F.onSnapshot(F.collection(db, 'authors'), snap => {
+    /* Фотобанк (этап 10.5.2): люди — bankPeople/{id} { first, last, caption, aliases }; фото — bankPhotos/{id} { person, kind ('cut' — без фона,
+       'bg' — с фоном), faces ('right' | 'front', только у 'cut'), w, h, source, order, preset (вид по умолчанию), thumb (миниатюра 160 px, Bytes) };
+       сама картинка — bankFiles/{id} { img (Bytes, ≤ 900 КБ) }: отдельно, чтобы списки не качали большие картинки.
+       Общий для всех пространств: читает любой, кто вошёл, пишет и удаляет только админ всей формы.
+       onData('people' | 'photos', { id: запись }) — сразу и при каждом изменении; у фото thumb — Uint8Array */
+    watchBank(onData, onError){
+      const strs = v => Array.isArray(v) ? v.map(String) : [];
+      const u1 = F.onSnapshot(F.collection(db, 'bankPeople'), snap => {
         const out = {};
-        snap.docs.forEach(d => { const x = d.data(); out[d.id] = { first: x.first, last: x.last, caption: x.caption, aliases: x.aliases, preset: x.preset || null }; });
-        onMap(out);
+        snap.docs.forEach(d => { const x = d.data(); out[d.id] = { first: x.first || '', last: x.last || '', caption: x.caption || '', aliases: strs(x.aliases) }; });
+        onData('people', out);
       }, onError);
+      const u2 = F.onSnapshot(F.collection(db, 'bankPhotos'), snap => {
+        const out = {};
+        snap.docs.forEach(d => {
+          const x = d.data();
+          out[d.id] = { person: x.person, kind: x.kind, faces: x.faces || null, w: x.w, h: x.h, source: x.source || '', order: x.order || 0,
+            preset: x.preset || null, thumb: x.thumb && x.thumb.toUint8Array ? x.thumb.toUint8Array() : null };
+        });
+        onData('photos', out);
+      }, onError);
+      return () => { u1(); u2(); };
     },
-    /* fields: { first?, last?, caption?, aliases?, preset? } — дописываются к записи, остальное остаётся */
-    async setAuthor(me, id, fields){
+    /* Картинка фото: Uint8Array (WebP) или null, если записи нет */
+    async bankFile(id){
+      const s = await F.getDoc(F.doc(db, 'bankFiles', id));
+      const x = s.exists() ? s.data().img : null;
+      return x && x.toUint8Array ? x.toUint8Array() : null;
+    },
+    /* Человек: создать или дописать поля { first, last, caption, aliases } */
+    async setBankPerson(me, id, fields){
       const d = {};
       ['first', 'last', 'caption'].forEach(k => { if (fields[k] != null) d[k] = String(fields[k]).trim().slice(0, k === 'caption' ? 200 : 100); });
       if (fields.aliases) d.aliases = fields.aliases.map(x => String(x).trim().slice(0, 100)).filter(Boolean).slice(0, 20);
-      if (fields.preset) d.preset = JSON.parse(JSON.stringify(fields.preset));
-      await F.setDoc(F.doc(db, 'authors', id), Object.assign(d, { updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) }), { merge: true });
+      await F.setDoc(F.doc(db, 'bankPeople', id), Object.assign(d, { updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) }), { merge: true });
+    },
+    /* Новое фото: meta { person, kind, faces?, w, h, source, order, preset? }, img и thumb — Uint8Array (WebP). Одной записью */
+    async addBankPhoto(me, id, meta, img, thumb){
+      const by = { updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) }, b = F.writeBatch(db);
+      const m = { person: meta.person, kind: meta.kind, w: meta.w, h: meta.h, order: meta.order, source: String(meta.source || '').trim().slice(0, 300),
+        thumb: F.Bytes.fromUint8Array(thumb) };
+      if (meta.kind === 'cut') m.faces = meta.faces === 'front' ? 'front' : 'right';
+      if (meta.preset) m.preset = JSON.parse(JSON.stringify(meta.preset));
+      b.set(F.doc(db, 'bankPhotos', id), Object.assign(m, by));
+      b.set(F.doc(db, 'bankFiles', id), Object.assign({ img: F.Bytes.fromUint8Array(img) }, by));
+      await b.commit();
+    },
+    /* Поля фото, которые можно менять: { order?, preset?, source? }; changes — { id: поля } (порядок меняется у двух фото сразу) */
+    async setBankPhotos(me, changes){
+      const b = F.writeBatch(db);
+      Object.entries(changes).forEach(([id, f]) => {
+        const d = {};
+        if (f.order != null) d.order = f.order;
+        if (f.preset) d.preset = JSON.parse(JSON.stringify(f.preset));
+        if (f.source != null) d.source = String(f.source).trim().slice(0, 300);
+        b.set(F.doc(db, 'bankPhotos', id), Object.assign(d, { updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) }), { merge: true });
+      });
+      await b.commit();
+    },
+    /* Удалить фото (ids) и, если person задан, самого человека — одной записью */
+    async removeBank(me, ids, person){
+      const b = F.writeBatch(db);
+      ids.forEach(id => { b.delete(F.doc(db, 'bankPhotos', id)); b.delete(F.doc(db, 'bankFiles', id)); });
+      if (person) b.delete(F.doc(db, 'bankPeople', person));
+      await b.commit();
     },
 
     /* Настройки слайдов пространства (этап 7.1): документ config/slides, общий для всех проповедей.

@@ -42,6 +42,8 @@
   const isEditor = (db, email) => { if (isAdmin(email)) return true; const m = db.members[email]; return !!m && (m.role === 'editor' || m.role === 'admin'); };   // оператор (этап 10.1.2) — не участник
   // «У редактора» (этап 7.3), как в правилах: автор не правит, не берёт замок, не меняет статус и не удаляет; сам ставит только draft / submitted
   const denied = () => fail('permission-denied', 'Missing or insufficient permissions');
+  const toB64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+  const fromB64 = b => { const s = atob(b), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
   const atEditor = r => !!r && (r.status === 'work' || r.status === 'done' || r.status === 'ready');   // ready — «Презентация готова» (этап 9.7)
   const authorBlocked = (db, email, r, status) => !isEditor(db, email) && (atEditor(r) || (status != null && !['draft', 'submitted'].includes(status)));
   function notify(){ listeners.forEach(f => { try { f(); } catch(e){} }); }   // слушатель удалённого пространства молчит, как в Firestore
@@ -290,15 +292,44 @@
       Object.assign(cur, { status, updatedAt:tick(db), updatedBy:my });
       store(db); notify(); return view(x, cur);
     },
-    /* Фотобанк (этап 10.5): db.authors[id] — правки описаний и вид по умолчанию; читают все вошедшие, пишет только админ */
-    watchAuthors(onMap){
-      const f = () => { const db = load(); onMap(JSON.parse(JSON.stringify(db.authors || {}))); };
+    /* Фотобанк (этап 10.5.2): db.bankPeople[id], db.bankPhotos[id] (thumb — base64), db.bankFiles[id] (base64);
+       читают все вошедшие, пишет только админ. calls.bankFile — сколько раз картинку качали из «базы» */
+    watchBank(onData){
+      const f = () => {
+        const db = load(), ph = {};
+        Object.entries(db.bankPhotos || {}).forEach(([id, x]) => { ph[id] = Object.assign({}, x, { thumb:x.thumb ? fromB64(x.thumb) : null }); });
+        onData('people', JSON.parse(JSON.stringify(db.bankPeople || {}))); onData('photos', ph);
+      };
       listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
     },
-    async setAuthor(who, id, fields){
-      calls.authors = (calls.authors || 0) + 1; offline();
+    async bankFile(id){ calls.bankFile = (calls.bankFile || 0) + 1; offline(); const x = (load().bankFiles || {})[id]; return x ? fromB64(x) : null; },
+    async setBankPerson(who, id, fields){
+      calls.bank = (calls.bank || 0) + 1; offline();
       const db = load(); if (!isAdmin(who.email)) throw denied();
-      db.authors = db.authors || {}; db.authors[id] = Object.assign(db.authors[id] || {}, JSON.parse(JSON.stringify(fields)), { updatedBy:who.email });
+      db.bankPeople = db.bankPeople || {}; db.bankPeople[id] = Object.assign(db.bankPeople[id] || {}, JSON.parse(JSON.stringify(fields)), { updatedBy:who.email });
+      store(db); notify();
+    },
+    async addBankPhoto(who, id, meta, img, thumb){
+      calls.bank = (calls.bank || 0) + 1; offline();
+      const db = load(); if (!isAdmin(who.email)) throw denied();
+      if (img.length > 900 * 1024) throw fail('invalid-argument', 'too big');
+      db.bankPhotos = db.bankPhotos || {}; db.bankFiles = db.bankFiles || {};
+      db.bankPhotos[id] = Object.assign(JSON.parse(JSON.stringify(meta)), { thumb:toB64(thumb), updatedBy:who.email });
+      if (meta.kind !== 'cut') delete db.bankPhotos[id].faces;
+      db.bankFiles[id] = toB64(img);
+      store(db); notify();
+    },
+    async setBankPhotos(who, changes){
+      calls.bank = (calls.bank || 0) + 1; offline();
+      const db = load(); if (!isAdmin(who.email)) throw denied();
+      Object.entries(changes).forEach(([id, f]) => { if (db.bankPhotos && db.bankPhotos[id]) Object.assign(db.bankPhotos[id], JSON.parse(JSON.stringify(f))); });
+      store(db); notify();
+    },
+    async removeBank(who, ids, person){
+      calls.bank = (calls.bank || 0) + 1; offline();
+      const db = load(); if (!isAdmin(who.email)) throw denied();
+      ids.forEach(id => { delete (db.bankPhotos || {})[id]; delete (db.bankFiles || {})[id]; });
+      if (person) delete (db.bankPeople || {})[person];
       store(db); notify();
     },
     /* Настройки экрана человека (этап 7.2): у каждой почты своя запись */

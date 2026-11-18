@@ -56,7 +56,7 @@ function startAuth(){
 }
 
 async function cloudUser(user){
-  stopListen(); resetCloud();
+  stopListen(); resetCloud(); photoBankStop();   // фотобанк общий, слушается с первого обращения (photos.js); сменился человек — заново
   Object.assign(cloud, { user, admin:false, spaces:[], list:null, space:'', spaceName:'', role:'', member:null, settings:{}, error:'' });
   if (!user){ cloud.mode = 'out'; cloudChanged(); return; }
   cloud.mode = 'wait'; cloudChanged();
@@ -136,13 +136,12 @@ function startListen(){
   // люди пространства и серии проповедей (этап 10, space.js): список авторов и получателей в Telegram, фон по серии
   if (cloud.api.watchMembers) cloud.peopleUnsub = cloud.api.watchMembers(cloud.space, list => setPeople(list), () => {});
   if (cloud.api.watchSeries) cloud.seriesUnsub = cloud.api.watchSeries(cloud.space, m => setSeriesData(m), () => {});
-  if (cloud.api.watchAuthors && !cloud.authorsUnsub) cloud.authorsUnsub = cloud.api.watchAuthors(m => setBankEdits(m), () => {});   // фотобанк (этап 10.5, photos.js)
   if (canSpace()) migrateOps(cloud.space);   // операторы этапа 10.1 → люди с ролью «Оператор» (этап 10.1.2, space.js)
 }
 function stopListen(){
   if (cloud.unsub){ try { cloud.unsub(); } catch(e){} cloud.unsub = null; }
   if (cloud.slidesUnsub){ try { cloud.slidesUnsub(); } catch(e){} cloud.slidesUnsub = null; }
-  ['peopleUnsub', 'seriesUnsub', 'authorsUnsub'].forEach(k => { if (cloud[k]){ try { cloud[k](); } catch(e){} cloud[k] = null; } });
+  ['peopleUnsub', 'seriesUnsub'].forEach(k => { if (cloud[k]){ try { cloud[k](); } catch(e){} cloud[k] = null; } });
 }
 
 async function cloudSignIn(){
