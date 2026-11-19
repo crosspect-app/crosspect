@@ -50,7 +50,7 @@ describe('итог', () => {
     const u = buildUsage({ reads: 4120, writes: 860.4, dataBytes: null }, iso('2026-11-18T22:02:00Z'));
     assert.deepEqual(u, { day: '2026-11-18', month: '2026-11', reads: 4120, writes: 860, dataBytes: null, egressBytes: null });
   });
-  test('collect: данные и трафик без заданных метрик — null; запросы идут за тихоокеанские сутки', async () => {
+  test('collect: данные — по умолчанию, трафик без заданной метрики — null; запросы идут за тихоокеанские сутки', async () => {
     const calls = [];
     const real = globalThis.fetch;
     globalThis.fetch = async (url) => {
@@ -61,9 +61,9 @@ describe('итог', () => {
     try {
       const u = await collect('tok', 'proj', {}, iso('2026-11-18T22:02:00Z'));
       assert.equal(u.reads, 7); assert.equal(u.writes, 7);
-      assert.equal(u.dataBytes, null); assert.equal(u.egressBytes, null);
-      assert.equal(calls.length, 2);
-      assert.match(calls[0].metric, /document\/read_count/); assert.match(calls[1].metric, /document\/write_count/);
+      assert.equal(u.dataBytes, 7); assert.equal(u.egressBytes, null);
+      assert.equal(calls.length, 3);
+      assert.match(calls[0].metric, /document\/read_count/); assert.match(calls[1].metric, /document\/write_count/); assert.match(calls[2].metric, /data_and_index_storage_bytes/);
       assert.equal(calls[0].start, '2026-11-18T08:00:00.000Z');
       const w = await collect('tok', 'proj', { USAGE_EGRESS_METRIC: 'x/egress', USAGE_DATA_METRIC: 'x/data' }, iso('2026-11-18T22:02:00Z'));
       assert.equal(w.dataBytes, 7); assert.equal(w.egressBytes, 7);

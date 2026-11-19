@@ -7,9 +7,9 @@
 //   node usage.mjs list       какие метрики Firestore видит Monitoring (чтобы выбрать данные и трафик, см. ниже)
 //
 // Счётчики: чтения и записи — с полуночи по тихоокеанскому времени (так Google считает сутки; в Варшаве это около 9:00).
-// Объём данных и трафик: имя счётчика не зашито — задайте метрику переменной среды USAGE_DATA_METRIC (текущее значение, берётся последнее)
-// и USAGE_EGRESS_METRIC (сумма с 1-го числа по тихоокеанскому времени). Пока не заданы — в usage/current будет null, панель покажет «нет данных».
-// Свои имена чтений и записей — USAGE_READS_METRIC и USAGE_WRITES_METRIC (по умолчанию firestore.googleapis.com/document/read_count и write_count).
+// Объём данных — storage/data_and_index_storage_bytes (последнее значение за сутки). Исходящего трафика среди метрик Firestore нет (проверено списком
+// `list` 19 ноября 2026): USAGE_EGRESS_METRIC (сумма с 1-го числа по тихоокеанскому времени) можно задать, если найдётся подходящая; пока не задана — null,
+// панель покажет «нет данных». Свои имена: USAGE_READS_METRIC, USAGE_WRITES_METRIC, USAGE_DATA_METRIC.
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { cert } from 'firebase-admin/app';
@@ -19,6 +19,7 @@ import { connect } from './lib.mjs';
 export const DEFAULT_METRICS = {
   reads: 'firestore.googleapis.com/document/read_count',
   writes: 'firestore.googleapis.com/document/write_count',
+  data: 'firestore.googleapis.com/storage/data_and_index_storage_bytes',   // GAUGE, байты (метрика есть в списке `usage.mjs list`)
 };
 
 /* ----- Время: тихоокеанские сутки и месяц ----- */
@@ -109,7 +110,7 @@ export async function collect(token, project, env = process.env, now = Date.now(
   const reads = await readMetric(token, project, env.USAGE_READS_METRIC || DEFAULT_METRICS.reads, day, now, 'sum');
   const writes = await readMetric(token, project, env.USAGE_WRITES_METRIC || DEFAULT_METRICS.writes, day, now, 'sum');
   // данные — за последние сутки (Google обновляет объём несколько раз в сутки), трафик — с 1-го числа
-  const dataBytes = env.USAGE_DATA_METRIC ? await readMetric(token, project, env.USAGE_DATA_METRIC, now - 86400000, now, 'last') : null;
+  const dataBytes = await readMetric(token, project, env.USAGE_DATA_METRIC || DEFAULT_METRICS.data, now - 86400000, now, 'last');
   const egressBytes = env.USAGE_EGRESS_METRIC ? await readMetric(token, project, env.USAGE_EGRESS_METRIC, month, now, 'sum') : null;
   return buildUsage({ reads, writes, dataBytes, egressBytes }, now);
 }

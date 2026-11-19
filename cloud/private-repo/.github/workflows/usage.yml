@@ -1,8 +1,7 @@
 # Лимиты базы Crosspect (этап 10.5.4): раз в 3 часа читает счётчики Cloud Monitoring и кладёт итог в Firestore usage/current.
 # Форма показывает их админу в окне «Лимиты базы» и подсвечивает кнопку списка пространств от 80 % (красным от 90 %).
 # Нужен секрет FIREBASE_SERVICE_ACCOUNT, а у его аккаунта — роль «Monitoring Viewer» (Просмотр Monitoring).
-# Объём данных и трафик: переменные репозитория USAGE_DATA_METRIC и USAGE_EGRESS_METRIC (Settings → Secrets and variables → Actions → Variables).
-# Какие метрики есть: Actions → «Лимиты базы» → Run workflow → «Показать метрики Monitoring».
+# Объём данных берётся из метрики по умолчанию; исходящего трафика у Firestore среди метрик нет (список: Run workflow → «Показать метрики Monitoring»).
 # Описание: cloud/private-repo/README.md и cloud/scripts/usage.mjs в публичном репозитории crosspect-app/crosspect.
 name: Лимиты базы
 
@@ -36,8 +35,6 @@ jobs:
       - name: Прочитать счётчики и записать usage/current
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          USAGE_DATA_METRIC: ${{ vars.USAGE_DATA_METRIC }}
-          USAGE_EGRESS_METRIC: ${{ vars.USAGE_EGRESS_METRIC }}
           LIST: ${{ inputs.list }}
         run: |
           test -n "$FIREBASE_SERVICE_ACCOUNT" || { echo "::error::Нет секрета FIREBASE_SERVICE_ACCOUNT"; exit 1; }
