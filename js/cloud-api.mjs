@@ -528,17 +528,6 @@ export function createCloudAPI(fb){
       }, onError);
       return () => { u1(); u2(); };
     },
-    /* Лимиты базы (этап 10.5.4): usage/current пишет только служебный скрипт (crosspect-backup), читает только админ всей формы.
-       onData(null | { at (мс), day ('ГГГГ-ММ-ДД' по тихоокеанскому времени), month ('ГГГГ-ММ'), reads, writes, dataBytes, egressBytes (число или null) }) */
-    watchUsage(onData, onError){
-      const num = v => typeof v === 'number' && isFinite(v) ? v : null;
-      return F.onSnapshot(F.doc(db, 'usage', 'current'), snap => {
-        if (!snap.exists()){ onData(null); return; }
-        const x = snap.data(), t = x.updatedAt;
-        onData({ at: t && t.toMillis ? t.toMillis() : 0, day: String(x.day || ''), month: String(x.month || ''),
-          reads: num(x.reads), writes: num(x.writes), dataBytes: num(x.dataBytes), egressBytes: num(x.egressBytes) });
-      }, onError);
-    },
     /* Картинка фото: Uint8Array (WebP) или null, если записи нет */
     async bankFile(id){
       const s = await F.getDoc(F.doc(db, 'bankFiles', id));

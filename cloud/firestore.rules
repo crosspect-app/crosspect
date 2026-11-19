@@ -122,12 +122,6 @@ service cloud.firestore {
       allow get: if signedIn() && email == me();
     }
 
-    // ---------- лимиты базы (этап 10.5.4) ----------
-    // usage/current — счётчики из Cloud Monitoring. Пишет только служебный скрипт (в обход правил), читает только админ.
-    match /usage/{id} {
-      allow get: if isAdmin();
-    }
-
     match /spaces/{s} {
       allow get: if isMember(s);
       // Список всех пространств — только админу; остальные находят свои через участников (ниже).

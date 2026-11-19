@@ -56,7 +56,7 @@ function startAuth(){
 }
 
 async function cloudUser(user){
-  stopListen(); resetCloud(); photoBankStop(); usageStop();   // фотобанк общий, слушается с первого обращения (photos.js); сменился человек — заново
+  stopListen(); resetCloud(); photoBankStop();   // фотобанк общий, слушается с первого обращения (photos.js); сменился человек — заново
   Object.assign(cloud, { user, admin:false, spaces:[], list:null, space:'', spaceName:'', role:'', member:null, settings:{}, error:'' });
   if (!user){ cloud.mode = 'out'; cloudChanged(); return; }
   cloud.mode = 'wait'; cloudChanged();
@@ -136,7 +136,6 @@ function startListen(){
   // люди пространства и серии проповедей (этап 10, space.js): список авторов и получателей в Telegram, фон по серии
   if (cloud.api.watchMembers) cloud.peopleUnsub = cloud.api.watchMembers(cloud.space, list => setPeople(list), () => {});
   if (cloud.api.watchSeries) cloud.seriesUnsub = cloud.api.watchSeries(cloud.space, m => setSeriesData(m), () => {});
-  if (cloud.admin) usageStart();   // лимиты базы (usage.js, этап 10.5.4): только админ
   if (canSpace()) migrateOps(cloud.space);   // операторы этапа 10.1 → люди с ролью «Оператор» (этап 10.1.2, space.js)
 }
 function stopListen(){

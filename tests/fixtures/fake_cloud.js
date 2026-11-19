@@ -302,16 +302,6 @@
       };
       listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
     },
-    /* Лимиты базы (этап 10.5.4): db.usage.current — как в usage/current; читает только админ, клиент не пишет */
-    watchUsage(onData, onError){
-      const f = () => {
-        const u = me();
-        if (!u || !isAdmin(u.email)){ if (onError) onError(denied()); return; }
-        const x = (load().usage || {}).current;
-        onData(x ? JSON.parse(JSON.stringify(x)) : null);
-      };
-      listeners.add(f); setTimeout(f, 0); return () => listeners.delete(f);
-    },
     async bankFile(id){ calls.bankFile = (calls.bankFile || 0) + 1; offline(); const x = (load().bankFiles || {})[id]; return x ? fromB64(x) : null; },
     async setBankPerson(who, id, fields){
       calls.bank = (calls.bank || 0) + 1; offline();

@@ -1350,30 +1350,6 @@ describe('всё остальное закрыто', () => {
   });
 });
 
-describe('лимиты базы (этап 10.5.4)', () => {
-  const U = (db) => doc(db, 'usage', 'current');
-  const seedUsage = () => env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(U(ctx.firestore()), { day: '2026-11-18', month: '2026-11', reads: 4120, writes: 860, dataBytes: null, egressBytes: null, updatedAt: serverTimestamp() });
-  });
-  test('читает только админ всей формы', async () => {
-    await seedUsage();
-    await assertSucceeds(getDoc(U(as('admin'))));
-    for (const who of ['ed', 'ivan', 'petr', 'stranger']) await assertFails(getDoc(U(as(who))));
-    await assertFails(getDoc(U(anon())));
-  });
-  test('клиент не пишет и не удаляет — даже админ; список документов не читается', async () => {
-    await seedUsage();
-    const body = { day: '2026-11-18', month: '2026-11', reads: 0, writes: 0, updatedAt: serverTimestamp() };
-    for (const who of ['admin', 'ed', 'ivan']) {
-      await assertFails(setDoc(U(as(who)), body));
-      await assertFails(updateDoc(U(as(who)), { reads: 1 }));
-      await assertFails(deleteDoc(U(as(who))));
-    }
-    await assertFails(setDoc(doc(as('admin'), 'usage', 'other'), body));
-    await assertFails(getDocs(collection(as('admin'), 'usage')));
-  });
-});
-
 function assertEqual(a, b) {
   if (a !== b) throw new Error(`ожидалось ${b}, получено ${a}`);
 }
