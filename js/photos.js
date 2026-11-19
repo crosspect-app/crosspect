@@ -360,7 +360,17 @@ function photoRepaintAll(id){
    иначе кнопка успевала пропасть между нажатием и отпусканием) */
 function photoPanelRefresh(){
   const side = typeof sideEl !== 'undefined' && sideEl ? sideEl.querySelector('.ph-panel') : null;
-  if (side && side._b) photoPanelFill(side, side._b);
+  if (!side || !side._b) return;
+  // этап 10.5.7: снимки фотобанка приходят по нескольку раз — блок собирается заново, только если в нём что-то изменилось
+  // (иначе кнопка, которую как раз нажимают, пропадала, и щелчок терялся)
+  if (side._sig === photoPanelSig(side._b)) side.classList.toggle('sel', photoUI.sel === side._b.id || photoUI.crop === side._b.id);
+  else photoPanelFill(side, side._b);
+}
+/* Всё, от чего зависит вид блока «Фото» (кроме ползунков — их значения меняются на месте) */
+function photoPanelSig(b){
+  const p = b.photo || {}, a = bankEntry(p.id);
+  return JSON.stringify([photoBank.loaded, a && [a.id, a.thumb, bankName(a), a.kind, !!a.legacy], !!p.off, photoUI.crop === b.id,
+    !!p.flipH, !!p.flipV, !!(cloud.admin && cloudOn()), readOnly()]);
 }
 
 /* Двигать мышью; за угол — размер с сохранением пропорций видимой части, противоположный угол стоит на месте (рамка может быть повёрнута).
@@ -529,5 +539,6 @@ function photoPanelFill(el, b){
         onclick:e => photoSavePreset(b, e.currentTarget) }, 'Сделать видом по умолчанию') : null));
   }
   el.innerHTML = ''; el.append(...kids);
+  el._sig = photoPanelSig(b);
   el.classList.toggle('sel', photoUI.sel === b.id || photoUI.crop === b.id);
 }

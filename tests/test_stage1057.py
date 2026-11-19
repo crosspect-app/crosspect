@@ -224,3 +224,15 @@ def test_knob_by_finger_on_phone(browser, base_url, sermon):
         assert not pg.errors, pg.errors
     finally:
         ctx.close()
+
+
+def test_bank_snapshot_does_not_rebuild_photo_block(page, sermon):
+    """Снимки фотобанка приходят по нескольку раз: блок «Фото» не собирается заново без нужды, иначе нажатая кнопка пропадала"""
+    open_quote(page, sermon, photo={"id": "lewis-cs"})
+    adv(page)
+    r = page.evaluate("""() => { const btn = document.querySelector('.side .ph-crop-btn'); bankRebuild(); const same = btn.isConnected;
+      photoBank.people['lewis-cs'].last = 'Льюис-Новый'; bankRebuild();
+      return [same, btn.isConnected, document.querySelector('.side .ph-cur-name').textContent]; }""")
+    assert r[0] is True   # ничего не поменялось — та же кнопка
+    assert r[1] is False and "Льюис-Новый" in r[2]   # поменялось имя — блок собран заново
+    assert not page.errors, page.errors
