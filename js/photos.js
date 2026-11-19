@@ -367,9 +367,13 @@ function photoDrag(e, id){
   const hit = e.currentTarget; hit.setPointerCapture(e.pointerId); hit.classList.add('drag');
   let moved = false;
   const move = ev => {
-    const dx = (ev.clientX - x0) / k, dy = (ev.clientY - y0) / k;
+    let dx = (ev.clientX - x0) / k, dy = (ev.clientY - y0) / k;
     if (!moved && Math.abs(dx) + Math.abs(dy) < 2) return;
     if (!moved){ moved = true; photoUI.dragging = true; photoUI.pop = null; if (typeof photoEditSync === 'function') photoRepaintAll(b.id); }
+    if (!corner){   // привязки при перетаскивании (правка 19 ноября, textframe.js); Alt — без них
+      const s = ev.altKey ? { dx, dy, g:[] } : photoSnapMove(b, box0, dx, dy);
+      dx = s.dx; dy = s.dy; slideGuides(hit.closest('.stage-slide'), s.g, k);
+    }
     let cx = V0.cx + dx, cy = V0.cy + dy, f = 1;
     if (corner){
       const sx = corner.includes('e') ? 1 : -1, sy = corner.includes('s') ? 1 : -1;
@@ -388,6 +392,7 @@ function photoDrag(e, id){
   const up = () => {
     hit.removeEventListener('pointermove', move); hit.removeEventListener('pointerup', up); hit.removeEventListener('pointercancel', up);
     hit.classList.remove('drag');
+    slideGuides(hit.closest('.stage-slide'), [], k);
     photoUI.dragging = false;
     if (moved){ change(); updateCounter(b); }
     else if (typeof photoSelect === 'function') photoSelect(b.id);   // щелчок: панель над фото

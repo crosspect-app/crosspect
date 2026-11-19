@@ -316,3 +316,57 @@ def test_pptx_has_text_picture_in_frame(page, sermon):
     bb = im.getchannel("A").point(lambda a: 255 if a > 200 else 0).getbbox()
     assert bb and bb[0] >= 0.5 * 1920 - 4 and bb[2] <= 0.9 * 1920 + 4 and bb[1] >= 0.05 * 1080 - 4 and bb[3] <= 0.35 * 1080 + 4
     assert not page.errors, page.errors
+
+
+# ---------- Правка 19 ноября: привязки фото при перетаскивании ----------
+
+def photo_drag(page, dx, dy, alt=False, hold=False):
+    bx, s = page.locator(".stage .ph-hit").bounding_box(), k(page)
+    x, y = bx["x"] + bx["width"] / 2, bx["y"] + bx["height"] / 2
+    page.mouse.move(x, y)
+    if alt:
+        page.keyboard.down("Alt")
+    page.mouse.down()
+    page.mouse.move(x + dx * s, y + dy * s, steps=6)
+    if hold:
+        return
+    page.mouse.up()
+    if alt:
+        page.keyboard.up("Alt")
+
+
+def pbox(page):
+    return page.evaluate("(() => { const p = photoBox(state.blocks.find(b => b.id === 'q1')); return [p.left, p.top, p.width, p.height]; })()")
+
+
+def test_photo_snaps_to_slide_center_with_guide(page, sermon):
+    opened(page, sermon)
+    l, t, w, hh = pbox(page)
+    photo_drag(page, 960 - (l + w / 2) + 5, 0, hold=True)
+    page.wait_for_timeout(50)
+    assert page.locator(".stage .sl-guides .tb-guide.v").count() == 1
+    page.mouse.up()
+    assert page.locator(".stage .sl-guides").count() == 0
+    l, t, w, hh = pbox(page)
+    assert abs(l + w / 2 - 960) < 0.6
+    assert not page.errors, page.errors
+
+
+def test_photo_snaps_to_margin_and_vertical_center(page, sermon):
+    opened(page, sermon)
+    m = margins(page)
+    page.evaluate("const b = state.blocks.find(b => b.id === 'q1'); b.photo.h = 0.5; b.photo.y = 0.7; rerender(b)")
+    l, t, w, hh = pbox(page)
+    photo_drag(page, m["x"] + 5 - l, 540 - (t + hh / 2) - 6)
+    l, t, w, hh = pbox(page)
+    assert abs(l - m["x"]) < 0.6 and abs(t + hh / 2 - 540) < 0.6
+    assert not page.errors, page.errors
+
+
+def test_photo_alt_no_snap(page, sermon):
+    opened(page, sermon)
+    l0, t0, w, hh = pbox(page)
+    photo_drag(page, 960 - (l0 + w / 2) + 5, -30, alt=True)
+    l, t, w, hh = pbox(page)
+    assert abs(l + w / 2 - 965) <= 2.5 and abs(t - (t0 - 30)) <= 2.5
+    assert not page.errors, page.errors

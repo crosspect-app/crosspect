@@ -191,3 +191,29 @@ function textFramePanel(b){
       h('button', { type:'button', class:'btn small tb-fit', disabled:ro ? true : null, onclick:() => tbFitFree(b) }, 'Выровнять по свободному месту'),
       b.textBox ? h('button', { type:'button', class:'btn small tb-reset', disabled:ro ? true : null, title:'Вернуть текст на место по «Месту текста» и «Ширине текста»', onclick:() => tbReset(b) }, 'Сбросить') : null));
 }
+
+/* ----- Привязки фото при перетаскивании (правка 19 ноября 2026) -----
+   Рамка фото — photoBox (с обрезкой, поворотом и обводкой). Края липнут к краям слайда, внутреннему краю его рамки, полям слайда
+   и краям рамки текста; середина — к середине слайда. Линии — .sl-guides на большом слайде */
+function photoSnapMove(b, box0, dx, dy){
+  const m = tbMargins(), I = PANEL_INSET, g = [];
+  const T = { x:{ edges:[0, I, m.x, SL.W - m.x, SL.W - I, SL.W], centers:[SL.W / 2] }, y:{ edges:[0, I, m.t, SL.H - m.b, SL.H - I, SL.H], centers:[SL.H / 2] } };
+  if (photoHalf(b)){
+    const R = tbRect(b, document.querySelector('.stage-slide .sl[data-id="' + b.id + '"]'));
+    T.x.edges.push(R.l, R.r); T.y.edges.push(R.t, R.b);
+  }
+  const l = box0.left + dx, t = box0.top + dy, w = box0.width, hh = box0.height;
+  const sx = tbSnap([[l, 'edges'], [l + w / 2, 'centers'], [l + w, 'edges']], T.x);
+  if (sx){ dx += sx.d; g.push({ dir:'v', at:sx.at }); }
+  const sy = tbSnap([[t, 'edges'], [t + hh / 2, 'centers'], [t + hh, 'edges']], T.y);
+  if (sy){ dy += sy.d; g.push({ dir:'h', at:sy.at }); }
+  return { dx, dy, g };
+}
+/* Линии привязки на большом слайде: lines — [{ dir:'v' | 'h', at:px кадра }], пусто — убрать */
+function slideGuides(holder, lines, k){
+  if (!holder) return;
+  let G = holder.querySelector(':scope > .sl-guides');
+  if (!lines.length){ if (G) G.remove(); return; }
+  if (!G) holder.append(G = h('div', { class:'sl-guides', 'aria-hidden':'true' }));
+  G.replaceChildren(...lines.map(g => h('div', { class:'tb-guide ' + g.dir, style:g.dir === 'v' ? 'left:' + g.at * k + 'px' : 'top:' + g.at * k + 'px' })));
+}

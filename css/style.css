@@ -1420,7 +1420,8 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .tb-h.c-ne{right:-7px;top:-7px;cursor:nesw-resize}.tb-h.c-sw{left:-7px;bottom:-7px;cursor:nesw-resize}
 .tb-h.c-n{left:calc(50% - 6px);top:-7px;cursor:ns-resize}.tb-h.c-s{left:calc(50% - 6px);bottom:-7px;cursor:ns-resize}
 .tb-h.c-w{left:-7px;top:calc(50% - 6px);cursor:ew-resize}.tb-h.c-e{right:-7px;top:calc(50% - 6px);cursor:ew-resize}
-.tb-guides{position:absolute;inset:0;pointer-events:none}
+.tb-guides,.sl-guides{position:absolute;inset:0;pointer-events:none}
+.sl-guides{z-index:5}
 .tb-guide{position:absolute;background:#ff5ad1}
 .tb-guide.v{top:0;bottom:0;width:1px}
 .tb-guide.h{left:0;right:0;height:1px}
