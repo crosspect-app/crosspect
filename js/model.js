@@ -92,7 +92,8 @@ const PHOTO_FILTER_IDS = ['none', 'bw', 'bwHard', 'bwSoft', 'sepia', 'warm', 'co
 const PHOTO_H = { def:0.9, min:0.15, max:3 };
 /* Этап 10.5.3 — правки фото на слайде (поля есть, только если не по умолчанию): crop {l,t,r,b} — обрезка в долях картинки, как она видна
    на слайде (после отражения; остаётся хотя бы 10 % по каждой стороне); rot — поворот в градусах, −180…180, по часовой; outline {w, color} —
-   обводка, w от 0 до 30 px слайда, color — #rrggbb; round — скругление углов 0…0,5 (только у фото «с фоном») */
+   обводка, w от 0 до 30 px слайда, color — #rrggbb; round — скругление углов 0…0,5 (только у фото «с фоном»).
+   Этап 10.5.7: flipH:true — отражено слева направо поверх отражения к тексту (mirror), flipV:true — сверху вниз */
 const PHOTO_OUT = { max:30, color:'#ffffff' }, PHOTO_CROP_MIN = 0.1;
 function normPhotoCrop(c){
   if (!c || typeof c !== 'object') return null;
@@ -114,6 +115,8 @@ function normPhoto(p){
     if (w > 0 || color !== PHOTO_OUT.color) out.outline = { w:+w.toFixed(1), color };
   }
   if (round) out.round = +round.toFixed(3);
+  if (p.flipH === true) out.flipH = true;
+  if (p.flipV === true) out.flipV = true;
   return out;
 }
 /* Проповедник: имя и фамилия хранятся раздельно (на заставке — «Имя ФАМИЛИЯ»). В списке проповедников — «Фамилия Имя» */

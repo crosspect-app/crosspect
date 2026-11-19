@@ -37,7 +37,18 @@ def photo_el(page):
 
 def select_photo(page):
     photo_el(page).click()
-    page.wait_for_selector(".ph-bar:not([hidden])")
+    page.wait_for_selector(".side .ph-panel.sel")
+
+
+def adv(page):
+    """Раскрыть «Расширенные настройки» в блоке «Фото» (правка 19 ноября 2026: инструменты — в «Редакторе»)"""
+    if not page.locator(".side .ph-adv").evaluate("d => d.open"):
+        page.locator(".side .ph-adv summary").click()
+    return page.locator(".side .ph-adv")
+
+
+def set_range(page, sel, v):
+    page.locator(sel).evaluate("(e, v) => { e.value = v; e.dispatchEvent(new Event('input', { bubbles:true })); }", v)
 
 
 # ---------- Модель ----------
@@ -134,73 +145,59 @@ def test_round_and_outline_on_background_photo(page, sermon):
 
 # ---------- Панель над фото ----------
 
-def test_bar_appears_on_click_and_goes_away(page, sermon):
+def test_click_selects_photo_and_highlights_side_block(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs", "x": 0.25, "y": 0.9, "h": 0.5})
     page.wait_for_selector(".stage .ph-hit")
-    assert page.locator(".ph-bar:not([hidden])").count() == 0
+    assert page.locator(".side .ph-panel.sel").count() == 0
     select_photo(page)
-    labels = [t.strip() for t in page.locator(".ph-bar .ph-b").all_inner_texts()]
-    assert labels == ["", "Обрезать", "Повернуть", "Обводка", "Фильтр", "Отразить"]   # 👁 без подписи; «Углы» — только «с фоном»
-    assert page.locator(".ph-bar .ph-b-eye").is_visible()
-    # у слайда над фото; щелчок мимо — пропала
-    hit, bar = photo_el(page).bounding_box(), page.locator(".ph-bar").bounding_box()
-    assert bar["y"] + bar["height"] <= hit["y"] + 2
+    assert "sel" in photo_el(page).get_attribute("class")
+    assert page.locator(".ph-bar").count() == 0 and page.locator(".ph-pop").count() == 0   # над фото ничего нет
+    # щелчок мимо — выделение снято; щелчок по блоку «Фото» его не снимает
+    select_photo(page)
+    page.locator(".side .ph-adv summary").click()
+    assert page.locator(".side .ph-panel.sel").count() == 1
     page.locator(".stage .sl").click(position={"x": 700, "y": 40})
-    assert page.locator(".ph-bar:not([hidden])").count() == 0
-    # пока фото тянут — пропадает, потом возвращается
-    select_photo(page)
-    hit = photo_el(page).bounding_box()
-    page.mouse.move(hit["x"] + hit["width"] / 2, hit["y"] + hit["height"] / 2)
-    page.mouse.down(); page.mouse.move(hit["x"] + hit["width"] / 2 + 40, hit["y"] + hit["height"] / 2 - 20, steps=4)
-    assert page.locator(".ph-bar:not([hidden])").count() == 0
-    page.mouse.up()
-    page.wait_for_selector(".ph-bar:not([hidden])")   # отпустили — панель вернулась
+    assert page.locator(".side .ph-panel.sel").count() == 0 and "sel" not in photo_el(page).get_attribute("class")
     assert not page.errors, page.errors
 
 
-def test_only_one_popup_open_and_bg_has_corners(page, sermon):
+def test_advanced_collapsed_by_default_and_remembered(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs"})
-    select_photo(page)
-    for name in ["rot", "out", "filter"]:
-        page.locator(".ph-bar .ph-b-" + name).click()
-        assert page.locator(".ph-pop").count() == 1 and page.locator(".ph-pop.ph-pop-" + name).count() == 1
-    page.locator(".ph-bar .ph-b-filter").click()   # тот же — закрыть
-    assert page.locator(".ph-pop").count() == 0
-    assert page.locator(".ph-bar .ph-b-round").count() == 0   # у «без фона» «Углов» нет
+    page.wait_for_selector(".side .ph-panel")
+    d = page.locator(".side .ph-adv")
+    assert d.evaluate("d => d.open") is False
+    assert not page.locator(".side .ph-filter").is_visible()   # фильтр — в расширенных
+    assert page.locator(".side .ph-panel .ph-reset").is_visible()   # «Сбросить» — на виду
+    names = page.locator(".side .ph-adv-body .ph-lbl").all_text_contents()
+    assert names == ["Фильтр", "Отразить", "Обводка"]   # «Углы» — только «с фоном»; поворота в панели нет (этап 10.5.7 — стрелкой)
+    assert page.locator(".side .ph-adv .ph-crop-btn").count() == 1 and page.locator(".side .ph-adv .ph-flip").count() == 1
+    assert page.locator(".side .ph-adv .ph-flipv").count() == 1
+    adv(page)
+    page.evaluate("rerender(state.blocks.find(b => b.id === 'q1'))")
+    assert page.locator(".side .ph-adv").evaluate("d => d.open") is True   # раскрыли — так и осталось
     assert not page.errors, page.errors
 
 
-def test_background_photo_has_corners_and_no_flip(page, sermon):
+def test_background_photo_has_corners_and_both_flips(page, sermon):
     open_q(page, sermon, photo={"id": "lewis-bg"})
-    page.locator(".stage .ph-hit").click()
-    page.wait_for_selector(".ph-bar:not([hidden])")
-    assert page.locator(".ph-bar .ph-b-round").count() == 1 and page.locator(".ph-bar .ph-b-flip").count() == 0   # с фоном не отражается
+    adv(page)
+    assert page.locator(".side .ph-adv .ph-rd").count() == 1
+    assert page.locator(".side .ph-adv .ph-flip").count() == 1 and page.locator(".side .ph-adv .ph-flipv").count() == 1   # этап 10.5.7: у всех видов
     assert not page.errors, page.errors
 
 
 def test_popups_write_model(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs"})
-    select_photo(page)
-    page.locator(".ph-bar .ph-b-rot").click()
-    page.locator(".ph-pop .ph-rot").evaluate("e => { e.value = 2; e.dispatchEvent(new Event('input', { bubbles:true })); }")
-    assert "rot" not in q(page)["photo"]   # магнит у 0°
-    page.locator(".ph-pop .ph-rot").evaluate("e => { e.value = 40; e.dispatchEvent(new Event('input', { bubbles:true })); }")
-    assert q(page)["photo"]["rot"] == 40
-    page.locator(".ph-pop .ph-r90").click()
-    assert q(page)["photo"]["rot"] == 130
-    page.locator(".ph-pop .ph-r90").click()
-    assert q(page)["photo"]["rot"] == -140   # дальше 180 — с другого конца
-    page.locator(".ph-bar .ph-b-out").click()
-    page.locator(".ph-pop .ph-ow").evaluate("e => { e.value = 12; e.dispatchEvent(new Event('input', { bubbles:true })); }")
+    adv(page)
+    assert page.locator(".side .ph-panel input[type=range].ph-rot, .side .ph-panel .ph-r90").count() == 0   # этап 10.5.7: ни ползунка, ни «На 90°»
+    set_range(page, ".ph-adv .ph-ow", 12)
     assert q(page)["photo"]["outline"] == {"w": 12, "color": "#ffffff"}   # по умолчанию белый
-    page.locator(".ph-pop .ph-sw[title='#d94b4b']").click()
+    page.locator(".ph-adv .ph-sw[title='#d94b4b']").click()
     assert q(page)["photo"]["outline"] == {"w": 12, "color": "#d94b4b"}
-    page.locator(".ph-pop .ph-ow").evaluate("e => { e.value = 0; e.dispatchEvent(new Event('input', { bubbles:true })); }")
+    set_range(page, ".ph-adv .ph-ow", 0)
     assert q(page)["photo"]["outline"] == {"w": 0, "color": "#d94b4b"}
-    page.locator(".ph-bar .ph-b-filter").click()
-    page.locator(".ph-pop .ph-opt[data-f='sepia']").click()
+    page.locator(".ph-adv .ph-filter").select_option("sepia")
     assert q(page)["photo"]["filter"] == "sepia"
-    assert page.locator(".side .ph-panel select, .side .ph-panel .ph-filter").count() == 0   # справа — коротко
     page.evaluate("undo()")
     assert q(page)["photo"]["filter"] == "none"
     assert not page.errors, page.errors
@@ -208,11 +205,10 @@ def test_popups_write_model(page, sermon):
 
 def test_round_popup_on_background_photo(page, sermon):
     open_q(page, sermon, photo={"id": "lewis-bg"})
-    page.locator(".stage .ph-hit").click()
-    page.locator(".ph-bar .ph-b-round").click()
-    page.locator(".ph-pop .ph-rd").evaluate("e => { e.value = 50; e.dispatchEvent(new Event('input', { bubbles:true })); }")
+    adv(page)
+    set_range(page, ".ph-adv .ph-rd", 50)
     assert q(page)["photo"]["round"] == 0.5
-    page.locator(".ph-pop .ph-rd").evaluate("e => { e.value = 0; e.dispatchEvent(new Event('input', { bubbles:true })); }")
+    set_range(page, ".ph-adv .ph-rd", 0)
     assert "round" not in q(page)["photo"]
     # 50 % на квадратном кадре — круг: радиус равен половине стороны
     r = page.evaluate("""async () => { const a = bankEntry('lewis-bg'), b = state.blocks.find(x => x.id === 'q1');
@@ -226,11 +222,11 @@ def test_round_popup_on_background_photo(page, sermon):
 
 def test_crop_mode_handles_esc_and_original_untouched(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs"})
-    select_photo(page)
-    page.locator(".ph-bar .ph-b-crop").click()
+    adv(page).locator(".ph-crop-btn").click()
     page.wait_for_selector(".ph-crop .pc-frame")
     assert page.locator(".ph-crop .pc-h").count() == 8   # ручки по краям и углам
-    assert page.locator(".ph-bar .ph-b-done").is_visible() and page.locator(".ph-bar .ph-b-rot").count() == 0
+    assert page.locator(".ph-bar .ph-b-done").is_visible()   # над фото — только подсказка и «Готово»
+    assert page.locator(".side .ph-crop-btn").inner_text().strip() == "Готово"
     fr = page.locator(".ph-crop .pc-frame").bounding_box()
     h = page.locator(".ph-crop .pc-h.c-w").bounding_box()
     page.mouse.move(h["x"] + 7, h["y"] + 7)
@@ -252,13 +248,15 @@ def test_crop_mode_handles_esc_and_original_untouched(page, sermon):
 
 def test_crop_ends_on_click_elsewhere_and_done_button(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs"})
-    select_photo(page)
-    page.locator(".ph-bar .ph-b-crop").click()
+    adv(page).locator(".ph-crop-btn").click()
     page.wait_for_selector(".ph-crop .pc-frame")
     page.locator(".ph-bar .ph-b-done").click()
+    assert page.locator(".ph-crop").count() == 0 and page.locator(".side .ph-crop-btn").inner_text().strip() == "Обрезать"
+    page.locator(".side .ph-crop-btn").click()
+    page.wait_for_selector(".ph-crop .pc-frame")
+    page.locator(".side .ph-crop-btn").click()   # «Готово» в блоке «Фото»
     assert page.locator(".ph-crop").count() == 0
-    select_photo(page)
-    page.locator(".ph-bar .ph-b-crop").click()
+    page.locator(".side .ph-crop-btn").click()
     page.locator(".stage .sl").click(position={"x": 700, "y": 40})
     assert page.locator(".ph-crop").count() == 0 and page.evaluate("photoUI.crop") is None
     assert not page.errors, page.errors
@@ -292,13 +290,14 @@ def test_hit_frame_is_rotated_and_drag_follows(page, sermon):
 
 def test_flip_and_text_side_mirror_crop_and_rotation(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs", "crop": {"l": 0.3, "t": 0, "r": 0.1, "b": 0}, "rot": 20}, half="left", halfW=30)
-    select_photo(page)
-    page.locator(".ph-bar .ph-b-flip").click()   # «Текст слева»: отражается — «Отразить» снимает отражение: обрезка и поворот зеркально
+    assert page.evaluate("photoBox(state.blocks.find(b => b.id === 'q1')).flip") is True   # «Текст слева»: само смотрит к тексту
+    adv(page).locator(".ph-flip").click()   # «Слева направо» снимает отражение: обрезка и поворот зеркально
     p = q(page)["photo"]
-    assert p["mirror"] is False and p["crop"] == {"l": 0.1, "t": 0, "r": 0.3, "b": 0} and p["rot"] == -20
-    page.locator(".ph-bar .ph-b-flip").click()
+    assert p["flipH"] is True and p["mirror"] is True and p["crop"] == {"l": 0.1, "t": 0, "r": 0.3, "b": 0} and p["rot"] == -20
+    assert page.evaluate("photoBox(state.blocks.find(b => b.id === 'q1')).flip") is False
+    page.locator(".side .ph-flip").click()
     p = q(page)["photo"]
-    assert p["mirror"] is True and p["crop"]["l"] == 0.3 and p["rot"] == 20
+    assert "flipH" not in p and p["crop"]["l"] == 0.3 and p["rot"] == 20
     # переключили сторону текста: фото отражается — обрезка и поворот вместе с ним
     page.evaluate("(() => { const b = state.blocks.find(x => x.id === 'q1'); photoHalfSwitch(b, 'right'); b.half = 'right'; })()")
     p = q(page)["photo"]
@@ -358,12 +357,12 @@ def test_only_admin_sees_preset_button(browser, base_url, sermon):
 
 # ---------- Скрыть ----------
 
-def test_eye_button_hides_and_panel_switch_shows_again(page, sermon):
+def test_on_slide_switch_hides_and_shows_again(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs", "rot": 10})
-    select_photo(page)
-    page.locator(".ph-bar .ph-b-eye").click()
+    page.wait_for_selector(".stage .ph-hit")
+    page.locator(".side .ph-panel .switch", has_text="На слайде").click()
     assert q(page)["photo"]["off"] is True and q(page)["photo"]["rot"] == 10   # выбор и правки хранятся
-    assert page.locator(".stage .ph-hit").count() == 0 and page.locator(".ph-bar").count() == 0
+    assert page.locator(".stage .ph-hit").count() == 0 and page.locator(".side .ph-adv").count() == 0
     page.locator(".side .ph-panel .switch", has_text="На слайде").click()
     assert "off" not in q(page)["photo"]
     page.wait_for_selector(".stage .ph-hit")
@@ -410,8 +409,8 @@ def test_bar_at_bottom_on_phone(browser, base_url, sermon, opts):
         pg.wait_for_selector(".home-top")
         open_quote(pg, sermon, photo={"id": "lewis-cs"})
         pg.wait_for_selector(".stage .ph-hit")
-        pg.locator(".stage .ph-hit").tap() if opts.get("has_touch") else pg.locator(".stage .ph-hit").click()
-        pg.wait_for_selector(".ph-bar:not([hidden])")
+        pg.evaluate("photoCropStart('q1')")   # над фото панель только при обрезке
+        pg.wait_for_selector(".ph-bar")
         bar = pg.locator(".ph-bar").bounding_box()
         assert pg.locator(".ph-bar").evaluate("e => getComputedStyle(e).position") == "fixed"
         assert abs(bar["y"] + bar["height"] - opts["viewport"]["height"]) < 2   # прижата к низу экрана

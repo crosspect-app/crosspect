@@ -1263,7 +1263,11 @@ describe('фотобанк (этап 10.5)', () => {
     await assertFails(setDoc(author(db), body('admin', { preset: preset({ outline: { w: 31, color: '#ffffff' } }) })));
     await assertFails(setDoc(author(db), body('admin', { preset: preset({ outline: { w: 5, color: 'red' } }) })));
     await assertFails(setDoc(author(db), body('admin', { preset: preset({ round: 0.6 }) })));
-    await assertFails(setDoc(author(db), body('admin', { preset: preset({ off: true }) })));   // видимость в вид по умолчанию не входит
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ off: true }) })));
+    // этап 10.5.7: отражение по двум осям
+    await assertSucceeds(setDoc(author(db), body('admin', { preset: preset({ flipH: true, flipV: false }) }), { merge: true }));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ flipV: 'yes' }) })));
+    await assertFails(setDoc(author(db), body('admin', { preset: preset({ flipH: 1 }) })));   // видимость в вид по умолчанию не входит
     await assertFails(setDoc(author(db, 'Lewis CS'), body('admin')));
   });
 });

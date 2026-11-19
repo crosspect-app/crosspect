@@ -89,8 +89,8 @@ function normPreset(p){
   const x = n(p.x, -2, 3), y = n(p.y, -2, 4), hh = n(p.h, PHOTO_H.min, PHOTO_H.max);
   if (x == null || y == null || hh == null) return null;
   const out = { x, y, h:hh, side:p.side, filter:PHOTO_FILTERS.some(f => f[0] === p.filter) ? p.filter : 'none', mirror:p.mirror !== false };
-  const fx = normPhoto({ id:'x', crop:p.crop, rot:p.rot, outline:p.outline, round:p.round });   // этап 10.5.3: обрезка, поворот, обводка, углы — как у фото на слайде
-  ['crop', 'rot', 'outline', 'round'].forEach(k => { if (fx[k] != null) out[k] = fx[k]; });
+  const fx = normPhoto({ id:'x', crop:p.crop, rot:p.rot, outline:p.outline, round:p.round, flipH:p.flipH, flipV:p.flipV });   // этап 10.5.3: обрезка, поворот, обводка, углы — как у фото на слайде; 10.5.7 — отражение
+  ['crop', 'rot', 'outline', 'round', 'flipH', 'flipV'].forEach(k => { if (fx[k] != null) out[k] = fx[k]; });
   return out;
 }
 const bankEntry = id => (id && photoBank.byId.get(id)) || null;
@@ -117,10 +117,12 @@ const photoHalf = b => b.type === 'quote' && (b.half === 'left' || b.half === 'r
 function photoZoneX(b){ const z = 1 - clampHalfW(b.halfW) / 100; return photoHalf(b) === 'left' ? 1 - z / 2 : z / 2; }
 /* В банке человек смотрит вправо: при «Тексте слева» фото справа и отражается (смотрит к тексту). Анфас, «с фоном» и «Не отражать» — как есть */
 const photoMirrors = a => a.kind !== 'bg' && a.faces !== 'front';
-const photoFlip = (b, a) => photoHalf(b) === 'left' && photoMirrors(a) && b.photo.mirror !== false;
-/* Состояние правки на слайде (photoedit.js): sel — id цитаты, у которой фото выделено (над ним панель), pop — открытое окошко панели,
-   crop — id цитаты, у которой идёт обрезка, dragging — фото тянут мышью */
-const photoUI = { sel:null, pop:null, crop:null, dragging:false };
+const photoAutoFlip = (b, a) => photoHalf(b) === 'left' && photoMirrors(a) && b.photo.mirror !== false;
+/* Этап 10.5.7: кнопка «Слева направо» (flipH) отражает поверх этого, у всех видов фото; «Сверху вниз» — flipV */
+const photoFlip = (b, a) => photoAutoFlip(b, a) !== (b.photo.flipH === true);
+/* Состояние правки на слайде (photoedit.js): sel — id цитаты, у которой фото выделено, pop — не используется (была панель над фото),
+   crop — id цитаты, у которой идёт обрезка, dragging — фото тянут мышью, rotating — фото крутят стрелкой { id, base, url, rect } */
+const photoUI = { sel:null, pop:null, crop:null, dragging:false, rotating:null };
 /* Что рисуем у фото b: в режиме обрезки поворот, обводка и углы выключены (рамка обрезки прямая) */
 function photoFx(b, a){
   const p = b.photo, cropping = photoUI.crop === b.id;
@@ -139,7 +141,7 @@ function photoBox(b){
   V.cx = V.left + V.width / 2; V.cy = V.top + V.height / 2;
   const on = !!(fx.rot || fx.ow || fx.round || c.l || c.t || c.r || c.b), th = fx.rot * Math.PI / 180, cs = Math.abs(Math.cos(th)), sn = Math.abs(Math.sin(th));
   const W = on ? Math.ceil(V.width * cs + V.height * sn + 2 * fx.ow) : w, H = on ? Math.ceil(V.width * sn + V.height * cs + 2 * fx.ow) : hh;
-  return { left:V.cx - W / 2, top:V.cy - H / 2, width:W, height:H, entry:a, flip:photoFlip(b, a), F, V, rot:fx.rot, fx:on ? fx : null, cropping:photoUI.crop === b.id };
+  return { left:V.cx - W / 2, top:V.cy - H / 2, width:W, height:H, entry:a, flip:photoFlip(b, a), flipV:p.flipV === true, F, V, rot:fx.rot, fx:on ? fx : null, cropping:photoUI.crop === b.id };
 }
 
 /* ----- Фильтры (по пикселям: одинаково в Chrome и Safari) ----- */
@@ -205,15 +207,15 @@ function photoImage(a){
   })).catch(e => { photoImgCache.delete(a.id); throw e; }));
   return photoImgCache.get(a.id);
 }
-/* Готовая картинка: фильтр и отражение уже применены. { url (blob: для экрана), canvas } — кешируется по id, фильтру и отражению */
+/* Готовая картинка: фильтр и отражение уже применены. { url (blob: для экрана), canvas } — кешируется по id, фильтру и отражению (flip — слева направо, flipV — сверху вниз) */
 const photoVars = new Map();
-const variantKey = (a, f, flip) => a.id + '|' + f + '|' + (flip ? 1 : 0) + (f === 'tone' ? '|' + photoToneColor() : '');
-function photoVariant(a, f, flip){
-  const key = variantKey(a, f, flip);
+const variantKey = (a, f, flip, flipV) => a.id + '|' + f + '|' + (flip ? 1 : 0) + (flipV ? 'v' : '') + (f === 'tone' ? '|' + photoToneColor() : '');
+function photoVariant(a, f, flip, flipV){
+  const key = variantKey(a, f, flip, flipV);
   if (!photoVars.has(key)) photoVars.set(key, photoImage(a).then(im => {
     const cv = document.createElement('canvas'); cv.width = im.naturalWidth; cv.height = im.naturalHeight;
     const ctx = cv.getContext('2d');
-    if (flip){ ctx.translate(cv.width, 0); ctx.scale(-1, 1); }
+    if (flip || flipV){ ctx.translate(flip ? cv.width : 0, flipV ? cv.height : 0); ctx.scale(flip ? -1 : 1, flipV ? -1 : 1); }
     ctx.drawImage(im, 0, 0);
     if (f !== 'none'){ const px = ctx.getImageData(0, 0, cv.width, cv.height); filterPixels(px.data, f, photoToneColor()); ctx.putImageData(px, 0, 0); }
     return new Promise(res => cv.toBlob(bl => { const v = { canvas:cv, url:bl ? URL.createObjectURL(bl) : cv.toDataURL('image/png') }; v.ready = true; photoVars.set(key, v); res(v); }, 'image/webp', 0.92));
@@ -224,7 +226,7 @@ function photoVariant(a, f, flip){
    фото не зависит), поэтому ключ кеша включает высоту фото. Стек: отражение и обрезка заданы так, как фото видно на слайде */
 const photoFxKeys = [];
 const fxKey = (b, box) => { const c = box.fx.crop, o = box.fx;
-  return [box.entry.id, b.photo.filter, box.flip ? 1 : 0, c.l, c.t, c.r, c.b, o.rot, o.ow, o.oc, o.round, Math.round(box.F.height),
+  return [box.entry.id, b.photo.filter, (box.flip ? 1 : 0) + (box.flipV ? 'v' : ''), c.l, c.t, c.r, c.b, o.rot, o.ow, o.oc, o.round, Math.round(box.F.height),
     b.photo.filter === 'tone' ? photoToneColor() : ''].join('|'); };
 function rrPath(g, x, y, w, h, r){
   r = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -239,9 +241,9 @@ function photoFxVariant(b, box){
     g.imageSmoothingQuality = 'high';
     g.scale(q, q); g.translate(CW / 2, CH / 2); g.rotate(th);
     if (rad > 0){ rrPath(g, -V.width / 2, -V.height / 2, V.width, V.height, rad); g.clip(); }
-    if (box.flip) g.scale(-1, 1);
+    if (box.flip || box.flipV) g.scale(box.flip ? -1 : 1, box.flipV ? -1 : 1);
     const iw = im.naturalWidth, ih = im.naturalHeight;
-    g.drawImage(im, (box.flip ? c.r : c.l) * iw, c.t * ih, (1 - c.l - c.r) * iw, (1 - c.t - c.b) * ih, -V.width / 2, -V.height / 2, V.width, V.height);
+    g.drawImage(im, (box.flip ? c.r : c.l) * iw, (box.flipV ? c.b : c.t) * ih, (1 - c.l - c.r) * iw, (1 - c.t - c.b) * ih, -V.width / 2, -V.height / 2, V.width, V.height);
     if (f !== 'none'){ const px = P.getContext('2d').getImageData(0, 0, P.width, P.height); filterPixels(px.data, f, photoToneColor()); P.getContext('2d').putImageData(px, 0, 0); }
     const C = mk(), t = C.getContext('2d');
     if (fx.ow > 0){
@@ -267,8 +269,8 @@ function photoFxVariant(b, box){
   }).catch(e => { photoVars.delete(key); throw e; }));
   return photoVars.get(key);
 }
-const photoVariantFor = (b, box) => box.fx ? photoFxVariant(b, box) : photoVariant(box.entry, b.photo.filter, box.flip);
-const photoKeyFor = (b, box) => box.fx ? fxKey(b, box) : variantKey(box.entry, b.photo.filter, box.flip);
+const photoVariantFor = (b, box) => box.fx ? photoFxVariant(b, box) : photoVariant(box.entry, b.photo.filter, box.flip, box.flipV);
+const photoKeyFor = (b, box) => box.fx ? fxKey(b, box) : variantKey(box.entry, b.photo.filter, box.flip, box.flipV);
 /* Уже готовая картинка (синхронно) { url, rect } или null — тогда начинаем готовить и перерисуем слайды, когда будет готова.
    Пока новая не готова (фото тянут, крутят ползунок), показываем прежнюю: прежний прямоугольник, если пропорции другие, иначе — тот же вид в новом размере.
    Новая при перетаскивании готовится через ~150 мс после остановки */
@@ -284,6 +286,11 @@ function photoUrlNow(b, box){
   const last = photoLast.get(b.id);
   if (!last || last.id !== box.entry.id) return null;
   return { url:last.url, rect:Math.abs(last.ratio - box.width / box.height) < 0.01 ? rect : last.rect };
+}
+/* Пока фото крутят стрелкой (этап 10.5.7): прежняя картинка, повёрнутая на разницу углов (середина рамки — середина видимой части, она не сдвигается) */
+function photoRotPreview(b, box){
+  const R = photoUI.rotating; if (!R || R.id !== b.id || !R.url) return null;
+  return { url:R.url, rect:R.rect, turn:(box.rot || 0) - R.base };
 }
 const photoDataUrl = v => v.dataUrl || (v.dataUrl = v.canvas.toDataURL('image/webp', 0.92));
 /* PowerPoint: фото отдельной картинкой PNG (фильтр, поворот, обводка и отражение уже применены, углы вне картинки прозрачные) */
@@ -303,11 +310,11 @@ async function photoReady(b){
 function paintPhoto(sl, b){
   const wrap = sl.querySelector('.sl-photo'); if (!wrap) return;
   if (b.photo && !photoBank.loaded) loadPhotoBank();
-  const box = photoBox(b), u = box && !box.cropping ? photoUrlNow(b, box) : null, im = wrap.querySelector('img');   // при обрезке слайд без фото: картинка — в слое обрезки
+  const box = photoBox(b), u = box && !box.cropping ? photoRotPreview(b, box) || photoUrlNow(b, box) : null, im = wrap.querySelector('img');   // при обрезке слайд без фото: картинка — в слое обрезки
   if (!u){ im.removeAttribute('src'); im.style.display = 'none'; }
   else {
     if (im.getAttribute('src') !== u.url) im.src = u.url;
-    Object.assign(im.style, { display:'block', left:u.rect.left + 'px', top:u.rect.top + 'px', width:u.rect.width + 'px', height:u.rect.height + 'px' });
+    Object.assign(im.style, { display:'block', left:u.rect.left + 'px', top:u.rect.top + 'px', width:u.rect.width + 'px', height:u.rect.height + 'px', transform:u.turn ? 'rotate(' + u.turn + 'deg)' : '' });
   }
   const holder = sl.parentNode && sl.parentNode.classList && sl.parentNode.classList.contains('stage-slide') ? sl.parentNode : null;
   if (holder) paintPhotoLayer(holder, sl, b, box, u);
@@ -324,15 +331,17 @@ function paintPhotoLayer(holder, sl, b, box, u){
     if (photoUI.sel === b.id) photoUI.sel = photoUI.pop = null;   // слой собран заново (другой слайд, правка отменена): выделения нет
     if (photoUI.crop === b.id) photoUI.crop = null;
     L = h('div', { class:'ph-layer', 'aria-hidden':'true' }, h('div', { class:'ph-ghost' }, h('img', { alt:'' })),
-      h('div', { class:'ph-hit', title:'Перетащите фото. Размер — за угол' }, ['nw', 'ne', 'sw', 'se'].map(c => h('span', { class:'ph-corner c-' + c, 'data-c':c }))));
+      h('div', { class:'ph-hit', title:'Перетащите фото. Размер — за угол' }, ['nw', 'ne', 'sw', 'se'].map(c => h('span', { class:'ph-corner c-' + c, 'data-c':c })),
+        h('span', { class:'ph-rot', title:'Повернуть. Alt — без привязки к 0° и 90°' })));   // этап 10.5.7: поворот стрелкой (photoedit.js)
     holder.append(L);
     L.querySelector('.ph-hit').addEventListener('pointerdown', e => photoDrag(e, b.id));
+    L.querySelector('.ph-rot').addEventListener('pointerdown', e => photoRotDrag(e, b.id));
     return paintPhotoLayer(holder, sl, b, photoBox(b), u);   // собранный слой — сразу с правильным кадром (в обрезке рамка прямая)
   }
   const k = sl.clientWidth / SL.W, g = L.querySelector('.ph-ghost img'), hit = L.querySelector('.ph-hit'), V = box.V;
   if (u){
     if (g.getAttribute('src') !== u.url) g.src = u.url;
-    Object.assign(g.style, { display:'block', left:u.rect.left * k + 'px', top:u.rect.top * k + 'px', width:u.rect.width * k + 'px', height:u.rect.height * k + 'px' });
+    Object.assign(g.style, { display:'block', left:u.rect.left * k + 'px', top:u.rect.top * k + 'px', width:u.rect.width * k + 'px', height:u.rect.height * k + 'px', transform:u.turn ? 'rotate(' + u.turn + 'deg)' : '' });
   } else { g.removeAttribute('src'); g.style.display = 'none'; }
   hit.hidden = box.cropping;
   Object.assign(hit.style, { left:V.left * k + 'px', top:V.top * k + 'px', width:V.width * k + 'px', height:V.height * k + 'px', transform:box.rot ? 'rotate(' + box.rot + 'deg)' : '' });
@@ -355,7 +364,7 @@ function photoPanelRefresh(){
 }
 
 /* Двигать мышью; за угол — размер с сохранением пропорций видимой части, противоположный угол стоит на месте (рамка может быть повёрнута).
-   Щелчок без движения — выделить фото: над ним появляется панель (photoedit.js) */
+   Щелчок без движения — выделить фото: рамка на слайде, блок «Фото» в «Редакторе» подсвечен (photoedit.js) */
 function photoDrag(e, id){
   const b = blockById(id); if (!b || !b.photo || readOnly() || e.button !== 0) return;
   const sl = e.currentTarget.closest('.stage-slide').querySelector('.sl'), k = sl.clientWidth / SL.W;
@@ -404,9 +413,10 @@ function photoDrag(e, id){
 /* «Текст слева» ↔ «Текст справа»: сдвинутое фото переходит в другую зону зеркально. «Во всю ширину» фото прячет, но хранит.
    Из «Во всю ширину» (фото поставлено по виду по умолчанию для другой стороны) — тоже зеркально, если фото оказалось бы на стороне текста */
 const photoSideFor = half => half === 'left' ? 'right' : 'left';   // фото — с другой стороны от текста
-/* Обрезка и поворот заданы так, как фото видно на слайде: отразили картинку — левый край становится правым, поворот меняет знак */
-function photoMirrorFx(p){
-  if (p.crop){ const c = p.crop; p.crop = { l:c.r, t:c.t, r:c.l, b:c.b }; }
+/* Обрезка и поворот заданы так, как фото видно на слайде: отразили картинку — левый край становится правым, поворот меняет знак.
+   vertical — отражение сверху вниз: меняются верх и низ */
+function photoMirrorFx(p, vertical){
+  if (p.crop){ const c = p.crop; p.crop = vertical ? { l:c.l, t:c.b, r:c.r, b:c.t } : { l:c.r, t:c.t, r:c.l, b:c.b }; }
   if (p.rot) p.rot = -p.rot;
 }
 function photoHalfSwitch(b, v){
@@ -432,6 +442,8 @@ function presetPhoto(b, a){
   if (!same && photoMirrors(a) && ps.mirror) photoMirrorFx(out);
   if (ps.outline) out.outline = { ...ps.outline };
   if (ps.round) out.round = ps.round;
+  if (ps.flipH) out.flipH = true;   // этап 10.5.7
+  if (ps.flipV) out.flipV = true;
   return out;
 }
 /* person — человек банка; photo — его фото (не задано — первое; у человека без фото фото у цитаты убирается) */
@@ -491,7 +503,7 @@ async function photoSavePreset(b, btn){
   const F = box.F;
   const preset = { x:+((F.left + F.width / 2) / SL.W).toFixed(4), y:+((F.top + F.height) / SL.H).toFixed(4), h:+(F.height / SL.H).toFixed(4),
     side:photoSideFor(photoHalf(b)), filter:p.filter || 'none', mirror:p.mirror !== false };
-  ['crop', 'rot', 'outline', 'round'].forEach(k => { if (p[k]) preset[k] = JSON.parse(JSON.stringify(p[k])); });   // всё, кроме видимости
+  ['crop', 'rot', 'outline', 'round', 'flipH', 'flipV'].forEach(k => { if (p[k]) preset[k] = JSON.parse(JSON.stringify(p[k])); });   // всё, кроме видимости
   btn.disabled = true;
   try { await cloud.api.setBankPhotos(cloud.user, { [p.id]:{ preset } }); toast('Вид по умолчанию сохранён: ' + bankName(box.entry)); }
   catch(e){ toast(cloudExplain(e) || 'Не удалось сохранить вид по умолчанию.'); }
@@ -510,10 +522,12 @@ function photoPanelFill(el, b){
       h('span', { class:'ph-cur-name' }, bankName(a), h('span', { class:'ph-kind', text:PHOTO_KINDS[a.kind] })), onSlide));
   }
   if (a && !p.off){
-    // этап 10.5.3: фильтр, отражение, обрезка, поворот, обводка и углы — в панели над фото на слайде (photoedit.js)
-    kids.push(h('div', { class:'ph-acts' }, h('button', { type:'button', class:'btn small ph-reset', onclick:() => photoReset(b) }, 'Сбросить')));
-    if (cloud.admin && cloudOn() && !a.legacy) kids.push(h('button', { type:'button', class:'btn small ph-preset', title:'Так фото встанет у всех, кто потом выберет это фото',
-      onclick:e => photoSavePreset(b, e.currentTarget) }, 'Сделать видом по умолчанию'));
+    // правка 19 ноября 2026: фильтр, обрезка, отражение, поворот, обводка и углы — под «Расширенными настройками» (photoedit.js)
+    if (!readOnly()) kids.push(photoAdvanced(b, a));
+    kids.push(h('div', { class:'ph-acts ph-foot' }, h('button', { type:'button', class:'btn small ph-reset', onclick:() => photoReset(b) }, 'Сбросить'),
+      cloud.admin && cloudOn() && !a.legacy ? h('button', { type:'button', class:'btn small ph-preset', title:'Так фото встанет у всех, кто потом выберет это фото',
+        onclick:e => photoSavePreset(b, e.currentTarget) }, 'Сделать видом по умолчанию') : null));
   }
   el.innerHTML = ''; el.append(...kids);
+  el.classList.toggle('sel', photoUI.sel === b.id || photoUI.crop === b.id);
 }

@@ -427,7 +427,7 @@ service cloud.firestore {
 
     // ---------- фотобанк (этап 10.5) ----------
     // Картинки и начальные описания — в репозитории (img/authors/). Здесь — правки описаний и вид фото по умолчанию
-    // (preset: положение и размер в долях слайда, сторона фото, фильтр, отражение и — с этапа 10.5.3 — обрезка, поворот, обводка, углы). Общие для всех пространств.
+    // (preset: положение и размер в долях слайда, сторона фото, фильтр, отражение и — с этапа 10.5.3 — обрезка, поворот, обводка, углы, с 10.5.7 — отражение по двум осям). Общие для всех пространств.
     function validPresetCrop(c) {
       return c is map
         && c.keys().hasOnly(['l', 't', 'r', 'b'])
@@ -448,7 +448,7 @@ service cloud.firestore {
     function validPreset(p) {
       return p is map
         && p.keys().hasAll(['x', 'y', 'h', 'side', 'filter', 'mirror'])
-        && p.keys().hasOnly(['x', 'y', 'h', 'side', 'filter', 'mirror', 'crop', 'rot', 'outline', 'round'])
+        && p.keys().hasOnly(['x', 'y', 'h', 'side', 'filter', 'mirror', 'crop', 'rot', 'outline', 'round', 'flipH', 'flipV'])
         && p.x is number && p.x >= -2 && p.x <= 3
         && p.y is number && p.y >= -2 && p.y <= 4
         && p.h is number && p.h >= 0.15 && p.h <= 3
@@ -459,7 +459,10 @@ service cloud.firestore {
         && (!('crop' in p) || validPresetCrop(p.crop))
         && (!('rot' in p) || (p.rot is number && p.rot >= -180 && p.rot <= 180))
         && (!('outline' in p) || validPresetOutline(p.outline))
-        && (!('round' in p) || (p.round is number && p.round >= 0 && p.round <= 0.5));
+        && (!('round' in p) || (p.round is number && p.round >= 0 && p.round <= 0.5))
+        // этап 10.5.7: отражение слева направо и сверху вниз
+        && (!('flipH' in p) || p.flipH is bool)
+        && (!('flipV' in p) || p.flipV is bool);
     }
     function validAuthor(d) {
       return d.keys().hasAll(['updatedAt', 'updatedBy'])
