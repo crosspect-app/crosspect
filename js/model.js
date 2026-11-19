@@ -48,6 +48,17 @@ function syncThesisText(b){ b.text = b.parts.filter(p => p.kind === 'text' && pl
 /* Ширина области текста у цитаты «слева / справа», % ширины слайда (этап 9.5): 30–80, по умолчанию 50 */
 const HALF_W = { min:30, max:80, step:5, dflt:50 };
 function clampHalfW(v){ v = v == null || v === '' ? NaN : Math.round(+v); return isFinite(v) ? Math.min(HALF_W.max, Math.max(HALF_W.min, v)) : HALF_W.dflt; }
+/* Рамка текста цитаты с фото (этап 10.5.5): x, y, w, h — доли слайда, ha / va — выравнивание текста в рамке; null — прежний расчёт
+   по «Месту текста» и «Ширине текста». Рамка — целиком на слайде; неверное → null */
+const TB_HA = ['left', 'center', 'right'], TB_VA = ['top', 'center', 'bottom'];
+function normTextBox(t){
+  if (!t || typeof t !== 'object') return null;
+  const v = ['x', 'y', 'w', 'h'].map(k => t[k] == null || t[k] === '' ? NaN : +t[k]);
+  if (!v.every(isFinite)) return null;
+  const [x, y, w, hh] = v.map(n => +n.toFixed(4));
+  if (w < 0.03 || hh < 0.03 || x < 0 || y < 0 || x + w > 1.0001 || y + hh > 1.0001) return null;
+  return { x, y, w, h:hh, ha:TB_HA.includes(t.ha) ? t.ha : 'center', va:TB_VA.includes(t.va) ? t.va : 'center' };
+}
 /* «Своя заставка» (этап 9.5): одна на все заставки проповеди (state.settings.customSplash). В архив JPEG не идёт, в PowerPoint — чёрный слайд */
 const isCustomSplash = b => !!b && b.type === 'splash' && !!(state && state.settings && state.settings.customSplash);
 /* «Нижняя строка» заставки (линия, имя и дата): у проповеди своя (state.settings.splashFoot), пока не меняли — как в настройках слайдов пространства.
@@ -66,7 +77,7 @@ function newBlock(type){
     case 'splash':     return Object.assign({ id, type }, slide);   // настройки заставки (размер, «своя», нижняя строка) — общие на проповедь, в state.settings
     case 'scripture':  return Object.assign({ id, type, items:[newScripture()] }, slide);   // вид стихов — общий для всех слайдов (настройки слайдов, verses)
     case 'thesis':     return Object.assign({ id, type, name:'', nameAuto:true, text:'', valign:'center', scale:100, parts:[newThesisPart()] }, slide);
-    case 'quote':      return Object.assign({ id, type, text:'', first:'', last:'', caption:'', photo:null, scale:100, caps:false, half:'full', halfW:50, frame:false }, slide);   // frame — обводка текста пунктиром (этап 9.5)   // half: «Во всю ширину» / текст слева / текст справа (этап 9.3); halfW — ширина области текста при «слева / справа», % слайда (этап 9.5)
+    case 'quote':      return Object.assign({ id, type, text:'', first:'', last:'', caption:'', photo:null, scale:100, caps:false, half:'full', halfW:50, frame:false, textBox:null }, slide);   // frame — обводка текста пунктиром (этап 9.5)   // half: «Во всю ширину» / текст слева / текст справа (этап 9.3); halfW — ширина области текста при «слева / справа», % слайда (этап 9.5)
     case 'image':      return Object.assign({ id, type, name:'', mode:'find', desc:'' }, slide);
     case 'video':      return Object.assign({ id, type, name:'', mode:'link', url:'', from:'', to:'', desc:'' }, slide);
     case 'free':       return Object.assign({ id, type, name:'', desc:'' }, slide);
@@ -230,6 +241,7 @@ function normalize(d){
       nb.photo = normPhoto(b.photo);
       nb.half = oneOf(b.half, ['full', 'left', 'right'], 'full');
       nb.halfW = clampHalfW(b.halfW);
+      nb.textBox = normTextBox(b.textBox);   // этап 10.5.5; при «Во всю ширину» хранится, но не применяется
       nb.frame = !!b.frame;
     }
     delete nb.custom;   // перенесено в state.settings.customSplash

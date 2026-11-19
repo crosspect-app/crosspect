@@ -327,10 +327,13 @@ function layoutBox(sl, b, px){
   box.dataset.half = half; if (au) au.dataset.half = half;
   const hw = clampHalfW(b.halfW) + '%';   // этап 9.5: ширина области текста; на «Во всю ширину» не используется
   box.style.setProperty('--hw', hw); if (au) au.style.setProperty('--hw', hw);
+  const tb = textBoxOn(b);   // этап 10.5.5: своя рамка текста у цитаты с фото — вместо «Места» и «Ширины текста»
+  placeTextBox(box, au, b, tb);
   inner.style.fontSize = px + 'px';
-  const align = b.type === 'thesis' ? (b.align || 'center') : 'center';
+  const align = b.type === 'thesis' ? (b.align || 'center') : tb ? tb.ha : 'center';
   inner.style.textAlign = align; inner.dataset.align = align;
-  box.style.justifyContent = b.type === 'thesis' ? ({ top:'flex-start', bottom:'flex-end' }[b.valign] || 'center') : 'center';
+  const va = b.type === 'thesis' ? b.valign : tb ? tb.va : 'center';
+  box.style.justifyContent = { top:'flex-start', bottom:'flex-end' }[va] || 'center';
   inner.classList.toggle('caps', b.type !== 'thesis' && isCaps(b));
   inner.classList.toggle('framed', b.type === 'quote' && !!b.frame);   // обводка пунктиром (этап 9.5), как у части тезиса
   inner.classList.toggle('parts', b.type === 'thesis');
@@ -348,6 +351,11 @@ function fitSlide(sl, b){
   const fit = b.type === 'scripture' ? layoutAt : b.type === 'splash' ? layoutSplash : layoutBox;
   if (!PREVIEW[b.type]) return 1;   // пустой слайд (картинка, видео, свободный): только рамка и фон
   if (b.type === 'quote') paintPhoto(sl, b);   // фото автора (этап 10.5, photos.js) от текста не зависит
+  const r = fitText(sl, b, fit);
+  if (b.type === 'quote' && typeof paintTextFrame === 'function') paintTextFrame(sl, b);   // рамка текста для мыши на большом слайде (этап 10.5.5)
+  return r;
+}
+function fitText(sl, b, fit){
   const base = b.type === 'scripture' ? scrPx() : b.type === 'splash' ? splashBase(b) : basePx(b.type) * blkScale(b) / 100;
   if (fit(sl, b, base)) return 1;
   let lo = SL.min, hi = base;
@@ -355,6 +363,18 @@ function fitSlide(sl, b){
   for (let k = 0; k < 10; k++){ const mid = (lo + hi) / 2; if (fit(sl, b, mid)) lo = mid; else hi = mid; }
   fit(sl, b, lo);
   return lo / base;
+}
+/* Рамка текста цитаты (этап 10.5.5): одна и та же для сцены, ленты, JPEG и PowerPoint — inline-стили на .sl-box в кадре 1920×1080.
+   Автор и подпись — внизу слайда, по внешнему краю рамки (при «Тексте справа» — по правому, при «Тексте слева» — по левому) */
+const textBoxOn = b => b.type === 'quote' && (b.half === 'left' || b.half === 'right') && b.textBox ? b.textBox : null;
+function placeTextBox(box, au, b, tb){
+  const S = box.style;
+  if (!tb){ S.left = S.top = S.width = S.height = S.right = S.bottom = ''; if (au) au.style.left = au.style.right = au.style.maxWidth = ''; return; }
+  Object.assign(S, { left:tb.x * SL.W + 'px', top:tb.y * SL.H + 'px', width:tb.w * SL.W + 'px', height:tb.h * SL.H + 'px', right:'auto', bottom:'auto' });
+  if (!au) return;
+  if (b.half === 'left') Object.assign(au.style, { left:tb.x * SL.W + 'px', right:'auto' });
+  else Object.assign(au.style, { right:(1 - tb.x - tb.w) * SL.W + 'px', left:'auto' });
+  au.style.maxWidth = tb.w * SL.W + 'px';
 }
 const previewTimers = {};
 function schedulePreview(b){

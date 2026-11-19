@@ -1407,6 +1407,27 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .ph-preset{justify-self:start}
 .ph-onoff{margin-left:auto}
 .ph-cur.off .ph-cur-img,.ph-cur.off .ph-cur-name{opacity:.45}
+/* Рамка текста цитаты с фото (этап 10.5.5, textframe.js): пунктир на большом слайде в правке, ручки, линии привязки */
+.stage-slide.tb-on{position:relative;overflow:visible}
+.stage-slide.tb-on > .sl{border-radius:16px}
+.tb-layer{position:absolute;inset:0;pointer-events:none;z-index:2}
+.stage-slide:has(.ph-crop) .tb-layer{display:none}   /* пока обрезают фото, рамка текста не мешает */
+.tb-hit{position:absolute;pointer-events:auto;cursor:move;border:1px dashed rgba(255,214,102,.35);touch-action:none}
+.tb-hit:hover,.tb-hit.sel,.tb-hit.drag{border-color:rgba(255,214,102,.9)}
+.tb-h{position:absolute;width:12px;height:12px;border:2px solid var(--accent);background:#151612;border-radius:3px;opacity:0;transition:opacity .15s}
+.tb-hit:hover .tb-h,.tb-hit.sel .tb-h,.tb-hit.drag .tb-h{opacity:1}
+.tb-h.c-nw{left:-7px;top:-7px;cursor:nwse-resize}.tb-h.c-se{right:-7px;bottom:-7px;cursor:nwse-resize}
+.tb-h.c-ne{right:-7px;top:-7px;cursor:nesw-resize}.tb-h.c-sw{left:-7px;bottom:-7px;cursor:nesw-resize}
+.tb-h.c-n{left:calc(50% - 6px);top:-7px;cursor:ns-resize}.tb-h.c-s{left:calc(50% - 6px);bottom:-7px;cursor:ns-resize}
+.tb-h.c-w{left:-7px;top:calc(50% - 6px);cursor:ew-resize}.tb-h.c-e{right:-7px;top:calc(50% - 6px);cursor:ew-resize}
+.tb-guides{position:absolute;inset:0;pointer-events:none}
+.tb-guide{position:absolute;background:#ff5ad1}
+.tb-guide.v{top:0;bottom:0;width:1px}
+.tb-guide.h{left:0;right:0;height:1px}
+.ph-crop{z-index:4}
+.tb-panel{display:grid;gap:8px}
+.tb-al{display:flex;gap:10px}
+.tb-btns{display:flex;flex-wrap:wrap;gap:8px}
 .au-wrap{position:relative}
 .au-sugg{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:30;display:grid;gap:2px;padding:4px;background:var(--surface);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .au-sugg[hidden]{display:none}
