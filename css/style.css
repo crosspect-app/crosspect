@@ -602,7 +602,7 @@ body.ro .st.on .st-n{color:var(--text)}
 .sl u{text-decoration-thickness:.07em;text-underline-offset:.16em;text-decoration-color:currentColor}
 .sl mark{background:none;color:#ffde59;padding:0;border-radius:0}
 .sl .up{text-transform:uppercase}
-.sl-text{margin:0;font-weight:325;letter-spacing:var(--track);line-height:var(--lead)}
+.sl-text{margin:0;font-weight:325;letter-spacing:var(--st-track,var(--track));line-height:var(--st-lead,var(--lead))}   /* блок «Текст» на слайде Писания: свои расстояния (--st-*, этап 10.5.6) */
 .sl-text.caps{text-transform:uppercase}
 /* Шрифт как в Canva — для всех слайдов: толщина 325; расстояния между символами (--track) и строками (--lead) —
    из настроек слайдов, отдельно для Писания (--sc-*), тезиса (--th-*) и цитаты (--qt-*), см. slideVars() в model.js */
@@ -670,7 +670,8 @@ select.input:disabled{opacity:.5;cursor:default}
 .item{display:grid;gap:12px}
 .item-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
 .item-head .half-tag{flex:1}
-.itools{display:flex;gap:2px;flex:none}
+.itools{display:flex;gap:2px;flex:none;align-items:center}
+.itools .step{margin-right:8px}
 .itools .icon-btn{width:28px;height:28px;border-radius:9px}
 .itools .icon-btn .ic{width:15px;height:15px}
 .itools .icon-btn.on{color:var(--accent);background:var(--surface-2);border-color:var(--line)}

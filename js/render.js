@@ -433,6 +433,7 @@ function itemHead(block, it, i){
   const n = block.items.length;
   const moveItem = d => { const j = i + d; if (j < 0 || j >= n) return; block.items.splice(i, 1); block.items.splice(j, 0, it); change(); rerender(block); };
   const tools = h('div', { class:'itools' });
+  if (it.kind === 'text' && block.type === 'scripture') tools.append(partStepper(block, it, 'scrText'));   // размер блока «Текст» (этап 10.5.6)
   if (it.kind === 'text') [['left', 'alignl', 'По левому краю'], ['center', 'alignc', 'По центру'], ['right', 'alignr', 'По правому краю']].forEach(([a, icn, t]) =>
     tools.append(iconBtn(icn, t, () => { it.align = a; change(); rerender(block); }, it.align === a ? 'on' : '')));
   if (n > 1){
@@ -463,12 +464,13 @@ function halfWidthRow(b){
     oninput:e => { b.halfW = clampHalfW(e.target.value); val.textContent = b.halfW + '%'; change(); updateCounter(b); } });
   return h('div', { class:'half-w' }, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Ширина текста' }), val), inp);
 }
-function partStepper(b, p){
-  const R = scaleRange('thesis'), cur = () => Math.min(R.max, Math.max(R.min, Math.round(+p.scale || 100)));
+/* «− 100 % +» у части тезиса и у блока «Текст» на слайде Писания: размер хранится в o.scale, предел — из настроек слайдов (вид kind), шаг 1% */
+function partStepper(b, o, kind){
+  const R = scaleRange(kind || 'thesis'), cur = () => Math.min(R.max, Math.max(R.min, Math.round(+o.scale || 100)));
   const val = h('span'), minus = h('button', { type:'button', title:'Мельче на 1%', 'aria-label':'Мельче на 1%' }, '−'),
     plus = h('button', { type:'button', title:'Крупнее на 1%', 'aria-label':'Крупнее на 1%' }, '+');
   const show = () => { const v = cur(); val.textContent = v + '%'; minus.disabled = v <= R.min; plus.disabled = v >= R.max; };
-  const step = d => { p.scale = cur() + d; show(); change(); updateCounter(b); };
+  const step = d => { o.scale = cur() + d; show(); change(); updateCounter(b); };
   minus.addEventListener('click', e => { e.preventDefault(); step(-1); });
   plus.addEventListener('click', e => { e.preventDefault(); step(1); });
   show();

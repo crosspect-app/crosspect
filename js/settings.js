@@ -72,6 +72,7 @@ const canEditSlidesCfg = () => cloudOn() && (cloud.role === 'admin' || cloud.rol
 /* Примеры для окна: заставка, Писание, тезис, цитата */
 const CFG_SAMPLES = {
   splash:() => ({ id:'cfg-sample', type:'splash', meta:{ title:'Вера, которая действует', date:(state && state.meta.date) || nextSunday(), firstName:'Иван', lastName:'Петров' } }),
+  scrText:() => { const b = CFG_SAMPLES.scripture(); b.items.push({ kind:'text', html:'hypónoia · под + мысль', align:'center', caps:false, scale:100 }); return b; },
   scripture:() => ({ id:'cfg-sample', type:'scripture', items:[{ kind:'scripture', manual:true, ref:'Иакова 2:17-18', translation:'Синодальный перевод',
     verses:[{ num:'17', text:'Так и вера, если не имеет дел, мертва сама по себе.' }, { num:'18', text:'Но скажет кто-нибудь: ты имеешь веру, а я имею дела: покажи мне веру твою без дел твоих, а я покажу тебе веру мою из дел моих.' }] }] }),
   thesis:() => ({ id:'cfg-sample', type:'thesis', valign:'center', parts:[{ kind:'text', html:'Вера без дел мертва', align:'center', scale:100, caps:true, frame:false },
@@ -80,7 +81,7 @@ const CFG_SAMPLES = {
 };
 const CFG_KINDS = [
   ['splash', 'Заставка: название', 'splash'], ['foot', 'Заставка: имя и дата', 'splash'],
-  ['scripture', 'Место Писания', 'scripture'], ['thesis', 'Тезис', 'thesis'], ['quote', 'Цитата', 'quote']
+  ['scripture', 'Место Писания', 'scripture'], ['scrText', 'Писание: текст', 'scrText'], ['thesis', 'Тезис', 'thesis'], ['quote', 'Цитата', 'quote']
 ];
 /* Объяснения — только во всплывающих подписях (решение 7.2: текстовых подсказок под полями нет) */
 const CFG_TIPS = {
@@ -88,6 +89,7 @@ const CFG_TIPS = {
   minHead:'Насколько можно уменьшить текст, в % от размера',
   min:{ splash:'Предел кнопки «−» у заставки. До этого размера название уменьшается и само, чтобы уложиться в три строки; если и так не влезает, станет ещё мельче, и форма предупредит',
     scripture:'Если стихи пришлось уменьшить сильнее, форма советует разбить их на два слайда',
+    scrText:'Самое маленькое значение кнопки «−» у блока «Текст» на слайде Писания',
     thesis:'Самое маленькое значение кнопки «−» у размера текста в слайде', quote:'Самое маленькое значение кнопки «−» у размера текста в слайде' },
   max:'Самое большое значение кнопки «+» у размера текста в слайде',
   maxSplash:'Самое большое значение кнопки «+» у заставки. Размер один на всю проповедь: меняется на всех её заставках',
@@ -159,7 +161,7 @@ function openSlidesCfg(){
   const tabs = h('div', { class:'toggle scfg-tabs' });
   const setSample = k => { if (k === sample) return; sample = k; drawTabs(); paint(); };
   const drawTabs = () => { tabs.replaceChildren(...[['splash', 'Заставка'], ['scripture', 'Писание'], ['thesis', 'Тезис'], ['quote', 'Цитата']].map(([k, l]) =>
-    h('button', { type:'button', class:k === sample ? 'on' : '', onclick:() => setSample(k) }, l))); };
+    h('button', { type:'button', class:k === sample || (k === 'scripture' && sample === 'scrText') ? 'on' : '', onclick:() => setSample(k) }, l))); };
   /* Пример перерисовывается с текущими значениями окна; сами настройки не меняются, пока не нажали «Применить» */
   function paint(now){
     cancelAnimationFrame(raf);
@@ -179,7 +181,7 @@ function openSlidesCfg(){
         const r = fitSlide(sl, b);
         const c = SLIDES_TRY.kinds;
         info.textContent = r == null ? '' : sample === 'splash' ? 'название ' + Math.round(r * c.splash.size) + ' px'
-          : 'текст ' + (Math.round(r * 100) >= 100 ? '100%' : 'уменьшен до ' + Math.round(r * 100) + '%') + ' · ' + Math.round(r * (sample === 'scripture' ? c.scripture.size : c[sample].size) * 10) / 10 + ' px';
+          : 'текст ' + (Math.round(r * 100) >= 100 ? '100%' : 'уменьшен до ' + Math.round(r * 100) + '%') + ' · ' + Math.round(r * (sample === 'scripture' || sample === 'scrText' ? c.scripture.size : c[sample].size) * 10) / 10 + ' px';
       } finally { SLIDES_TRY = null; BG_TRY = undefined; }
       syncApply();
     };

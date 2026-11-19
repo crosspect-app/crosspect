@@ -177,13 +177,16 @@ function paraHTML(html, lists){
 }
 /* Вид стихов — общий для всех слайдов Писания (настройки слайдов, verses) */
 const versesCfg = () => slidesCfg().verses;
+/* Размер блока «Текст» на слайде Писания (этап 10.5.6): доля от размера стихов = (размер из настроек / размер стихов) × размер блока */
+const textItemEm = it => { const c = slidesCfg().kinds, R = scaleRange('scrText'), sc = Math.min(R.max, Math.max(R.min, Math.round(+it.scale || 100)));
+  return Math.round(c.scrText.size / c.scripture.size * sc) / 100; };
 function slideHTML(b){
   const out = [], V = versesCfg();
   b.items.forEach(it => {
     if (it.kind === 'text'){
       const html = sanitize(it.html);
       if (!plain(html).trim()) return;
-      out.push('<div class="sl-text' + (it.caps ? ' caps' : '') + '" style="text-align:' + it.align + '">' + paraHTML(html) + '</div>');
+      out.push('<div class="sl-text' + (it.caps ? ' caps' : '') + '" style="text-align:' + it.align + ';font-size:' + textItemEm(it) + 'em">' + paraHTML(html) + '</div>');
       return;
     }
     if (it.kind === 'line'){ out.push('<div class="sl-hr"></div>'); return; }   // линия там, где стоит в слайде: и сверху, и снизу

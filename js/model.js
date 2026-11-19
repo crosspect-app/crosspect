@@ -38,7 +38,7 @@ function syncManualVerses(it){   // строки стихов по полю «С
 }
 function curLang(){ return (state && state.settings && LANGS[state.settings.lang]) ? state.settings.lang : 'ru'; }
 function newScripture(lang){ lang = LANGS[lang] ? lang : curLang(); const it = { kind:'scripture', manual:false, lang, book:0, chapter:0, sel:[], verses:[], ref:'', trName:'' }; it.translation = trOf(it); return it; }
-function newTextItem(){ return { kind:'text', html:'', align:'center', caps:true }; }
+function newTextItem(){ return { kind:'text', html:'', align:'center', caps:true, scale:100 }; }
 function newLineItem(){ return { kind:'line' }; }
 function newThesisPart(){ return { kind:'text', html:'', align:'center', scale:100, caps:true, frame:false }; }
 /* Текст всех частей тезиса одной строкой с переносами — для названия, счётчика, просмотра и PDF */
@@ -131,7 +131,8 @@ function blank(){
 function normItem(it){
   if (!it) return null;
   if (it.kind === 'line') return { kind:'line' };
-  if (it.kind === 'text') return { kind:'text', caps:it.caps === true, html:sanitize(it.html), align:['left', 'center', 'right'].includes(it.align) ? it.align : 'center' };
+  if (it.kind === 'text') return { kind:'text', caps:it.caps === true, html:sanitize(it.html), align:['left', 'center', 'right'].includes(it.align) ? it.align : 'center',
+    scale:+it.scale > 0 && isFinite(+it.scale) ? Math.round(+it.scale) : 100 };   // размер блока «Текст» в % (этап 10.5.6); обрезка по диапазону — при показе
   if (it.manual || it.kind !== 'scripture'){
     const r = Object.assign(newPart(), it, { kind:'scripture', manual:true });
     r.verses = (Array.isArray(r.verses) && r.verses.length ? r.verses : [{ num:'', text:'' }])
@@ -330,6 +331,7 @@ function slideVars(c, bg){
   return { '--sl-x':(PANEL_INSET + m.side) + 'px', '--sl-t':(PANEL_INSET + m.top) + 'px', '--sl-b':(PANEL_INSET + m.bottom) + 'px',
     '--f-main':SLIDE_FONTS.main[F.main].css, '--f-greek':SLIDE_FONTS.greek[F.greek].css, '--f-hebrew':SLIDE_FONTS.hebrew[F.hebrew].css,
     '--sc-track':K.scripture.track + 'em', '--sc-lead':String(K.scripture.lead),
+    '--st-track':K.scrText.track + 'em', '--st-lead':String(K.scrText.lead),
     '--th-track':K.thesis.track + 'em', '--th-lead':String(K.thesis.lead),
     '--qt-track':K.quote.track + 'em', '--qt-lead':String(K.quote.lead),
     '--sc-gap':c.verses.refGap + 'em', '--sc-vgap':c.verses.gap + 'em',

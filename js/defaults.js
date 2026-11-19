@@ -35,6 +35,7 @@ const SLIDES_DEFAULT = {
   kinds:{
     splash:{ size:200, min:55, max:130, track:0, lead:1.1, foot:44, footTrack:-0.03, footLead:1.1, titleOnly:false },
     scripture:{ size:52.8, min:80, track:-0.04, lead:1.05 },
+    scrText:{ size:52.8, min:70, max:130, track:-0.04, lead:1.05 },   // блок «Текст» на слайде Писания (этап 10.5.6): размер 100% и расстояния — как у стихов, диапазон −/+ — как у тезиса
     thesis:{ size:50.4, min:70, max:130, track:-0.04, lead:1.05 },
     quote:{ size:51.48, min:70, max:110, track:-0.04, lead:1.05 }
   },
