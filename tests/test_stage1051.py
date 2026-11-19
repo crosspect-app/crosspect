@@ -79,6 +79,7 @@ def test_f5_does_not_reload_page(sh):
 def test_f5_works_from_text_view(sh):
     sh.evaluate("setView('text')")
     sh.wait_for_selector(".tv")
+    assert sh.locator("#app .hd-show").count() == 0   # на «Тексте» кнопки «Показ» нет (решение 19 ноября 2026)
     start(sh, "F5")
     assert cur(sh) == 0
 

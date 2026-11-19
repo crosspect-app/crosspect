@@ -701,7 +701,7 @@ const BODY = {
       h('input', { type:'checkbox', checked:!!b.frame, onchange:e => { b.frame = e.target.checked; change(); updateCounter(b); } }),
       h('span', { class:'sw' }), 'Обводка пунктиром'));
     body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Место текста' })),
-      toggle([['full', 'Во всю ширину'], ['left', 'Текст слева'], ['right', 'Текст справа']], b.half || 'full', v => { photoHalfSwitch(b, v); textBoxHalfSwitch(b, v); b.half = v; change(); rerender(b); })));
+      toggle([['left', 'Текст слева'], ['full', 'Во всю ширину'], ['right', 'Текст справа']], b.half || 'full', v => { photoHalfSwitch(b, v); textBoxHalfSwitch(b, v); b.half = v; change(); rerender(b); })));
     // этап 10.5.5: своя рамка текста заменяет «Ширину текста»; «Сбросить» возвращает прежнее
     if (b.half === 'left' || b.half === 'right'){ if (!b.textBox) body.append(halfWidthRow(b)); body.append(textFramePanel(b)); }
     // этап 10.5: имя и фамилия отдельно (на слайде фамилия жирным); пока печатают — подсказки из фотобанка (photos.js)

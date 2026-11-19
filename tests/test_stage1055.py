@@ -370,3 +370,10 @@ def test_photo_alt_no_snap(page, sermon):
     l, t, w, hh = pbox(page)
     assert abs(l + w / 2 - 965) <= 2.5 and abs(t - (t0 - 30)) <= 2.5
     assert not page.errors, page.errors
+
+
+def test_full_width_is_in_the_middle(page, sermon):
+    opened(page, sermon)
+    labels = [t.strip() for t in page.locator(".side .toggle").filter(has_text="Во всю ширину").locator("button").all_inner_texts()]
+    assert labels == ["Текст слева", "Во всю ширину", "Текст справа"]
+    assert not page.errors, page.errors
