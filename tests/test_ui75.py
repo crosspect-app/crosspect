@@ -2,7 +2,7 @@
 «Сохранить», «Удалить», «Сделать по умолчанию», вопрос о несохранённом формате, перенос фона 7.3 в «Фон пространства»,
 фон проповеди по одному правилу (sermonBg) в сцене, ленте и JPEG, автор окна не видит.
 Облако подменено: tests/fixtures/fake_cloud.js."""
-from conftest import cloud_page
+from conftest import cfg_tab, cloud_page
 from test_lock import open_sermon
 from test_ui71 import ED, MEMBERS_ED, menu_items, three_slides
 from test_ui72 import with_splashes
@@ -215,6 +215,7 @@ def test_background_73_becomes_format(browser, base_url):
     assert page.evaluate("JSON.stringify(sermonBg(state)) === JSON.stringify(normBg(%s))" % _js(BLUE))
     assert set(film_bgs(page)) == {page.evaluate("bgImage(normBg(%s))" % _js(BLUE))}   # на экране ничего не поменялось
     # первая же запись настроек кладёт в облако форматы, а не bg
+    cfg_tab(page, "Тезис")
     sheet(page).locator("[aria-label='Тезис: лимит символов']").fill("150")
     apply_btn(page).click()
     page.wait_for_function("fakeCloud.calls.slides === 1")
@@ -309,7 +310,9 @@ def test_unsaved_format_asks_before_leaving(browser, base_url):
 def test_formats_are_separate_from_apply(browser, base_url):
     """Действия с форматами пишутся сразу и не уносят неприменённые настройки; «Применить» не затирает форматы"""
     ctx, page = editor_in_window(browser, base_url)
+    cfg_tab(page, "Тезис")
     sheet(page).locator("[aria-label='Тезис: лимит символов']").fill("150")
+    cfg_tab(page, "Общее")   # форматы фона — на «Общем»
     btn(page, "Создать новый").click()
     sheet(page).locator("[aria-label='Название формата']").fill("Ночь")
     btn(page, "Сохранить").click()

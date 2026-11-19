@@ -1,6 +1,6 @@
 """Этап 7.1: «Настройки слайдов» общие для пространства (в облаке), лента слайдов (перетаскивание, вставка),
 панель «Место Писания» и боковая панель. Облако подменено: tests/fixtures/fake_cloud.js."""
-from conftest import cloud_page, start_blank
+from conftest import cfg_tab, cloud_page, start_blank
 from test_cloud import ADMIN, IVAN, MEMBERS, rec
 from test_lock import open_sermon, start_edit
 
@@ -35,10 +35,21 @@ def test_settings_window_for_editor_only(browser, base_url):
     text = sheet.inner_text()
     for gone in ("config.json", "Общие (по умолчанию)", "Плотность шрифта", "только в этом браузере", "обязательно"):
         assert gone not in text, gone
-    for there in ("Общие настройки", "Настройки для видов слайдов", "Место Писания", "Шрифт для греческого", "С новой строки"):
+    # открывается на «Общем»: шрифты, поля, фон, панели; пример — четыре мини-слайда
+    assert sheet.locator(".scfg-tabs button.on").inner_text() == "Общее"
+    for there in ("Шрифты", "Шрифт для греческого", "Поля и название слайда", "Фон", "Расположение панелей", "Общие настройки действуют на все виды слайдов"):
         assert there in text, there
+    for gone in ("Название проповеди", "Как стоят стихи", "Размер 100 %"):
+        assert gone not in text, gone
     page.wait_for_selector(".scfg-slide .sl")
-    assert page.locator(".scfg-slide .sl").count() == 1   # живой пример слайда
+    assert page.locator(".scfg-slide .sl").count() == 4   # заставка, Писание, тезис, цитата
+    cfg_tab(page, "Писание")
+    text = sheet.inner_text()
+    for there in ("Текст стихов", "Блок «Текст»", "Как стоят стихи", "С новой строки", "Размер 100 %"):
+        assert there in text, there
+    assert "Шрифт для греческого" not in text and "Название проповеди" not in text
+    page.wait_for_function("document.querySelectorAll('.scfg-slide .sl').length === 1")   # живой пример слайда
+    assert "вкладка Общее" in text
     assert not page.errors, page.errors
     ctx.close()
     # спикер окна не видит
@@ -55,9 +66,13 @@ def test_apply_writes_cloud_and_applies_everywhere(browser, base_url):
     page.wait_for_selector(".scard")
     open_sermon(page, "s1")
     page.evaluate("openSlidesCfg()")
+    cfg_tab(page, "Тезис")
     page.locator(".scfg [aria-label='Тезис: между строками']").fill("1.3")
     page.locator(".scfg [aria-label='Тезис: лимит символов']").fill("150")
+    cfg_tab(page, "Писание")   # переключение вкладок ничего не сбрасывает
     page.get_by_role("button", name="С новой строки").click()
+    cfg_tab(page, "Тезис")
+    assert page.locator(".scfg [aria-label='Тезис: лимит символов']").input_value() == "150"
     assert page.evaluate("SLIDES_BASE.kinds.thesis.lead") == 1.05   # пока не нажали «Применить», ничего не меняется
     page.get_by_role("button", name="Применить").click()
     page.wait_for_function("fakeCloud.calls.slides === 1")

@@ -1,7 +1,7 @@
 """Этап 7.2: окно «Настройки слайдов», заставка −/+ на всю проповедь, подпись перевода, панель оформления над полем,
 раскладка панелей (в облаке у человека), отмена и возврат, «Сохранить», название заставки, окно добавления, пустой JPEG.
 Облако подменено: tests/fixtures/fake_cloud.js; статусы — в test_editor.py."""
-from conftest import cloud_page, start_blank
+from conftest import cfg_tab, cloud_page, start_blank
 from test_cloud import ADMIN, IVAN, MEMBERS
 from test_lock import open_sermon, start_edit
 from test_ui71 import ED, MEMBERS_ED, menu_items, three_slides, order
@@ -22,8 +22,13 @@ def test_settings_apply_keeps_window_and_new_fields(browser, base_url):
     open_sermon(page, "s1")
     page.evaluate("openSlidesCfg()")
     sheet = page.locator(".sheet.scfg")
+    cfg_tab(page, "Тезис")
     text = sheet.inner_text()
-    for there in ("Уменьшение до", "Увеличение до", "Лимит, симв.", "Место Писания", "Между стихами", "Между ссылкой и текстом"):
+    for there in ("Уменьшение до", "Увеличение до", "Лимит, симв."):
+        assert there in text, there
+    cfg_tab(page, "Писание")
+    text += sheet.inner_text()
+    for there in ("Как стоят стихи", "Между стихами", "Между ссылкой и текстом"):
         assert there in text, there
     for gone in ("Мельче до", "Крупнее до", "Стихи на слайдах Писания", "Тезис, до", "Цитата, до"):
         assert gone not in text, gone
@@ -34,11 +39,12 @@ def test_settings_apply_keeps_window_and_new_fields(browser, base_url):
         assert sheet.locator("[aria-label='%s']" % label).count() == 1, label
     # «Между стихами» действует только с новой строки
     gap = sheet.locator("[aria-label='Расстояние между стихами']")
-    assert gap.is_disabled()
+    assert gap.is_disabled()   # вкладка «Писание» уже открыта
     page.get_by_role("button", name="С новой строки").click()
     assert sheet.locator("[aria-label='Расстояние между стихами']").is_enabled()
     sheet.locator("[aria-label='Расстояние между стихами']").fill("0.6")
     sheet.locator("[aria-label='Расстояние между ссылкой и текстом']").fill("1.2")
+    cfg_tab(page, "Заставка")
     sheet.locator("[aria-label='Заставка: название: между строками']").fill("1.3")
     sheet.locator("[aria-label='Заставка: имя и дата: между символами']").fill("0.02")
     page.get_by_role("button", name="Применить").click()
@@ -53,6 +59,7 @@ def test_settings_apply_keeps_window_and_new_fields(browser, base_url):
     assert page.evaluate(st % "--sc-vgap") == "0.6em" and page.evaluate(st % "--sc-gap") == "1.2em"
     assert page.evaluate(st % "--sp-lead") == "1.3" and page.evaluate(st % "--sp-ftrack") == "0.02em"
     # второе «Применить» из того же окна тоже работает
+    cfg_tab(page, "Тезис")
     sheet.locator("[aria-label='Тезис: лимит символов']").fill("150")
     page.get_by_role("button", name="Применить").click()
     page.wait_for_function("fakeCloud.calls.slides === 2")

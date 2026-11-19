@@ -1,7 +1,7 @@
 """Этап 10.5.6: размер текста у блока «Текст» на слайде Писания.
 Строка «Писание: текст» в настройках слайдов (kinds.scrText), кнопки «− 100 % +» в шапке блока (it.scale),
 границы из настроек, старые конспекты и настройки — как раньше, у каждого блока свой размер, JPEG совпадает с редактором."""
-from conftest import cloud_page
+from conftest import cfg_tab, cloud_page
 from test_cloud import MEMBERS, rec
 from test_lock import open_sermon, start_edit
 from test_ui71 import ED, MEMBERS_ED
@@ -70,9 +70,10 @@ def test_old_settings_from_cloud_get_default(browser, base_url):
 def test_settings_row_writes_kinds_and_changes_slide(browser, base_url):
     ctx, page = opened(browser, base_url, [SCR, text_item()])
     page.evaluate("openSlidesCfg()")
+    cfg_tab(page, "Писание")   # блок «Текст» — на вкладке «Писание», после стихов
     page.wait_for_selector(".scfg [aria-label='Писание: текст: размер 100%']")
-    labels = page.evaluate("[...document.querySelectorAll('.scfg-kinds .kl')].map(x => x.textContent)")
-    assert labels.index("Писание: текст") == labels.index("Место Писания") + 1
+    caps = page.evaluate("[...document.querySelectorAll('.scfg-sec:not([hidden]) .scfg-cap')].map(x => x.textContent)")
+    assert caps.index("Блок «Текст»") == caps.index("Текст стихов") + 1
     for lbl, v in (("размер 100%", "40"), ("уменьшение до", "60"), ("увеличение до", "150"), ("между символами", "0.1"), ("между строками", "1.4")):
         page.locator(".scfg [aria-label='Писание: текст: %s']" % lbl).fill(v)
     assert page.evaluate("SLIDES_BASE.kinds.scrText.max") == 130   # до «Применить» ничего не меняется

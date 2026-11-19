@@ -110,3 +110,8 @@ def start_blank(page):
     page.evaluate("newSermon()")
     page.wait_for_selector(".sheet[aria-label='О проповеди']")
     page.evaluate("closeSettings(true)")
+
+
+def cfg_tab(page, name):
+    """Открыть вкладку окна «Настройки слайдов» (этап 10.5.8): «Общее», «Заставка», «Писание», «Тезис», «Цитата»."""
+    page.locator(".scfg-tabs").get_by_role("button", name=name, exact=True).click()

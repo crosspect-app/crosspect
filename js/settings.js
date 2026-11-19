@@ -79,10 +79,7 @@ const CFG_SAMPLES = {
     { kind:'text', html:'• слышать слово<br>• исполнять слово', align:'center', scale:100, caps:false, frame:false }] }),
   quote:() => ({ id:'cfg-sample', type:'quote', text:'Вера — живое, смелое доверие к Божьей благодати', first:'Мартин', last:'Лютер', caption:'Предисловие к Посланию к Римлянам', scale:100, caps:false })
 };
-const CFG_KINDS = [
-  ['splash', 'Заставка: название', 'splash'], ['foot', 'Заставка: имя и дата', 'splash'],
-  ['scripture', 'Место Писания', 'scripture'], ['scrText', 'Писание: текст', 'scrText'], ['thesis', 'Тезис', 'thesis'], ['quote', 'Цитата', 'quote']
-];
+const CFG_TABS = [['general', 'Общее'], ['splash', 'Заставка'], ['scripture', 'Писание'], ['thesis', 'Тезис'], ['quote', 'Цитата']];
 /* Объяснения — только во всплывающих подписях (решение 7.2: текстовых подсказок под полями нет) */
 const CFG_TIPS = {
   size:'Размер текста в пикселях кадра 1920×1080. От него считаются проценты',
@@ -145,7 +142,7 @@ let slidesCfgHook = null;   // окно «Настройки слайдов» о
 function openSlidesCfg(){
   if (!canEditSlidesCfg()){ toast('Настройки слайдов меняют админ и редактор'); return; }
   const tmp = JSON.parse(JSON.stringify(SLIDES_BASE));
-  let sample = 'scripture', guide = false, raf = 0, apply = null, saving = false;
+  let tab = 'general', sample = 'all', guide = false, raf = 0, apply = null, saving = false;   // вкладка окна; sample — какой пример слева: 'all' (четыре слайда), вид слайда или 'scrText' (вкладка «Писание»)
   /* Что уйдёт по «Применить»: всё из окна, кроме форматов фона. У форматов свои кнопки, они записываются сразу, поэтому
      форматы всегда берутся из действующих настроек (и не затираются, если их тем временем поменял другой редактор) */
   const tmpFull = () => mergeSlides(SLIDES_DEFAULT, Object.assign({}, tmp, { formats:SLIDES_BASE.formats, defaultFormat:SLIDES_BASE.defaultFormat }));
@@ -159,9 +156,14 @@ function openSlidesCfg(){
   const host = h('div', { class:'scfg-slide', title:CFG_TIPS.sample }), info = h('div', { class:'scfg-info' });
   let fadeBg = false;   // следующая перерисовка примера — «Другой вариант» или смена формата: старый фон плавно перетекает в новый (этап 7.6); ползунки — без анимации
   const tabs = h('div', { class:'toggle scfg-tabs' });
-  const setSample = k => { if (k === sample) return; sample = k; drawTabs(); paint(); };
-  const drawTabs = () => { tabs.replaceChildren(...[['splash', 'Заставка'], ['scripture', 'Писание'], ['thesis', 'Тезис'], ['quote', 'Цитата']].map(([k, l]) =>
-    h('button', { type:'button', class:k === sample || (k === 'scripture' && sample === 'scrText') ? 'on' : '', onclick:() => setSample(k) }, l))); };
+  /* Вкладки: справа только блоки выбранной (все блоки собраны один раз, переключение их прячет, поэтому введённое не сбрасывается) */
+  const secs = [];
+  const showTab = () => secs.forEach(([t, el]) => { el.hidden = t === 'kinds' ? tab === 'general' : t !== tab; });
+  const drawTabs = () => { tabs.replaceChildren(...CFG_TABS.map(([k, l]) =>
+    h('button', { type:'button', class:k === tab ? 'on' : '', 'aria-pressed':k === tab ? 'true' : 'false', onclick:() => setTab(k) }, l))); };
+  const setTab = t => { if (t === tab) return; tab = t; sample = t === 'general' ? 'all' : t; showTab(); drawTabs(); paint(); };
+  /* Фокус в поле переключает пример на свой вид (поле «Писание: текст» — на пример с блоком «Текст») */
+  const setSample = k => { if (k === sample) return; sample = k; tab = k === 'scrText' ? 'scripture' : k; showTab(); drawTabs(); paint(); };
   /* Пример перерисовывается с текущими значениями окна; сами настройки не меняются, пока не нажали «Применить» */
   function paint(now){
     cancelAnimationFrame(raf);
@@ -169,18 +171,19 @@ function openSlidesCfg(){
       SLIDES_TRY = mergeSlides(SLIDES_DEFAULT, tmp);
       BG_TRY = fe.bg ? normBg(fe.bg) : null;   // пример — с форматом, который выбран (и правится) в блоке «Фон»
       try {
-        const b = CFG_SAMPLES[sample](), sl = slideEl(b), fade = fadeBg && host.firstElementChild; fadeBg = false;
-        if (guide) sl.querySelector('.sl-stage').append(h('div', { class:'sl-guide', text:'Область текста' }));
-        host.replaceChildren(sl);
+        const all = sample === 'all', bs = (all ? ['splash', 'scripture', 'thesis', 'quote'] : [sample]).map(k => CFG_SAMPLES[k]()), sls = bs.map(b => slideEl(b));
+        const fade = fadeBg && host.firstElementChild; fadeBg = false;
+        if (guide) sls.forEach(sl => sl.querySelector('.sl-stage').append(h('div', { class:'sl-guide', text:'Область текста' })));
+        host.replaceChildren(all ? h('div', { class:'scfg-grid' }, sls) : sls[0]);
         if (fade && !MOTION.off()){   // две картинки друг на друге: прежний слайд гаснет поверх нового (~250 мс), только в примере окна
           fade.classList.add('scfg-old'); host.append(fade);
           const a = motionAnimate(fade, [{ opacity:1 }, { opacity:0 }], MOTION.ms('--motion-slow', 250), { fill:'forwards' });
           if (a) a.addEventListener('finish', () => fade.remove()); else fade.remove();
           setTimeout(() => fade.remove(), 700);
         }
-        const r = fitSlide(sl, b);
+        const rs = sls.map((sl, i) => fitSlide(sl, bs[i])), r = rs[0];
         const c = SLIDES_TRY.kinds;
-        info.textContent = r == null ? '' : sample === 'splash' ? 'название ' + Math.round(r * c.splash.size) + ' px'
+        info.textContent = all ? 'Общие настройки действуют на все виды слайдов' : r == null ? '' : sample === 'splash' ? 'название ' + Math.round(r * c.splash.size) + ' px'
           : 'текст ' + (Math.round(r * 100) >= 100 ? '100%' : 'уменьшен до ' + Math.round(r * 100) + '%') + ' · ' + Math.round(r * (sample === 'scripture' || sample === 'scrText' ? c.scripture.size : c[sample].size) * 10) / 10 + ' px';
       } finally { SLIDES_TRY = null; BG_TRY = undefined; }
       syncApply();
@@ -196,20 +199,19 @@ function openSlidesCfg(){
     if (o.disabled) inp.disabled = true;
     return h('div', { class:'unit' + (o.unit ? '' : ' nounit'), title:o.tip || '' }, inp, o.unit ? h('span', { text:o.unit }) : null);
   };
-  const dash = tip => h('span', { class:'scfg-na', text:'—', title:tip });
   const tipField = (label, control, tip) => { const f = field(label, control); if (tip) f.title = tip; return f; };
   const fontSel = (key, label) => field(label, h('select', { class:'input', 'aria-label':label, onchange:e => { tmp.fonts[key] = e.target.value; paint(); } },
     Object.keys(SLIDE_FONTS[key]).map(k => h('option', { value:k, selected:tmp.fonts[key] === k }, SLIDE_FONTS[key][k].label))));
 
-  /* Общие настройки: шрифты, длина названия, поля (лимиты тезиса и цитаты — в таблице видов слайдов) */
-  const general = h('section', { class:'scfg-sec' },
-    h('div', { class:'scfg-cap', text:'Общие настройки' }),
-    h('div', { class:'scfg-g3' }, fontSel('main', 'Шрифт кириллицы и латиницы'), fontSel('greek', 'Шрифт для греческого'), fontSel('hebrew', 'Шрифт для иврита')),
+  /* Вкладка «Общее»: шрифты, поля и название слайда (лимиты символов — на вкладках видов) */
+  const fonts = h('section', { class:'scfg-sec' }, h('div', { class:'scfg-cap', text:'Шрифты' }),
+    h('div', { class:'scfg-g3' }, fontSel('main', 'Шрифт кириллицы и латиницы'), fontSel('greek', 'Шрифт для греческого'), fontSel('hebrew', 'Шрифт для иврита')));
+  const margins = h('section', { class:'scfg-sec' }, h('div', { class:'scfg-cap', text:'Поля и название слайда' }),
     h('div', { class:'scfg-g4' },
-      tipField('Название слайда, до', num(tmp.names, 'maxLength', { min:5, max:120, unit:'симв.', label:'Длина названия слайда', tip:CFG_TIPS.name }), CFG_TIPS.name),
       tipField('Поля по бокам', num(tmp.margins, 'side', { min:0, max:400, step:2, unit:'px', label:'Поля по бокам', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins),
       tipField('Поля сверху', num(tmp.margins, 'top', { min:0, max:400, step:2, unit:'px', label:'Поля сверху', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins),
-      tipField('Поля снизу', num(tmp.margins, 'bottom', { min:0, max:400, step:2, unit:'px', label:'Поля снизу', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins)));
+      tipField('Поля снизу', num(tmp.margins, 'bottom', { min:0, max:400, step:2, unit:'px', label:'Поля снизу', guide:true, tip:CFG_TIPS.margins }), CFG_TIPS.margins),
+      tipField('Название слайда, до', num(tmp.names, 'maxLength', { min:5, max:120, unit:'симв.', label:'Длина названия слайда', tip:CFG_TIPS.name }), CFG_TIPS.name)));
 
   /* Расположение панелей по умолчанию (этап 7.4): три плашки в ряд; перетащить мышью или пальцем, а с клавиатуры — стрелки ← → */
   const panelRow = h('div', { class:'scfg-panels', role:'list', 'aria-label':'Порядок панелей', title:CFG_TIPS.panelDrag });
@@ -258,42 +260,43 @@ function openSlidesCfg(){
     document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
   }
   drawPanels();
-  const panelsSec = h('section', { class:'scfg-sec', title:CFG_TIPS.panels }, h('div', { class:'scfg-cap', text:'Расположение панелей' }), panelRow);
+  const panelsSec = h('section', { class:'scfg-sec', title:CFG_TIPS.panels }, h('div', { class:'scfg-cap', text:'Расположение панелей на экране «Слайды»' }), panelRow);
 
-  /* Виды слайдов: размер, диапазон, расстояния, лимит символов */
-  const K = tmp.kinds, footCells = [], grid = h('div', { class:'scfg-kinds', role:'table' },
-    h('span', { class:'kh' }, ''),
-    h('span', { class:'kh', text:'Размер 100%', title:CFG_TIPS.size }), h('span', { class:'kh', text:'Уменьшение до', title:CFG_TIPS.minHead }),
-    h('span', { class:'kh', text:'Увеличение до', title:CFG_TIPS.max }), h('span', { class:'kh', text:'Между символами', title:CFG_TIPS.track }),
-    h('span', { class:'kh', text:'Между строками', title:CFG_TIPS.lead }), h('span', { class:'kh', text:'Лимит, симв.', title:CFG_TIPS.limit }));
-  CFG_KINDS.forEach(([row, label, smp]) => {
-    const k = row === 'foot' ? 'splash' : row, z = K[k], o = (x) => Object.assign({ sample:smp }, x);
-    grid.append(h('span', { class:'kl', text:label }));
-    if (row === 'foot'){
-      const cells = [num(z, 'foot', o({ min:10, max:200, step:1, unit:'px', label:label + ': размер', tip:CFG_TIPS.foot })),
-        num(z, 'footTrack', o({ min:-0.2, max:0.3, step:0.01, unit:'em', label:label + ': между символами', tip:CFG_TIPS.track })),
-        num(z, 'footLead', o({ min:0.8, max:2, step:0.05, label:label + ': между строками', tip:CFG_TIPS.lead }))];
-      footCells.push(grid.lastChild, ...cells);
-      grid.append(cells[0], dash('Размер имени и даты не подбирается сам'), dash('Размер имени и даты не подбирается сам'), cells[1], cells[2], dash('Лимита символов нет'));
-      return;
-    }
-    grid.append(num(z, 'size', o({ min:10, max:400, step:k === 'splash' ? 2 : 0.1, unit:'px', label:label + ': размер 100%', tip:CFG_TIPS.size })),
-      num(z, 'min', o({ min:20, max:100, step:5, unit:'%', label:label + ': уменьшение до', tip:CFG_TIPS.min[k] })),
-      'max' in z ? num(z, 'max', o({ min:100, max:200, step:5, unit:'%', label:label + ': увеличение до', tip:k === 'splash' ? CFG_TIPS.maxSplash : CFG_TIPS.max })) : dash('Стихи не бывают крупнее заданного размера'),
-      num(z, 'track', o({ min:-0.2, max:0.3, step:0.01, unit:'em', label:label + ': между символами', tip:CFG_TIPS.track })),
-      num(z, 'lead', o({ min:0.8, max:2, step:0.05, label:label + ': между строками', tip:CFG_TIPS.lead })),
-      k in tmp.limits ? num(tmp.limits, k, o({ min:20, max:3000, step:10, label:label + ': лимит символов', tip:CFG_TIPS.limit })) : dash('Лимита символов нет'));
-  });
-  /* Заставка «Только название»: строка «Заставка: имя и дата» в таблице при этом неактивна */
-  const footOff = on => footCells.forEach(c => {
+  /* Виды слайдов: у каждого блока свои поля — размер, диапазон, расстояния, лимит символов (если он у вида есть).
+     aria-label у полей — «<блок>: <поле>» */
+  const K = tmp.kinds;
+  const kindFields = (k, name, smp) => {
+    const z = K[k], o = x => Object.assign({ sample:smp }, x), f = [];
+    f.push(tipField('Размер 100 %', num(z, 'size', o({ min:10, max:400, step:k === 'splash' ? 2 : 0.1, unit:'px', label:name + ': размер 100%', tip:CFG_TIPS.size })), CFG_TIPS.size));
+    f.push(tipField('Уменьшение до', num(z, 'min', o({ min:20, max:100, step:5, unit:'%', label:name + ': уменьшение до', tip:CFG_TIPS.min[smp] })), CFG_TIPS.min[smp]));
+    if ('max' in z){ const t = k === 'splash' ? CFG_TIPS.maxSplash : CFG_TIPS.max; f.push(tipField('Увеличение до', num(z, 'max', o({ min:100, max:200, step:5, unit:'%', label:name + ': увеличение до', tip:t })), t)); }
+    f.push(tipField('Между символами', num(z, 'track', o({ min:-0.2, max:0.3, step:0.01, unit:'em', label:name + ': между символами', tip:CFG_TIPS.track })), CFG_TIPS.track));
+    f.push(tipField('Между строками', num(z, 'lead', o({ min:0.8, max:2, step:0.05, label:name + ': между строками', tip:CFG_TIPS.lead })), CFG_TIPS.lead));
+    if (k in tmp.limits) f.push(tipField('Лимит, симв.', num(tmp.limits, k, o({ min:20, max:3000, step:10, label:name + ': лимит символов', tip:CFG_TIPS.limit })), CFG_TIPS.limit));
+    return f;
+  };
+  const kindSec = (cap, k, name, smp) => h('section', { class:'scfg-sec' }, h('div', { class:'scfg-cap', text:cap }), h('div', { class:'scfg-g3' }, kindFields(k, name, smp)));
+  /* Заставка: нижняя строка (линия, имя и дата) — своё включение; пока она выключена, её поля серые */
+  const footFields = [], footBox = h('div', { class:'scfg-g3' });
+  const footTipKey = ['foot', 'track', 'lead'];
+  { const z = K.splash, o = x => Object.assign({ sample:'splash' }, x), name = 'Заставка: имя и дата';
+    footFields.push(
+      tipField('Размер', num(z, 'foot', o({ min:10, max:200, step:1, unit:'px', label:name + ': размер', tip:CFG_TIPS.foot })), CFG_TIPS.foot),
+      tipField('Между символами', num(z, 'footTrack', o({ min:-0.2, max:0.3, step:0.01, unit:'em', label:name + ': между символами', tip:CFG_TIPS.track })), CFG_TIPS.track),
+      tipField('Между строками', num(z, 'footLead', o({ min:0.8, max:2, step:0.05, label:name + ': между строками', tip:CFG_TIPS.lead })), CFG_TIPS.lead));
+    footBox.append(...footFields); }
+  const footOff = on => footFields.forEach((c, i) => {
     c.classList.toggle('off', on);
-    c.querySelectorAll('input').forEach(i => { i.disabled = on; });
-    if (c.classList.contains('unit')) c.title = on ? CFG_TIPS.footOff : CFG_TIPS[c === footCells[1] ? 'foot' : c === footCells[2] ? 'track' : 'lead'];
+    c.querySelectorAll('input').forEach(x => { x.disabled = on; });
+    c.title = on ? CFG_TIPS.footOff : CFG_TIPS[footTipKey[i]];
+    c.querySelectorAll('.unit').forEach(u => { u.title = c.title; });
   });
   footOff(K.splash.titleOnly);
-  const titleOnly = h('div', { class:'opt-row', title:CFG_TIPS.titleOnly },
-    sw('Нижняя строка на заставке', !K.splash.titleOnly, v => { K.splash.titleOnly = !v; footOff(!v); if (sample !== 'splash'){ sample = 'splash'; drawTabs(); } paint(); }));
-  const kinds = h('section', { class:'scfg-sec' }, h('div', { class:'scfg-cap', text:'Настройки для видов слайдов' }), grid, titleOnly);
+  const splashFoot = h('section', { class:'scfg-sec' }, h('div', { class:'scfg-cap', text:'Нижняя строка: имя и дата' }),
+    h('div', { class:'opt-row', title:CFG_TIPS.titleOnly },
+      sw('Показывать на заставке', !K.splash.titleOnly, v => { K.splash.titleOnly = !v; footOff(!v); setSample('splash'); paint(); })), footBox);
+  const toGeneral = h('div', { class:'scfg-tolink' }, 'Шрифты, поля и фон — общие для всех слайдов: вкладка ',
+    h('button', { type:'button', class:'linklike', onclick:() => setTab('general') }, 'Общее'));
 
   /* Фон (этапы 7.3 и 7.5): строка форматов и ползунки выбранного формата.
      fe — формат, который сейчас показан и правится: kind 'system' (System Template — ползунки серые, менять нельзя),
@@ -469,7 +472,7 @@ function openSlidesCfg(){
   /* Место Писания: вид стихов на всех слайдах Писания и расстояния */
   const V = tmp.verses, vbox = h('div', { class:'scfg-verses' });
   const drawVerses = () => {
-    const set = (k, v) => { V[k] = v; if (sample !== 'scripture'){ sample = 'scripture'; drawTabs(); } drawVerses(); paint(); };
+    const set = (k, v) => { V[k] = v; setSample('scripture'); drawVerses(); paint(); };
     vbox.replaceChildren(
       h('div', { class:'opt-row' }, h('span', { class:'lbl', style:'margin:0', text:'Стихи' }),
         toggle([['inline', 'В строку'], ['lines', 'С новой строки']], V.flow, v => set('flow', v)),
@@ -490,18 +493,27 @@ function openSlidesCfg(){
         tipField('Между ссылкой и текстом', num(V, 'refGap', { min:0, max:3, step:0.05, unit:'em', label:'Расстояние между ссылкой и текстом', sample:'scripture', tip:CFG_TIPS.refGap }), CFG_TIPS.refGap)));
   };
   drawVerses();
-  const verses = h('section', { class:'scfg-sec', title:CFG_TIPS.verses }, h('div', { class:'scfg-cap', text:'Место Писания' }), vbox);
+  const verses = h('section', { class:'scfg-sec', title:CFG_TIPS.verses }, h('div', { class:'scfg-cap', text:'Как стоят стихи' }), vbox);
 
   const err = h('div', { class:'err', role:'alert' }), done = h('span', { class:'scfg-done', role:'status' });
   fmtErr = err;
   apply = h('button', { type:'button', class:'btn primary', onclick:() => { saving = true; syncApply(); saveSlidesCfg(tmpFull(), apply, err, done).then(() => { saving = false; syncApply(); }); } }, 'Применить');
-  drawTabs();
+  /* Раскладка по вкладкам: блоки собираются один раз, переключение вкладки их прячет */
+  const form = h('div', { class:'scfg-form' });
+  const put = (t, ...els) => els.forEach(el => { secs.push([t, el]); form.append(el); });
+  put('general', fonts, margins, background, panelsSec);
+  put('splash', kindSec('Название проповеди', 'splash', 'Заставка: название', 'splash'), splashFoot);
+  put('scripture', kindSec('Текст стихов', 'scripture', 'Место Писания', 'scripture'), kindSec('Блок «Текст»', 'scrText', 'Писание: текст', 'scrText'), verses);
+  put('thesis', kindSec('Текст', 'thesis', 'Тезис', 'thesis'));
+  put('quote', kindSec('Текст', 'quote', 'Цитата', 'quote'));
+  secs.push(['kinds', toGeneral]); form.append(toGeneral);
+  showTab(); drawTabs();
   settingsOverlay.innerHTML = '';
   settingsOverlay.append(sheetEl = h('div', { class:'sheet wide scfg', role:'dialog', 'aria-label':'Настройки слайдов' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Настройки слайдов' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('div', { class:'scfg-body' },
       h('div', { class:'scfg-preview' }, tabs, host, info),
-      h('div', { class:'scfg-form' }, general, panelsSec, background, kinds, verses)),
+      form),
     h('div', { class:'sheet-foot' },
       err,
       h('div', { style:'display:flex;gap:8px;align-items:center;margin-left:auto' }, done, apply)),   // закрыть — крестиком или Esc: неприменённое не применяется

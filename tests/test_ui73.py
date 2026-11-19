@@ -2,7 +2,7 @@
 окно настроек («Применить» только при изменениях, без «Закрыть», «Между ссылкой и текстом», заставка «Только название»),
 без «Источника настроек» и «Открыть файл», контакт на экране «Нет доступа».
 Статусы и «автор» — в test_editor.py. Облако подменено: tests/fixtures/fake_cloud.js."""
-from conftest import cloud_page
+from conftest import cfg_tab, cloud_page
 from test_cloud import MEMBERS
 from test_lock import open_sermon
 from test_ui71 import ED, MEMBERS_ED, menu_items, three_slides
@@ -33,6 +33,7 @@ def test_apply_only_when_changed_and_no_close_button(browser, base_url):
     assert apply_btn(page).is_disabled()   # ничего не меняли
     assert sheet.locator(".sheet-foot").get_by_role("button", name="Закрыть").count() == 0
     assert sheet.locator(".sheet-head [aria-label='Закрыть']").count() == 1   # крестик остаётся
+    cfg_tab(page, "Тезис")
     lim = sheet.locator("[aria-label='Тезис: лимит символов']")
     lim.fill("150")
     page.wait_for_function("!document.querySelector('.scfg .sheet-foot .btn.primary').disabled")
@@ -57,6 +58,7 @@ def test_ref_gap_is_called_link_and_text(browser, base_url):
     ctx, page = cloud_page(browser, base_url, user=ED, members=MEMBERS_ED)
     page.wait_for_selector(".home-top")
     page.evaluate("openSlidesCfg()")
+    cfg_tab(page, "Писание")
     text = page.inner_text(".sheet.scfg")
     assert "Между ссылкой и текстом" in text and "Между местом и текстом" not in text
     f = page.locator(".scfg [aria-label='Расстояние между ссылкой и текстом']")
@@ -77,9 +79,10 @@ def test_splash_title_only(browser, base_url):
         " const d = x.getImageData(110, 900, 900, 80).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return s / (d.length / 4) / 3; }"))
     page.evaluate("openSlidesCfg()")
     sheet = page.locator(".sheet.scfg")
+    cfg_tab(page, "Заставка")
     foot = sheet.locator("[aria-label='Заставка: имя и дата: размер']")
     assert foot.is_enabled()
-    sheet.get_by_text("Нижняя строка на заставке").click()   # было «Заставка: только название»; теперь переключатель обратный
+    sheet.get_by_text("Показывать на заставке").click()   # было «Заставка: только название»; переключатель обратный
     assert foot.is_disabled()   # строка «Заставка: имя и дата» неактивна
     page.wait_for_function("(() => { const f = document.querySelector('.scfg-slide .sl-sp-foot'); return f && getComputedStyle(f).display === 'none'; })()")
     apply_btn(page).click()
