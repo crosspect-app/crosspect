@@ -355,7 +355,7 @@ function photoPanelRefresh(){
 }
 
 /* Двигать мышью; за угол — размер с сохранением пропорций видимой части, противоположный угол стоит на месте (рамка может быть повёрнута).
-   Щелчок без движения — выделить фото: над ним появляется панель (photoedit.js) */
+   Щелчок без движения — выделить фото: рамка на слайде, блок «Фото» в «Редакторе» подсвечен (photoedit.js) */
 function photoDrag(e, id){
   const b = blockById(id); if (!b || !b.photo || readOnly() || e.button !== 0) return;
   const sl = e.currentTarget.closest('.stage-slide').querySelector('.sl'), k = sl.clientWidth / SL.W;
@@ -510,10 +510,12 @@ function photoPanelFill(el, b){
       h('span', { class:'ph-cur-name' }, bankName(a), h('span', { class:'ph-kind', text:PHOTO_KINDS[a.kind] })), onSlide));
   }
   if (a && !p.off){
-    // этап 10.5.3: фильтр, отражение, обрезка, поворот, обводка и углы — в панели над фото на слайде (photoedit.js)
-    kids.push(h('div', { class:'ph-acts' }, h('button', { type:'button', class:'btn small ph-reset', onclick:() => photoReset(b) }, 'Сбросить')));
-    if (cloud.admin && cloudOn() && !a.legacy) kids.push(h('button', { type:'button', class:'btn small ph-preset', title:'Так фото встанет у всех, кто потом выберет это фото',
-      onclick:e => photoSavePreset(b, e.currentTarget) }, 'Сделать видом по умолчанию'));
+    // правка 19 ноября 2026: фильтр, обрезка, отражение, поворот, обводка и углы — под «Расширенными настройками» (photoedit.js)
+    if (!readOnly()) kids.push(photoAdvanced(b, a));
+    kids.push(h('div', { class:'ph-acts ph-foot' }, h('button', { type:'button', class:'btn small ph-reset', onclick:() => photoReset(b) }, 'Сбросить'),
+      cloud.admin && cloudOn() && !a.legacy ? h('button', { type:'button', class:'btn small ph-preset', title:'Так фото встанет у всех, кто потом выберет это фото',
+        onclick:e => photoSavePreset(b, e.currentTarget) }, 'Сделать видом по умолчанию') : null));
   }
   el.innerHTML = ''; el.append(...kids);
+  el.classList.toggle('sel', photoUI.sel === b.id || photoUI.crop === b.id);
 }
