@@ -236,3 +236,13 @@ def test_bank_snapshot_does_not_rebuild_photo_block(page, sermon):
     assert r[0] is True   # ничего не поменялось — та же кнопка
     assert r[1] is False and "Льюис-Новый" in r[2]   # поменялось имя — блок собран заново
     assert not page.errors, page.errors
+
+
+def test_crop_starts_before_photo_layer_exists(page, sermon):
+    """«Обрезать», пока картинка фото ещё не готова и слоя на слайде нет (медленный интернет): обрезка не сбрасывается сама"""
+    open_quote(page, sermon, photo={"id": "lewis-cs"})
+    page.wait_for_selector(".stage .ph-layer")
+    r = page.evaluate("""() => { document.querySelector('.stage .ph-layer').remove(); photoCropStart('q1');
+      return [photoUI.crop, !!document.querySelector('.stage .ph-crop .pc-frame')]; }""")
+    assert r == ["q1", True]
+    assert not page.errors, page.errors

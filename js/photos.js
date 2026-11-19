@@ -329,7 +329,9 @@ function paintPhotoLayer(holder, sl, b, box, u){
   }
   if (!L){
     if (photoUI.sel === b.id) photoUI.sel = photoUI.pop = null;   // слой собран заново (другой слайд, правка отменена): выделения нет
-    if (photoUI.crop === b.id) photoUI.crop = null;
+    // обрезку только что начали, а слоя ещё не было (картинка фото не успела прийти) — её не сбрасываем (этап 10.5.7)
+    if (photoUI.crop === b.id && photoUI.cropNew !== b.id) photoUI.crop = null;
+    photoUI.cropNew = null;
     L = h('div', { class:'ph-layer', 'aria-hidden':'true' }, h('div', { class:'ph-ghost' }, h('img', { alt:'' })),
       h('div', { class:'ph-hit', title:'Перетащите фото. Размер — за угол' }, ['nw', 'ne', 'sw', 'se'].map(c => h('span', { class:'ph-corner c-' + c, 'data-c':c })),
         h('span', { class:'ph-rot', title:'Повернуть. Alt — без привязки к 0° и 90°' })));   // этап 10.5.7: поворот стрелкой (photoedit.js)

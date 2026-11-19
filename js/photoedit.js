@@ -36,7 +36,7 @@ function photoDeselect(){
   ids.forEach(id => photoRepaintAll(id));
   if (crop) photoPanelRefresh(); else photoPanelMark();
 }
-function photoCropStart(id){ photoUI.crop = id; photoUI.pop = null; photoUI.sel = id; photoRepaintAll(id); photoPanelRefresh(); }
+function photoCropStart(id){ photoUI.crop = photoUI.cropNew = id; photoUI.pop = null; photoUI.sel = id; photoRepaintAll(id); photoUI.cropNew = null; photoPanelRefresh(); }
 function photoCropEnd(){ const id = photoUI.crop; photoUI.crop = null; if (id) photoRepaintAll(id); photoPanelRefresh(); }
 
 document.addEventListener('pointerdown', e => {   // щелчок мимо фото, блока «Фото» и рамки обрезки
