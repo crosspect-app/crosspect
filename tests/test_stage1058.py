@@ -31,12 +31,21 @@ def test_each_tab_shows_only_its_blocks(browser, base_url):
     ctx.close()
 
 
-def test_general_sample_is_four_slides_with_guides(browser, base_url):
+def test_general_sample_is_big_slide_with_thumbs(browser, base_url):
+    """Этап 10.7: на «Общем» крупно — Писание, под ним четыре миниатюры; щелчок по миниатюре показывает её крупно"""
     ctx, page = opened(browser, base_url)
-    assert page.locator(".scfg-slide .sl").count() == 4
+    thumbs = page.locator(".scfg-thumb")
+    assert thumbs.count() == 4
+    big = "document.querySelector('.scfg-gen > .sl')"
+    assert page.evaluate(big + ".querySelector('.sl-verse, .sl-ref') !== null")   # крупно — Писание
+    assert page.evaluate(big + ".getBoundingClientRect().width") > 3 * page.evaluate("document.querySelector('.scfg-thumb').getBoundingClientRect().width")
+    page.locator(".scfg-thumb[aria-label='Показать крупно: Заставка']").click()
+    page.wait_for_function(big + ".querySelector('.sl-sp-name') !== null")
+    assert "on" in thumbs.nth(0).get_attribute("class")
     assert "Общие настройки действуют на все виды слайдов" in page.inner_text(".scfg-info")
+    assert page.get_attribute(".scfg-slide", "title") is None and page.get_attribute(".scfg-info", "title")   # подпись — у строки под примером
     page.locator(".scfg [aria-label='Поля сверху']").focus()
-    page.wait_for_function("document.querySelectorAll('.scfg-slide .sl-guide').length === 4")   # «Область текста» на всех четырёх
+    page.wait_for_function("document.querySelectorAll('.scfg-slide .sl-guide').length === 5")   # «Область текста» на всех слайдах
     page.locator(".scfg [aria-label='Поля сверху']").blur()
     page.wait_for_function("document.querySelectorAll('.scfg-slide .sl-guide').length === 0")
     ctx.close()
@@ -70,6 +79,21 @@ def test_splash_size_applies_and_foot_switch_greys_fields(browser, base_url):
     assert page.evaluate("fakeCloud.db().slides.kinds.splash.size") == 160
     assert page.evaluate("SLIDES_BASE.kinds.splash.size") == 160
     assert not page.errors, page.errors
+    ctx.close()
+
+
+def test_window_height_does_not_jump(browser, base_url):
+    """Этап 10.7: окно одной высоты на всех вкладках, «Применить» видна без прокрутки окна"""
+    ctx, page = opened(browser, base_url)
+    page.set_viewport_size({"width": 1400, "height": 900})
+    box = "(() => { const r = document.querySelector('.sheet.scfg').getBoundingClientRect(); return [r.top, r.height]; })()"
+    first = page.evaluate(box)
+    for tab in ("Заставка", "Писание", "Тезис", "Цитата", "Общее"):
+        cfg_tab(page, tab)
+        assert page.evaluate(box) == first, tab
+        assert page.locator(".sheet.scfg").get_by_role("button", name="Применить").is_visible()
+        r = page.evaluate("document.querySelector('.scfg .sheet-foot .btn.primary').getBoundingClientRect().bottom")
+        assert r <= 900
     ctx.close()
 
 

@@ -142,7 +142,7 @@ let slidesCfgHook = null;   // окно «Настройки слайдов» о
 function openSlidesCfg(){
   if (!canEditSlidesCfg()){ toast('Настройки слайдов меняют админ и редактор'); return; }
   const tmp = JSON.parse(JSON.stringify(SLIDES_BASE));
-  let tab = 'general', sample = 'all', guide = false, raf = 0, apply = null, saving = false;   // вкладка окна; sample — какой пример слева: 'all' (четыре слайда), вид слайда или 'scrText' (вкладка «Писание»)
+  let tab = 'general', sample = 'all', genPick = 'scripture', guide = false, raf = 0, apply = null, saving = false;   // вкладка окна; sample — какой пример слева: 'all' (четыре слайда), вид слайда или 'scrText' (вкладка «Писание»)
   /* Что уйдёт по «Применить»: всё из окна, кроме форматов фона. У форматов свои кнопки, они записываются сразу, поэтому
      форматы всегда берутся из действующих настроек (и не затираются, если их тем временем поменял другой редактор) */
   const tmpFull = () => mergeSlides(SLIDES_DEFAULT, Object.assign({}, tmp, { formats:SLIDES_BASE.formats, defaultFormat:SLIDES_BASE.defaultFormat }));
@@ -153,7 +153,7 @@ function openSlidesCfg(){
     apply.disabled = saving || same;
     apply.title = same ? CFG_TIPS.applyOff : CFG_TIPS.apply;
   };
-  const host = h('div', { class:'scfg-slide', title:CFG_TIPS.sample }), info = h('div', { class:'scfg-info' });
+  const host = h('div', { class:'scfg-slide' }), info = h('div', { class:'scfg-info', title:CFG_TIPS.sample });   // подпись о «Применить» — у строки под примером, не над слайдами
   let fadeBg = false;   // следующая перерисовка примера — «Другой вариант» или смена формата: старый фон плавно перетекает в новый (этап 7.6); ползунки — без анимации
   const tabs = h('div', { class:'toggle scfg-tabs' });
   /* Вкладки: справа только блоки выбранной (все блоки собраны один раз, переключение их прячет, поэтому введённое не сбрасывается) */
@@ -171,10 +171,14 @@ function openSlidesCfg(){
       SLIDES_TRY = mergeSlides(SLIDES_DEFAULT, tmp);
       BG_TRY = fe.bg ? normBg(fe.bg) : null;   // пример — с форматом, который выбран (и правится) в блоке «Фон»
       try {
-        const all = sample === 'all', bs = (all ? ['splash', 'scripture', 'thesis', 'quote'] : [sample]).map(k => CFG_SAMPLES[k]()), sls = bs.map(b => slideEl(b));
+        /* «Общее» (этап 10.7): крупно — выбранный вид (genPick), под ним четыре миниатюры; щелчок по миниатюре показывает её крупно */
+        const all = sample === 'all', kinds = all ? [genPick, 'splash', 'scripture', 'thesis', 'quote'] : [sample];
+        const bs = kinds.map(k => CFG_SAMPLES[k]()), sls = bs.map(b => slideEl(b));
         const fade = fadeBg && host.firstElementChild; fadeBg = false;
         if (guide) sls.forEach(sl => sl.querySelector('.sl-stage').append(h('div', { class:'sl-guide', text:'Область текста' })));
-        host.replaceChildren(all ? h('div', { class:'scfg-grid' }, sls) : sls[0]);
+        host.replaceChildren(all ? h('div', { class:'scfg-gen' }, sls[0], h('div', { class:'scfg-thumbs' }, sls.slice(1).map((sl, i) =>
+          h('button', { type:'button', class:'scfg-thumb' + (kinds[i + 1] === genPick ? ' on' : ''), 'aria-label':'Показать крупно: ' + CFG_TABS.find(t => t[0] === kinds[i + 1])[1],
+            onclick:() => { if (genPick !== kinds[i + 1]){ genPick = kinds[i + 1]; paint(); } } }, sl)))) : sls[0]);
         if (fade && !MOTION.off()){   // две картинки друг на друге: прежний слайд гаснет поверх нового (~250 мс), только в примере окна
           fade.classList.add('scfg-old'); host.append(fade);
           const a = motionAnimate(fade, [{ opacity:1 }, { opacity:0 }], MOTION.ms('--motion-slow', 250), { fill:'forwards' });

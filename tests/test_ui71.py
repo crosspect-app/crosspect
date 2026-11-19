@@ -42,7 +42,8 @@ def test_settings_window_for_editor_only(browser, base_url):
     for gone in ("Название проповеди", "Как стоят стихи", "Размер 100 %"):
         assert gone not in text, gone
     page.wait_for_selector(".scfg-slide .sl")
-    assert page.locator(".scfg-slide .sl").count() == 4   # заставка, Писание, тезис, цитата
+    assert page.locator(".scfg-slide .scfg-thumb .sl").count() == 4   # миниатюры: заставка, Писание, тезис, цитата, и один крупный слайд
+    assert page.locator(".scfg-slide .sl").count() == 5
     cfg_tab(page, "Писание")
     text = sheet.inner_text()
     for there in ("Текст стихов", "Блок «Текст»", "Как стоят стихи", "С новой строки", "Размер 100 %"):

@@ -764,6 +764,16 @@ body.light .fmtbar{box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .scfg .lbl{text-transform:none;letter-spacing:0;font-size:11.5px;margin-bottom:6px}
 .scfg-body{display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.45fr);gap:22px;align-items:start;margin-bottom:16px}
 .scfg-preview{position:sticky;top:0;display:grid;gap:10px;padding-bottom:6px;background:var(--surface)}
+/* Этап 10.7: окно одной высоты на всех вкладках — пример и вкладки на месте, прокручиваются только настройки справа, «Применить» всегда видна */
+.sheet.scfg{height:calc(100vh - 32px);height:calc(100dvh - 32px);display:flex;flex-direction:column;overflow:hidden}
+.sheet.scfg .scfg-body{flex:1;min-height:0;grid-template-rows:minmax(0,1fr)}
+.sheet.scfg .scfg-form{min-height:0;max-height:100%;overflow-y:auto;align-content:start;padding-right:6px;scrollbar-gutter:stable}
+.scfg-gen{display:grid;gap:8px}
+.scfg-thumbs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.scfg-thumb{padding:0;border:2px solid transparent;border-radius:8px;background:none;cursor:pointer;opacity:.7}
+.scfg-thumb:hover{opacity:1}
+.scfg-thumb.on{border-color:var(--accent);opacity:1}
+.scfg-thumb .sl{border-radius:5px}
 .scfg-tabs{width:100%}
 .scfg-tabs button{flex:1 0 auto;padding:8px 10px}
 .scfg-info{font-size:11px;color:var(--faint);text-align:center;min-height:16px}
@@ -802,7 +812,6 @@ body.light .fmtbar{box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .scfg-bgbtns .btn{flex:1;justify-content:center;white-space:nowrap}
 .scfg .field.off{opacity:.4}
 .scfg-sec[hidden],.scfg-tolink[hidden]{display:none}
-.scfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .scfg-tabs{overflow-x:auto;scrollbar-width:none}
 .scfg-tabs::-webkit-scrollbar{display:none}
 .scfg-tabs button{white-space:nowrap}
@@ -822,7 +831,8 @@ body.light .fmtbar{box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .scfg-ask-box{max-width:420px;background:var(--surface);border:1px solid var(--line-2);border-radius:18px;padding:18px;box-shadow:var(--shadow);display:grid;gap:14px}
 .scfg-ask-box p{margin:0;font-size:14px;line-height:1.5}
 .scfg-ask-btns{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
-@media (max-width:900px){ .scfg-body{grid-template-columns:1fr} .scfg-preview{position:static} }
+@media (max-width:900px){ .scfg-body{grid-template-columns:1fr} .scfg-preview{position:static}
+  .sheet.scfg{height:auto;display:block;overflow:auto} .sheet.scfg .scfg-body{grid-template-rows:none} .sheet.scfg .scfg-form{max-height:none;overflow:visible;padding-right:0} }
 @media (max-width:620px){ .scfg-g3,.scfg-g4{grid-template-columns:1fr} }
 .mock{display:grid;gap:12px;margin:6px 0 14px}
 .mock-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
