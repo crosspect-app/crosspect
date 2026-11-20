@@ -59,7 +59,8 @@ function normTextBox(t){
   if (w < 0.03 || hh < 0.03 || x < 0 || y < 0 || x + w > 1.0001 || y + hh > 1.0001) return null;
   return { x, y, w, h:hh, ha:TB_HA.includes(t.ha) ? t.ha : 'center', va:TB_VA.includes(t.va) ? t.va : 'center' };
 }
-/* «Своя заставка» (этап 9.5): одна на все заставки проповеди (state.settings.customSplash). В архив JPEG не идёт, в PowerPoint — чёрный слайд */
+/* «Своя заставка» (этап 9.5): одна на все заставки проповеди (state.settings.customSplash). Без картинки — серая заглушка: в архив JPEG не идёт.
+   С картинкой (этап 10.9.1.1, state.settings.customSplashImage { imageId, imgW, imgH }, slideimages.js) форма рисует её сама, как обычную заставку */
 const isCustomSplash = b => !!b && b.type === 'splash' && !!(state && state.settings && state.settings.customSplash);
 /* «Нижняя строка» заставки (линия, имя и дата): у проповеди своя (state.settings.splashFoot), пока не меняли — как в настройках слайдов пространства.
    b.meta — пример в окне настроек слайдов: там всегда по настройкам */
@@ -205,6 +206,9 @@ function normalize(d){
   // этап 9.5: «своя заставка» и нижняя строка — тоже одни на все заставки проповеди (раньше «своя» стояла у отдельной заставки)
   if ((d.settings && d.settings.customSplash) || (d.blocks || []).some(b => b && b.type === 'splash' && b.custom)) s.settings.customSplash = true;
   if (d.settings && typeof d.settings.splashFoot === 'boolean') s.settings.splashFoot = d.settings.splashFoot;
+  // этап 10.9.1.1: картинка своей заставки — одна на все заставки; лежит в облаке рядом с конспектом (slideImages), как у блока «Картинка»
+  const ci = d.settings && d.settings.customSplashImage, cdim = v => Number.isInteger(v) && v > 0 && v <= 4000;
+  if (ci && typeof ci === 'object' && typeof ci.imageId === 'string' && PIC_ID_RE.test(ci.imageId) && cdim(ci.imgW) && cdim(ci.imgH)) s.settings.customSplashImage = { imageId:ci.imageId, imgW:ci.imgW, imgH:ci.imgH };
   let cur = null;   // слайд, к которому относится идущий дальше текст
   (d.blocks || []).forEach(b => {
     if (!b) return;

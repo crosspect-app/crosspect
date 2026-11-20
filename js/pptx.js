@@ -135,11 +135,11 @@ function makePPTX(slides, title){
 
 /* Чёрный слайд: форма сама его не рисует — картинка, видео, свободный слайд или слайд, который редактор отметил «доработать».
    «Своя заставка» с этапа 10.1.3 — не чёрный слайд, а серая заглушка, как в форме (renderJPEG рисует её сам) */
-const pptxIsBlack = b => !slideDrawn(b) || (todoOn(b) && !isCustomSplash(b));   // загруженная картинка (этап 10.9.1) рисуется
+const pptxIsBlack = b => !slideDrawn(b) || (todoOn(b) && !(isCustomSplash(b) && !picOn(b)));   // загруженная картинка (этап 10.9.1) рисуется
 /* Заметки докладчика (этап 9.5): название файла слайда у каждого, у чёрных — ещё комментарии к заданию. Содержимого слайдов здесь нет */
 function pptxNotes(b, n, black){
   const out = [slideName(b, n)];
-  if (!black && !isCustomSplash(b)) return out.join('\n');
+  if (!black && !(isCustomSplash(b) && !picOn(b))) return out.join('\n');
   const add = (label, v) => { v = String(v == null ? '' : v).trim(); if (v) out.push(label + v); };
   switch (b.type){
     case 'image':
@@ -153,7 +153,7 @@ function pptxNotes(b, n, black){
     case 'free':
       add('Описание: ', b.desc); break;
     case 'splash':
-      if (isCustomSplash(b)) out.push('Своя заставка'); break;
+      if (isCustomSplash(b) && !picOn(b)) out.push('Своя заставка'); break;
   }
   if (slideDrawn(b) && todoOn(b)) out.push('Отмечено «доработать»: слайд нужно сделать или поправить');
   return out.join('\n');
@@ -195,8 +195,8 @@ function openExport(){
   settingsOverlay.append(h('div', { class:'sheet dlsheet', role:'dialog', 'aria-label':'Экспорт' },
     h('div', { class:'sheet-head' }, h('div', { class:'sheet-title', text:'Экспорт' }), iconBtn('close', 'Закрыть', closeSettings)),
     h('div', { class:'dl-opts' },
-      opt('zip', 'JPEG (архив ZIP)', 'Слайды, которые собирает форма, по одному файлу; заставка — одна, первая. Картинки, видео, свободные слайды и своя заставка не входят.', () => exportMany()),
-      opt('frame', 'PowerPoint', 'Один файл .pptx со всеми слайдами по порядку. На местах картинок, видео и свободных слайдов — чёрные слайды, задание к ним — в заметках; своя заставка — серая заглушка.', () => exportPPTX()),
+      opt('zip', 'JPEG (архив ZIP)', 'Слайды, которые собирает форма, по одному файлу; заставка — одна, первая. Картинки, видео, свободные слайды и своя заставка без картинки не входят.', () => exportMany()),
+      opt('frame', 'PowerPoint', 'Один файл .pptx со всеми слайдами по порядку. На местах картинок, видео и свободных слайдов — чёрные слайды, задание к ним — в заметках; своя заставка — серая заглушка, а если загружена картинка, то она.', () => exportPPTX()),
       opt('phone', 'PDF', 'Узкие страницы под экран телефона: слайды по порядку, текст к ним и заметки оператору.', () => exportPDF()))));
   settingsOverlay.classList.add('open');
 }

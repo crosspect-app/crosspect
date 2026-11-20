@@ -147,9 +147,11 @@ describe('корзина (этап 9.1)', () => {
     await db.doc('spaces/tp/sermons/old/slideImages/i1').set(pic(48));   // картинка слайда (этап 10.9.1) — уходит с конспектом
     await db.doc('shares/' + 'q'.repeat(24)).set({ spaceId: 'tp', sermonId: 'old', sermon: {} });
     await db.doc('spaces/tp/sermons/fresh').set(sermon({ deletedAt: ago(29), deletedBy: 'x@y.z' }));
-    await db.doc('spaces/tp/sermons/live').set(sermon({ blocks: [{ id: 'b', type: 'image', mode: 'upload', imageId: 'used' }] }));
+    await db.doc('spaces/tp/sermons/live').set(sermon({ blocks: [{ id: 'b', type: 'image', mode: 'upload', imageId: 'used' }],
+      settings: { customSplash: true, customSplashImage: { imageId: 'splashused', imgW: 10, imgH: 10 } } }));   // картинка своей заставки (этап 10.9.1.1) — в настройках конспекта
     await db.doc('spaces/tp/sermons/live/versions/v1').set({ v: 2, meta: {}, blocks: [{ id: 'b', type: 'image', imageId: 'inhistory' }] });
-    for (const id of ['used', 'inhistory', 'orphan']) await db.doc('spaces/tp/sermons/live/slideImages/' + id).set(pic(48));
+    await db.doc('spaces/tp/sermons/live/versions/v2').set({ v: 2, meta: {}, blocks: [], settings: { customSplashImage: { imageId: 'splashhist', imgW: 10, imgH: 10 } } });
+    for (const id of ['used', 'inhistory', 'splashused', 'splashhist', 'orphan']) await db.doc('spaces/tp/sermons/live/slideImages/' + id).set(pic(48));
     await db.doc('spaces/tp/sermons/live/slideImages/justnow').set(pic(1));   // свежая: блок со ссылкой мог ещё не сохраниться
     await db.doc('spaces/tp/sermons/gone/slideImages/left').set(pic(48));     // конспекта уже нет, картинка осталась
     // проверка без удаления
@@ -165,7 +167,7 @@ describe('корзина (этап 9.1)', () => {
     for (const p of ['spaces/tp/sermons/old', 'spaces/tp/summaries/old', 'spaces/tp/sermons/old/editor/state', 'spaces/tp/sermons/old/versions/v1',
       'spaces/tp/sermons/old/slideImages/i1', 'shares/' + 'q'.repeat(24), 'spaces/tp/sermons/live/slideImages/orphan', 'spaces/tp/sermons/gone/slideImages/left'])
       assert.equal((await db.doc(p).get()).exists, false, p);
-    for (const id of ['used', 'inhistory', 'justnow'])
+    for (const id of ['used', 'inhistory', 'splashused', 'splashhist', 'justnow'])
       assert.ok((await db.doc('spaces/tp/sermons/live/slideImages/' + id).get()).exists, id);
     assert.ok((await db.doc('spaces/tp/sermons/fresh').get()).exists);
     assert.ok((await db.doc('spaces/tp/sermons/live').get()).exists);

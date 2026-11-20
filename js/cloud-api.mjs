@@ -750,14 +750,14 @@ export function createCloudAPI(fb){
       const takePics = blocks => (Array.isArray(blocks) ? blocks : []).forEach(x => { if (x && typeof x.imageId === 'string' && x.imageId) pics.add(x.imageId); });
       try {
         const cur = await F.getDoc(ref(space, id));
-        if (cur.exists()){ if (typeof cur.data().shareKey === 'string') key = cur.data().shareKey; takePics(cur.data().blocks); }
+        if (cur.exists()){ if (typeof cur.data().shareKey === 'string') key = cur.data().shareKey; takePics(cur.data().blocks); takePics([cur.data().settings && cur.data().settings.customSplashImage]); }
       }
       catch (e) { if (!denied(e)) throw e; }
       let share = null;
       if (key){ try { const sn = await F.getDoc(F.doc(db, 'shares', key)); if (sn.exists()) share = sn.ref; } catch (e) { /* снимка не нашли — не мешаем удалению */ } }
       if (share) await F.deleteDoc(share);   // отдельной записью (предел правил, см. выше); не удалился — конспект не трогаем, чтобы открытый снимок не остался без хозяина
       let vers = [];   // история сохранений (этап 9.7) и картинки слайдов уходят вместе с конспектом
-      try { const sn = await F.getDocs(verCol(space, id)); vers = sn.docs.map(d => d.ref); sn.docs.forEach(d => takePics(d.data().blocks)); }
+      try { const sn = await F.getDocs(verCol(space, id)); vers = sn.docs.map(d => d.ref); sn.docs.forEach(d => { takePics(d.data().blocks); takePics([d.data().settings && d.data().settings.customSplashImage]); }); }
       catch (e) { if (!denied(e)) throw e; }
       const b = F.writeBatch(db);
       vers.forEach(r => b.delete(r));

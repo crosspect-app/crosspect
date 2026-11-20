@@ -8,12 +8,24 @@
    пока на неё ссылается история сохранений, «сирот» ночью стирает cloud/scripts/admin.mjs purge-trash.
    На слайде картинка стоит целиком внутри полей слайда (те же поля, что у текста), поверх фона; правки вшиваются в картинку
    (picRender), поэтому лента, сцена, показ, JPEG и PowerPoint получают одно и то же. Скачанные картинки — в кеше браузера
-   (IndexedDB, тот же, что у фотобанка, ключ slide:<id>): второй раз из облака не качаются. */
+   (IndexedDB, тот же, что у фотобанка, ключ slide:<id>): второй раз из облака не качаются.
+
+   Своя заставка картинкой (этап 10.9.1.1): при «Своей заставке» можно загрузить одну картинку на все заставки конспекта
+   (state.settings.customSplashImage { imageId, imgW, imgH }, model.js). Файл — тот же путь: WebP в slideImages рядом с конспектом.
+   Картинка на весь слайд (лишнее по краям срезается), правок нет. Заставка с картинкой — слайд, который форма рисует сама. */
 
 const PIC_MAX_SIDE = 2560;
 const PIC_KEY = id => 'slide:' + id;
 /* Слайд с загруженной картинкой: форма рисует его сама, как Писание или цитату */
-const picOn = b => !!b && b.type === 'image' && b.mode === 'upload' && typeof b.imageId === 'string' && !!b.imageId;
+const splashImage = () => { const x = state && state.settings && state.settings.customSplashImage; return x && typeof x.imageId === 'string' && x.imageId ? x : null; };
+/* Откуда слайд берёт картинку: у блока «Картинка» — из блока, у заставки — из настроек конспекта (cover — на весь слайд, без правок) */
+function picSrc(b){
+  if (!b) return null;
+  if (b.type === 'image' && b.mode === 'upload' && typeof b.imageId === 'string' && b.imageId) return { imageId:b.imageId, imgW:b.imgW, imgH:b.imgH, pic:b.pic || {}, cover:false };
+  if (b.type === 'splash' && !b.meta && isCustomSplash(b)){ const x = splashImage(); if (x) return { imageId:x.imageId, imgW:x.imgW, imgH:x.imgH, pic:{}, cover:true }; }
+  return null;
+}
+const picOn = b => !!picSrc(b);
 /* Слайд, который форма рисует: с текстом (PREVIEW) или с картинкой */
 const slideDrawn = b => !!b && (!!PREVIEW[b.type] || picOn(b));
 /* Где лежит картинка: пространство открытого конспекта */
@@ -54,15 +66,18 @@ function picArea(){
   const m = slidesCfg().margins, x = PANEL_INSET + m.side, t = PANEL_INSET + m.top;
   return { x, t, w:SL.W - 2 * x, h:SL.H - t - PANEL_INSET - m.bottom };
 }
-const picFx = b => b.pic || {};
-const picKey = b => { const p = picFx(b), A = picArea();
-  return [b.imageId, JSON.stringify(p.crop || null), p.rot || 0, p.filter || 'none', p.outline ? p.outline.w + p.outline.color : '', A.x, A.t, A.w, A.h,
+const picFx = b => (picSrc(b) || {}).pic || {};
+const picKey = b => { const S = picSrc(b), p = picFx(b), A = picArea();
+  if (S.cover) return [S.imageId, 'cover'].join('|');   // заставка: от полей слайда и настроек не зависит
+  return [S.imageId, JSON.stringify(p.crop || null), p.rot || 0, p.filter || 'none', p.outline ? p.outline.w + p.outline.color : '', A.x, A.t, A.w, A.h,
     p.filter === 'tone' ? photoToneColor() : ''].join('|'); };
 const picVars = new Map(), picOrder = [];   // ключ → { canvas, url, rect } или Promise; последние 30
 /* Рамка готовой картинки на слайде (с поворотом и обводкой), без самих пикселей: по размеру файла из блока */
 function picGeom(b){
+  const S = picSrc(b);
+  if (S.cover) return { cover:true, W:SL.W, H:SL.H, rect:{ left:0, top:0, width:SL.W, height:SL.H } };   // заставка: весь кадр
   const p = picFx(b), c = p.crop || { l:0, t:0, r:0, b:0 }, A = picArea();
-  const sw = b.imgW * (1 - c.l - c.r), sh = b.imgH * (1 - c.t - c.b), th = (p.rot || 0) * Math.PI / 180;
+  const sw = S.imgW * (1 - c.l - c.r), sh = S.imgH * (1 - c.t - c.b), th = (p.rot || 0) * Math.PI / 180;
   const cs = Math.abs(Math.cos(th)), sn = Math.abs(Math.sin(th)), RW = sw * cs + sh * sn, RH = sw * sn + sh * cs;
   const ow = p.outline ? p.outline.w : 0, k = Math.max(0.001, Math.min((A.w - 2 * ow) / RW, (A.h - 2 * ow) / RH));
   const W = Math.max(1, Math.round(RW * k + 2 * ow)), H = Math.max(1, Math.round(RH * k + 2 * ow));
@@ -70,8 +85,20 @@ function picGeom(b){
 }
 function picRender(b){
   const key = picKey(b);
-  if (!picVars.has(key)) picVars.set(key, picImage(b.imageId).then(im => {
+  const store = (C, bl, G, res) => {
+    const v = { canvas:C, url:bl ? URL.createObjectURL(bl) : C.toDataURL('image/png'), rect:G.rect, ready:true };
+    picVars.set(key, v); picOrder.push(key);
+    while (picOrder.length > 30){ const k = picOrder.shift(), old = picVars.get(k); picVars.delete(k); if (old && old.url && old.url.startsWith('blob:')) URL.revokeObjectURL(old.url); }
+    res(v);
+  };
+  if (!picVars.has(key)) picVars.set(key, picImage(picSrc(b).imageId).then(im => {
     const p = picFx(b), G = picGeom(b), f = p.filter || 'none';
+    if (G.cover){   // заставка: картинка во весь кадр, лишнее по краям срезается
+      const C = pbCanvas(G.W, G.H), t = C.getContext('2d'), nw = im.naturalWidth, nh = im.naturalHeight, k = Math.max(G.W / nw, G.H / nh);
+      t.imageSmoothingQuality = 'high';
+      t.drawImage(im, (G.W - nw * k) / 2, (G.H - nh * k) / 2, nw * k, nh * k);
+      return new Promise(res => C.toBlob(bl => store(C, bl, G, res), 'image/webp', 0.92));
+    }
     // обрезанная картинка в размере слайда; фильтр — по пикселям, до обводки (photos.js, filterPixels)
     const iw = Math.max(1, Math.round(G.sw * G.k)), ih = Math.max(1, Math.round(G.sh * G.k));
     const P = pbCanvas(iw, ih), g = P.getContext('2d', { willReadFrequently:f !== 'none' });
@@ -84,12 +111,7 @@ function picRender(b){
     t.translate(G.W / 2, G.H / 2); t.rotate(G.th);
     if (G.ow > 0){ t.fillStyle = p.outline.color; t.fillRect(-iw / 2 - G.ow, -ih / 2 - G.ow, iw + 2 * G.ow, ih + 2 * G.ow); }
     t.drawImage(P, -iw / 2, -ih / 2);
-    return new Promise(res => C.toBlob(bl => {
-      const v = { canvas:C, url:bl ? URL.createObjectURL(bl) : C.toDataURL('image/png'), rect:G.rect, ready:true };
-      picVars.set(key, v); picOrder.push(key);
-      while (picOrder.length > 30){ const k = picOrder.shift(), old = picVars.get(k); picVars.delete(k); if (old && old.url && old.url.startsWith('blob:')) URL.revokeObjectURL(old.url); }
-      res(v);
-    }, 'image/webp', 0.92));
+    return new Promise(res => C.toBlob(bl => store(C, bl, G, res), 'image/webp', 0.92));
   }).catch(e => { picVars.delete(key); throw e; }));
   return picVars.get(key);
 }
@@ -106,17 +128,17 @@ function picPaint(sl, b){
   const im = sl.querySelector('.sl-pic img'); if (!im) return;
   const v = picVars.get(picKey(b));
   if (v && v.ready){
-    picLast.set(b.id, { url:v.url, imageId:b.imageId });
+    picLast.set(b.id, { url:v.url, imageId:picSrc(b).imageId });
     if (im.getAttribute('src') !== v.url) im.src = v.url;
     Object.assign(im.style, { display:'block', left:v.rect.left + 'px', top:v.rect.top + 'px', width:v.rect.width + 'px', height:v.rect.height + 'px' });
     return;
   }
   const last = picLast.get(b.id), G = picGeom(b);
-  if (last && last.imageId === b.imageId){   // правки ещё готовятся: прежняя картинка в новой рамке
+  if (last && last.imageId === picSrc(b).imageId){   // правки ещё готовятся: прежняя картинка в новой рамке
     if (im.getAttribute('src') !== last.url) im.src = last.url;
     Object.assign(im.style, { display:'block', left:G.rect.left + 'px', top:G.rect.top + 'px', width:G.rect.width + 'px', height:G.rect.height + 'px' });
   } else { im.removeAttribute('src'); im.style.display = 'none'; }
-  if (!v) picRender(b).then(() => picRepaintAll(b.id)).catch(() => picPanelRefresh(b.id));
+  if (!v) picRender(b).then(() => picRepaintAll(b.id)).catch(() => { picPanelRefresh(b.id); splashPanelRefresh(); });
 }
 /* Перерисовать картинку на всех слайдах этого блока (лента, сцена, вид «Текст», показ) */
 function picRepaintAll(id){
@@ -128,27 +150,30 @@ function picRepaintAll(id){
 
 /* ----- Загрузка ----- */
 const picBusy = new Map();   // id блока → 'prep' | 'up'
+/* Файл → WebP не больше 900 КБ → облако рядом с конспектом. Возвращает { imageId, imgW, imgH }; onStage('up') — когда пошла загрузка */
+async function picStore(file, sermon, space, onStage){
+  const im = await pbLoadImage(file);   // photobank.js: понятная ошибка, если файл не картинка
+  const k = Math.min(1, PIC_MAX_SIDE / Math.max(im.naturalWidth, im.naturalHeight));
+  const cv = pbCanvas(im.naturalWidth * k, im.naturalHeight * k), g = cv.getContext('2d');
+  g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, cv.width, cv.height);
+  const enc = await pbEncode(cv);   // WebP не больше 900 КБ
+  const bytes = new Uint8Array(await enc.blob.arrayBuffer()), imageId = 'p' + uid();
+  onStage('up');
+  await cloud.api.putSlideImage(cloud.user, space, sermon, imageId, bytes, enc.w, enc.h);
+  photoIdb.put(PIC_KEY(imageId), enc.blob);
+  return { imageId, imgW:enc.w, imgH:enc.h };
+}
+const picNotSaved = () => { if (editing()) saveNow(); toast('Конспект ещё не сохранился в облаке. Подождите пару секунд и попробуйте снова.'); };
 async function picUpload(b, file){
   if (!b || !file || readOnly() || picBusy.has(b.id)) return;
-  if (!cloudOn() || !state.cloudAt){
-    if (editing()) saveNow();
-    toast('Конспект ещё не сохранился в облаке. Подождите пару секунд и попробуйте снова.'); return;
-  }
+  if (!cloudOn() || !state.cloudAt){ picNotSaved(); return; }
   const id = b.id, sermon = state.id, space = picSpace();
   picBusy.set(id, 'prep'); picPanelRefresh(id);
   try {
-    const im = await pbLoadImage(file);   // photobank.js: понятная ошибка, если файл не картинка
-    const k = Math.min(1, PIC_MAX_SIDE / Math.max(im.naturalWidth, im.naturalHeight));
-    const cv = pbCanvas(im.naturalWidth * k, im.naturalHeight * k), g = cv.getContext('2d');
-    g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, cv.width, cv.height);
-    const enc = await pbEncode(cv);   // WebP не больше 900 КБ
-    const bytes = new Uint8Array(await enc.blob.arrayBuffer()), imageId = 'p' + uid();
-    picBusy.set(id, 'up'); picPanelRefresh(id);
-    await cloud.api.putSlideImage(cloud.user, space, sermon, imageId, bytes, enc.w, enc.h);
-    photoIdb.put(PIC_KEY(imageId), enc.blob);
+    const r = await picStore(file, sermon, space, st => { picBusy.set(id, st); picPanelRefresh(id); });
     const cur = state && state.id === sermon ? blockById(id) : null;
     if (!cur || readOnly()) return;   // ушли с конспекта или правку закрыли: картинка без ссылки уйдёт ночью
-    Object.assign(cur, { mode:'upload', imageId, imgW:enc.w, imgH:enc.h }); delete cur.pic;
+    Object.assign(cur, { mode:'upload' }, r); delete cur.pic;
     // картинку загрузили — слайд готов, как у Писания; если редактор уже решал про этот слайд, его отметка вернётся сама (editor.js)
     if (cur.todo && !(typeof fl !== 'undefined' && fl.map && fl.map[cur.id])) cur.todo = false;
     picBusy.delete(id);
@@ -221,6 +246,58 @@ function picPanelFill(el, b){
     }
   }
   el.innerHTML = ''; el.append(...kids);
+}
+
+/* ----- Своя заставка картинкой (этап 10.9.1.1) ----- */
+/* Панель в настройках заставки, под переключателем «Своя заставка». all — обновить заставки (preview, лента, кнопка «JPEG») */
+let splashBusy = '';
+function splashPanelFill(el){
+  const ro = readOnly(), x = splashImage(), kids = [];
+  el.hidden = !isCustomSplash({ type:'splash' });   // подсказка остаётся в разметке и прячется целиком
+  const pick = (label, cls) => h('button', { type:'button', class:'btn ' + cls, disabled:ro || splashBusy ? true : null, onclick:() => splashPick(el) }, label);
+  kids.push(h('p', { class:'hint', text:x
+    ? 'Одна картинка на все заставки конспекта, на весь слайд: лишнее по краям обрезается. В PowerPoint она стоит на каждой заставке, в архив JPEG попадает первая.'
+    : 'Картинки пока нет: в PowerPoint на месте заставки будет серая заглушка, в архив JPEG заставка не попадёт. Загрузите картинку, и она встанет на все заставки.' }));
+  if (splashBusy) kids.push(h('p', { class:'hint pic-busy', role:'status', text:splashBusy === 'prep' ? 'Готовлю картинку…' : 'Загружаю в облако…' }));
+  const err = x && picErr.get(x.imageId);
+  if (err) kids.push(h('p', { class:'pic-err', role:'alert', text:err }));
+  kids.push(h('div', { class:'pic-acts' }, x ? pick('Заменить картинку', 'small spic-replace') : pick('Загрузить картинку', 'primary spic-pick'),
+    x && !ro && h('button', { type:'button', class:'btn small spic-del', disabled:splashBusy ? true : null, onclick:() => splashRemove(el) }, 'Удалить картинку')));
+  el.innerHTML = ''; el.append(...kids);
+}
+function splashPanel(all){
+  const el = h('div', { class:'spic-panel' }); el._all = all;
+  el.refill = () => splashPanelFill(el);
+  splashPanelFill(el);
+  return el;
+}
+const splashPanelEl = () => (typeof sideEl !== 'undefined' && sideEl ? sideEl.querySelector('.spic-panel') : null);
+function splashPanelRefresh(){ const el = splashPanelEl(); if (el) splashPanelFill(el); }
+function splashPick(el){
+  if (readOnly() || splashBusy) return;
+  const inp = h('input', { type:'file', accept:'image/jpeg,image/png,image/webp', style:'display:none' });
+  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; inp.remove(); if (f) splashUpload(f, el._all); });
+  document.body.append(inp); inp.click();
+}
+async function splashUpload(file, all){
+  if (!file || readOnly() || splashBusy) return;
+  if (!cloudOn() || !state.cloudAt){ picNotSaved(); return; }
+  const sermon = state.id, space = picSpace();
+  splashBusy = 'prep'; splashPanelRefresh();
+  try {
+    const r = await picStore(file, sermon, space, st => { splashBusy = st; splashPanelRefresh(); });
+    if (!state || state.id !== sermon || readOnly()) return;   // ушли с конспекта или правку закрыли: картинка без ссылки уйдёт ночью
+    state.settings.customSplashImage = r;
+    change(); if (all) all();
+  } catch(e){
+    toast(e && e.code ? cloudExplain(e) : (e && e.message) || 'Не получилось загрузить картинку.');
+  } finally { splashBusy = ''; splashPanelRefresh(); }
+}
+/* «Удалить картинку»: заставка снова серая заглушка; сам файл в облаке стирает ночная уборка, когда на него не ссылаются ни конспект, ни история */
+function splashRemove(el){
+  if (readOnly() || !splashImage()) return;
+  delete state.settings.customSplashImage;
+  change(); if (el._all) el._all(); splashPanelRefresh();
 }
 
 /* ----- Обрезка: окно с картинкой без правок, рамка с ручками по углам, внутри — двигать ----- */

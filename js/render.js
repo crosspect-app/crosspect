@@ -660,13 +660,13 @@ const BODY = {
     };
     const sw = (label, on, fn) => h('label', { class:'switch' },
       h('input', { type:'checkbox', checked:on, onchange:e => { fn(e.target.checked); change(); all(); } }), h('span', { class:'sw' }), label);
-    const hint = h('p', { class:'hint', hidden:!isCustomSplash(b), text:'В PowerPoint на месте заставки будет серая заглушка, в архив JPEG заставка не попадёт.' });   // пояснение — только когда «Своя заставка» включена (этап 9.6)
+    const spic = splashPanel(all);   // пояснение и картинка — только когда «Своя заставка» включена (этап 9.6, картинка — 10.9.1.1)
     body.append(
       h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Размер названия' }), splashStepper()),
       sw('Нижняя строка', splashFootOn(b), v => { state.settings.splashFoot = v; }),
       h('div', { class:'own-splash' },
-        sw('Своя заставка', isCustomSplash(b), v => { if (v) state.settings.customSplash = true; else delete state.settings.customSplash; hint.hidden = !v; }),
-        hint));
+        sw('Своя заставка', isCustomSplash(b), v => { if (v) state.settings.customSplash = true; else delete state.settings.customSplash; spic.refill(); }),
+        spic));
   },
   thesis(b, body, n){
     const parts = b.parts, cnt = parts.length;

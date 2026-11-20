@@ -138,7 +138,10 @@ function slideEl(b){
   // фон: прежние пятна (.sl-glow) или картинка генератора (.sl-bg) — выбирают переменные из slideVars (background.js, bgVars)
   const kids = [h('div', { class:'sl-frame' }),
     h('div', { class:'sl-panel' }, h('div', { class:'sl-glow' }), h('div', { class:'sl-bg' }), h('div', { class:'sl-grain' }), h('div', { class:'sl-vig' }))];
-  if (picOn(b)) kids.push(h('div', { class:'sl-pic' }, h('img', { alt:'' })));   // загруженная картинка (этап 10.9.1, slideimages.js) — поверх фона
+  if (picOn(b) && b.type !== 'splash') kids.push(h('div', { class:'sl-pic' }, h('img', { alt:'' })));   // загруженная картинка (этап 10.9.1, slideimages.js) — поверх фона
+  else if (b.type === 'splash' && !b.meta) kids.push(   // этап 10.9.1.1: у заставки картинка (своя заставка) и название лежат вместе, что видно — решает fitSlide
+    h('div', { class:'sl-pic' }, h('img', { alt:'' })), h('div', { class:'sl-sp-box' }, h('div', { class:'sl-sp-title' })),
+    h('div', { class:'sl-sp-foot' }, h('div', { class:'sl-hr' }), h('div', { class:'sl-sp-row' }, h('span', { class:'sl-sp-name' }), h('span', { class:'sl-sp-date' }))));
   else if (!PREVIEW[b.type]){}   // картинка, видео, свободный: пустой слайд (рамка и фон) для JPEG
   else if (b.type === 'scripture') kids.push(h('div', { class:'sl-content' }), h('div', { class:'sl-tr' }));
   else if (b.type === 'splash') kids.push(
@@ -353,6 +356,11 @@ function fitSlide(sl, b){
   sl.style.setProperty('--s', w / SL.W);
   if (w < SL.W && !sl.closest('.film, .scfg, .hb-wall, .slideshow, .fmt-prev')) lastScale = w / SL.W;   // масштаб берём с крупных слайдов, не с миниатюр
   const fit = b.type === 'scripture' ? layoutAt : b.type === 'splash' ? layoutSplash : layoutBox;
+  if (b.type === 'splash' && !b.meta){   // этап 10.9.1.1: заставка с картинкой — название и линия скрыты (.sl-picsplash на кадре, чтобы это попало и в JPEG)
+    const on = picOn(b), st = sl.querySelector('.sl-stage'), im = sl.querySelector('.sl-pic img');
+    if (st) st.classList.toggle('sl-picsplash', on);
+    if (!on && im){ im.style.display = 'none'; im.removeAttribute('src'); }
+  }
   if (picOn(b)){ picPaint(sl, b); return 1; }   // слайд с загруженной картинкой (этап 10.9.1): текста нет
   if (!PREVIEW[b.type]) return 1;   // пустой слайд (картинка, видео, свободный): только рамка и фон
   if (b.type === 'quote') paintPhoto(sl, b);   // фото автора (этап 10.5, photos.js) от текста не зависит
@@ -392,7 +400,7 @@ function schedulePreview(b){
 function runPreview(b){
   if (passageParts(b)){ unitsOf(b).forEach(u => runPreview(u)); return; }
   const sls = mainEl.querySelectorAll('.sl[data-id="' + b.id + '"]'); if (!sls.length) return;
-  if (!PREVIEW[b.type]){ sls.forEach(sl => fitSlide(sl, b)); return; }   // слайд с картинкой (этап 10.9.1): только масштаб и картинка
+  if (!PREVIEW[b.type] || picOn(b)){ sls.forEach(sl => fitSlide(sl, b)); return; }   // слайд с картинкой (этап 10.9.1, заставка — 10.9.1.1): только масштаб и картинка
   let ratio = null, main = null;
   sls.forEach(sl => {
     const r = fitSlide(sl, b);

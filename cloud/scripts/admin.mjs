@@ -166,7 +166,8 @@ if (cmd === 'create-space') {
       const used = new Set(), snap = await sr.get();
       if (snap.exists) {
         refsOf(snap.get('blocks'), used);
-        for (const v of (await sr.collection('versions').select('blocks').get()).docs) refsOf(v.get('blocks'), used);
+        refsOf([snap.get('settings.customSplashImage')], used);   // картинка своей заставки (этап 10.9.1.1) лежит в настройках конспекта
+        for (const v of (await sr.collection('versions').select('blocks', 'settings').get()).docs){ refsOf(v.get('blocks'), used); refsOf([v.get('settings.customSplashImage')], used); }
       }
       for (const p of pics.docs) {
         const at = p.get('updatedAt');

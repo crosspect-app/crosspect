@@ -355,6 +355,8 @@ body.ro .st.on .st-n{color:var(--text)}
 .fl{display:none;position:absolute;top:6px;right:6px;z-index:2;font:700 9px/1 'Inter',sans-serif;text-transform:uppercase;letter-spacing:.04em;background:var(--todo);color:#141414;padding:4px 6px;border-radius:5px}
 .st.todo .fl{display:block}
 /* Своя заставка (этап 9.6): на сцене и миниатюрах — чёрный экран с крупной жирной надписью (текст и размер ставит layoutSplash) */
+.sl-stage.sl-picsplash{background:#000}   /* этап 10.9.1.1: заставка с картинкой — картинка на весь кадр, название и линия скрыты (класс на кадре, чтобы попало и в JPEG) */
+.sl-stage.sl-picsplash .sl-frame,.sl-stage.sl-picsplash .sl-panel,.sl-stage.sl-picsplash .sl-sp-box,.sl-stage.sl-picsplash .sl-sp-foot{display:none}
 .sl.sl-custom .sl-frame,.sl.sl-custom .sl-panel{display:none}
 .sl.sl-custom .sl-stage{background:#141414;box-shadow:none;border:calc(1px / var(--s)) dashed #3a3a3a}   /* этап 10.1.3: серая заглушка, как у картинки и видео */
 .sl.sl-custom .sl-sp-box{top:0;bottom:0;left:var(--sl-x);right:var(--sl-x)}
