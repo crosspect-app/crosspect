@@ -25,15 +25,18 @@ async function dumpCollection(col, dir) {
     for (const snap of snaps) {
       if (snap.exists) {
         mkdirSync(dir, { recursive: true });
-        const data = snap.data();
+        const data = snap.data(), files = {};
         for (const [k, v] of Object.entries(data)) {
           if (!(Buffer.isBuffer(v) || v instanceof Uint8Array) || v.length < BIG) continue;
           const buf = Buffer.from(v), webp = buf.length > 12 && buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP';
-          const name = `${snap.id}.${k}.${webp ? 'webp' : 'bin'}`;
-          writeFileSync(join(dir, name), buf);
-          data[k] = { $file: name };
+          files[k] = `${snap.id}.${k}.${webp ? 'webp' : 'bin'}`;
+          writeFileSync(join(dir, files[k]), buf);
+          data[k] = null;
         }
-        writeFileSync(join(dir, `${snap.id}.json`), toJSON(data));
+        // ссылку на файл ставим после toJSON: иначе объект с ключом на «$» уйдёт в {"$map": …}
+        const json = Object.keys(files).length ? JSON.parse(toJSON(data)) : null;
+        if (json) Object.entries(files).forEach(([k, name]) => { json[k] = { $file: name }; });
+        writeFileSync(join(dir, `${snap.id}.json`), json ? JSON.stringify(json, null, 2) + '\n' : toJSON(data));
         counts[col.id] = (counts[col.id] || 0) + 1;
       }
     }

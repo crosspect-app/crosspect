@@ -722,8 +722,9 @@ const BODY = {
   },
   image(b, body, n){
     body.append(nameField(b, n));
-    body.append(toggle([['find', 'Найди сам'], ['send', 'Пришлю отдельно']], b.mode, v => { b.mode = v; change(); rerender(b); }));
-    if (b.mode === 'find') body.append(field('Что должно быть на картинке', area(b, 'desc', 'Опишите изображение: что на нём, настроение. Можно добавить пример или ссылку')));
+    body.append(toggle([['find', 'Найди сам'], ['send', 'Пришлю отдельно'], ['upload', 'Загрузить']], b.mode, v => { b.mode = v; change(); rerender(b); updateCounter(b); }));
+    if (b.mode === 'upload') body.append(picPanel(b));   // этап 10.9.1: файл в облако рядом с конспектом (slideimages.js)
+    else if (b.mode === 'find') body.append(field('Что должно быть на картинке', area(b, 'desc', 'Опишите изображение: что на нём, настроение. Можно добавить пример или ссылку')));
     else {
       body.append(h('div', { class:'callout' }, ic('image'), h('div', { html:'Отправьте файл отдельно с подписью <b>«Слайд ' + n + '»</b>, так он не потеряется.' })));
       body.append(field('Комментарий, если нужен', area(b, 'desc', 'Например: обрезать по центру, без текста', 2)));

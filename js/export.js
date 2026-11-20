@@ -42,7 +42,7 @@ function slideCSS(){
    без layer — весь слайд с фото */
 async function renderJPEG(b, layer){
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
-  const ph = await photoReady(b);
+  const ph = await photoReady(b), pic = await picReady(b);   // картинка слайда (этап 10.9.1, slideimages.js)
   const fontCss = await exportFonts();
   const host = h('div', { style:'position:fixed;left:-40000px;top:0;width:1920px;height:1080px;overflow:hidden;pointer-events:none', 'aria-hidden':'true' });
   const sl = slideEl(b); sl.style.width = '1920px';
@@ -56,6 +56,11 @@ async function renderJPEG(b, layer){
     // фото автора: в картинке-SVG ссылки blob: не открываются — подставляем саму картинку (data:)
     const pim = stage.querySelector('.sl-photo img');
     if (pim){ if (ph && !layer) pim.src = photoDataUrl(ph.variant); else pim.remove(); }
+    const qim = stage.querySelector('.sl-pic img');
+    if (qim){
+      if (pic && layer !== 'text'){ qim.src = photoDataUrl(pic); Object.assign(qim.style, { display:'block', left:pic.rect.left + 'px', top:pic.rect.top + 'px', width:pic.rect.width + 'px', height:pic.rect.height + 'px' }); }
+      else qim.remove();
+    }
     if (layer === 'back') stage.querySelectorAll('.sl-box, .sl-author').forEach(x => x.remove());
     if (layer === 'text'){ stage.querySelectorAll('.sl-frame, .sl-panel').forEach(x => x.remove()); stage.style.background = 'transparent'; }
     const wrap = document.createElement('div');
@@ -126,8 +131,8 @@ async function exportMany(){
   if (exporting) return;
   // в архив идёт одна заставка — первая (у всех заставок один номер в Holyrics, этап 9.6); своя заставка не входит совсем
   const first = state.blocks.find(b => b.type === 'splash');
-  const list = units().filter(b => PREVIEW[b.type] && (b.type !== 'splash' || (b === first && !isCustomSplash(b))));   // части отрывка — отдельные JPEG (этап 10.4)
-  if (!list.length){ toast('В конспекте нет слайдов для архива: картинки, видео, свободные слайды и своя заставка в него не входят'); return; }
+  const list = units().filter(b => slideDrawn(b) && (b.type !== 'splash' || (b === first && !isCustomSplash(b))));   // части отрывка — отдельные JPEG (этап 10.4), загруженные картинки (10.9.1)
+  if (!list.length){ toast('В конспекте нет слайдов для архива: видео, свободные слайды, своя заставка и картинки, которые не загружены в форму, в него не входят'); return; }
   if (!checkNames()) return;
   if (list.length === 1){ exportOne(list[0]); return; }
   exporting = true; motionPause();
@@ -142,7 +147,7 @@ async function exportMany(){
     }
     download(makeZip(files), folder + '.zip');
     pr.end();
-    const rest = state.blocks.some(b => b.type === 'image' || b.type === 'video' || b.type === 'free' || isCustomSplash(b));
+    const rest = state.blocks.some(b => (b.type === 'image' && !picOn(b)) || b.type === 'video' || b.type === 'free' || isCustomSplash(b));
     toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео, свободные слайды и своя заставка делаются вручную' : ''));
   } catch(e){ pr.fail(); toast('Не получилось собрать слайды: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
   finally { exporting = false; motionResume(); }

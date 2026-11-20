@@ -12,6 +12,7 @@ function closeSettings(force){
   if (typeof spwStop === 'function') spwStop();   // окно «Пространства» (space.js) перестаёт слушать выбранное пространство
   if (typeof pbStop === 'function') pbStop();     // окно «Фотобанк» (photobank.js)
   if (typeof pickStop === 'function') pickStop(); // окно выбора фото у цитаты (photopick.js)
+  if (typeof picCropStop === 'function') picCropStop();   // обрезка картинки слайда (slideimages.js)
 }
 
 /* ========= Настройки из репозитория (data/config.json): переводы Библии и подпись перевода (список авторов — с этапа 10 из людей пространства) =========

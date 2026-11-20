@@ -56,6 +56,7 @@ function emptyState(){
 /* ----- Что показывать вместо слайда у картинки, видео и свободного слайда ----- */
 function mediaInfo(b, n){
   const name = cleanName(b.name), d = (b.desc || '').trim();
+  if (b.type === 'image' && b.mode === 'upload') return { icon:'image', name, title:'Картинку ещё не загрузили', lines:[], short:'Нет картинки' };   // этап 10.9.1; с картинкой — слайд
   if (b.type === 'image') return { icon:'image', name, title:b.mode === 'find' ? 'Найти картинку' : 'Файл пришлют отдельно («Слайд ' + n + '»)', lines:[d], short:b.mode === 'send' ? 'Пришлю отдельно' : (d || 'Найти картинку') };
   if (b.type === 'video'){
     const t = (b.from || b.to) ? (b.from || '0:00') + '–' + (b.to || 'до конца') : '';
@@ -78,7 +79,7 @@ const isMissing = b => !!(flagMissing && NAMED[b.type] && !cleanName(b.name));
    сразу, до показа: пустой рамки без текста не бывает. Обработчики ищут блок по id: после отмены и обновления из облака
    объекты блоков новые, а узлы те же */
 function thumbBody(b, n){
-  if (PREVIEW[b.type]){ const sl = slideEl(b); if (previewRO) previewRO.observe(sl); return sl; }
+  if (slideDrawn(b)){ const sl = slideEl(b); if (previewRO) previewRO.observe(sl); return sl; }   // с картинкой (этап 10.9.1) — тоже слайд
   if (b.type === 'note') return h('div', { class:'mini-note', text:(b.text || '').trim() || 'Заметка оператору' });
   return h('div', { class:'ph-thumb' }, h('span', { text:mediaInfo(b, n).short }));
 }
@@ -146,6 +147,10 @@ function updateItem(box, b, n){
   btn.classList.toggle('missing', isMissing(b));
   const num = btn.querySelector('.st-n'); if (TYPES[b.type].slide && num.textContent !== String(n)) num.textContent = String(n);
   const nm = btn.querySelector('.st-name'), name = thumbName(b, n); if (nm.textContent !== name) nm.textContent = name;
+  if (b.type === 'image'){   // этап 10.9.1: загрузили картинку или сменили режим — заглушка и слайд меняются местами
+    const th = btn.querySelector('.st-thumb'), cur = th && th.firstElementChild;
+    if (cur && cur.classList.contains('sl') !== picOn(b)) cur.replaceWith(thumbBody(b, n));
+  }
   const ph = btn.querySelector('.ph-thumb span'); if (ph) ph.textContent = mediaInfo(b, n).short;
   const mn = btn.querySelector('.mini-note'); if (mn) mn.textContent = (b.text || '').trim() || 'Заметка оператору';
   paintProblem(box, b);
@@ -224,7 +229,7 @@ function syncFilm(){
   if (arrange) armDrag(filmEl);
   // новые миниатюры — разложить сразу (шрифты и фон к этому времени готовы: slideAssetsReady в app.js); изменённые — на месте
   units().forEach(b => {
-    if (!PREVIEW[b.type]) return;
+    if (!slideDrawn(b)) return;
     const box = unitBox(b.id); if (!box) return;
     if (box._fp !== thumbFp(b)){ clearTimeout(previewTimers[b.id]); runPreview(b, box); }
   });
@@ -431,7 +436,7 @@ function stageBar(b, n){
     h('span', { class:'cap strong', text:(T.slide ? n + ' · ' : '') + T.label + (P ? ' · отрывок, слайд ' + (P.k + 1) + ' из ' + P.n : '') }),
     h('div', { class:'grow' }),
     T.slide && h('button', { type:'button', class:'btn', title:'Скопировать название слайда для Holyrics', onclick:() => copyText(slideName(b, n), 'Скопировано: ') }, ic('tag'), 'Название'),
-    (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn jpg-btn', disabled:isCustomSplash(b), title:isCustomSplash(b) ? 'У своей заставки JPEG не собирается: заставку вы делаете сами' : BLANK_JPEG[b.type] ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
+    (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn jpg-btn', disabled:isCustomSplash(b), title:isCustomSplash(b) ? 'У своей заставки JPEG не собирается: заставку вы делаете сами' : BLANK_JPEG[b.type] && !picOn(b) ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
     T.slide && canFlag() && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo),
       title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную.' + (cloudOn() ? ' Автор тоже её увидит.' : ''), onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
     h('div', { class:'stepper' },
@@ -440,7 +445,7 @@ function stageBar(b, n){
       h('button', { type:'button', class:'icon-btn', 'aria-label':'Следующий слайд', title:'Следующий', disabled:i >= total - 1, onclick:() => stepSel(1) }, ic('next'))));
 }
 function stageVisual(b, n){
-  if (PREVIEW[b.type]){ const sl = slideEl(b); if (previewRO) previewRO.observe(sl); return h('div', { class:'stage-slide' }, sl); }
+  if (slideDrawn(b)){ const sl = slideEl(b); if (previewRO) previewRO.observe(sl); return h('div', { class:'stage-slide' }, sl); }
   if (b.type === 'note') return h('div', { class:'note-plate' },
     h('div', { class:'note-tag' }, ic('note'), 'Оператору'),
     h('div', { class:'note-text' + ((b.text || '').trim() ? '' : ' empty'), text:(b.text || '').trim() || 'Текст заметки' }));
@@ -531,10 +536,12 @@ function rerenderPassage(b, focusKey, offset){
 /* Данные слайда изменились: пересчитать предпросмотр, подпись и заглушку */
 function updateCounter(b){
   if (!inSlides()) return;
-  if (PREVIEW[b.type]) schedulePreview(b);
+  if (slideDrawn(b)) schedulePreview(b);
   refreshThumb(b);
   if (!PREVIEW[b.type] && b.id === selId){
-    const v = stageEl.querySelector('.ph-big, .note-plate');
+    // картинка (этап 10.9.1): загрузили или сменили режим — заглушка и слайд меняются местами
+    const v = stageEl.querySelector(b.type === 'image' ? '.ph-big, .stage-slide' : '.ph-big, .note-plate');
+    if (v && b.type === 'image' && v.classList.contains('stage-slide') && picOn(b)) return;   // слайд уже стоит: картинку перерисовал picRepaintAll
     if (v) v.replaceWith(stageVisual(b, slideNums()[b.id]));
   }
 }

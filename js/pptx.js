@@ -135,7 +135,7 @@ function makePPTX(slides, title){
 
 /* Чёрный слайд: форма сама его не рисует — картинка, видео, свободный слайд или слайд, который редактор отметил «доработать».
    «Своя заставка» с этапа 10.1.3 — не чёрный слайд, а серая заглушка, как в форме (renderJPEG рисует её сам) */
-const pptxIsBlack = b => !PREVIEW[b.type] || (todoOn(b) && !isCustomSplash(b));
+const pptxIsBlack = b => !slideDrawn(b) || (todoOn(b) && !isCustomSplash(b));   // загруженная картинка (этап 10.9.1) рисуется
 /* Заметки докладчика (этап 9.5): название файла слайда у каждого, у чёрных — ещё комментарии к заданию. Содержимого слайдов здесь нет */
 function pptxNotes(b, n, black){
   const out = [slideName(b, n)];
@@ -143,6 +143,7 @@ function pptxNotes(b, n, black){
   const add = (label, v) => { v = String(v == null ? '' : v).trim(); if (v) out.push(label + v); };
   switch (b.type){
     case 'image':
+      if (b.mode === 'upload'){ if (!picOn(b)) out.push('Картинку не загрузили'); break; }   // этап 10.9.1
       if (b.mode === 'send') out.push('Пришлю отдельно: файл с подписью «Слайд ' + n + '»');
       add('Описание: ', b.desc); break;
     case 'video':
@@ -154,7 +155,7 @@ function pptxNotes(b, n, black){
     case 'splash':
       if (isCustomSplash(b)) out.push('Своя заставка'); break;
   }
-  if (PREVIEW[b.type] && todoOn(b)) out.push('Отмечено «доработать»: слайд нужно сделать или поправить');
+  if (slideDrawn(b) && todoOn(b)) out.push('Отмечено «доработать»: слайд нужно сделать или поправить');
   return out.join('\n');
 }
 async function exportPPTX(){

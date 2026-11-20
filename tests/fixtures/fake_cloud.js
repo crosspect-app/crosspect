@@ -332,6 +332,27 @@
       if (person) delete (db.bankPeople || {})[person];
       store(db); notify();
     },
+    /* Картинки конспекта (этап 10.9.1): x.slideImages[id конспекта][id картинки] = { img (base64), w, h, updatedBy };
+       читает тот, кто видит конспект; пишет тот, кто его правит (не из корзины). calls.slideImage — сколько раз качали */
+    async putSlideImage(who, space, id, img, bytes, w, h){
+      calls.putSlideImage = (calls.putSlideImage || 0) + 1; offline();
+      const db = load(), x = S(db, space), cur = x.sermons[id], my = who.email;
+      if (!cur || cur.deletedAt || (!isEditor(x, my) && (cur.owner !== my || atEditor(cur)))) throw denied();
+      if (bytes.length > 921600 || !/^[a-z0-9-]{1,60}$/.test(img)) throw fail('invalid-argument', 'bad image');
+      x.slideImages = x.slideImages || {}; x.slideImages[id] = x.slideImages[id] || {};
+      if (x.slideImages[id][img]) throw denied();   // картинка не меняется
+      x.slideImages[id][img] = { img:toB64(bytes), w, h, updatedBy:my };
+      store(db);
+    },
+    async slideImage(space, id, img){
+      calls.slideImage = (calls.slideImage || 0) + 1; offline();
+      const x = S(load(), space), r = ((x.slideImages || {})[id] || {})[img];
+      return r ? { bytes:fromB64(r.img), w:r.w, h:r.h } : null;
+    },
+    async removeSlideImages(space, id, ids){
+      offline(); const db = load(), x = S(db, space), m = (x.slideImages || {})[id] || {};
+      ids.forEach(i => delete m[i]); store(db);
+    },
     /* Настройки экрана человека (этап 7.2): у каждой почты своя запись */
     async getPrefs(who){ offline(); const db = load(); const p = (db.prefs || {})[who.email]; return p ? JSON.parse(JSON.stringify(p)) : null; },
     async setPrefs(who, layout){
@@ -408,7 +429,7 @@
       if (u && cur && !isEditor(x, u.email) && (cur.owner !== u.email || cur.status !== 'draft')) throw denied();   // автор удаляет только свой черновик
       const key = cur && cur.shareKey;
       if (key && db.shares) delete db.shares[key];   // ссылка для оператора уходит вместе с конспектом
-      delete x.sermons[id]; if (x.flags) delete x.flags[id]; if (x.versions) delete x.versions[id]; store(db); notify(); },
+      delete x.sermons[id]; if (x.flags) delete x.flags[id]; if (x.versions) delete x.versions[id]; if (x.slideImages) delete x.slideImages[id]; store(db); notify(); },
     /* История сохранений (этап 9.7): x.versions[id] = [копии, новые сверху]; видят и пишут те, кто может править */
     async addVersion(space, s, who, opts){
       calls.versions = (calls.versions || 0) + 1; offline();

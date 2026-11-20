@@ -76,7 +76,7 @@ function syncStatusSwitch(){
 /* Отметки ставит редактор (и админ); видят все (этап 9.7: и автор). Без входа — как раньше, все */
 const canFlag = () => !cloudOn() || cloud.role !== 'preacher';
 const todoOn = b => !!b.todo;
-const defaultTodo = b => !!(TYPES[b.type] && TYPES[b.type].todo);
+const defaultTodo = b => !!(TYPES[b.type] && TYPES[b.type].todo) && !picOn(b);   // загруженная картинка (этап 10.9.1) — слайд готов
 const fl = { id:'', map:{}, loaded:false, dirty:false, busy:false, timer:null };
 
 /* Подпись содержимого слайда: те же данные дают ту же подпись, в каком бы порядке ни пришли ключи */

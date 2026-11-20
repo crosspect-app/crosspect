@@ -156,7 +156,7 @@ describe('корзина (этап 9.1)', () => {
     const dry = run('admin.mjs', 'purge-trash', '--dry-run');
     assert.match(dry, /tp\/old/);
     assert.doesNotMatch(dry, /fresh — |live — /);
-    assert.match(dry, /Картинок без слайда: 2/);
+    assert.match(dry, /Картинок без слайда: 3/);   // в проверке и картинка конспекта из корзины: сам конспект ещё не стёрт
     assert.ok((await db.doc('spaces/tp/sermons/old').get()).exists);
     assert.ok((await db.doc('spaces/tp/sermons/live/slideImages/orphan').get()).exists);
     const out = run('admin.mjs', 'purge-trash');
@@ -204,7 +204,7 @@ describe('бэкап и восстановление', () => {
     assert.ok(existsSync(join(dir1, 'spaces/ghost/members/g@example.com.json')));
     assert.ok(!existsSync(join(dir1, 'spaces/ghost.json')), 'пустой документ не сохраняется');
     assert.deepEqual(readFileSync(join(dir1, 'spaces/b1/sermons/s1/slideImages/p1.img.webp')), webp);
-    assert.ok(first['spaces/b1/sermons/s1/slideImages/p1.json'].includes('"$file": "p1.img.webp"'));
+    assert.ok(first['spaces/b1/sermons/s1/slideImages/p1.json'].includes('"img": {\n    "$file": "p1.img.webp"'));
     assert.ok(first['spaces/b1/sermons/s1/slideImages/p1.json'].includes('"$bytes"'));
 
     run('restore.mjs', dir1, '--wipe');

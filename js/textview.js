@@ -44,7 +44,7 @@ function tvBlock(b, n){
       h('div', { class:'vnote' }, h('div', { class:'vnote-tag' }, ic('note'), 'Оператору'), h('div', { class:'vnote-body', text:b.text.trim() })));
   }
   const T = TYPES[b.type], slideCard = b.type === 'splash' ? null : tvSlide(b, n);
-  const sl = PREVIEW[b.type] ? slideEl(b) : null;
+  const sl = slideDrawn(b) ? slideEl(b) : null;
   if (sl && previewRO) previewRO.observe(sl);
   const open = () => { selId = b.id; navigate(sermonHash(state.id)); };
   const thumb = h('button', { type:'button', class:'tv-thumb' + (sl ? '' : ' none'), 'data-id':b.id, title:'Открыть в виде «Слайды»', onclick:open }, sl);
@@ -112,6 +112,7 @@ function sermonChecks(){
     const k = nums[b.id];
     if (b.type === 'thesis' || b.type === 'quote'){ const c = charCount(b), lim = limitFor(b); if (c > lim) out.push({ ok:false, text:'Слайд ' + k + ' — длинный текст: ' + c + ' знаков, лимит ' + lim }); }
     if (b.type === 'image' && b.mode === 'send') out.push({ ok:false, text:'Слайд ' + k + ' — картинку пришлют отдельно' });
+    if (b.type === 'image' && b.mode === 'upload' && !picOn(b)) out.push({ ok:false, text:'Слайд ' + k + ' — картинку не загрузили' });
     if (b.type === 'image' && b.mode === 'find' && !(b.desc || '').trim()) out.push({ ok:false, text:'Слайд ' + k + ' — не описано, какая нужна картинка' });
     if (b.type === 'video' && b.mode === 'link' && !(b.url || '').trim()) out.push({ ok:false, text:'Слайд ' + k + ' — нет ссылки на видео' });
     if (b.type === 'video' && b.mode === 'send') out.push({ ok:false, text:'Слайд ' + k + ' — видео пришлют отдельно' });

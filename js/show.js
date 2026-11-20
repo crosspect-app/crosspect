@@ -51,7 +51,7 @@ async function showOpen(fromSelected){
 function showMake(u){
   const wrap = h('div', { class:'show-slide' });
   wrap._u = u;
-  if (PREVIEW[u.type]){ wrap._sl = slideEl(u); wrap.append(wrap._sl); }
+  if (slideDrawn(u)){ wrap._sl = slideEl(u); wrap.append(wrap._sl); }   // и слайд с загруженной картинкой (этап 10.9.1)
   else wrap.append(stageVisual(u, slideNums()[u.id]));
   SHOW.view.append(wrap);
   showSize(wrap);

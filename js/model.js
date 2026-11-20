@@ -119,6 +119,25 @@ function normPhoto(p){
   if (p.flipV === true) out.flipV = true;
   return out;
 }
+/* Картинка слайда (этап 10.9.1): mode 'upload' — файл загружен в форму и лежит в облаке рядом с конспектом
+   (spaces/{s}/sermons/{id}/slideImages/{imageId}); imgW, imgH — размер файла в пикселях. Правки pic (поля есть, только если
+   не по умолчанию): crop {l,t,r,b} — обрезка в долях картинки, rot — поворот −180…180, filter — один из PHOTO_FILTERS,
+   outline { w — 0…30 px слайда, color }. Картинка не меняется: «Заменить» — новый imageId */
+const PIC_ID_RE = /^[a-z0-9-]{1,60}$/;
+function normPic(p){
+  if (!p || typeof p !== 'object') return null;
+  const out = {}, crop = normPhotoCrop(p.crop), rot = typeof p.rot === 'number' && isFinite(p.rot) && p.rot >= -180 && p.rot <= 180 ? +p.rot.toFixed(1) : 0;
+  if (crop) out.crop = crop;
+  if (rot) out.rot = rot;
+  if (PHOTO_FILTER_IDS.includes(p.filter) && p.filter !== 'none') out.filter = p.filter;
+  const o = p.outline && typeof p.outline === 'object' ? p.outline : null;
+  if (o){
+    const w = typeof o.w === 'number' && isFinite(o.w) ? Math.min(PHOTO_OUT.max, Math.max(0, o.w)) : 0;
+    const color = typeof o.color === 'string' && /^#[0-9a-f]{6}$/i.test(o.color) ? o.color.toLowerCase() : PHOTO_OUT.color;
+    if (w > 0) out.outline = { w:+w.toFixed(1), color };
+  }
+  return Object.keys(out).length ? out : null;
+}
 /* Проповедник: имя и фамилия хранятся раздельно (на заставке — «Имя ФАМИЛИЯ»). В списке проповедников — «Фамилия Имя» */
 function splitPreacher(s){
   const w = String(s || '').trim().split(/\s+/).filter(Boolean);
@@ -247,6 +266,13 @@ function normalize(d){
       nb.halfW = clampHalfW(b.halfW);
       nb.textBox = normTextBox(b.textBox);   // этап 10.5.5; при «Во всю ширину» хранится, но не применяется
       nb.frame = !!b.frame;
+    }
+    if (b.type === 'image'){
+      nb.mode = oneOf(b.mode, ['find', 'send', 'upload'], 'find');
+      const dim = v => Number.isInteger(v) && v > 0 && v <= 4000 ? v : 0;
+      if (typeof b.imageId === 'string' && PIC_ID_RE.test(b.imageId) && dim(b.imgW) && dim(b.imgH)){ nb.imageId = b.imageId; nb.imgW = b.imgW; nb.imgH = b.imgH; }
+      else { delete nb.imageId; delete nb.imgW; delete nb.imgH; }
+      const pic = nb.imageId ? normPic(b.pic) : null; if (pic) nb.pic = pic; else delete nb.pic;
     }
     delete nb.custom;   // перенесено в state.settings.customSplash
     if (NAMED[b.type]) nb.name = cleanName(nb.name);

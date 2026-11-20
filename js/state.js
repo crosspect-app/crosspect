@@ -66,7 +66,7 @@ function blockSummary(b){
     case 'thesis': t = plain(b.text); break;
     case 'splash': t = state.meta.title ? 'Заставка «' + state.meta.title + '»' : 'Заставка'; break;
     case 'quote':  t = plain(b.text).trim() ? '«' + plain(b.text).trim() + '»' + (quoteAuthor(b) ? ' — ' + quoteAuthor(b) : '') : ''; break;
-    case 'image':  t = b.desc || (b.mode === 'send' ? 'Файл пришлют отдельно' : ''); break;
+    case 'image':  t = b.mode === 'upload' ? (picOn(b) ? 'Картинка загружена' : '') : b.desc || (b.mode === 'send' ? 'Файл пришлют отдельно' : ''); break;
     case 'video':  t = b.url || b.desc || (b.mode === 'send' ? 'Видео пришлют отдельно' : ''); break;
     case 'free':   t = b.desc; break;
     case 'note':   t = b.text; break;

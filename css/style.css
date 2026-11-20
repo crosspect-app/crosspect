@@ -1544,6 +1544,27 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .show-count{position:absolute;right:18px;bottom:12px;font:500 14px 'Inter',sans-serif;color:rgba(255,255,255,.55);text-shadow:0 0 6px #000;transition:opacity .25s;pointer-events:none}
 .slideshow.idle .show-count{opacity:0}
 
+/* ---------- Картинка слайда (этап 10.9.1, slideimages.js) ---------- */
+.sl-pic{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.sl-pic img{position:absolute;display:none;max-width:none}
+.pic-panel{display:grid;gap:10px}
+.pic-drop{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:16px;border:1px dashed var(--line-2);border-radius:12px}
+.pic-drop.over{border-color:var(--accent);background:color-mix(in srgb, var(--accent) 8%, transparent)}
+.pic-err{margin:0;font-size:13px;color:#ff8a80}
+.pic-busy{margin:0}
+.pic-acts{display:flex;flex-wrap:wrap;gap:8px}
+.pic-turns{display:inline-flex;gap:8px}
+.pic-panel .ph-row{grid-template-columns:auto minmax(0,1fr) auto}
+.pic-panel .pic-filter{min-width:0;width:100%}
+.picc-sheet{max-width:900px}
+.picc-wrap{display:flex;justify-content:center;margin:12px 0 16px;padding:12px;overflow:hidden;border-radius:12px}   /* тень рамки обрезки темнит всё вокруг — только внутри окна */
+.picc-box{position:relative;display:inline-block;max-width:100%;user-select:none;touch-action:none}
+.picc-img{display:block;max-width:100%;max-height:60vh;max-height:60dvh;pointer-events:none}
+.picc-sel{position:absolute;cursor:move;border:2px solid var(--accent);box-shadow:0 0 0 9999px rgba(0,0,0,.55);touch-action:none}
+.picc-h{position:absolute;width:16px;height:16px;background:#151612;border:2px solid var(--accent);border-radius:3px}
+.picc-h.c-nw{left:-9px;top:-9px;cursor:nwse-resize}.picc-h.c-se{right:-9px;bottom:-9px;cursor:nwse-resize}
+.picc-h.c-ne{right:-9px;top:-9px;cursor:nesw-resize}.picc-h.c-sw{left:-9px;bottom:-9px;cursor:nesw-resize}
+
 /* ---------- Телефон (этап 10.1.1) ----------
    Вид меняется только в узком окне (max-width:760px), а всё про скорость (стена-картинка, без размытия и движения) — только на телефоне:
    касание без наведения (то же условие, что isPhone() в util.js). На компьютере ничего не меняется, даже в узком окне: стена остаётся стеной */
