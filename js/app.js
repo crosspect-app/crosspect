@@ -211,7 +211,7 @@ function renderTopbar(){
   if (screen === 'home'){
     topbar.className = 'topbar is-home' + (homeQuery ? ' sq-open' : '');   // на телефоне поле поиска раскрыто, пока в нём что-то есть (этап 10.1.1)
     logoReset();   // на главной знак всегда обычный: незаконченная анимация сохранения относилась к проповеди
-    const q = h('input', { type:'search', placeholder:'Название, автор, место Писания', 'aria-label':'Поиск', value:homeQuery,
+    const q = h('input', { type:'search', placeholder:'Название, автор, стих', 'aria-label':'Поиск', value:homeQuery,
       oninput:e => { homeQuery = e.target.value; renderHomeList(); } });
     const closeSearch = () => { homeQuery = ''; q.value = ''; topbar.classList.remove('sq-open'); renderHomeList(); };
     put(topbar,
@@ -313,7 +313,7 @@ const metaMissing = m => [!String(m.title || '').trim() && 'title', !preacherKey
 const META_ERR = { 'title,author':'Укажите название и автора проповеди.', title:'Укажите название проповеди.', author:'Укажите автора проповеди.' };
 function openMeta(){
   const ro = readOnly(), m = state.meta;
-  const upd = () => { change(); refreshSplash(); document.title = (m.title || 'Проповедь') + ' · Crosspect'; };
+  const upd = () => { change(); refreshSplash(); document.title = (m.title || 'Проповедь') + ' · Crosspect'; if (fmt && fmt.isConnected) fmt._paint(); };   // превью фона — это заставка с названием, автором и датой
   const title = h('input', { class:'input', placeholder:'Название проповеди', value:m.title, autocomplete:'off', 'aria-label':'Название проповеди',
     oninput:e => { m.title = e.target.value; upd(); } });
   const fmt = formatField(m, () => { upd(); refreshSlides(); });
@@ -353,6 +353,7 @@ function openMeta(){
   }
   metaOpen = true;
   settingsOverlay.classList.add('open');
+  if (fmt) fmt._paint();   // превью фона (этап 10.8): слайду нужна ширина, поэтому рисуем после показа окна
   if (!ro && window.matchMedia('(pointer:fine)').matches) title.focus();
 }
 /* «Отмена» у нового конспекта: его не создаём — черновик в браузере стираем, в облако он не уходил (metaNew) */

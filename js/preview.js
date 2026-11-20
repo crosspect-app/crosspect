@@ -350,7 +350,7 @@ function fitSlide(sl, b){
   const w = sl.clientWidth; if (!w) return null;
   typoLang = textLang(b);   // этап 9.6: неразрывные пробелы — по языку этого слайда
   sl.style.setProperty('--s', w / SL.W);
-  if (w < SL.W && !sl.closest('.film, .scfg, .hb-wall, .slideshow')) lastScale = w / SL.W;   // масштаб берём с крупных слайдов, не с миниатюр
+  if (w < SL.W && !sl.closest('.film, .scfg, .hb-wall, .slideshow, .fmt-prev')) lastScale = w / SL.W;   // масштаб берём с крупных слайдов, не с миниатюр
   const fit = b.type === 'scripture' ? layoutAt : b.type === 'splash' ? layoutSplash : layoutBox;
   if (!PREVIEW[b.type]) return 1;   // пустой слайд (картинка, видео, свободный): только рамка и фон
   if (b.type === 'quote') paintPhoto(sl, b);   // фото автора (этап 10.5, photos.js) от текста не зависит

@@ -39,7 +39,7 @@ async function pbSave(a){
   try {
     await cloud.api.setBankPerson(cloud.user, id, f);
     if (!PBW) return;
-    if (fresh){ PBW.fresh = null; PBW.add = pbAddState(id); } else delete PBW.drafts[id];   // новый человек — сразу «Добавить фото»
+    if (fresh){ PBW.fresh = null; PBW.add = pbAddState(id); PBW.reveal = true; } else delete PBW.drafts[id];   // новый человек — сразу «Добавить фото»
   } catch(e){ if (PBW) PBW.err[id] = cloudExplain(e) || 'Не удалось сохранить.'; }
   if (!PBW) return;
   PBW.saving.delete(id); drawPhotoBank();
@@ -135,7 +135,7 @@ async function pbPrepare(file){
   let res = null, err = '';
   try { res = await pbProcess(file, A.kind, A.faces); } catch(e){ err = e.message || 'Не удалось обработать картинку.'; }
   if (!PBW || PBW.add !== A || A.file !== file){ if (res) URL.revokeObjectURL(res.url); return; }   // пока обрабатывали — выбрали другое
-  Object.assign(A, { res, err, busy:false }); drawPhotoBank();
+  Object.assign(A, { res, err, busy:false }); PBW.reveal = true; drawPhotoBank();
 }
 async function pbUpload(){
   const A = PBW && PBW.add, p = A && bankPerson(A.person); if (!A || !A.res || !p) return;
@@ -195,7 +195,7 @@ function pbPhotos(p){
         pbIcon('next', 'Позже', () => pbMove(p, i, 1), i === p.photos.length - 1 || moving),
         pbIcon('trash', 'Удалить фото', () => pbRemovePhoto(p, ph), PBW.saving.has(ph.id))))),
     legacy || (PBW.add && PBW.add.person === p.id) ? null
-      : h('button', { type:'button', class:'pb-ph pb-ph-add', onclick:() => { if (PBW.add && PBW.add.res) URL.revokeObjectURL(PBW.add.res.url); PBW.add = pbAddState(p.id); drawPhotoBank(); } },
+      : h('button', { type:'button', class:'pb-ph pb-ph-add', onclick:() => { if (PBW.add && PBW.add.res) URL.revokeObjectURL(PBW.add.res.url); PBW.add = pbAddState(p.id); PBW.reveal = true; drawPhotoBank(); } },
         ic('plus'), h('span', { text:'Добавить фото' })));
 }
 function pbCard(p){
@@ -233,6 +233,9 @@ function drawPhotoBank(){
   if (!PBW) return;
   const a = document.activeElement, focus = a && a.dataset && (a.dataset.pb || (a.classList.contains('pb-q') ? 'q' : '')),
     caret = focus && a.selectionStart;
+  // этап 10.8: окно собирается заново, поэтому прокрутку окна и списка запоминаем и возвращаем (иначе любая кнопка в плашке «Добавить фото» прыгает наверх)
+  const oldSheet = settingsOverlay.querySelector('.pb-sheet'), oldList = settingsOverlay.querySelector('.pb-list');
+  const scroll = { sheet:oldSheet ? oldSheet.scrollTop : 0, list:oldList ? oldList.scrollTop : 0 };
   const legacy = bankLegacy();
   const found = photoSearch(PBW.q, null).sort(byLastName);
   // человек, которому только что добавили фото, остаётся в списке, даже если не подходит под поиск
@@ -256,6 +259,14 @@ function drawPhotoBank(){
     list));
   if (focus){
     const el = focus === 'q' ? settingsOverlay.querySelector('.pb-q') : settingsOverlay.querySelector('[data-pb="' + focus + '"]');
-    if (el){ el.focus(); if (caret != null) try { el.setSelectionRange(caret, caret); } catch(e){} }
+    if (el){ el.focus({ preventScroll:true }); if (caret != null) try { el.setSelectionRange(caret, caret); } catch(e){} }
+  }
+  const sheet = settingsOverlay.querySelector('.pb-sheet'), lst = settingsOverlay.querySelector('.pb-list');
+  if (sheet) sheet.scrollTop = scroll.sheet;
+  if (lst) lst.scrollTop = scroll.list;
+  if (PBW.reveal){   // плашка загрузки открылась (или выросла): показать её целиком, если она ниже края окна
+    PBW.reveal = false;
+    const add = settingsOverlay.querySelector('.pb-add');
+    if (add) add.scrollIntoView({ block:'nearest' });
   }
 }

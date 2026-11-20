@@ -156,12 +156,21 @@ function formatField(m, upd){
   const auto = () => seriesFormatOk(s, cfg) || cfg.defaultFormat;
   const cur = () => sermonFormatId(s, cfg);
   const text = h('span', { class:'dtext', text:formatLabel(cur(), s, cfg) });
-  const pick = id => { if (id === auto()) delete m.format; else m.format = id; text.textContent = formatLabel(cur(), s, cfg); upd(); };
+  /* Превью (этап 10.8): заставка этой проповеди с её фоном, уменьшенная, рядом с полем; фон берётся из state.meta (sermonBg), поэтому меняется вместе с форматом и серией */
+  const prev = h('div', { class:'fmt-prev', 'aria-hidden':'true' });
+  const paintPrev = () => {
+    const b = Object.assign(newBlock('splash'), { id:'fmt-prev' }), sl = slideEl(b);
+    prev.replaceChildren(sl);
+    fitSlide(sl, b);   // слайду нужна ширина: работает, когда окно уже в странице (box._paint вызывает openMeta после показа окна)
+  };
+  const redraw = () => { text.textContent = formatLabel(cur(), s, cfg); if (prev.isConnected) paintPrev(); };
+  const pick = id => { if (id === auto()) delete m.format; else m.format = id; redraw(); upd(); };
   const trig = h('button', { type:'button', class:'dfield', 'aria-haspopup':'listbox', 'aria-label':'Формат фона', onclick:() => dropdown(trig,
     formatList(cfg).map(f => ({ label:formatLabel(f.id, s, cfg), on:cur() === f.id, pick:() => pick(f.id) }))) },
     text, ic('down'));
-  const box = h('div', { class:'field' }, h('span', { class:'lbl', text:'Формат фона' }), trig);
-  box._refresh = () => { if (m.format && m.format === auto()) delete m.format; text.textContent = formatLabel(cur(), s, cfg); };   // сменили серию: подпись (и ручной выбор, если он совпал с форматом серии) — заново
+  const box = h('div', { class:'field' }, h('span', { class:'lbl', text:'Формат фона' }), h('div', { class:'fmt-line' }, trig, prev));
+  box._refresh = () => { if (m.format && m.format === auto()) delete m.format; redraw(); };   // сменили серию: подпись (и ручной выбор, если он совпал с форматом серии) и превью — заново
+  box._paint = paintPrev;
   return box;
 }
 

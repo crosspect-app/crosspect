@@ -421,7 +421,8 @@ body.ro .st.on .st-n{color:var(--text)}
 .rich.speech-text:focus{box-shadow:none}
 
 .side{border-left:1px solid var(--line);padding:18px 18px 28px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;min-width:0}
-.side .bbody{display:grid;gap:14px}
+.side .bbody{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.side .toggle button{min-width:0;padding-left:10px;padding-right:10px;line-height:1.25}   /* этап 10.8: в узкой панели (окно ~1280 px) переключатель сжимается, а не вылезает за край */
 .side .bbody > .item{padding:12px 14px 14px;border:1px solid var(--line-2);border-radius:14px;background:var(--surface)}
 .side .bbody > .divider{margin:-6px 0}
 .side .grid-3{grid-template-columns:1fr 1fr}
@@ -1029,6 +1030,10 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 .meta-sheet .set-grid{display:flex;flex-direction:column;gap:16px}
 /* Этап 10.1.3: обязательные поля — пустое название или автор подсвечены, ошибка в строке кнопок; просмотр — серые поля без рамки */
 .meta-sheet .sheet-foot{align-items:center}
+.fmt-line{display:flex;align-items:center;gap:12px}
+.fmt-line .dfield{flex:1 1 auto;min-width:0}
+.fmt-prev{flex:0 0 128px;width:128px;border-radius:7px;box-shadow:0 0 0 1px var(--line-2)}   /* этап 10.8: превью фона рядом с полем «Формат фона» */
+.fmt-prev .sl{border-radius:7px}
 .meta-err{flex:1;min-width:0;font-size:13px;color:var(--danger);text-align:right}
 .meta-err:empty{display:none}
 .meta-sheet .field.invalid .input,.meta-sheet .field.invalid .dfield{border-color:var(--danger)}
