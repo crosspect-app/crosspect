@@ -13,7 +13,9 @@
 //   node scripts/admin.mjs purge-trash [--days 30] [--dry-run]
 //                                                         корзина (этап 9.1): стереть насовсем конспекты, которые лежат
 //                                                         в корзине дольше --days дней (со сводкой, отметками редактора
-//                                                         и снимком для оператора). Ночью — из crosspect-backup после копии
+//                                                         и снимком для оператора). Ночью — из crosspect-backup после копии.
+//                                                         Заодно (этап 10.9.1) стирает «сирот» — картинки слайдов, на которые
+//                                                         не ссылается ни конспект, ни его история, старше --orphan-hours (24)
 //   node scripts/admin.mjs list
 import { FieldValue } from 'firebase-admin/firestore';
 import { connect, args, fail } from './lib.mjs';
@@ -140,6 +142,7 @@ if (cmd === 'create-space') {
       if (typeof x.shareKey === 'string' && x.shareKey) await db.collection('shares').doc(x.shareKey).delete();   // нет снимка — delete и так ничего не делает
       const batch = db.batch();
       for (const v of (await d.ref.collection('versions').get()).docs) batch.delete(v.ref);   // история сохранений (этап 9.7)
+      for (const r of await d.ref.collection('slideImages').listDocuments()) batch.delete(r);   // картинки слайдов (этап 10.9.1), без скачивания
       batch.delete(d.ref.collection('editor').doc('state'));
       batch.delete(s.ref.collection('summaries').doc(d.id));
       batch.delete(d.ref);
@@ -148,6 +151,33 @@ if (cmd === 'create-space') {
     }
   }
   console.log(dry ? 'Проверка закончена, ничего не удалено' : `Корзина: удалено насовсем ${gone} (дольше ${days} дн.)`);
+
+  // «Сироты» (этап 10.9.1): картинку загрузили, а слайд потом убрали или картинку заменили. Нужна, пока на неё ссылается
+  // конспект или его история (из истории конспект можно вернуть). Свежие не трогаем: блок со ссылкой мог ещё не сохраниться.
+  const hours = opt('orphan-hours') ? Number(opt('orphan-hours')) : 24;
+  if (!Number.isFinite(hours) || hours < 0 || hours > 24 * 365) fail('--orphan-hours — число часов от 0 до 8760');
+  const fresh = Date.now() - hours * 3600000;
+  const refsOf = (blocks, set) => (Array.isArray(blocks) ? blocks : []).forEach((x) => { if (x && typeof x.imageId === 'string') set.add(x.imageId); });
+  let orphans = 0;
+  for (const s of (await db.collection('spaces').get()).docs) {
+    for (const sr of await s.ref.collection('sermons').listDocuments()) {   // и стёртые конспекты, у которых что-то осталось внутри
+      const pics = await sr.collection('slideImages').select('updatedAt').get();   // без самих картинок
+      if (pics.empty) continue;
+      const used = new Set(), snap = await sr.get();
+      if (snap.exists) {
+        refsOf(snap.get('blocks'), used);
+        for (const v of (await sr.collection('versions').select('blocks').get()).docs) refsOf(v.get('blocks'), used);
+      }
+      for (const p of pics.docs) {
+        const at = p.get('updatedAt');
+        if (used.has(p.id) || (at && at.toMillis && at.toMillis() > fresh)) continue;
+        console.log(`${s.id}/${sr.id}: картинка ${p.id} — ни в конспекте, ни в истории` + (dry ? ' (только проверка, не удалена)' : ''));
+        if (!dry) await p.ref.delete();
+        orphans++;
+      }
+    }
+  }
+  console.log(dry ? `Картинок без слайда: ${orphans}` : `Картинок без слайда удалено: ${orphans}`);
 } else if (cmd === 'list') {
   const admins = await db.collection('admins').get();
   console.log('Админы всей формы: ' + (admins.empty ? 'нет' : admins.docs.map((d) => d.id).join(', ')));

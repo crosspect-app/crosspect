@@ -1346,6 +1346,125 @@ describe('фотобанк: люди и фото (этап 10.5.2)', () => {
   });
 });
 
+describe('картинки конспекта (этап 10.9.1)', () => {
+  const bytes = (n) => Bytes.fromUint8Array(new Uint8Array(n).fill(7));
+  const SI = (db, s, id, img = 'i1') => doc(db, 'spaces', s, 'sermons', id, 'slideImages', img);
+  const pic = (who, extra = {}) => ({
+    img: bytes(1000), w: 1200, h: 800, updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra,
+  });
+  async function putImage(s, id, img = 'i1') {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(SI(ctx.firestore(), s, id, img), { img: bytes(500), w: 10, h: 10, updatedAt: minutesAgo(5), updatedBy: PEOPLE.ed });
+    });
+  }
+  async function setStatus(s, id, status) {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'spaces', s, 'sermons', id), { status });
+    });
+  }
+  test('автор загружает и читает картинку своего конспекта, стирает её', async () => {
+    const db = as('petr');
+    await assertSucceeds(setDoc(SI(db, 'sw', 'petr1'), pic('petr')));
+    await assertSucceeds(getDoc(SI(db, 'sw', 'petr1')));
+    await assertSucceeds(deleteDoc(SI(db, 'sw', 'petr1')));
+  });
+  test('чужой конспект: автор не пишет, не стирает; читает, только если конспект ему открыт', async () => {
+    await putImage('sw', 'ivan1');
+    const db = as('petr');
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1', 'i2'), pic('petr')));
+    await assertFails(deleteDoc(SI(db, 'sw', 'ivan1')));
+    await assertSucceeds(getDoc(SI(db, 'sw', 'ivan1')));                       // пространство открывает чужие конспекты
+    await putImage('closed', 'ivan1');
+    await assertFails(getDoc(SI(as('petr'), 'closed', 'ivan1')));              // закрытое пространство — только свои
+    await assertSucceeds(getDoc(SI(as('ivan'), 'closed', 'ivan1')));
+  });
+  test('посторонний и гость не читают и не пишут', async () => {
+    await putImage('sw', 'ivan1');
+    for (const db of [as('stranger'), anon()]) {
+      await assertFails(getDoc(SI(db, 'sw', 'ivan1')));
+      await assertFails(setDoc(SI(db, 'sw', 'ivan1', 'i2'), pic('stranger')));
+      await assertFails(deleteDoc(SI(db, 'sw', 'ivan1')));
+    }
+  });
+  test('редактор и админ — у любого конспекта', async () => {
+    await assertSucceeds(setDoc(SI(as('ed'), 'sw', 'ivan1'), pic('ed')));
+    await assertSucceeds(getDoc(SI(as('admin'), 'sw', 'ivan1')));
+    await assertSucceeds(setDoc(SI(as('admin'), 'sw', 'guest'), pic('admin')));
+    await assertSucceeds(deleteDoc(SI(as('admin'), 'sw', 'ivan1')));
+  });
+  test('пока конспект у редактора или презентация готова, автор не загружает', async () => {
+    for (const status of ['work', 'ready']) {
+      await setStatus('sw', 'petr1', status);
+      await assertFails(setDoc(SI(as('petr'), 'sw', 'petr1'), pic('petr')));
+    }
+  });
+  test('размер, поля, время сервера, своя почта, имя', async () => {
+    const db = as('ed');
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), pic('ed', { img: bytes(921601) })));
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), pic('ed', { img: bytes(0) })));
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), pic('ed', { img: 'текст' })));
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), pic('ed', { w: 0 })));
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), pic('ed', { h: 4001 })));
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), pic('ed', { w: 1.5 })));
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), pic('ed', { updatedAt: minutesAgo(1) })));
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), pic('ed', { updatedBy: PEOPLE.admin })));
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), pic('ed', { extra: 1 })));
+    const { w, ...noW } = pic('ed');
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), noW));
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1', 'Bad Id'), pic('ed')));
+    await assertSucceeds(setDoc(SI(db, 'sw', 'ivan1', 'a1b2-c3'), pic('ed', { img: bytes(921600) })));
+  });
+  test('картинка не меняется: ни правка, ни перезапись', async () => {
+    await putImage('sw', 'ivan1');
+    const db = as('ed');
+    await assertFails(updateDoc(SI(db, 'sw', 'ivan1'), { w: 20, updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
+    await assertFails(setDoc(SI(db, 'sw', 'ivan1'), pic('ed')));
+  });
+  test('списка нет: картинки читаются только по id', async () => {
+    await putImage('sw', 'ivan1');
+    await assertFails(getDocs(collection(as('ed'), 'spaces', 'sw', 'sermons', 'ivan1', 'slideImages')));
+    await assertFails(getDocs(collection(as('admin'), 'spaces', 'sw', 'sermons', 'ivan1', 'slideImages')));
+  });
+  test('у несуществующего конспекта картинок нет', async () => {
+    await assertFails(setDoc(SI(as('ed'), 'sw', 'nope'), pic('ed')));
+    await assertFails(getDoc(SI(as('ed'), 'sw', 'nope')));
+  });
+  test('в корзине не загружают; автор стирает свой черновик вместе с картинками', async () => {
+    const ids = ['i1', 'i2', 'i3', 'i4', 'i5', 'i6'];
+    for (const i of ids) await putImage('sw', 'petr1', i);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      for (const v of ['v1', 'v2', 'v3']) {
+        await setDoc(doc(ctx.firestore(), 'spaces', 'sw', 'sermons', 'petr1', 'versions', v), {
+          v: 2, meta: { title: 'Вера' }, blocks: [], status: 'draft', savedAt: minutesAgo(5), savedBy: PEOPLE.ed,
+        });
+      }
+    });
+    await putInTrash('sw', 'petr1', 'petr');
+    const db = as('petr');
+    await assertFails(setDoc(SI(db, 'sw', 'petr1', 'i9'), pic('petr')));
+    await assertFails(setDoc(SI(as('ed'), 'sw', 'petr1', 'i9'), pic('ed')));
+    // как форма: конспект, сводка, история и все картинки — одной записью (в ней меньше 20 обращений к базе из правил)
+    const batch = writeBatch(db);
+    ids.forEach((i) => batch.delete(SI(db, 'sw', 'petr1', i)));
+    ['v1', 'v2', 'v3'].forEach((v) => batch.delete(doc(db, 'spaces', 'sw', 'sermons', 'petr1', 'versions', v)));
+    batch.delete(doc(db, 'spaces', 'sw', 'summaries', 'petr1'));
+    batch.delete(sermon(db, 'sw', 'petr1'));
+    await assertSucceeds(batch.commit());
+  });
+  test('из корзины картинку отдельно стирает тот, кто может стереть конспект; чужой — нет', async () => {
+    await putImage('sw', 'ivan1');
+    await putInTrash('sw', 'ivan1');
+    await assertFails(deleteDoc(SI(as('ivan'), 'sw', 'ivan1')));    // чужой статус «submitted» из корзины автор не стирает
+    await assertSucceeds(deleteDoc(SI(as('ed'), 'sw', 'ivan1')));
+  });
+  test('картинки без конспекта (стёрт насовсем) может убрать любой участник пространства', async () => {
+    await putImage('sw', 'guest');
+    await env.withSecurityRulesDisabled(async (ctx) => { await deleteDoc(sermon(ctx.firestore(), 'sw', 'guest')); });
+    await assertSucceeds(deleteDoc(SI(as('ivan'), 'sw', 'guest')));
+    await assertFails(deleteDoc(SI(as('stranger'), 'sw', 'guest')));
+  });
+});
+
 describe('всё остальное закрыто', () => {
   test('посторонние коллекции', async () => {
     await assertFails(setDoc(doc(as('admin'), 'anything', 'x'), { a: 1 }));

@@ -33,7 +33,15 @@ function load(dir, path) {
       }
     } else if (name.endsWith('.json')) {
       const id = name.slice(0, -'.json'.length);
-      const data = decode(JSON.parse(readFileSync(full, 'utf8')), db);
+      const raw = JSON.parse(readFileSync(full, 'utf8'));
+      // картинка отдельным файлом рядом (backup.mjs, этап 10.9.1)
+      for (const [k, v] of Object.entries(raw)) {
+        if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 1 && typeof v.$file === 'string') {
+          if (v.$file.includes('/') || v.$file.includes('\\')) fail(`Неверное имя файла в ${full}: ${v.$file}`);
+          raw[k] = { $bytes: readFileSync(join(dir, v.$file)).toString('base64') };
+        }
+      }
+      const data = decode(raw, db);
       writer.set(db.doc(`${path}/${id}`), data);
       count++;
     }

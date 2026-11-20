@@ -65,6 +65,7 @@ export function createCloudAPI(fb){
   const ref = (space, id) => F.doc(db, 'spaces', space, 'sermons', id);
   const sumRef = (space, id) => F.doc(db, 'spaces', space, 'summaries', id);
   const verCol = (space, id) => F.collection(db, 'spaces', space, 'sermons', id, 'versions');
+  const imgDoc = (space, id, img) => F.doc(db, 'spaces', space, 'sermons', id, 'slideImages', img);
   const lower = e => String(e || '').trim().toLowerCase();
   const ms = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : 0);
   const err = (code, message, extra) => Object.assign(new Error(message || code), { code }, extra);
@@ -505,6 +506,25 @@ export function createCloudAPI(fb){
     /* Список копий, новые сверху: [{ id, savedAt (мс), savedBy, name, status, v, meta, settings, blocks }] */
     versions: listVersions,
 
+    /* Картинки конспекта (этап 10.9.1): spaces/{s}/sermons/{id}/slideImages/{img} { img (Bytes, WebP, ≤ 900 КБ), w, h }.
+       Одноразовые и только этого конспекта; сама картинка не меняется — правка кладёт новую с новым id. Читает тот, кто видит конспект,
+       пишет тот, кто его правит. Списка нет: нужные id лежат в блоках конспекта (поле imageId). */
+    async putSlideImage(me, space, id, img, bytes, w, h){
+      if (bytes.length > 921600) throw new Error('картинка больше 900 КБ');   // форма сжимает заранее (slideimages.js): сюда не доходит
+      await F.setDoc(imgDoc(space, id, img), { img: F.Bytes.fromUint8Array(bytes), w, h, updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
+    },
+    /* { bytes: Uint8Array (WebP), w, h } или null, если записи нет */
+    async slideImage(space, id, img){
+      const sn = await F.getDoc(imgDoc(space, id, img));
+      if (!sn.exists()) return null;
+      const x = sn.data();
+      return x.img && x.img.toUint8Array ? { bytes: x.img.toUint8Array(), w: x.w, h: x.h } : null;
+    },
+    /* Убрать картинки по одной (слайд удалили или заменили картинку); уже стёртые не мешают */
+    async removeSlideImages(space, id, ids){
+      for (const img of ids) { try { await F.deleteDoc(imgDoc(space, id, img)); } catch (e) { if (!denied(e)) throw e; } }
+    },
+
     /* Фотобанк (этап 10.5.2): люди — bankPeople/{id} { first, last, caption, aliases }; фото — bankPhotos/{id} { person, kind ('cut' — без фона,
        'bg' — с фоном), faces ('right' | 'front', только у 'cut'), w, h, source, order, preset (вид по умолчанию), thumb (миниатюра 160 px, Bytes) };
        сама картинка — bankFiles/{id} { img (Bytes, ≤ 900 КБ) }: отдельно, чтобы списки не качали большие картинки.
@@ -726,16 +746,22 @@ export function createCloudAPI(fb){
        и снимок для оператора, если он остался */
     async remove(space, id){
       let key = '';
-      try { const cur = await F.getDoc(ref(space, id)); if (cur.exists() && typeof cur.data().shareKey === 'string') key = cur.data().shareKey; }
+      const pics = new Set();   // картинки слайдов (этап 10.9.1) — из блоков конспекта и его истории
+      const takePics = blocks => (Array.isArray(blocks) ? blocks : []).forEach(x => { if (x && typeof x.imageId === 'string' && x.imageId) pics.add(x.imageId); });
+      try {
+        const cur = await F.getDoc(ref(space, id));
+        if (cur.exists()){ if (typeof cur.data().shareKey === 'string') key = cur.data().shareKey; takePics(cur.data().blocks); }
+      }
       catch (e) { if (!denied(e)) throw e; }
       let share = null;
       if (key){ try { const sn = await F.getDoc(F.doc(db, 'shares', key)); if (sn.exists()) share = sn.ref; } catch (e) { /* снимка не нашли — не мешаем удалению */ } }
       if (share) await F.deleteDoc(share);   // отдельной записью (предел правил, см. выше); не удалился — конспект не трогаем, чтобы открытый снимок не остался без хозяина
-      let vers = [];   // история сохранений (этап 9.7) уходит вместе с конспектом
-      try { vers = (await F.getDocs(verCol(space, id))).docs.map(d => d.ref); }
+      let vers = [];   // история сохранений (этап 9.7) и картинки слайдов уходят вместе с конспектом
+      try { const sn = await F.getDocs(verCol(space, id)); vers = sn.docs.map(d => d.ref); sn.docs.forEach(d => takePics(d.data().blocks)); }
       catch (e) { if (!denied(e)) throw e; }
       const b = F.writeBatch(db);
       vers.forEach(r => b.delete(r));
+      pics.forEach(i => b.delete(imgDoc(space, id, i)));   // чего уже нет, то и так нет; «сирот» (слайд убрали, а картинка осталась) стирает ночной скрипт
       b.delete(F.doc(db, 'spaces', space, 'sermons', id, 'editor', 'state'));
       b.delete(sumRef(space, id));
       b.delete(ref(space, id));

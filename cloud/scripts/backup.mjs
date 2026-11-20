@@ -2,6 +2,8 @@
 // путь файла повторяет путь документа: spaces/<id>.json, spaces/<id>/sermons/<id>.json …
 // Папка сначала очищается, поэтому удалённые документы из копии тоже пропадают
 // (история остаётся в git приватного репозитория).
+// Большие картинки (поле Bytes от 64 КБ: картинки слайдов, этап 10.9.1, и фотобанка) — отдельным файлом рядом:
+// <id>.<поле>.webp, а в JSON — {"$file": "<id>.<поле>.webp"}. Так копия в git не раздувается base64.
 //
 //   node scripts/backup.mjs <папка>
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -13,6 +15,7 @@ if (!outDir) fail('Укажите папку: node scripts/backup.mjs <папк�
 
 const db = connect();
 const counts = {};
+const BIG = 65536;   // байт: Bytes больше — отдельным файлом
 
 async function dumpCollection(col, dir) {
   const refs = await col.listDocuments();   // в том числе «пустые» документы с подколлекциями
@@ -22,7 +25,15 @@ async function dumpCollection(col, dir) {
     for (const snap of snaps) {
       if (snap.exists) {
         mkdirSync(dir, { recursive: true });
-        writeFileSync(join(dir, `${snap.id}.json`), toJSON(snap.data()));
+        const data = snap.data();
+        for (const [k, v] of Object.entries(data)) {
+          if (!(Buffer.isBuffer(v) || v instanceof Uint8Array) || v.length < BIG) continue;
+          const buf = Buffer.from(v), webp = buf.length > 12 && buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP';
+          const name = `${snap.id}.${k}.${webp ? 'webp' : 'bin'}`;
+          writeFileSync(join(dir, name), buf);
+          data[k] = { $file: name };
+        }
+        writeFileSync(join(dir, `${snap.id}.json`), toJSON(data));
         counts[col.id] = (counts[col.id] || 0) + 1;
       }
     }

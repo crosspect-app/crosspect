@@ -143,18 +143,30 @@ describe('корзина (этап 9.1)', () => {
     await db.doc('spaces/tp/summaries/old').set({ title: 'К' });
     await db.doc('spaces/tp/sermons/old/editor/state').set({ flags: {} });
     await db.doc('spaces/tp/sermons/old/versions/v1').set({ v: 2, meta: {}, blocks: [] });   // история сохранений (этап 9.7)
+    const pic = (hours) => ({ img: Buffer.alloc(100, 1), w: 10, h: 10, updatedAt: Timestamp.fromMillis(Date.now() - hours * 3600000), updatedBy: 'x@y.z' });
+    await db.doc('spaces/tp/sermons/old/slideImages/i1').set(pic(48));   // картинка слайда (этап 10.9.1) — уходит с конспектом
     await db.doc('shares/' + 'q'.repeat(24)).set({ spaceId: 'tp', sermonId: 'old', sermon: {} });
     await db.doc('spaces/tp/sermons/fresh').set(sermon({ deletedAt: ago(29), deletedBy: 'x@y.z' }));
-    await db.doc('spaces/tp/sermons/live').set(sermon({}));
+    await db.doc('spaces/tp/sermons/live').set(sermon({ blocks: [{ id: 'b', type: 'image', mode: 'upload', imageId: 'used' }] }));
+    await db.doc('spaces/tp/sermons/live/versions/v1').set({ v: 2, meta: {}, blocks: [{ id: 'b', type: 'image', imageId: 'inhistory' }] });
+    for (const id of ['used', 'inhistory', 'orphan']) await db.doc('spaces/tp/sermons/live/slideImages/' + id).set(pic(48));
+    await db.doc('spaces/tp/sermons/live/slideImages/justnow').set(pic(1));   // свежая: блок со ссылкой мог ещё не сохраниться
+    await db.doc('spaces/tp/sermons/gone/slideImages/left').set(pic(48));     // конспекта уже нет, картинка осталась
     // проверка без удаления
     const dry = run('admin.mjs', 'purge-trash', '--dry-run');
     assert.match(dry, /tp\/old/);
-    assert.doesNotMatch(dry, /fresh|live/);
+    assert.doesNotMatch(dry, /fresh — |live — /);
+    assert.match(dry, /Картинок без слайда: 2/);
     assert.ok((await db.doc('spaces/tp/sermons/old').get()).exists);
+    assert.ok((await db.doc('spaces/tp/sermons/live/slideImages/orphan').get()).exists);
     const out = run('admin.mjs', 'purge-trash');
     assert.match(out, /удалено насовсем 1/);
-    for (const p of ['spaces/tp/sermons/old', 'spaces/tp/summaries/old', 'spaces/tp/sermons/old/editor/state', 'spaces/tp/sermons/old/versions/v1', 'shares/' + 'q'.repeat(24)])
+    assert.match(out, /Картинок без слайда удалено: 2/);
+    for (const p of ['spaces/tp/sermons/old', 'spaces/tp/summaries/old', 'spaces/tp/sermons/old/editor/state', 'spaces/tp/sermons/old/versions/v1',
+      'spaces/tp/sermons/old/slideImages/i1', 'shares/' + 'q'.repeat(24), 'spaces/tp/sermons/live/slideImages/orphan', 'spaces/tp/sermons/gone/slideImages/left'])
       assert.equal((await db.doc(p).get()).exists, false, p);
+    for (const id of ['used', 'inhistory', 'justnow'])
+      assert.ok((await db.doc('spaces/tp/sermons/live/slideImages/' + id).get()).exists, id);
     assert.ok((await db.doc('spaces/tp/sermons/fresh').get()).exists);
     assert.ok((await db.doc('spaces/tp/sermons/live').get()).exists);
     // свой срок
@@ -175,6 +187,9 @@ describe('бэкап и восстановление', () => {
       createdAt: FieldValue.serverTimestamp(), lock: null, weird: { $timestamp: 'не время' }, n: 3, f: 2.5,
     });
     await db.doc('spaces/b1/sermons/s1/editor/state').set({ flags: { x: { on: true } } });
+    // картинка слайда (этап 10.9.1): большая — отдельным файлом, маленькие Bytes — в JSON, как прежде
+    const webp = Buffer.concat([Buffer.from('RIFF\0\0\0\0WEBP', 'latin1'), Buffer.alloc(70000, 5)]);
+    await db.doc('spaces/b1/sermons/s1/slideImages/p1').set({ img: webp, small: Buffer.alloc(10, 3), w: 10, h: 10 });
     // документ без полей, но с подколлекцией
     await db.doc('spaces/ghost/members/g@example.com').set({ email: 'g@example.com', role: 'admin' });
     await db.doc('shares/' + 'k'.repeat(24)).set({ spaceId: 'b1', sermonId: 's1', sermon: {} });
@@ -188,6 +203,9 @@ describe('бэкап и восстановление', () => {
     assert.ok(first['spaces/b1.json'].includes('"$timestamp": "2023-11-14T22:13:20.123456000Z"'));
     assert.ok(existsSync(join(dir1, 'spaces/ghost/members/g@example.com.json')));
     assert.ok(!existsSync(join(dir1, 'spaces/ghost.json')), 'пустой документ не сохраняется');
+    assert.deepEqual(readFileSync(join(dir1, 'spaces/b1/sermons/s1/slideImages/p1.img.webp')), webp);
+    assert.ok(first['spaces/b1/sermons/s1/slideImages/p1.json'].includes('"$file": "p1.img.webp"'));
+    assert.ok(first['spaces/b1/sermons/s1/slideImages/p1.json'].includes('"$bytes"'));
 
     run('restore.mjs', dir1, '--wipe');
     run('backup.mjs', dir2);
@@ -198,6 +216,9 @@ describe('бэкап и восстановление', () => {
     assert.deepEqual(s.weird, { $timestamp: 'не время' }, 'обычный объект с «$» не путается со временем');
     assert.equal(s.f, 2.5);
     assert.equal(s.blocks[0].parts[0].html, '<b>Ж</b>');
+    const p = (await db.doc('spaces/b1/sermons/s1/slideImages/p1').get()).data();
+    assert.deepEqual(Buffer.from(p.img), webp);
+    assert.deepEqual(Buffer.from(p.small), Buffer.alloc(10, 3));
   });
   test('без --wipe лишние документы остаются, удалённые возвращаются', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'bk3-'));

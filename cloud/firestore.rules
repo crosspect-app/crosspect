@@ -370,6 +370,29 @@ service cloud.firestore {
           allow delete: if (exists(sermonPath(s, id)) && (canEdit(owner()) || (('deletedAt' in owner()) && canTrash(owner()))))
             || (isMember(s) && !existsAfter(sermonPath(s, id)));
         }
+
+        // ---------- картинки конспекта (этап 10.9.1) ----------
+        // slideImages/{img} — загруженная в слайд картинка: { img (WebP, Bytes ≤ 900 КБ), w, h, updatedAt, updatedBy }.
+        // Одноразовая и только этого конспекта: читает тот, кто видит конспект; пишет тот, кто его правит (автор — пока
+        // конспект не у редактора, и не из корзины). Сама картинка не меняется: правка — новая запись с новым id.
+        // Стирают вместе с конспектом (из корзины — кто стирает конспект) и по одной, когда слайд убрали.
+        match /slideImages/{img} {
+          function ownerDoc() { return get(sermonPath(s, id)).data; }
+          function validSlideImage(d) {
+            return d.keys().hasAll(['img', 'w', 'h', 'updatedAt', 'updatedBy'])
+              && d.keys().hasOnly(['img', 'w', 'h', 'updatedAt', 'updatedBy'])
+              && d.img is bytes && d.img.size() > 0 && d.img.size() <= 921600
+              && d.w is int && d.w > 0 && d.w <= 4000
+              && d.h is int && d.h > 0 && d.h <= 4000
+              && d.updatedAt == request.time && d.updatedBy == me();
+          }
+          allow get: if exists(sermonPath(s, id)) && canRead(ownerDoc());
+          allow create: if img.matches('[a-z0-9-]{1,60}') && exists(sermonPath(s, id))
+            && canEdit(ownerDoc()) && !('deletedAt' in ownerDoc())
+            && validSlideImage(request.resource.data);
+          allow delete: if (exists(sermonPath(s, id)) && (canEdit(ownerDoc()) || (('deletedAt' in ownerDoc()) && canTrash(ownerDoc()))))
+            || (isMember(s) && !existsAfter(sermonPath(s, id)));
+        }
       }
 
       // ---------- сводки для списка на главной (этап 8) ----------
