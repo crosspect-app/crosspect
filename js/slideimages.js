@@ -253,11 +253,8 @@ function picPanelFill(el, b){
 let splashBusy = '';
 function splashPanelFill(el){
   const ro = readOnly(), x = splashImage(), kids = [];
-  el.hidden = !isCustomSplash({ type:'splash' });   // подсказка остаётся в разметке и прячется целиком
+  el.hidden = !isCustomSplash({ type:'splash' });   // панель прячется целиком
   const pick = (label, cls) => h('button', { type:'button', class:'btn ' + cls, disabled:ro || splashBusy ? true : null, onclick:() => splashPick(el) }, label);
-  kids.push(h('p', { class:'hint', text:x
-    ? 'Одна картинка на все заставки конспекта, на весь слайд: лишнее по краям обрезается. В PowerPoint она стоит на каждой заставке, в архив JPEG попадает первая.'
-    : 'Картинки пока нет: в PowerPoint на месте заставки будет серая заглушка, в архив JPEG заставка не попадёт. Загрузите картинку, и она встанет на все заставки.' }));
   if (splashBusy) kids.push(h('p', { class:'hint pic-busy', role:'status', text:splashBusy === 'prep' ? 'Готовлю картинку…' : 'Загружаю в облако…' }));
   const err = x && picErr.get(x.imageId);
   if (err) kids.push(h('p', { class:'pic-err', role:'alert', text:err }));

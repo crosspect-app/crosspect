@@ -62,7 +62,7 @@ def test_panel_shows_upload_only_when_custom_splash_is_on(page, sermon):
     assert page.locator(".side .spic-panel").is_hidden()
     page.locator(".side .switch", has_text="Своя заставка").click()
     page.wait_for_selector(".side .spic-pick")
-    assert "серая заглушка" in page.locator(".side .spic-panel").inner_text()
+    assert page.locator(".side .spic-panel .hint").count() == 0   # пояснений нет
     page.wait_for_selector(".stage .sl.sl-custom")   # без картинки — серая заглушка, как прежде
     assert page.locator(".stage-bar button", has_text="JPEG").is_disabled()
     assert not page.errors, page.errors
@@ -81,7 +81,7 @@ def test_upload_puts_picture_on_all_splashes_full_frame(page, sermon, tmp_path):
     assert r == [0, 0, 1920, 1080]
     assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-sp-box')).display") == "none"   # названия на слайде нет
     assert page.locator(".stage-bar button", has_text="JPEG").is_enabled()
-    assert "на все заставки" in page.locator(".side .spic-panel").inner_text()
+    assert page.locator(".side .spic-panel .hint").count() == 0
     assert not page.errors, page.errors
 
 
