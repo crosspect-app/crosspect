@@ -58,7 +58,7 @@ async function renderJPEG(b, layer){
     if (pim){ if (ph && !layer) pim.src = photoDataUrl(ph.variant); else pim.remove(); }
     const qim = stage.querySelector('.sl-pic img');
     if (qim){
-      if (pic && layer !== 'text'){ qim.src = photoDataUrl(pic); Object.assign(qim.style, { display:'block', left:pic.rect.left + 'px', top:pic.rect.top + 'px', width:pic.rect.width + 'px', height:pic.rect.height + 'px' }); }
+      if (pic && layer !== 'text'){ qim.src = photoDataUrl(pic); picPx(qim, picGeom(b).rect, 1); }   // за краем слайда срезается (.sl-pic overflow:hidden)
       else qim.remove();
     }
     if (layer === 'back') stage.querySelectorAll('.sl-box, .sl-author').forEach(x => x.remove());

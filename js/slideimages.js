@@ -6,8 +6,10 @@
    spaces/{s}/sermons/{id}/slideImages/{imageId} (cloud-api.mjs: putSlideImage, slideImage). В блоке — imageId, imgW, imgH и правки pic
    (model.js, normPic): обрезка, поворот, фильтр, обводка. Сама картинка не меняется: «Заменить» кладёт новую; прежняя остаётся,
    пока на неё ссылается история сохранений, «сирот» ночью стирает cloud/scripts/admin.mjs purge-trash.
-   На слайде картинка стоит целиком внутри полей слайда (те же поля, что у текста), поверх фона; правки вшиваются в картинку
-   (picRender), поэтому лента, сцена, показ, JPEG и PowerPoint получают одно и то же. Скачанные картинки — в кеше браузера
+   По умолчанию картинка стоит целиком внутри полей слайда (те же поля, что у текста), поверх фона; правки вшиваются в картинку
+   (picRender), поэтому лента, сцена, показ, JPEG и PowerPoint получают одно и то же.
+   Этап 10.9.1.2: картинку можно двигать мышью и менять её размер (picDrag), «На весь слайд» и «Вписать в поля» —
+   положение b.place (normPicPlace в model.js): null — в полях, { cover:true } — на весь слайд, { x, y, w } — своё. Скачанные картинки — в кеше браузера
    (IndexedDB, тот же, что у фотобанка, ключ slide:<id>): второй раз из облака не качаются.
 
    Своя заставка картинкой (этап 10.9.1.1): при «Своей заставке» можно загрузить одну картинку на все заставки конспекта
@@ -21,7 +23,7 @@ const splashImage = () => { const x = state && state.settings && state.settings.
 /* Откуда слайд берёт картинку: у блока «Картинка» — из блока, у заставки — из настроек конспекта (cover — на весь слайд, без правок) */
 function picSrc(b){
   if (!b) return null;
-  if (b.type === 'image' && b.mode === 'upload' && typeof b.imageId === 'string' && b.imageId) return { imageId:b.imageId, imgW:b.imgW, imgH:b.imgH, pic:b.pic || {}, cover:false };
+  if (b.type === 'image' && b.mode === 'upload' && typeof b.imageId === 'string' && b.imageId) return { imageId:b.imageId, imgW:b.imgW, imgH:b.imgH, pic:b.pic || {}, place:b.place || null, cover:false };
   if (b.type === 'splash' && !b.meta && isCustomSplash(b)){ const x = splashImage(); if (x) return { imageId:x.imageId, imgW:x.imgW, imgH:x.imgH, pic:{}, cover:true }; }
   return null;
 }
@@ -67,26 +69,39 @@ function picArea(){
   return { x, t, w:SL.W - 2 * x, h:SL.H - t - PANEL_INSET - m.bottom };
 }
 const picFx = b => (picSrc(b) || {}).pic || {};
-const picKey = b => { const S = picSrc(b), p = picFx(b), A = picArea();
-  if (S.cover) return [S.imageId, 'cover'].join('|');   // заставка: от полей слайда и настроек не зависит
-  return [S.imageId, JSON.stringify(p.crop || null), p.rot || 0, p.filter || 'none', p.outline ? p.outline.w + p.outline.color : '', A.x, A.t, A.w, A.h,
-    p.filter === 'tone' ? photoToneColor() : ''].join('|'); };
-const picVars = new Map(), picOrder = [];   // ключ → { canvas, url, rect } или Promise; последние 30
-/* Рамка готовой картинки на слайде (с поворотом и обводкой), без самих пикселей: по размеру файла из блока */
+const PIC_CANVAS_MAX = 4096;   // готовая картинка больше кадра: холст не больше 4096 px по длинной стороне, дальше растягивает браузер
+const PIC_MIN = 40;            // px кадра: меньше картинку мышью не сделать (короткая сторона видимой части)
+/* Рамка готовой картинки на слайде (с поворотом и обводкой), без самих пикселей: по размеру файла из блока.
+   k — px кадра на px файла; iw, ih — видимая часть после обрезки до поворота; cx, cy — её середина; rect — прямоугольник готовой картинки
+   (может выходить за край слайда: в редакторе это видно полупрозрачным, в выгрузке срезается — .sl-pic с overflow:hidden) */
 function picGeom(b){
   const S = picSrc(b);
   if (S.cover) return { cover:true, W:SL.W, H:SL.H, rect:{ left:0, top:0, width:SL.W, height:SL.H } };   // заставка: весь кадр
-  const p = picFx(b), c = p.crop || { l:0, t:0, r:0, b:0 }, A = picArea();
+  const p = picFx(b), c = p.crop || { l:0, t:0, r:0, b:0 }, P = S.place;
   const sw = S.imgW * (1 - c.l - c.r), sh = S.imgH * (1 - c.t - c.b), th = (p.rot || 0) * Math.PI / 180;
-  const cs = Math.abs(Math.cos(th)), sn = Math.abs(Math.sin(th)), RW = sw * cs + sh * sn, RH = sw * sn + sh * cs;
-  const ow = p.outline ? p.outline.w : 0, k = Math.max(0.001, Math.min((A.w - 2 * ow) / RW, (A.h - 2 * ow) / RH));
-  const W = Math.max(1, Math.round(RW * k + 2 * ow)), H = Math.max(1, Math.round(RH * k + 2 * ow));
-  return { c, sw, sh, th, k, ow, W, H, rect:{ left:Math.round(A.x + (A.w - W) / 2), top:Math.round(A.t + (A.h - H) / 2), width:W, height:H } };
+  const cs = Math.abs(Math.cos(th)), sn = Math.abs(Math.sin(th)), ow = p.outline ? p.outline.w : 0;
+  let k, cx, cy;
+  if (P && P.cover){   // на весь слайд: повёрнутая видимая часть закрывает кадр целиком
+    k = Math.max((SL.W * cs + SL.H * sn) / sw, (SL.W * sn + SL.H * cs) / sh); cx = SL.W / 2; cy = SL.H / 2;
+  } else if (P){ k = P.w * SL.W / S.imgW; cx = P.x * SL.W; cy = P.y * SL.H; }
+  else {   // как в 10.9.1: целиком внутри полей, по середине
+    const A = picArea(), RW = sw * cs + sh * sn, RH = sw * sn + sh * cs;
+    k = Math.max(0.001, Math.min((A.w - 2 * ow) / RW, (A.h - 2 * ow) / RH)); cx = A.x + A.w / 2; cy = A.t + A.h / 2;
+  }
+  const iw = sw * k, ih = sh * k, W = iw * cs + ih * sn + 2 * ow, H = iw * sn + ih * cs + 2 * ow;
+  return { c, sw, sh, th, k, ow, iw, ih, cx, cy, W, H, mode:P ? (P.cover ? 'cover' : 'free') : 'fit', rect:{ left:cx - W / 2, top:cy - H / 2, width:W, height:H } };
 }
+/* Ключ готовой картинки: от положения не зависит (двигают — та же картинка), от размера зависит */
+const picKey = b => { const S = picSrc(b), p = picFx(b);
+  if (S.cover) return [S.imageId, 'cover'].join('|');   // заставка: от полей слайда и настроек не зависит
+  const G = picGeom(b);
+  return [S.imageId, JSON.stringify(p.crop || null), p.rot || 0, p.filter || 'none', p.outline ? p.outline.w + p.outline.color : '', Math.round(G.iw), Math.round(G.ih),
+    p.filter === 'tone' ? photoToneColor() : ''].join('|'); };
+const picVars = new Map(), picOrder = [];   // ключ → { canvas, url } или Promise; последние 30
 function picRender(b){
   const key = picKey(b);
-  const store = (C, bl, G, res) => {
-    const v = { canvas:C, url:bl ? URL.createObjectURL(bl) : C.toDataURL('image/png'), rect:G.rect, ready:true };
+  const store = (C, bl, res) => {
+    const v = { canvas:C, url:bl ? URL.createObjectURL(bl) : C.toDataURL('image/png'), ready:true };
     picVars.set(key, v); picOrder.push(key);
     while (picOrder.length > 30){ const k = picOrder.shift(), old = picVars.get(k); picVars.delete(k); if (old && old.url && old.url.startsWith('blob:')) URL.revokeObjectURL(old.url); }
     res(v);
@@ -97,48 +112,49 @@ function picRender(b){
       const C = pbCanvas(G.W, G.H), t = C.getContext('2d'), nw = im.naturalWidth, nh = im.naturalHeight, k = Math.max(G.W / nw, G.H / nh);
       t.imageSmoothingQuality = 'high';
       t.drawImage(im, (G.W - nw * k) / 2, (G.H - nh * k) / 2, nw * k, nh * k);
-      return new Promise(res => C.toBlob(bl => store(C, bl, G, res), 'image/webp', 0.92));
+      return new Promise(res => C.toBlob(bl => store(C, bl, res), 'image/webp', 0.92));
     }
-    // обрезанная картинка в размере слайда; фильтр — по пикселям, до обводки (photos.js, filterPixels)
-    const iw = Math.max(1, Math.round(G.sw * G.k)), ih = Math.max(1, Math.round(G.sh * G.k));
+    // обрезанная картинка в размере слайда (огромная — меньше, см. PIC_CANVAS_MAX); фильтр — по пикселям, до обводки (photos.js, filterPixels)
+    const r = Math.min(1, PIC_CANVAS_MAX / Math.max(G.W, G.H));
+    const iw = Math.max(1, Math.round(G.iw * r)), ih = Math.max(1, Math.round(G.ih * r)), ow = G.ow * r;
     const P = pbCanvas(iw, ih), g = P.getContext('2d', { willReadFrequently:f !== 'none' });
     g.imageSmoothingQuality = 'high';
     const nw = im.naturalWidth, nh = im.naturalHeight;
     g.drawImage(im, G.c.l * nw, G.c.t * nh, (1 - G.c.l - G.c.r) * nw, (1 - G.c.t - G.c.b) * nh, 0, 0, iw, ih);
     if (f !== 'none'){ const px = g.getImageData(0, 0, iw, ih); filterPixels(px.data, f, photoToneColor()); g.putImageData(px, 0, 0); }
-    const C = pbCanvas(G.W, G.H), t = C.getContext('2d');
+    const C = pbCanvas(Math.max(1, Math.round(G.W * r)), Math.max(1, Math.round(G.H * r))), t = C.getContext('2d');
     t.imageSmoothingQuality = 'high';
-    t.translate(G.W / 2, G.H / 2); t.rotate(G.th);
-    if (G.ow > 0){ t.fillStyle = p.outline.color; t.fillRect(-iw / 2 - G.ow, -ih / 2 - G.ow, iw + 2 * G.ow, ih + 2 * G.ow); }
+    t.translate(C.width / 2, C.height / 2); t.rotate(G.th);
+    if (ow > 0){ t.fillStyle = p.outline.color; t.fillRect(-iw / 2 - ow, -ih / 2 - ow, iw + 2 * ow, ih + 2 * ow); }
     t.drawImage(P, -iw / 2, -ih / 2);
-    return new Promise(res => C.toBlob(bl => store(C, bl, G, res), 'image/webp', 0.92));
+    return new Promise(res => C.toBlob(bl => store(C, bl, res), 'image/webp', 0.92));
   }).catch(e => { picVars.delete(key); throw e; }));
   return picVars.get(key);
 }
-/* Для JPEG и PowerPoint: дождаться картинки с правками; null — у слайда нет картинки или она не загрузилась */
+/* Для JPEG и PowerPoint: дождаться картинки с правками; null — у слайда нет картинки или она не загрузилась.
+   Где она стоит на слайде — picGeom(b).rect */
 async function picReady(b){
   if (!picOn(b)) return null;
   try { return await picRender(b); } catch(e){ return null; }
 }
 
 /* ----- На слайде ----- */
-/* fitSlide (preview.js) зовёт для слайда с картинкой: .sl-pic img на месте; пока картинка готовится — прежняя или ничего */
+/* fitSlide (preview.js) зовёт для слайда с картинкой: .sl-pic img на месте; пока картинка готовится — прежняя в новой рамке или ничего.
+   Пока картинку тянут мышью (picUI.drag), новая не готовится: прежняя растягивается, новая — когда отпустили */
 const picLast = new Map();   // id блока → { url, imageId }
+const picUI = { drag:null };
+const picPx = (el, R, k) => Object.assign(el.style, { display:'block', left:R.left * k + 'px', top:R.top * k + 'px', width:R.width * k + 'px', height:R.height * k + 'px' });
 function picPaint(sl, b){
   const im = sl.querySelector('.sl-pic img'); if (!im) return;
-  const v = picVars.get(picKey(b));
-  if (v && v.ready){
-    picLast.set(b.id, { url:v.url, imageId:picSrc(b).imageId });
-    if (im.getAttribute('src') !== v.url) im.src = v.url;
-    Object.assign(im.style, { display:'block', left:v.rect.left + 'px', top:v.rect.top + 'px', width:v.rect.width + 'px', height:v.rect.height + 'px' });
-    return;
-  }
-  const last = picLast.get(b.id), G = picGeom(b);
-  if (last && last.imageId === picSrc(b).imageId){   // правки ещё готовятся: прежняя картинка в новой рамке
-    if (im.getAttribute('src') !== last.url) im.src = last.url;
-    Object.assign(im.style, { display:'block', left:G.rect.left + 'px', top:G.rect.top + 'px', width:G.rect.width + 'px', height:G.rect.height + 'px' });
-  } else { im.removeAttribute('src'); im.style.display = 'none'; }
-  if (!v) picRender(b).then(() => picRepaintAll(b.id)).catch(() => { picPanelRefresh(b.id); splashPanelRefresh(); });
+  const key = picKey(b), v = picVars.get(key), G = picGeom(b);
+  let url = null;
+  if (v && v.ready){ url = v.url; picLast.set(b.id, { url, imageId:picSrc(b).imageId }); }
+  else { const last = picLast.get(b.id); if (last && last.imageId === picSrc(b).imageId) url = last.url; }   // правки ещё готовятся: прежняя картинка в новой рамке
+  if (url){ if (im.getAttribute('src') !== url) im.src = url; picPx(im, G.rect, 1); }
+  else { im.removeAttribute('src'); im.style.display = 'none'; }
+  const holder = sl.parentNode && sl.parentNode.classList && sl.parentNode.classList.contains('stage-slide') ? sl.parentNode : null;
+  if (holder) picPaintLayer(holder, sl, b, G, url);
+  if (!v && picUI.drag !== b.id) picRender(b).then(() => picRepaintAll(b.id)).catch(() => { picPanelRefresh(b.id); splashPanelRefresh(); });
 }
 /* Перерисовать картинку на всех слайдах этого блока (лента, сцена, вид «Текст», показ) */
 function picRepaintAll(id){
@@ -146,6 +162,105 @@ function picRepaintAll(id){
     const b = typeof unitById === 'function' ? unitById(id) : null;
     if (picOn(b)) picPaint(sl, b);
   });
+}
+
+/* ----- Двигать и менять размер мышью (этап 10.9.1.2) -----
+   Слой на большом слайде в правке (.pic-layer в .stage-slide, в JPEG не попадает): полупрозрачная часть за краем слайда и
+   повёрнутая рамка видимой части с ручками по углам и краям. Размер — с сохранением пропорций, противоположный угол (край) стоит на месте.
+   Привязки (порог TB_SNAP, textframe.js): края картинки — к краям слайда, внутреннему краю его рамки и полям; середина — к середине слайда.
+   Зажатый Alt (Option) — без привязок. Первое движение превращает «В полях» и «На весь слайд» в своё положение { x, y, w } */
+const PIC_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+function picPaintLayer(holder, sl, b, G, url){
+  let L = holder.querySelector(':scope > .pic-layer');
+  const on = b.type === 'image' && !G.cover && !readOnly() && !!url;
+  holder.classList.toggle('pic-on', on);
+  if (!on){ if (L) L.remove(); return; }
+  if (!L){
+    L = h('div', { class:'pic-layer', 'aria-hidden':'true' }, h('div', { class:'pic-ghost' }, h('img', { alt:'' })),
+      h('div', { class:'pic-hit', title:'Перетащите картинку. Размер — за края и углы. Alt — без привязок' }, PIC_HANDLES.map(c => h('span', { class:'pic-h c-' + c, 'data-c':c }))));
+    holder.append(L);
+    L.querySelector('.pic-hit').addEventListener('pointerdown', e => picDrag(e, b.id));
+  }
+  const k = sl.clientWidth / SL.W, g = L.querySelector('.pic-ghost img'), hit = L.querySelector('.pic-hit');
+  if (g.getAttribute('src') !== url) g.src = url;
+  picPx(g, G.rect, k);
+  const vw = G.iw + 2 * G.ow, vh = G.ih + 2 * G.ow;
+  Object.assign(hit.style, { left:(G.cx - vw / 2) * k + 'px', top:(G.cy - vh / 2) * k + 'px', width:vw * k + 'px', height:vh * k + 'px', transform:G.th ? 'rotate(' + G.th + 'rad)' : '' });
+}
+/* Линии привязки: края и середина */
+function picTargets(){
+  const m = tbMargins(), I = PANEL_INSET;
+  return { x:{ edges:[0, I, m.x, SL.W - m.x, SL.W - I, SL.W], centers:[SL.W / 2] }, y:{ edges:[0, I, m.t, SL.H - m.b, SL.H - I, SL.H], centers:[SL.H / 2] } };
+}
+function picDrag(e, id){
+  const b = blockById(id); if (!picOn(b) || readOnly() || e.button !== 0) return;
+  const hit = e.currentTarget, holder = hit.closest('.stage-slide'), sl = holder && holder.querySelector('.sl'); if (!sl) return;
+  e.preventDefault(); e.stopPropagation();
+  const S = picSrc(b), G0 = picGeom(b), k = sl.clientWidth / SL.W, hd = e.target.dataset && e.target.dataset.c || '', x0 = e.clientX, y0 = e.clientY;
+  const cs = Math.cos(G0.th), sn = Math.sin(G0.th), T = picTargets(), straight = Math.abs(Math.sin(2 * G0.th)) < 1e-6;   // 0°, 90°, 180°: края рамки параллельны краям слайда
+  const sx = hd.includes('e') ? 1 : hd.includes('w') ? -1 : 0, sy = hd.includes('s') ? 1 : hd.includes('n') ? -1 : 0;
+  // во сколько раз можно уменьшить и увеличить: короткая сторона видимой части ≥ PIC_MIN, вся картинка — не шире PIC_PLACE.wMax слайдов
+  const fMin = PIC_MIN / Math.max(1, Math.min(G0.iw, G0.ih)), fMax = PIC_PLACE.wMax * SL.W / (S.imgW * G0.k);
+  const place0 = b.place ? JSON.parse(JSON.stringify(b.place)) : null;
+  hit.setPointerCapture(e.pointerId); hit.classList.add('drag');
+  let moved = false, raf = 0;
+  const move = ev => {
+    let dx = (ev.clientX - x0) / k, dy = (ev.clientY - y0) / k;
+    if (!moved && Math.abs(dx) + Math.abs(dy) < 2) return;
+    moved = true; picUI.drag = id;
+    const snap = !ev.altKey, g = [];
+    let f = 1, cx, cy;
+    if (!hd){
+      const R = G0.rect;
+      const tx = snap && tbSnap([[R.left + dx, 'edges'], [R.left + dx + R.width / 2, 'centers'], [R.left + dx + R.width, 'edges']], T.x);
+      if (tx){ dx += tx.d; g.push({ dir:'v', at:tx.at }); }
+      const ty = snap && tbSnap([[R.top + dy, 'edges'], [R.top + dy + R.height / 2, 'centers'], [R.top + dy + R.height, 'edges']], T.y);
+      if (ty){ dy += ty.d; g.push({ dir:'h', at:ty.at }); }
+      cx = G0.cx + dx; cy = G0.cy + dy;
+    } else {
+      const lx = dx * cs + dy * sn, ly = -dx * sn + dy * cs;   // сдвиг мыши вдоль сторон рамки
+      const fx = sx ? 1 + sx * lx / G0.iw : -Infinity, fy = sy ? 1 + sy * ly / G0.ih : -Infinity;
+      f = Math.max(fx, fy);
+      if (snap && straight){   // ровная картинка: двигающийся край липнет к линиям
+        // края готовой картинки на слайде после увеличения в f раз: неподвижный край стоит, двигается противоположный
+        const R = G0.rect, cand = [];
+        const spanX = f2 => (R.width - 2 * G0.ow) * f2 + 2 * G0.ow, spanY = f2 => (R.height - 2 * G0.ow) * f2 + 2 * G0.ow;
+        // по горизонтали двигается край картинки на слайде, если ручка его тянет (с поворотом на 90° стороны меняются местами)
+        const turned = Math.abs(sn) > 0.5, mx = turned ? sy * (sn > 0 ? -1 : 1) : sx * (cs > 0 ? 1 : -1), my = turned ? sx * (sn > 0 ? 1 : -1) : sy * (cs > 0 ? 1 : -1);
+        const ax2 = mx > 0 ? R.left : R.left + R.width, ay2 = my > 0 ? R.top : R.top + R.height;
+        if (mx){ const s = tbSnap([[ax2 + mx * spanX(f), 'edges']], T.x); if (s) cand.push({ d:Math.abs(s.d), f:f + mx * s.d / (R.width - 2 * G0.ow), line:{ dir:'v', at:s.at } }); }
+        if (my){ const s = tbSnap([[ay2 + my * spanY(f), 'edges']], T.y); if (s) cand.push({ d:Math.abs(s.d), f:f + my * s.d / (R.height - 2 * G0.ow), line:{ dir:'h', at:s.at } }); }
+        cand.sort((a, z) => a.d - z.d);
+        if (cand[0]){ f = cand[0].f; g.push(cand[0].line); }
+      }
+      f = Math.min(fMax, Math.max(fMin, f));
+      // середина: неподвижная точка (угол или середина края) в осях картинки — (−sx·iw/2, −sy·ih/2); новая середина сдвигается от неё
+      const lcx = sx * G0.iw * (f - 1) / 2, lcy = sy * G0.ih * (f - 1) / 2;
+      cx = G0.cx + lcx * cs - lcy * sn; cy = G0.cy + lcx * sn + lcy * cs;
+    }
+    cx = Math.min(SL.W, Math.max(0, cx)); cy = Math.min(SL.H, Math.max(0, cy));
+    b.place = { x:+(cx / SL.W).toFixed(4), y:+(cy / SL.H).toFixed(4), w:+(S.imgW * G0.k * f / SL.W).toFixed(4) };
+    slideGuides(holder, g, k);
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; picRepaintAll(id); });
+  };
+  const up = () => {
+    hit.removeEventListener('pointermove', move); hit.removeEventListener('pointerup', up); hit.removeEventListener('pointercancel', up);
+    if (raf){ cancelAnimationFrame(raf); raf = 0; }
+    hit.classList.remove('drag'); slideGuides(holder, [], k);
+    picUI.drag = null;
+    if (moved){
+      const n = normPicPlace(b.place); if (n) b.place = n; else if (place0) b.place = place0; else delete b.place;
+      change(); updateCounter(b); picPanelRefresh(id);
+    }
+    picRepaintAll(id);
+  };
+  hit.addEventListener('pointermove', move); hit.addEventListener('pointerup', up); hit.addEventListener('pointercancel', up);
+}
+/* «На весь слайд» (cover) и «Вписать в поля» (null — как в 10.9.1) */
+function picPlaceSet(id, place){
+  const b = blockById(id); if (!picOn(b) || readOnly()) return;
+  if (place) b.place = place; else delete b.place;
+  change(); updateCounter(b); picRepaintAll(id); picPanelRefresh(id);
 }
 
 /* ----- Загрузка ----- */
@@ -231,6 +346,10 @@ function picPanelFill(el, b){
         h('button', { type:'button', class:'btn small pic-crop', onclick:() => picCropOpen(b) }, 'Обрезать'),
         h('span', { class:'pic-turns' }, h('button', { type:'button', class:'btn small pic-left', title:'Повернуть влево на 90°', 'aria-label':'Повернуть влево на 90°', onclick:turn(-90) }, '↺'),
         h('button', { type:'button', class:'btn small pic-right', title:'Повернуть вправо на 90°', 'aria-label':'Повернуть вправо на 90°', onclick:turn(90) }, '↻'))));
+      // этап 10.9.1.2: положение на слайде; нажатая кнопка — та, что сейчас действует
+      const pl = b.place, sz = (label, cls, on, place) => h('button', { type:'button', class:'btn small ' + cls + (on ? ' on' : ''), 'aria-pressed':on ? 'true' : 'false', onclick:() => picPlaceSet(id, place) }, label);
+      kids.push(h('div', { class:'pic-acts pic-size' }, sz('На весь слайд', 'pic-cover', !!(pl && pl.cover), { cover:true }), sz('Вписать в поля', 'pic-fit', !pl, null)));
+      kids.push(h('p', { class:'hint pic-move-hint', text:'Картинку можно двигать на слайде мышью, размер — за края и углы.' }));
       kids.push(row('Поворот', rr, rv));
       kids.push(row('Фильтр', h('select', { class:'input pic-filter', 'aria-label':'Фильтр', onchange:e => picFxSet(id, q => { q.filter = e.target.value; }) },
         PHOTO_FILTERS.map(([v, t]) => h('option', { value:v, selected:(p.filter || 'none') === v ? true : null }, t)))));

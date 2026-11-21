@@ -35,10 +35,10 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 - `scripture`: (вид стихов — общий, в настройках слайдов) `items:[ {kind:'scripture', lang, book, chapter, sel, verses:[{num,text,orig}], ref, translation} | {kind:'scripture', manual:true, mBook, mChapter, mVerses, translation, verses:[{num,text}]} | {kind:'text', html, align, caps} | {kind:'line'} ]`; `split` — отрывок (`js/passage.js`)
 - `thesis`: `name, nameAuto, valign, parts:[ {kind:'text', html, align, scale, caps, frame} | {kind:'line'} ]`; `text` — склейка частей (для названия и старых версий)
 - `quote`: `text, first, last, caption, scale, caps, half, halfW, frame, photo` (10.5: имя и фамилия вместо `author`, `quoteAuthor(b)`; `photo` (id из `bankPhotos`; 10.5.3: `crop`, `rot`, `outline`, `round`) — `js/photos.js`; `half`: `full` / `left` / `right`, `data-half` на `.sl-box` и `.sl-author`)
-- `image`: `name, mode('find'|'send'), desc`; `video`: `name, mode('link'|'send'), url, from, to, desc`; `free`: `name, desc`
+- `image`: `name, mode('find'|'send'|'upload'), desc`, `imageId, imgW, imgH, pic, place`; `video`: `name, mode('link'|'send'), url, from, to, desc`; `free`: `name, desc`
 - `note`: `text` (не слайд: без номера, `done`, `todo`, `speech`)
 
-Старые поля `settings` (`minScale`, `limitThesis`, `limitQuote`) и вид стихов у слайдов Писания `normalize` с этапа 7.1 убирает: это теперь общие настройки слайдов.
+Старые поля `settings` (`minScale`, `limitThesis`, `limitQuote`) и вид стихов у слайдов Писания `normalize` убирает (7.1).
 
 Версия 1 (до 11 ноября 2026) переводится в `normalize`: блоки `text` (`text, splash`) становятся `speech` слайда перед ними, а если слайда перед ними нет или `splash:true` — новой заставкой; `meta.preacher` («Фамилия Имя») → `lastName` + `firstName`; `quote.author` «Имя Фамилия, источник» → `author` + `caption`; картинка, видео и свободный без `todo` получают `todo = !done`; новые поля Писания — значения по умолчанию.
 

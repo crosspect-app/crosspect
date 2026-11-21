@@ -1558,6 +1558,22 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .pic-turns{display:inline-flex;gap:8px}
 .pic-panel .ph-row{grid-template-columns:auto minmax(0,1fr) auto}
 .pic-panel .pic-filter{min-width:0;width:100%}
+.pic-size .btn.on{border-color:var(--accent);color:var(--accent)}
+.pic-move-hint{margin:0}
+/* этап 10.9.1.2: двигать и тянуть картинку на большом слайде; за краем слайда она видна полупрозрачной */
+.stage-slide.pic-on{position:relative;overflow:visible}
+.stage-slide.pic-on > .sl{border-radius:16px}
+.pic-layer{position:absolute;inset:0;pointer-events:none}
+.pic-ghost{position:absolute;inset:0;clip-path:polygon(evenodd,-9999px -9999px,9999px -9999px,9999px 9999px,-9999px 9999px,-9999px -9999px,0 0,0 100%,100% 100%,100% 0,0 0)}
+.pic-ghost img{position:absolute;opacity:.32;max-width:none}
+.pic-hit{position:absolute;pointer-events:auto;cursor:move;border:1px dashed transparent;touch-action:none;transform-origin:50% 50%}
+.pic-hit:hover,.pic-hit.drag{border-color:rgba(255,214,102,.8)}
+.pic-h{position:absolute;width:14px;height:14px;border:2px solid var(--accent);background:#151612;border-radius:3px;opacity:0;transition:opacity .15s}
+.pic-hit:hover .pic-h,.pic-hit.drag .pic-h{opacity:1}
+.pic-h.c-nw{left:-8px;top:-8px;cursor:nwse-resize}.pic-h.c-se{right:-8px;bottom:-8px;cursor:nwse-resize}
+.pic-h.c-ne{right:-8px;top:-8px;cursor:nesw-resize}.pic-h.c-sw{left:-8px;bottom:-8px;cursor:nesw-resize}
+.pic-h.c-n{left:calc(50% - 7px);top:-8px;cursor:ns-resize}.pic-h.c-s{left:calc(50% - 7px);bottom:-8px;cursor:ns-resize}
+.pic-h.c-w{left:-8px;top:calc(50% - 7px);cursor:ew-resize}.pic-h.c-e{right:-8px;top:calc(50% - 7px);cursor:ew-resize}
 .picc-sheet{max-width:900px}
 .picc-wrap{display:flex;justify-content:center;margin:12px 0 16px;padding:12px;overflow:hidden;border-radius:12px}   /* тень рамки обрезки темнит всё вокруг — только внутри окна */
 .picc-box{position:relative;display:inline-block;max-width:100%;user-select:none;touch-action:none}

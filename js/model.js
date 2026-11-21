@@ -139,6 +139,17 @@ function normPic(p){
   }
   return Object.keys(out).length ? out : null;
 }
+/* Положение картинки на слайде (этап 10.9.1.2; в 10.9.2 — у каждой картинки списка): null — целиком внутри полей, как в 10.9.1;
+   { cover:true } — на весь слайд (закрывает кадр при любом повороте и обрезке, лишнее срезается); { x, y, w } — середина видимой
+   части в долях слайда (0…1) и ширина всей картинки до обрезки в долях ширины слайда */
+const PIC_PLACE = { wMin:0.02, wMax:12 };
+function normPicPlace(p){
+  if (!p || typeof p !== 'object') return null;
+  if (p.cover === true) return { cover:true };
+  const n = (v, a, z) => typeof v === 'number' && isFinite(v) && v >= a && v <= z ? +v.toFixed(4) : null;
+  const x = n(p.x, 0, 1), y = n(p.y, 0, 1), w = n(p.w, PIC_PLACE.wMin, PIC_PLACE.wMax);
+  return x == null || y == null || w == null ? null : { x, y, w };
+}
 /* Проповедник: имя и фамилия хранятся раздельно (на заставке — «Имя ФАМИЛИЯ»). В списке проповедников — «Фамилия Имя» */
 function splitPreacher(s){
   const w = String(s || '').trim().split(/\s+/).filter(Boolean);
@@ -277,6 +288,7 @@ function normalize(d){
       if (typeof b.imageId === 'string' && PIC_ID_RE.test(b.imageId) && dim(b.imgW) && dim(b.imgH)){ nb.imageId = b.imageId; nb.imgW = b.imgW; nb.imgH = b.imgH; }
       else { delete nb.imageId; delete nb.imgW; delete nb.imgH; }
       const pic = nb.imageId ? normPic(b.pic) : null; if (pic) nb.pic = pic; else delete nb.pic;
+      const place = nb.imageId ? normPicPlace(b.place) : null; if (place) nb.place = place; else delete nb.place;   // этап 10.9.1.2
     }
     delete nb.custom;   // перенесено в state.settings.customSplash
     if (NAMED[b.type]) nb.name = cleanName(nb.name);
