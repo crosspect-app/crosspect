@@ -84,7 +84,10 @@ function wrapScripts(root){
     t.parentNode.replaceChild(frag, t);
   });
 }
-/* Если на последней строке одно слово — переносим перед последней группой слов предпоследней строки */
+/* Если на последней строке одно слово — переносим перед последней группой слов предпоследней строки.
+   Перенос отменяется, если строка над ним стала бы короче ORPHAN_MIN ширины текста (решение Виталия 21.11.2026): лучше одно слово внизу, чем дыра.
+   Группы, склеенные неразрывными пробелами (предлоги, союзы, частицы — typoText), не разрываются никогда: здесь ищутся только обычные пробелы */
+const ORPHAN_MIN = 2 / 3;
 function fixOrphan(p){
   const sps = [], tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT); let n;
   while ((n = tw.nextNode())) for (let i = 0; i < n.nodeValue.length; i++) if (n.nodeValue[i] === ' ') sps.push({ n, i });
@@ -113,9 +116,21 @@ function fixOrphan(p){
   if (tail.split(/[\s\u00a0]+/).filter(Boolean).length > 1) return;
   const prev = starts.length > 1 ? starts[starts.length - 2] : -1, cand = ls - 1;
   if (cand <= prev) return;
-  const sp = sps[cand], after = sp.n.splitText(sp.i);
+  const sp = sps[cand], from = prev >= 0 ? sps[prev] : null;
+  const lineLeft = () => {   // левый край первого знака строки, на которой стоит перенос
+    if (!from){ const r = rectAt(fn, fn.nodeValue.search(/\S/)); return r ? r.left : null; }
+    let node = from.n, i = from.i + 1;
+    if (i >= node.nodeValue.length){ const w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT); w.currentNode = node; node = w.nextNode(); i = 0; }
+    const r = node && rectAt(node, i); return r ? r.left : null;
+  };
+  const after = sp.n.splitText(sp.i), br = document.createElement('br');
   after.nodeValue = after.nodeValue.slice(1);
-  sp.n.parentNode.insertBefore(document.createElement('br'), after);
+  sp.n.parentNode.insertBefore(br, after);
+  const cs = getComputedStyle(p), box = p.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const endRc = sp.i > 0 ? rectAt(sp.n, sp.i - 1) : null, left = lineLeft();
+  if (endRc && left != null && box > 0 && endRc.right - left < box * ORPHAN_MIN){   // строка над переносом слишком короткая — оставляем как было
+    br.remove(); after.nodeValue = ' ' + after.nodeValue; p.normalize();
+  }
 }
 
 /* Шум зерна (NOISE, --noise) — в background.js: теперь он одинаковый при каждом открытии */

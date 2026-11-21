@@ -42,7 +42,7 @@ def test_custom_splash_switch_applies_to_every_splash(page, sermon):
     assert not page.locator(".side .own-splash .hint").is_visible()   # выключена — пояснения нет
     sw.click()
     assert page.evaluate("state.settings.customSplash") is True
-    assert page.locator(".side .own-splash .hint").is_visible()
+    assert page.locator(".side .own-splash .hint").count() == 0   # пояснений нет и включённой (этап 10.9.1.1)
     page.wait_for_function("document.querySelectorAll('.film .sl.sl-custom').length === 2")   # на всех заставках сразу
     assert page.locator(".st .own").count() == 0   # значка «своя» нет
     assert page.locator(".stage .sl-custom .sl-sp-title").inner_text() == "Добавить свою заставку"
