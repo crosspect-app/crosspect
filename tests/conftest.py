@@ -76,7 +76,12 @@ def page(browser, base_url):
     """Форма после входа (облако подменено, вошёл админ), открыта главная; ошибки скриптов собираются в page.errors.
     С этапа 8 без входа форма не работает, поэтому и тесты редактора, файлов и выгрузки идут «в облаке»."""
     ctx, pg = cloud_page(browser, base_url, user=ME, members={"admin@x.pl": {"role": "editor"}})
-    pg.wait_for_selector(".home-top")
+    try:
+        pg.wait_for_selector(".home-top")
+    except Exception:
+        if ENGINE != "chromium":
+            print("\nDIAG", pg.log[-40:], pg.evaluate("() => ({ gate:(document.querySelector('.gate')||{}).textContent, body:document.body.innerHTML.slice(0, 600) })"))
+        raise
     yield pg
     ctx.close()
 
@@ -101,6 +106,10 @@ def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, sett
     ctx.add_init_script(FAKE_CLOUD)
     pg = ctx.new_page()
     pg.errors = []
+    pg.log = []
+    if ENGINE != "chromium":
+        pg.on("console", lambda m: pg.log.append(m.type + ": " + m.text[:200]))
+        pg.on("requestfailed", lambda r: pg.log.append("REQFAIL " + r.url[-100:] + " " + str(r.failure)))
     pg.on("pageerror", lambda e: pg.errors.append(str(e)))
     pg.on("console", lambda m: pg.errors.append(m.text) if m.type == "error" and "Failed to load resource" not in m.text else None)
     pg.goto(base_url + "/index.html" + hash)

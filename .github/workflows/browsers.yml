@@ -34,4 +34,4 @@ jobs:
           cache-dependency-path: tests/requirements.txt
       - run: pip install -r tests/requirements.txt
       - run: python -m playwright install --with-deps ${{ matrix.engine }}
-      - run: python -m pytest tests/test_zz_diag.py -s -p no:cacheprovider --tb=short
+      - run: python -m pytest tests -p no:cacheprovider --tb=line -rfE --maxfail=4 -s 2>&1 | grep -E 'DIAG|FAILED|ERROR|passed|failed' | cut -c1-3000
