@@ -64,7 +64,7 @@ function picImage(id){
       if (!cloudOn() || (!state && !ser)) throw new Error('нет связи с облаком');
       const r = ser ? await cloud.api.seriesImage(ser, id) : await cloud.api.slideImage(picSpace(), state.id, id);
       if (!r) throw Object.assign(new Error('Картинки нет в облаке. Загрузите её заново.'), { code:'missing' });
-      bl = new Blob([r.bytes], { type:'image/webp' });
+      bl = new Blob([r.bytes], { type:imgMime(r.bytes) });
       photoIdb.put(PIC_KEY(id), bl);
     }
     picMissAt.delete(id);
@@ -390,7 +390,7 @@ async function picStore(file, sermon, space, onStage, series){
   const k = Math.min(1, PIC_MAX_SIDE / Math.max(im.naturalWidth, im.naturalHeight));
   const cv = pbCanvas(im.naturalWidth * k, im.naturalHeight * k), g = cv.getContext('2d');
   g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, cv.width, cv.height);
-  const enc = await pbEncode(cv);   // WebP не больше 900 КБ
+  const enc = await pbEncode(cv);   // WebP не больше 900 КБ (Safari — JPEG или PNG, photobank.js)
   const bytes = new Uint8Array(await enc.blob.arrayBuffer()), imageId = (series ? 's' : 'p') + uid();
   onStage('up');
   if (series){ await cloud.api.putSeriesImage(cloud.user, space, imageId, bytes, enc.w, enc.h); PIC_SERIES.set(imageId, space); }

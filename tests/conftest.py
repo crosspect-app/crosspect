@@ -14,6 +14,17 @@ from playwright.sync_api import sync_playwright
 ENGINE = os.environ.get("CROSSPECT_BROWSER", "chromium")
 
 
+def pytest_collection_modifyitems(config, items):
+    """CROSSPECT_SHARD=i/N — только каждый N-й тест, начиная с i-го (1…N): прогоны Firefox и WebKit в CI идут частями."""
+    sh = os.environ.get("CROSSPECT_SHARD")
+    if not sh:
+        return
+    i, n = (int(x) for x in sh.split("/"))
+    keep = [t for k, t in enumerate(items) if k % n == i - 1]
+    config.hook.pytest_deselected(items=[t for t in items if t not in keep])
+    items[:] = keep
+
+
 def only_chromium(why="нужен Chromium"):
     """Пропустить тест не в Chromium (CDP, права буфера обмена и т. п.)."""
     if ENGINE != "chromium":
@@ -72,6 +83,8 @@ def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, sett
     opts = dict(viewport={"width": 1280, "height": 900}, accept_downloads=True, reduced_motion=reduced_motion)
     opts.update(ctx_opts)   # этап 10.1.1: телефонный контекст (viewport, is_mobile, has_touch, device_scale_factor)
     ctx = browser.new_context(**opts)
+    if ENGINE != "chromium":
+        ctx.set_default_timeout(15000)   # Firefox и WebKit: зависший тест не съедает весь прогон
     db = {"members": members or {}, "space": {"id": "sp1", "name": "Слово веры · тест", "settings": settings or {}}, "sermons": sermons or {}, "clock": 1000,
           "admins": list(admins or []), "spaces": spaces or {}, "shares": shares or {}, "series": series or {}}
     if no_spaces:
