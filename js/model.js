@@ -182,9 +182,10 @@ function normPicPlace(p){
 }
 /* Слои «Картинки» (этап 10.9.2), снизу вверх: картинки и рамки текста.
    { kind:'pic', id, imageId, imgW, imgH, pic?, place?, shadow? } — картинка (pic и place — как в 10.9.1–10.9.1.2; shadow — сила тени 1…100, нет — без тени);
-   { kind:'text', id, text, x, y, w, size, bold?, color, align } — рамка текста: x, y — середина в долях слайда, w — ширина в долях ширины слайда,
+   { kind:'text', id, text, x, y, w, size, bold?, italic?, track?, lead?, color, align } — рамка текста (italic — курсив; track и lead записаны, только если не стандартные): x, y — середина в долях слайда, w — ширина в долях ширины слайда,
    size — размер шрифта в px кадра 1920×1080. Старый блок с imageId у самого блока — одна картинка-слой */
-const PIC_TEXT = { size:72, sizeMin:20, sizeMax:240, wMin:0.04, wMax:1.5, color:'#ffffff', max:2000 };
+const PIC_TEXT = { size:72, sizeMin:20, sizeMax:240, wMin:0.04, wMax:1.5, color:'#ffffff', max:2000,
+  track:-0.02, trackMin:-0.2, trackMax:0.3, lead:1.18, leadMin:0.8, leadMax:2 };   // track — между символами (em), lead — между строками (во сколько размеров шрифта); границы — как в «Настройках слайдов» (этап Б)
 const PIC_LAYER_ID = /^[a-z0-9]{1,24}$/;
 const picDim = v => Number.isInteger(v) && v > 0 && v <= 4000 ? v : 0;
 const picShadow = v => typeof v === 'number' && isFinite(v) && v >= 1 ? Math.min(100, Math.round(v)) : 0;
@@ -201,6 +202,10 @@ function normPicLayer(l, seen){
       color:typeof l.color === 'string' && /^#[0-9a-f]{6}$/i.test(l.color) ? l.color.toLowerCase() : PIC_TEXT.color,
       align:['left', 'center', 'right'].includes(l.align) ? l.align : 'center' };
     if (l.bold === true) out.bold = true;
+    if (l.italic === true) out.italic = true;
+    const tr = +n(l.track, PIC_TEXT.trackMin, PIC_TEXT.trackMax, PIC_TEXT.track).toFixed(2), ld = +n(l.lead, PIC_TEXT.leadMin, PIC_TEXT.leadMax, PIC_TEXT.lead).toFixed(2);
+    if (tr !== PIC_TEXT.track) out.track = tr;
+    if (ld !== PIC_TEXT.lead) out.lead = ld;
     return out;
   }
   if (!(typeof l.imageId === 'string' && PIC_ID_RE.test(l.imageId) && picDim(l.imgW) && picDim(l.imgH))) return null;

@@ -151,7 +151,9 @@ mark{background:var(--mark);color:inherit;border-radius:5px;padding:0 3px;-webki
   border-radius:14px;padding:6px;box-shadow:var(--shadow);display:none;z-index:40;
 }
 .menu.open{display:block}
-.menu button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:10px 12px;border-radius:10px;font-size:13px}
+.menu{overflow-y:auto;overscroll-behavior:contain}   /* этап А (24 ноября): выше окна не бывает — лишнее прокручивается внутри (высоту задаёт placeMenu в misc.js) */
+.menu button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:10px 12px;border-radius:10px;font-size:13px;white-space:nowrap}
+@media (max-height:700px){ .menu button{padding:6px 10px} .menu-sep{margin:2px 6px} }   /* невысокое окно: пункты компактнее, подписи по-прежнему в одну строку */
 .menu button:hover{background:var(--surface-2)}
 .menu button:disabled{opacity:.45;cursor:not-allowed;background:transparent}   /* «Копировать в пространство…», когда пространство одно (этап 9.7) */
 .menu-sep{height:1px;background:var(--line);margin:4px 6px}
@@ -1068,6 +1070,8 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 .dd-list button:hover,.dd-list button:focus-visible{background:var(--surface-2);color:var(--text);outline:none}
 .dd-list button.on{background:var(--surface-3);color:var(--text)}
 .dd-list button:disabled{opacity:.45;cursor:not-allowed;background:transparent;color:#d8cdbd}
+.dd-list.dd-fit{width:max-content;max-width:calc(100vw - 16px);overflow-x:hidden}   /* этап А: список статусов — по самому длинному пункту, без переносов и горизонтальной прокрутки */
+.dd-list.dd-fit button{white-space:nowrap}
 .dd-list hr{border:0;height:1px;background:var(--line-2);margin:6px 4px;flex:none}
 .dd-list .man{color:var(--accent)}
 .dd-list .dd-act{color:var(--accent)}   /* «Настроить пространства…» под чертой (этап 10.1.2) */
@@ -1609,6 +1613,9 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .ly-name{font-weight:600;white-space:nowrap}
 .ly-sub{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0}
 .ly-btns{margin-left:auto;display:inline-flex;gap:6px}
+.ly-arrow{display:inline-grid;place-items:center;width:30px;padding:0}   /* этап Б: «Выше» и «Ниже» — стрелки ↑ ↓; недоступная — серая, как была кнопка */
+.ly-arrow svg{width:16px;height:16px}
+.pt-style{display:flex;gap:18px;flex-wrap:wrap}   /* «Жирный» и «Курсив» рядом */
 .ly-body{display:grid;gap:10px}
 .pt-text{resize:vertical}
 .sh-lbl{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
@@ -1747,4 +1754,9 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
   .ph-pop{position:fixed;left:8px;right:8px;top:auto;bottom:calc(64px + env(safe-area-inset-bottom))}
   .ph-rot{width:34px;height:34px;margin-left:-17px;top:-50px}   /* этап 10.5.7: стрелка под палец */
   .ph-rot::after{top:32px;height:16px}
+}
+
+/* Меню «⋯» на телефоне — нижняя панель (этап А, 24 ноября): на всю ширину, не выше 80 % окна, лишнее прокручивается */
+@media (hover:none) and (pointer:coarse) and (max-width:760px){
+  .menu{left:0;right:0;top:auto;bottom:0;max-width:none;min-width:0;max-height:80dvh;border-radius:18px 18px 0 0;border-bottom:0;padding:8px 8px max(10px, env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.5)}
 }

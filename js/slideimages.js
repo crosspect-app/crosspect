@@ -190,6 +190,7 @@ function picPaintImg(im, b, l){
 function ptPaint(el, l){
   if (el.textContent !== l.text) el.textContent = l.text;
   Object.assign(el.style, { left:l.x * SL.W + 'px', top:l.y * SL.H + 'px', width:l.w * SL.W + 'px', fontSize:l.size + 'px', fontWeight:l.bold ? '700' : '400',
+    fontStyle:l.italic ? 'italic' : 'normal', letterSpacing:(l.track == null ? PIC_TEXT.track : l.track) + 'em', lineHeight:String(l.lead == null ? PIC_TEXT.lead : l.lead),
     color:l.color, textAlign:l.align });
 }
 /* Перерисовать слои на всех слайдах этого блока (лента, сцена, вид «Текст», показ) */
@@ -206,7 +207,12 @@ function picRepaintAll(id){
    Нажали на слой — он выбран (picUI.sel), его настройки раскрыты в «Редакторе». Привязки (порог TB_SNAP, textframe.js): края — к краям слайда,
    внутреннему краю его рамки, полям и краям других слоёв; середина — к середине слайда и других слоёв. Зажатый Alt (Option) — без привязок */
 const PIC_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-const picSelId = b => { const items = picLayers(b), s = picUI.sel.get(b.id); return items.some(l => l.id === s) ? s : items.length ? items[items.length - 1].id : null; };
+const picSelId = b => { const items = picLayers(b), s = picUI.sel.get(b.id); if (s === '') return null; return items.some(l => l.id === s) ? s : items.length ? items[items.length - 1].id : null; };   // '' — ничего не выбрано (этап Б)
+/* Снять выделение: рамка с ручками исчезает, карточки слоёв в «Редакторе» свёрнуты */
+function picDeselect(id){
+  const b = blockById(id); if (!b || picSelId(b) === null) return false;
+  picUI.sel.set(id, ''); picRepaintAll(id); picPanelRefresh(id); return true;
+}
 /* Рамка текста на слайде в px кадра: по самому тексту на этом слайде (пустой — не ниже 60 px) */
 function ptRect(sl, l){
   const el = sl && sl.querySelector('.sl-pic [data-l="' + l.id + '"]'), w = l.w * SL.W, hh = Math.max(60, el ? el.offsetHeight : l.size * 1.2);
@@ -219,6 +225,10 @@ function picPaintLayer(holder, sl, b, items){
   holder.classList.toggle('pic-on', on);
   if (!on){ if (L) L.remove(); return; }
   if (!L){ L = h('div', { class:'pic-layer', 'aria-hidden':'true' }, h('div', { class:'pic-ghost' }), h('div', { class:'pic-hits' })); holder.append(L); }
+  if (!holder._picBg){   // этап Б: щелчок по пустому фону слайда снимает выделение слоя
+    holder._picBg = true;
+    holder.addEventListener('pointerdown', e => { const s0 = holder.querySelector('.sl'); if (e.button === 0 && s0 && !e.target.closest('.pic-hit')) picDeselect(s0.dataset.id); });
+  }
   const k = sl.clientWidth / SL.W, ghost = L.querySelector('.pic-ghost'), hits = L.querySelector('.pic-hits'), sel = picSelId(b);
   const pics = items.filter(l => l.kind === 'pic');
   // полупрозрачные части за краем: по картинке на слой, в том же порядке
@@ -515,8 +525,8 @@ function picPanelFill(el, b){
       h('span', { class:'ly-name', text:layerName(b, l) }),
       l.kind === 'text' && !on ? h('span', { class:'ly-sub hint', text:l.text.trim().split('\n')[0].slice(0, 40) }) : null,
       !ro && h('span', { class:'ly-btns' },
-        h('button', { type:'button', class:'btn small ly-up', disabled:i === L.length - 1 ? true : null, title:'Выше: поверх слоя над ним', 'aria-label':'Выше', onclick:() => layerMove(id, l.id, 1) }, 'Выше'),
-        h('button', { type:'button', class:'btn small ly-down', disabled:i === 0 ? true : null, title:'Ниже: под слой под ним', 'aria-label':'Ниже', onclick:() => layerMove(id, l.id, -1) }, 'Ниже'),
+        h('button', { type:'button', class:'btn small ly-up ly-arrow', disabled:i === L.length - 1 ? true : null, title:'Выше', 'aria-label':'Выше', onclick:() => layerMove(id, l.id, 1) }, ic('up')),
+        h('button', { type:'button', class:'btn small ly-down ly-arrow', disabled:i === 0 ? true : null, title:'Ниже', 'aria-label':'Ниже', onclick:() => layerMove(id, l.id, -1) }, ic('down')),
         h('button', { type:'button', class:'btn small ly-del', title:'Убрать со слайда', 'aria-label':'Удалить', onclick:() => layerRemove(id, l.id) }, '✕')));
     const card = h('div', { class:'ly-card' + (on ? ' on' : ''), 'data-l':l.id }, head);
     if (on && !ro) card.append(h('div', { class:'ly-body' }, ...(l.kind === 'pic' ? picLayerBody(b, l, pickBtn) : ptLayerBody(b, l))));
@@ -568,11 +578,22 @@ function ptLayerBody(b, l){
     oninput:e => { sv.textContent = e.target.value; layerSet(id, lid, x => { x.size = +e.target.value; }); } });
   const bold = sw('Жирный', !!l.bold, v => layerSet(id, lid, x => { if (v) x.bold = true; else delete x.bold; }));
   bold.classList.add('pt-bold');
+  const ital = sw('Курсив', !!l.italic, v => layerSet(id, lid, x => { if (v) x.italic = true; else delete x.italic; }));
+  ital.classList.add('pt-italic');
+  const spaced = (label, key, cls, min, max, step, dflt, aria) => {
+    const cur = () => { const v = (picItem(blockById(id), lid) || {})[key]; return v == null ? dflt : v; };
+    const out = h('span', { class:'ph-val', text:String(+cur().toFixed(2)) });
+    const rg = h('input', { type:'range', class:'ph-range ' + cls, min, max, step, value:cur(), 'aria-label':aria,
+      oninput:e => { const v = +e.target.value; out.textContent = String(+v.toFixed(2)); layerSet(id, lid, x => { if (+v.toFixed(2) === dflt) delete x[key]; else x[key] = +v.toFixed(2); }); } });
+    return prow(label, rg, out);
+  };
+  const track = spaced('Между символами', 'track', 'pt-track', PIC_TEXT.trackMin, PIC_TEXT.trackMax, 0.01, PIC_TEXT.track, 'Между символами');
+  const lead = spaced('Между строками', 'lead', 'pt-lead', PIC_TEXT.leadMin, PIC_TEXT.leadMax, 0.05, PIC_TEXT.lead, 'Между строками');
   const al = toggle([['left', 'Слева'], ['center', 'По центру'], ['right', 'Справа']], l.align, v => { layerSet(id, lid, x => { x.align = v; }); picPanelRefresh(id); });
   al.classList.add('pt-align');
   const swatch = c => h('button', { type:'button', class:'ph-sw' + (l.color === c ? ' on' : ''), style:'background:' + c, title:c, 'aria-label':'Цвет ' + c,
     onclick:e => { layerSet(id, lid, x => { x.color = c; }); e.currentTarget.parentNode.querySelectorAll('.ph-sw').forEach(x => x.classList.toggle('on', x === e.currentTarget)); } });
-  return [ta, prow('Размер', size, sv), bold, al, prow('Цвет', h('div', { class:'ph-sws pt-colors' }, PHOTO_PALETTE.map(swatch)))];
+  return [ta, prow('Размер', size, sv), h('div', { class:'pt-style' }, bold, ital), track, lead, al, prow('Цвет', h('div', { class:'ph-sws pt-colors' }, PHOTO_PALETTE.map(swatch)))];
 }
 
 /* ----- Заставка с картинкой: «Свой фон» и «Картинка целиком» (этапы 10.9.1.1, 10.9.2.1) ----- */
@@ -695,3 +716,10 @@ async function picCropOpen(b, lid){
   paint();
 }
 function picCropStop(){ PCW = null; }
+
+/* Esc снимает выделение слоя «Картинки» (этап Б): на слайде нет рамки с ручками, карточки слоёв свёрнуты */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || typeof screen === 'undefined' || screen !== 'sermon' || typeof curBlock !== 'function') return;
+  if (document.querySelector('.overlay.open, .dd-list')) return;   // открыто окно или список — Esc закрывает их
+  const b = curBlock(); if (b && b.type === 'image') picDeselect(b.id);
+});

@@ -34,16 +34,21 @@ function preacherField(){
   show(manualNow ? 'manual' : '');
   return h('div', { class:'field author-field' }, h('span', { class:'lbl', text:'Автор' }), trig, names);
 }
-/* Выпадающий список в стиле формы (линия-разделитель — { sep:true }). Esc и щелчок мимо — закрыть */
+/* Выпадающий список в стиле формы (линия-разделитель — { sep:true }). Esc и щелчок мимо — закрыть.
+   opts.fit (этап А, 24 ноября): ширина по самому длинному пункту, без переносов; не влезает справа — список сдвигается влево, к краю окна */
 let ddEl = null;
 function closeDropdown(){ if (ddEl){ ddEl.remove(); ddEl = null; } }
-function dropdown(anchor, items){
+function dropdown(anchor, items, opts){
   if (ddEl){ closeDropdown(); return; }
-  ddEl = h('div', { class:'dd-list', role:'listbox' }, items.map(it => it.sep ? h('hr') :
+  const fit = !!(opts && opts.fit);
+  ddEl = h('div', { class:'dd-list' + (fit ? ' dd-fit' : ''), role:'listbox' }, items.map(it => it.sep ? h('hr') :
     h('button', { type:'button', role:'option', class:(it.cls || '') + (it.on ? ' on' : ''), 'aria-selected':String(!!it.on), disabled:it.off ? true : null, title:it.tip || null, onclick:() => { closeDropdown(); it.pick(); anchor.focus(); } }, it.label)));
   document.body.append(ddEl);
   const r = anchor.getBoundingClientRect();
-  ddEl.style.left = r.left + 'px'; ddEl.style.width = r.width + 'px';
+  if (fit){
+    ddEl.style.minWidth = r.width + 'px';
+    ddEl.style.left = Math.max(8, Math.min(r.left, innerWidth - 8 - ddEl.offsetWidth)) + 'px';
+  } else { ddEl.style.left = r.left + 'px'; ddEl.style.width = r.width + 'px'; }
   const below = r.bottom + 6, hgt = ddEl.offsetHeight;
   ddEl.style.top = (below + hgt > innerHeight - 8 ? Math.max(8, r.top - hgt - 6) : below) + 'px';
   ddEl.addEventListener('keydown', e => {
