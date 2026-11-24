@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        engine: [firefox]
+        engine: [webkit]
         shard: [1]
     name: Тесты (${{ matrix.engine }}, часть ${{ matrix.shard }})
     timeout-minutes: 45

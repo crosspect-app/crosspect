@@ -5,7 +5,7 @@ import re
 import struct
 import zipfile
 
-from conftest import open_sermon
+from conftest import only_chromium, open_sermon
 
 
 def jpeg_size(data):
@@ -173,6 +173,7 @@ def test_export_all_slides_zip(page, sermon):
 
 
 def test_operator_pdf(page, sermon):
+    only_chromium("page.pdf есть только в Chromium")
     open_sermon(page, sermon)
     page.evaluate("buildOperatorPrint(); document.body.classList.add('op-print')")
     page.emulate_media(media="print")

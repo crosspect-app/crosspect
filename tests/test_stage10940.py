@@ -19,6 +19,9 @@ def scripture_page(page):
 def mark_first_word(page, n=0):
     """Двойной щелчок по первому слову стиха n и «Выделить цветом» (кнопка не забирает фокус у поля)."""
     page.locator(".rich.vtext").nth(n).dblclick()
+    page.evaluate("""n => { const s = getSelection(); if (s.toString().trim()) return;   // Firefox в Playwright: двойной щелчок не выделяет слово
+      const el = document.querySelectorAll('.rich.vtext')[n], t = el.firstChild, m = /\\S+/.exec(t.data), r = document.createRange();
+      r.setStart(t, m.index); r.setEnd(t, m.index + m[0].length); s.removeAllRanges(); s.addRange(r); }""", n)
     page.get_by_role("button", name="Выделить цветом").first.click()
 
 
@@ -32,7 +35,7 @@ def marked(page, n=0):
 
 def type_at_end(page, n, text):
     page.locator(".rich.vtext").nth(n).click()
-    page.keyboard.press("End")
+    page.keyboard.press("Control+End")   # в конец поля, а не строки: строки переносятся по-разному
     page.keyboard.type(text)
 
 

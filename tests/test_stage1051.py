@@ -3,7 +3,7 @@
 с выбором слайда в ленте, счётчик, заглушки картинки и видео, телефон (половины экрана и свайп)."""
 import pytest
 
-from conftest import cloud_page, open_sermon
+from conftest import cloud_page, only_chromium, open_sermon
 from test_cloud import ADMIN, MEMBERS, wait_home
 
 PHONE = dict(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True, device_scale_factor=2)
@@ -109,6 +109,7 @@ def test_notes_are_not_slides(sh):
 # ---------- Вид ----------
 
 def test_fullscreen_black_margins_and_slide_16_9(sh):
+    only_chromium("в Firefox и WebKit без экрана полный экран меняет размер окна")
     sh.set_viewport_size({"width": 1500, "height": 700})
     start(sh)
     r = sh.evaluate("""() => { const s = document.querySelector('.show-slide.on').getBoundingClientRect(), v = document.querySelector('.slideshow').getBoundingClientRect();
@@ -266,6 +267,7 @@ def test_counter_and_idle(sh):
 
 
 def test_resize_relayouts_slides(sh):
+    only_chromium("в Firefox и WebKit без экрана полный экран меняет размер окна")
     start(sh)
     sh.evaluate("""() => { const e = document.querySelector('.slideshow'); e.style.right = 'auto'; e.style.bottom = 'auto'; e.style.width = '800px'; e.style.height = '600px'; window.dispatchEvent(new Event('resize')); }""")
     sh.wait_for_function("Math.abs(document.querySelector('.show-slide.on').getBoundingClientRect().width - 800) < 2")
@@ -282,6 +284,7 @@ def test_show_css_does_not_leak_into_jpeg(sh):
 # ---------- Телефон ----------
 
 def test_phone_taps_by_halves_and_swipe(browser, base_url, sermon):
+    only_chromium("телефон (is_mobile) Playwright подменяет только в Chromium")
     ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, **PHONE)
     try:
         wait_home(page)

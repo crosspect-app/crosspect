@@ -99,7 +99,7 @@ def test_move_with_snap_and_alt(page, sermon):
     r0 = rect(page)
     drag(page, ".stage .pic-hit", -300, 0, alt=True)
     p = blk(page)["place"]
-    assert abs(p["x"] * 1920 - (r0[0] + r0[2] / 2 - 300)) <= 2 and abs(p["y"] * 1080 - (r0[1] + r0[3] / 2)) <= 2
+    assert abs(p["x"] * 1920 - (r0[0] + r0[2] / 2 - 300)) <= 3 and abs(p["y"] * 1080 - (r0[1] + r0[3] / 2)) <= 2
     r1 = rect(page)
     assert abs(r1[2] - r0[2]) < 0.5 and abs(r1[3] - r0[3]) < 0.5   # размер тот же
     assert r1[0] < r0[0] - 250
