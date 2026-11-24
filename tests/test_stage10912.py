@@ -49,11 +49,11 @@ def test_model_place(page):
       { id:'d', type:'image', mode:'upload', imageId:'pd', imgW:800, imgH:600, place:{ x:0.5, y:0.5, w:0 } },
       { id:'e', type:'image', mode:'upload', imageId:'pe', imgW:800, imgH:600 },
       { id:'f', type:'image', mode:'upload', place:{ cover:true } } ] }).blocks""")
-    a, b, c, d, e, f = r
+    a, b, c, d, e, f = [x["layers"][0] if x["layers"] else {} for x in r]   # этап 10.9.2: картинка — слой списка
     assert a["place"] == {"x": 0.25, "y": 0.5, "w": 0.4}
     assert b["place"] == {"cover": True}
     assert "place" not in c and "place" not in d and "place" not in e   # плохие и старые — в полях, как в 10.9.1
-    assert "place" not in f   # без картинки положения нет
+    assert f == {}   # без картинки слоя нет
     assert not page.errors, page.errors
 
 
@@ -75,15 +75,15 @@ def test_cover_and_fit_buttons(page, sermon):
     px = jpeg_px(page, [[2, 2], [1917, 2], [2, 1077], [1917, 1077], [960, 540]])
     assert all(red(p) for p in px), px   # в JPEG картинка до самых краёв
     # поворот: всё равно закрывает кадр
-    page.evaluate("picFxSet('i1', q => { q.rot = 30; })")
-    G = page.evaluate("(() => { const G = picGeom(blockById('i1')); return [G.cx, G.cy, G.iw, G.ih, G.th]; })()")
+    page.evaluate("picFxSet('i1', picLayers(blockById('i1'))[0].id, q => { q.rot = 30; })")
+    G = page.evaluate("(() => { const G = picGeom(picLayers(blockById('i1'))[0]); return [G.cx, G.cy, G.iw, G.ih, G.th]; })()")
     import math
     cx, cy, iw, ih, th = G
     for x, y in [(0, 0), (1920, 0), (0, 1080), (1920, 1080)]:   # углы кадра — внутри повёрнутой картинки
         lx = (x - cx) * math.cos(th) + (y - cy) * math.sin(th)
         ly = -(x - cx) * math.sin(th) + (y - cy) * math.cos(th)
         assert abs(lx) <= iw / 2 + 0.5 and abs(ly) <= ih / 2 + 0.5
-    page.evaluate("picFxSet('i1', q => { q.rot = 0; })")
+    page.evaluate("picFxSet('i1', picLayers(blockById('i1'))[0].id, q => { q.rot = 0; })")
     page.locator(".side .pic-fit").click()
     assert "place" not in blk(page)
     assert [round(v) for v in rect(page)] == [round(v) for v in fit]   # снова как в 10.9.1
@@ -104,11 +104,11 @@ def test_move_with_snap_and_alt(page, sermon):
     assert abs(r1[2] - r0[2]) < 0.5 and abs(r1[3] - r0[3]) < 0.5   # размер тот же
     assert r1[0] < r0[0] - 250
     # почти к середине — липнет к середине слайда
-    page.evaluate("blockById('i1').place = { x:0.4, y:0.5, w:blockById('i1').place.w }; picRepaintAll('i1')")
+    page.evaluate("picLayers(blockById('i1'))[0].place = { x:0.4, y:0.5, w:picLayers(blockById('i1'))[0].place.w }; picRepaintAll('i1')")
     drag(page, ".stage .pic-hit", 1920 * 0.1 - 5, 0)
     assert blk(page)["place"]["x"] == 0.5
     # с Alt — без привязки
-    page.evaluate("blockById('i1').place = { x:0.4, y:0.5, w:blockById('i1').place.w }; picRepaintAll('i1')")
+    page.evaluate("picLayers(blockById('i1'))[0].place = { x:0.4, y:0.5, w:picLayers(blockById('i1'))[0].place.w }; picRepaintAll('i1')")
     drag(page, ".stage .pic-hit", 1920 * 0.1 - 5, 0, alt=True)
     assert abs(blk(page)["place"]["x"] - (0.5 - 5 / 1920)) < 0.002
     assert not page.errors, page.errors
@@ -130,7 +130,7 @@ def test_corner_resize_keeps_ratio_and_opposite_corner(page, sermon):
     assert abs(r2[0] - r1[0]) < 1.5 and r2[2] > r1[2] + 80
     assert abs((r2[1] + r2[3] / 2) - (r1[1] + r1[3] / 2)) < 1.5
     assert abs(r2[2] / r2[3] - 800 / 600) < 0.01
-    page.wait_for_function("!!picVars.get(picKey(blockById('i1'))) && !!picVars.get(picKey(blockById('i1'))).ready")   # после отпускания — новая картинка
+    page.wait_for_function("!!picVars.get(picKey(picLayers(blockById('i1'))[0])) && !!picVars.get(picKey(picLayers(blockById('i1'))[0])).ready")   # после отпускания — новая картинка
     assert not page.errors, page.errors
 
 
@@ -138,7 +138,7 @@ def test_resize_snaps_edge_to_margin(page, sermon):
     put_image(page, "fixture-0001", "psnap", 800, 600)
     open_img(page, sermon, imageId="psnap", imgW=800, imgH=600)
     ready(page)
-    page.evaluate("blockById('i1').place = { x:0.3, y:0.5, w:0.2 }; picRepaintAll('i1')")
+    page.evaluate("picLayers(blockById('i1'))[0].place = { x:0.3, y:0.5, w:0.2 }; picRepaintAll('i1')")
     page.wait_for_timeout(50)
     r0 = rect(page)
     mx = page.evaluate("tbMargins().x")
@@ -159,7 +159,7 @@ def test_off_slide_ghost_and_cropped_export(page, sermon):
     assert r[0] < -400
     g = page.evaluate("(() => { const im = document.querySelector('.stage .pic-ghost img'); return { src:!!im.getAttribute('src'), left:parseFloat(im.style.left), op:getComputedStyle(im).opacity }; })()")
     assert g["src"] and g["left"] < 0 and float(g["op"]) < 0.5   # часть за краем — полупрозрачная
-    page.wait_for_function("(() => { const v = picVars.get(picKey(blockById('i1'))); return v && v.ready; })()")
+    page.wait_for_function("(() => { const v = picVars.get(picKey(picLayers(blockById('i1'))[0])); return v && v.ready; })()")
     px = jpeg_px(page, [[2, 540], [400, 540], [800, 540]])
     assert red(px[0]) and red(px[1]) and not red(px[2]), px   # в выгрузке срезано по краю кадра
     assert page.evaluate("pptxIsBlack(blockById('i1'))") is False

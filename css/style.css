@@ -1560,6 +1560,20 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .pic-panel .pic-filter{min-width:0;width:100%}
 .pic-size .btn.on{border-color:var(--accent);color:var(--accent)}
 .pic-move-hint{margin:0}
+.sl-ptext{position:absolute;transform:translate(-50%,-50%);white-space:pre-wrap;overflow-wrap:break-word;line-height:1.18;letter-spacing:-0.02em;font-family:var(--f-main,'Unbounded'),'Inter',sans-serif}   /* этап 10.9.2: рамка текста «Картинки» */
+.ly-card{border:1px solid var(--line-2);border-radius:12px;padding:8px 10px;display:grid;gap:10px}
+.ly-card.on{border-color:color-mix(in srgb, var(--accent) 60%, transparent)}
+.ly-head{display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0}
+.ly-name{font-weight:600;white-space:nowrap}
+.ly-sub{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0}
+.ly-btns{margin-left:auto;display:inline-flex;gap:6px}
+.ly-body{display:grid;gap:10px}
+.pt-text{resize:vertical}
+.sh-lbl{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.pic-hits{position:absolute;inset:0}
+.pic-hit.sel{border-color:rgba(255,214,102,.8)}
+.pic-hit.sel .pic-h{opacity:1}
+.pic-hit.empty{border-color:rgba(255,255,255,.35)}
 /* этап 10.9.1.2: двигать и тянуть картинку на большом слайде; за краем слайда она видна полупрозрачной */
 .stage-slide.pic-on{position:relative;overflow:visible}
 .stage-slide.pic-on > .sl{border-radius:16px}

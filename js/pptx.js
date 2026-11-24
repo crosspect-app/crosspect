@@ -68,13 +68,19 @@ function pptxPhotoXml(s){
   if (r <= l || bt <= t) return pptxPicXml(4, 'rId5', 'Текст', 0, 0, PPTX_W, PPTX_H, '');
   const pc = v => Math.round(v * 100000);
   const crop = '<a:srcRect l="' + pc((l - P.left) / P.width) + '" t="' + pc((t - P.top) / P.height) + '" r="' + pc((P.left + P.width - r) / P.width) + '" b="' + pc((P.top + P.height - bt) / P.height) + '"/>';
-  return pptxPicXml(3, 'rId4', 'Фото автора', Math.round(l * E), Math.round(t * E), Math.round((r - l) * E), Math.round((bt - t) * E), crop) +
+  return pptxPicXml(3, 'rId4', 'Фото автора', Math.round(l * E), Math.round(t * E), Math.round((r - l) * E), Math.round((bt - t) * E), crop, pptxShadow(P.shadow, E)) +
     pptxPicXml(4, 'rId5', 'Текст', 0, 0, PPTX_W, PPTX_H, '');
 }
-function pptxPicXml(id, rid, name, x, y, cx, cy, crop){
+/* Тень фото (этап 10.9.2) — тенью самого PowerPoint, как shadowCss (slideimages.js) */
+function pptxShadow(s, E){
+  if (!(s > 0)) return '';
+  return '<a:effectLst><a:outerShdw blurRad="' + Math.round((6 + s * 0.44) * E) + '" dist="' + Math.round((4 + s * 0.2) * E) + '" dir="5400000" algn="t" rotWithShape="0">' +
+    '<a:srgbClr val="000000"><a:alpha val="' + Math.round((0.25 + s * 0.006) * 100000) + '"/></a:srgbClr></a:outerShdw></a:effectLst>';
+}
+function pptxPicXml(id, rid, name, x, y, cx, cy, crop, fx){
   return '<p:pic><p:nvPicPr><p:cNvPr id="' + id + '" name="' + name + '"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>' +
     '<p:blipFill><a:blip r:embed="' + rid + '"/>' + crop + '<a:stretch><a:fillRect/></a:stretch></p:blipFill>' +
-    '<p:spPr><a:xfrm><a:off x="' + x + '" y="' + y + '"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>';
+    '<p:spPr><a:xfrm><a:off x="' + x + '" y="' + y + '"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' + (fx || '') + '</p:spPr></p:pic>';
 }
 /* slides: [{ jpeg: Uint8Array | null (чёрный слайд), notes: 'текст заметок докладчика', alt: 'подпись картинки',
    photo: { png, text, left, top, width, height } — фото автора и слой текста (этап 10.5) }] → Blob .pptx */
@@ -144,7 +150,6 @@ function pptxNotes(b, n, black){
   switch (b.type){
     case 'image':
       if (b.mode === 'upload'){ if (!picOn(b)) out.push('Картинку не загрузили'); break; }   // этап 10.9.1
-      if (b.mode === 'send') out.push('Пришлю отдельно: файл с подписью «Слайд ' + n + '»');
       add('Описание: ', b.desc); break;
     case 'video':
       if (b.mode === 'send') out.push('Пришлю отдельно: видео с подписью «Слайд ' + n + '»'); else add('Ссылка: ', b.url);
@@ -174,7 +179,7 @@ async function exportPPTX(){
       const ph = bl ? null : await photoReady(b), buf = async x => new Uint8Array(await x.arrayBuffer());
       slides.push({
         jpeg:bl ? null : await buf(await renderJPEG(b, ph ? 'back' : undefined)),
-        photo:ph ? { png:await photoPng(ph.variant), text:await buf(await renderJPEG(b, 'text')), left:ph.left, top:ph.top, width:ph.width, height:ph.height } : null,
+        photo:ph ? { png:await photoPng(ph.variant), text:await buf(await renderJPEG(b, 'text')), left:ph.left, top:ph.top, width:ph.width, height:ph.height, shadow:b.photo.shadow || 0 } : null,
         alt:slideName(b, n),
         notes:pptxNotes(b, n, bl)
       });

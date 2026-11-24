@@ -111,9 +111,8 @@ function sermonChecks(){
   state.blocks.forEach(b => {
     const k = nums[b.id];
     if (b.type === 'thesis' || b.type === 'quote'){ const c = charCount(b), lim = limitFor(b); if (c > lim) out.push({ ok:false, text:'Слайд ' + k + ' — длинный текст: ' + c + ' знаков, лимит ' + lim }); }
-    if (b.type === 'image' && b.mode === 'send') out.push({ ok:false, text:'Слайд ' + k + ' — картинку пришлют отдельно' });
     if (b.type === 'image' && b.mode === 'upload' && !picOn(b)) out.push({ ok:false, text:'Слайд ' + k + ' — картинку не загрузили' });
-    if (b.type === 'image' && b.mode === 'find' && !(b.desc || '').trim()) out.push({ ok:false, text:'Слайд ' + k + ' — не описано, какая нужна картинка' });
+    if (b.type === 'image' && b.mode === 'ask' && !(b.desc || '').trim()) out.push({ ok:false, text:'Слайд ' + k + ' — не описано, какая нужна картинка' });
     if (b.type === 'video' && b.mode === 'link' && !(b.url || '').trim()) out.push({ ok:false, text:'Слайд ' + k + ' — нет ссылки на видео' });
     if (b.type === 'video' && b.mode === 'send') out.push({ ok:false, text:'Слайд ' + k + ' — видео пришлют отдельно' });
     if (b.type === 'scripture' && !b.items.some(it => it.kind === 'scripture' && (it.verses || []).some(v => plain(v.text).trim()))) out.push({ ok:false, text:'Слайд ' + k + ' — не выбрано место Писания' });

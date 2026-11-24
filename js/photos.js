@@ -314,7 +314,7 @@ function paintPhoto(sl, b){
   if (!u){ im.removeAttribute('src'); im.style.display = 'none'; }
   else {
     if (im.getAttribute('src') !== u.url) im.src = u.url;
-    Object.assign(im.style, { display:'block', left:u.rect.left + 'px', top:u.rect.top + 'px', width:u.rect.width + 'px', height:u.rect.height + 'px', transform:u.turn ? 'rotate(' + u.turn + 'deg)' : '' });
+    Object.assign(im.style, { display:'block', left:u.rect.left + 'px', top:u.rect.top + 'px', width:u.rect.width + 'px', height:u.rect.height + 'px', transform:u.turn ? 'rotate(' + u.turn + 'deg)' : '', filter:shadowCss(b.photo.shadow || 0) });   // тень — этап 10.9.2
   }
   const holder = sl.parentNode && sl.parentNode.classList && sl.parentNode.classList.contains('stage-slide') ? sl.parentNode : null;
   if (holder) paintPhotoLayer(holder, sl, b, box, u);

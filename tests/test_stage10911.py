@@ -88,7 +88,7 @@ def test_upload_puts_picture_on_all_splashes_full_frame(page, sermon, tmp_path):
 def test_cover_crops_edges_not_stretches(page, sermon):
     put_image(page, "fixture-0001", "pcov", 1000, 1000, "#dc1e1e")
     open_splash(page, sermon, customSplash=True, customSplashImage={"imageId": "pcov", "imgW": 1000, "imgH": 1000})
-    r = page.evaluate("""async () => { const v = await picRender(state.blocks.find(b => b.type === 'splash')), g = v.canvas.getContext('2d');
+    r = page.evaluate("""async () => { const v = await picRender(picItems(state.blocks.find(b => b.type === 'splash'))[0]), g = v.canvas.getContext('2d');
       const at = (x, y) => [...g.getImageData(x, y, 1, 1).data]; return { w:v.canvas.width, h:v.canvas.height, corners:[at(2, 2), at(1917, 2), at(2, 1077), at(1917, 1077)] }; }""")
     assert (r["w"], r["h"]) == (1920, 1080)
     assert all(c[0] > 180 and c[1] < 80 and c[3] == 255 for c in r["corners"])   # весь кадр закрыт, без чёрных полос

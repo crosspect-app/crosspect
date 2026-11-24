@@ -79,7 +79,7 @@ function newBlock(type){
     case 'scripture':  return Object.assign({ id, type, items:[newScripture()] }, slide);   // вид стихов — общий для всех слайдов (настройки слайдов, verses)
     case 'thesis':     return Object.assign({ id, type, name:'', nameAuto:true, text:'', valign:'center', scale:100, parts:[newThesisPart()] }, slide);
     case 'quote':      return Object.assign({ id, type, text:'', first:'', last:'', caption:'', photo:null, scale:100, caps:false, half:'full', halfW:50, frame:false, textBox:null }, slide);   // frame — обводка текста пунктиром (этап 9.5)   // half: «Во всю ширину» / текст слева / текст справа (этап 9.3); halfW — ширина области текста при «слева / справа», % слайда (этап 9.5)
-    case 'image':      return Object.assign({ id, type, name:'', mode:'find', desc:'' }, slide);
+    case 'image':      return Object.assign({ id, type, name:'', mode:'ask', desc:'' }, slide);   // этап 10.9.2: «Попросить редактора»
     case 'video':      return Object.assign({ id, type, name:'', mode:'link', url:'', from:'', to:'', desc:'' }, slide);
     case 'free':       return Object.assign({ id, type, name:'', desc:'' }, slide);
     case 'note':       return { id, type, text:'' };
@@ -118,6 +118,7 @@ function normPhoto(p){
   if (round) out.round = +round.toFixed(3);
   if (p.flipH === true) out.flipH = true;
   if (p.flipV === true) out.flipV = true;
+  const sh = picShadow(p.shadow); if (sh) out.shadow = sh;   // этап 10.9.2: тень, как у картинок слайда
   return out;
 }
 /* Картинка слайда (этап 10.9.1): mode 'upload' — файл загружен в форму и лежит в облаке рядом с конспектом
@@ -149,6 +150,42 @@ function normPicPlace(p){
   const n = (v, a, z) => typeof v === 'number' && isFinite(v) && v >= a && v <= z ? +v.toFixed(4) : null;
   const x = n(p.x, 0, 1), y = n(p.y, 0, 1), w = n(p.w, PIC_PLACE.wMin, PIC_PLACE.wMax);
   return x == null || y == null || w == null ? null : { x, y, w };
+}
+/* Слои «Картинки» (этап 10.9.2), снизу вверх: картинки и рамки текста.
+   { kind:'pic', id, imageId, imgW, imgH, pic?, place?, shadow? } — картинка (pic и place — как в 10.9.1–10.9.1.2; shadow — сила тени 1…100, нет — без тени);
+   { kind:'text', id, text, x, y, w, size, bold?, color, align } — рамка текста: x, y — середина в долях слайда, w — ширина в долях ширины слайда,
+   size — размер шрифта в px кадра 1920×1080. Старый блок с imageId у самого блока — одна картинка-слой */
+const PIC_TEXT = { size:72, sizeMin:20, sizeMax:240, wMin:0.04, wMax:1.5, color:'#ffffff', max:2000 };
+const PIC_LAYER_ID = /^[a-z0-9]{1,24}$/;
+const picDim = v => Number.isInteger(v) && v > 0 && v <= 4000 ? v : 0;
+const picShadow = v => typeof v === 'number' && isFinite(v) && v >= 1 ? Math.min(100, Math.round(v)) : 0;
+function normPicLayer(l, seen){
+  if (!l || typeof l !== 'object') return null;
+  let id = typeof l.id === 'string' && PIC_LAYER_ID.test(l.id) && !seen.has(l.id) ? l.id : '';
+  while (!id || seen.has(id)) id = uid().replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 24) || 'l' + seen.size;
+  seen.add(id);
+  if (l.kind === 'text'){
+    const n = (v, a, z, d) => typeof v === 'number' && isFinite(v) ? Math.min(z, Math.max(a, v)) : d;
+    const out = { kind:'text', id, text:String(l.text == null ? '' : l.text).replace(/\r\n?/g, '\n').slice(0, PIC_TEXT.max),
+      x:+n(l.x, 0, 1, 0.5).toFixed(4), y:+n(l.y, 0, 1, 0.5).toFixed(4), w:+n(l.w, PIC_TEXT.wMin, PIC_TEXT.wMax, 0.6).toFixed(4),
+      size:Math.round(n(l.size, PIC_TEXT.sizeMin, PIC_TEXT.sizeMax, PIC_TEXT.size)),
+      color:typeof l.color === 'string' && /^#[0-9a-f]{6}$/i.test(l.color) ? l.color.toLowerCase() : PIC_TEXT.color,
+      align:['left', 'center', 'right'].includes(l.align) ? l.align : 'center' };
+    if (l.bold === true) out.bold = true;
+    return out;
+  }
+  if (!(typeof l.imageId === 'string' && PIC_ID_RE.test(l.imageId) && picDim(l.imgW) && picDim(l.imgH))) return null;
+  const out = { kind:'pic', id, imageId:l.imageId, imgW:l.imgW, imgH:l.imgH };
+  const pic = normPic(l.pic), place = normPicPlace(l.place), sh = picShadow(l.shadow);
+  if (pic) out.pic = pic;
+  if (place) out.place = place;
+  if (sh) out.shadow = sh;
+  return out;
+}
+function normPicLayers(b){
+  const seen = new Set();
+  const src = Array.isArray(b.layers) ? b.layers : typeof b.imageId === 'string' ? [{ kind:'pic', id:'p1', imageId:b.imageId, imgW:b.imgW, imgH:b.imgH, pic:b.pic, place:b.place }] : [];
+  return src.map(l => normPicLayer(l, seen)).filter(Boolean);
 }
 /* Проповедник: имя и фамилия хранятся раздельно (на заставке — «Имя ФАМИЛИЯ»). В списке проповедников — «Фамилия Имя» */
 function splitPreacher(s){
@@ -283,12 +320,11 @@ function normalize(d){
       nb.frame = !!b.frame;
     }
     if (b.type === 'image'){
-      nb.mode = oneOf(b.mode, ['find', 'send', 'upload'], 'find');
-      const dim = v => Number.isInteger(v) && v > 0 && v <= 4000 ? v : 0;
-      if (typeof b.imageId === 'string' && PIC_ID_RE.test(b.imageId) && dim(b.imgW) && dim(b.imgH)){ nb.imageId = b.imageId; nb.imgW = b.imgW; nb.imgH = b.imgH; }
-      else { delete nb.imageId; delete nb.imgW; delete nb.imgH; }
-      const pic = nb.imageId ? normPic(b.pic) : null; if (pic) nb.pic = pic; else delete nb.pic;
-      const place = nb.imageId ? normPicPlace(b.place) : null; if (place) nb.place = place; else delete nb.place;   // этап 10.9.1.2
+      // этап 10.9.2: «Найди сам» и «Пришлю отдельно» стали одним режимом «Попросить редактора» (про файл отдельно — в описании)
+      nb.mode = b.mode === 'upload' ? 'upload' : 'ask';
+      if (b.mode === 'send'){ const d = String(b.desc || '').trim(); nb.desc = d ? 'Файл пришлю отдельно. ' + d : 'Файл пришлю отдельно.'; }
+      nb.layers = normPicLayers(b);
+      ['imageId', 'imgW', 'imgH', 'pic', 'place'].forEach(k => delete nb[k]);   // до 10.9.2 — одна картинка прямо в блоке
     }
     delete nb.custom;   // перенесено в state.settings.customSplash
     if (NAMED[b.type]) nb.name = cleanName(nb.name);

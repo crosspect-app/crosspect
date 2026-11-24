@@ -153,9 +153,9 @@ function slideEl(b){
   // фон: прежние пятна (.sl-glow) или картинка генератора (.sl-bg) — выбирают переменные из slideVars (background.js, bgVars)
   const kids = [h('div', { class:'sl-frame' }),
     h('div', { class:'sl-panel' }, h('div', { class:'sl-glow' }), h('div', { class:'sl-bg' }), h('div', { class:'sl-grain' }), h('div', { class:'sl-vig' }))];
-  if (picOn(b) && b.type !== 'splash') kids.push(h('div', { class:'sl-pic' }, h('img', { alt:'' })));   // загруженная картинка (этап 10.9.1, slideimages.js) — поверх фона
+  if (picOn(b) && b.type !== 'splash') kids.push(h('div', { class:'sl-pic' }));   // слои «Картинки» (этапы 10.9.1, 10.9.2, slideimages.js: picPaint) — поверх фона
   else if (b.type === 'splash' && !b.meta) kids.push(   // этап 10.9.1.1: у заставки картинка (своя заставка) и название лежат вместе, что видно — решает fitSlide
-    h('div', { class:'sl-pic' }, h('img', { alt:'' })), h('div', { class:'sl-sp-box' }, h('div', { class:'sl-sp-title' })),
+    h('div', { class:'sl-pic' }, h('img', { alt:'', 'data-l':'splash' })), h('div', { class:'sl-sp-box' }, h('div', { class:'sl-sp-title' })),
     h('div', { class:'sl-sp-foot' }, h('div', { class:'sl-hr' }), h('div', { class:'sl-sp-row' }, h('span', { class:'sl-sp-name' }), h('span', { class:'sl-sp-date' }))));
   else if (!PREVIEW[b.type]){}   // картинка, видео, свободный: пустой слайд (рамка и фон) для JPEG
   else if (b.type === 'scripture') kids.push(h('div', { class:'sl-content' }), h('div', { class:'sl-tr' }));

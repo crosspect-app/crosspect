@@ -157,7 +157,11 @@ if (cmd === 'create-space') {
   const hours = opt('orphan-hours') ? Number(opt('orphan-hours')) : 24;
   if (!Number.isFinite(hours) || hours < 0 || hours > 24 * 365) fail('--orphan-hours — число часов от 0 до 8760');
   const fresh = Date.now() - hours * 3600000;
-  const refsOf = (blocks, set) => (Array.isArray(blocks) ? blocks : []).forEach((x) => { if (x && typeof x.imageId === 'string') set.add(x.imageId); });
+  // у «Картинки» с этапа 10.9.2 картинки — в списке слоёв блока (layers[].imageId); старые блоки — imageId у самого блока
+  const refsOf = (blocks, set) => (Array.isArray(blocks) ? blocks : []).forEach((x) => {
+    if (x && typeof x.imageId === 'string') set.add(x.imageId);
+    if (x && Array.isArray(x.layers)) x.layers.forEach((l) => { if (l && typeof l.imageId === 'string') set.add(l.imageId); });
+  });
   let orphans = 0;
   for (const s of (await db.collection('spaces').get()).docs) {
     for (const sr of await s.ref.collection('sermons').listDocuments()) {   // и стёртые конспекты, у которых что-то осталось внутри

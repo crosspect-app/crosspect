@@ -88,7 +88,8 @@ function photoAdvanced(b, a){
       h('button', { type:'button', class:'btn small ph-flipv' + (p.flipV ? ' on' : ''), 'aria-pressed':p.flipV ? 'true' : 'false',
         onclick:() => photoFxSet(id, q => { if (q.flipV) delete q.flipV; else q.flipV = true; photoMirrorFx(q, true); photoPanelRefresh(); }) }, '⇅ Сверху вниз')),
     ...photoToolBody('out', id, b),
-    ...(a.kind === 'bg' ? photoToolBody('round', id, b) : [])];
+    ...(a.kind === 'bg' ? photoToolBody('round', id, b) : []),
+    ...shadowRows(() => blockById(id).photo.shadow || 0, v => photoFxSet(id, q => { if (v) q.shadow = v; else delete q.shadow; }))];   // этап 10.9.2
   const d = h('details', { class:'ph-adv' }, h('summary', { text:'Расширенные настройки', onclick:() => photoAdvSave(!d.open) }), h('div', { class:'ph-adv-body' }, body));
   d.open = photoAdvOpen() || cropping;
   return d;

@@ -722,12 +722,12 @@ const BODY = {
   },
   image(b, body, n){
     body.append(nameField(b, n));
-    body.append(toggle([['find', 'Найди сам'], ['send', 'Пришлю отдельно'], ['upload', 'Загрузить']], b.mode, v => { b.mode = v; change(); rerender(b); updateCounter(b); }));
-    if (b.mode === 'upload') body.append(picPanel(b));   // этап 10.9.1: файл в облако рядом с конспектом (slideimages.js)
-    else if (b.mode === 'find') body.append(field('Что должно быть на картинке', area(b, 'desc', 'Опишите изображение: что на нём, настроение. Можно добавить пример или ссылку')));
+    // этап 10.9.2: «Попросить редактора» (вместо «Найди сам» и «Пришлю отдельно») и «Загрузить» — картинки и текст (slideimages.js)
+    body.append(toggle([['ask', 'Попросить редактора'], ['upload', 'Загрузить']], b.mode, v => { b.mode = v; change(); rerender(b); updateCounter(b); }));
+    if (b.mode === 'upload') body.append(picPanel(b));
     else {
-      body.append(h('div', { class:'callout' }, ic('image'), h('div', { html:'Отправьте файл отдельно с подписью <b>«Слайд ' + n + '»</b>, так он не потеряется.' })));
-      body.append(field('Комментарий, если нужен', area(b, 'desc', 'Например: обрезать по центру, без текста', 2)));
+      body.append(field('Что должно быть на слайде', area(b, 'desc', 'Опишите картинку: что на ней, настроение. Можно дать пример или ссылку')));
+      body.append(h('p', { class:'hint', html:'Если пришлёте файл отдельно, напишите об этом здесь и подпишите файл <b>«Слайд ' + n + '»</b>.' }));
     }
   },
   video(b, body, n){

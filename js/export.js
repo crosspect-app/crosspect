@@ -42,7 +42,7 @@ function slideCSS(){
    без layer — весь слайд с фото */
 async function renderJPEG(b, layer){
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
-  const ph = await photoReady(b), pic = await picReady(b);   // картинка слайда (этап 10.9.1, slideimages.js)
+  const ph = await photoReady(b), pics = await picReady(b);   // картинки слайда (этапы 10.9.1, 10.9.2, slideimages.js): id слоя → картинка
   const fontCss = await exportFonts();
   const host = h('div', { style:'position:fixed;left:-40000px;top:0;width:1920px;height:1080px;overflow:hidden;pointer-events:none', 'aria-hidden':'true' });
   const sl = slideEl(b); sl.style.width = '1920px';
@@ -56,11 +56,11 @@ async function renderJPEG(b, layer){
     // фото автора: в картинке-SVG ссылки blob: не открываются — подставляем саму картинку (data:)
     const pim = stage.querySelector('.sl-photo img');
     if (pim){ if (ph && !layer) pim.src = photoDataUrl(ph.variant); else pim.remove(); }
-    const qim = stage.querySelector('.sl-pic img');
-    if (qim){
-      if (pic && layer !== 'text'){ qim.src = photoDataUrl(pic); picPx(qim, picGeom(b).rect, 1); }   // за краем слайда срезается (.sl-pic overflow:hidden)
+    stage.querySelectorAll('.sl-pic img').forEach(qim => {   // рамки текста (.sl-ptext) уже стоят в копии
+      const l = picItem(b, qim.dataset.l), v = pics.get(qim.dataset.l);
+      if (l && v && layer !== 'text'){ qim.src = photoDataUrl(v); picPx(qim, picGeom(l).rect, 1); qim.style.filter = shadowCss(l.shadow || 0); }   // за краем слайда срезается (.sl-pic overflow:hidden)
       else qim.remove();
-    }
+    });
     if (layer === 'back') stage.querySelectorAll('.sl-box, .sl-author').forEach(x => x.remove());
     if (layer === 'text'){ stage.querySelectorAll('.sl-frame, .sl-panel').forEach(x => x.remove()); stage.style.background = 'transparent'; }
     const wrap = document.createElement('div');

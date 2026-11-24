@@ -25,7 +25,12 @@ def png(tmp_path, w, h, color=(220, 30, 30), name="pic.png"):
 
 
 def blk(page):
-    return page.evaluate("JSON.parse(JSON.stringify(blockById('i1')))")
+    """Блок «Картинки»; поля первой картинки (этап 10.9.2 — слой b.layers) подняты в сам блок, как было до 10.9.2."""
+    b = page.evaluate("JSON.parse(JSON.stringify(blockById('i1')))")
+    pic = next((l for l in b.get("layers", []) if l["kind"] == "pic"), None)
+    if pic:
+        b.update({k: v for k, v in pic.items() if k not in ("kind", "id")})
+    return b
 
 
 def open_img(page, sermon, **extra):
@@ -38,7 +43,7 @@ def upload(page, path):
     with page.expect_file_chooser() as fc:
         page.locator(".side .pic-pick, .side .pic-replace").first.click()
     fc.value.set_files(path)
-    page.wait_for_function("blockById('i1') && blockById('i1').imageId && !picBusy.size")
+    page.wait_for_function("blockById('i1') && picCount(blockById('i1')) && !picBusy.size")
 
 
 def put_image(page, sermon_id, img_id, w, h, color="#dc1e1e"):
@@ -60,11 +65,14 @@ def test_model_keeps_upload_fields_and_drops_bad_ones(page):
       { id:'c', type:'image', mode:'weird', imageId:'pok', imgW:0, imgH:600 },
       { id:'d', type:'image', mode:'find', imageId:'pkeep', imgW:10, imgH:10 } ] }).blocks""")
     a, b, c, d = r
-    assert a["mode"] == "upload" and a["imageId"] == "pabc" and (a["imgW"], a["imgH"]) == (800, 600)
-    assert a["pic"] == {"rot": 90, "filter": "bw", "crop": {"l": 0.1, "t": 0, "r": 0, "b": 0.2}, "outline": {"w": 6, "color": "#ffffff"}}
-    assert "imageId" not in b and "pic" not in b
-    assert c["mode"] == "find" and "imageId" not in c
-    assert d["mode"] == "find" and d["imageId"] == "pkeep"   # переключили на «Найди сам» — картинка хранится, вернуть можно
+    # этап 10.9.2: картинка — первый слой списка b.layers, у самого блока полей картинки нет
+    assert a["mode"] == "upload" and "imageId" not in a and len(a["layers"]) == 1
+    la = a["layers"][0]
+    assert la["kind"] == "pic" and la["imageId"] == "pabc" and (la["imgW"], la["imgH"]) == (800, 600)
+    assert la["pic"] == {"rot": 90, "filter": "bw", "crop": {"l": 0.1, "t": 0, "r": 0, "b": 0.2}, "outline": {"w": 6, "color": "#ffffff"}}
+    assert b["layers"] == []
+    assert c["mode"] == "ask" and c["layers"] == []
+    assert d["mode"] == "ask" and d["layers"][0]["imageId"] == "pkeep"   # переключили на «Попросить редактора» — картинка хранится, вернуть можно
 
 
 # ---------- Загрузка ----------
@@ -105,8 +113,8 @@ def test_edits_rotate_outline_filter_crop(page, sermon):
     page.locator(".side .pic-right").click()
     assert blk(page)["pic"] == {"rot": 90}
     page.locator(".side .pic-filter").select_option("bw")
-    page.evaluate("picFxSet('i1', q => { q.outline = { w:10, color:'#ffffff' }; })")
-    r = page.evaluate("""async () => { const v = await picRender(blockById('i1')), g = v.canvas.getContext('2d');
+    page.evaluate("picFxSet('i1', picLayers(blockById('i1'))[0].id, q => { q.outline = { w:10, color:'#ffffff' }; })")
+    r = page.evaluate("""async () => { const v = await picRender(picLayers(blockById('i1'))[0]), g = v.canvas.getContext('2d');
       const mid = [...g.getImageData(v.canvas.width >> 1, v.canvas.height >> 1, 1, 1).data], edge = [...g.getImageData(3, v.canvas.height >> 1, 1, 1).data];
       return { w:v.canvas.width, h:v.canvas.height, mid, edge }; }""")
     assert r["h"] > r["w"]   # повёрнуто на 90°: высокая
@@ -171,7 +179,7 @@ def test_jpeg_pptx_and_zip_include_picture(page, sermon):
     assert page.evaluate("pptxIsBlack(blockById('i1'))") is False
     assert page.evaluate("units().filter(slideDrawn).map(b => b.id)") == ["i1"]
     # без картинки — как прежде: чёрный слайд PowerPoint и в архив не входит
-    page.evaluate("blockById('i1').mode = 'find'")
+    page.evaluate("blockById('i1').mode = 'ask'")
     assert page.evaluate("pptxIsBlack(blockById('i1'))") is True
     assert page.evaluate("units().filter(slideDrawn).length") == 0
     assert not page.errors, page.errors
@@ -181,7 +189,7 @@ def test_switching_mode_swaps_placeholder_and_slide(page, sermon):
     put_image(page, "fixture-0001", "pswap", 400, 300)
     open_img(page, sermon, imageId="pswap", imgW=400, imgH=300)
     page.wait_for_function("!!document.querySelector('.stage .sl-pic img[src]')")
-    page.locator(".side .toggle button", has_text="Найди сам").click()
+    page.locator(".side .toggle button", has_text="Попросить редактора").click()
     page.wait_for_selector(".stage .ph-big")
     assert page.locator(".stage .sl-pic").count() == 0
     page.locator(".side .toggle button", has_text="Загрузить").click()

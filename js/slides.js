@@ -57,7 +57,7 @@ function emptyState(){
 function mediaInfo(b, n){
   const name = cleanName(b.name), d = (b.desc || '').trim();
   if (b.type === 'image' && b.mode === 'upload') return { icon:'image', name, title:'Картинку ещё не загрузили', lines:[], short:'Нет картинки' };   // этап 10.9.1; с картинкой — слайд
-  if (b.type === 'image') return { icon:'image', name, title:b.mode === 'find' ? 'Найти картинку' : 'Файл пришлют отдельно («Слайд ' + n + '»)', lines:[d], short:b.mode === 'send' ? 'Пришлю отдельно' : (d || 'Найти картинку') };
+  if (b.type === 'image') return { icon:'image', name, title:'Картинку сделает редактор', lines:[d], short:d || 'Попросили редактора' };   // этап 10.9.2: «Попросить редактора»
   if (b.type === 'video'){
     const t = (b.from || b.to) ? (b.from || '0:00') + '–' + (b.to || 'до конца') : '';
     return { icon:'video', name, title:b.mode === 'link' ? 'Видео по ссылке' : 'Видео пришлют отдельно («Слайд ' + n + '»)',

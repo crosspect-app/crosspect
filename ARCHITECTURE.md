@@ -35,7 +35,7 @@ state = { app:'swp-sermon', v:2, id, createdAt, updatedAt, savedAt,
 - `scripture`: (вид стихов — общий, в настройках слайдов) `items:[ {kind:'scripture', lang, book, chapter, sel, verses:[{num,text,orig}], ref, translation} | {kind:'scripture', manual:true, mBook, mChapter, mVerses, translation, verses:[{num,text}]} | {kind:'text', html, align, caps} | {kind:'line'} ]`; `split` — отрывок (`js/passage.js`)
 - `thesis`: `name, nameAuto, valign, parts:[ {kind:'text', html, align, scale, caps, frame} | {kind:'line'} ]`; `text` — склейка частей (для названия и старых версий)
 - `quote`: `text, first, last, caption, scale, caps, half, halfW, frame, photo` (10.5: имя и фамилия вместо `author`, `quoteAuthor(b)`; `photo` (id из `bankPhotos`; 10.5.3: `crop`, `rot`, `outline`, `round`) — `js/photos.js`; `half`: `full` / `left` / `right`, `data-half` на `.sl-box` и `.sl-author`)
-- `image`: `name, mode('find'|'send'|'upload'), desc`, `imageId, imgW, imgH, pic, place`; `video`: `name, mode('link'|'send'), url, from, to, desc`; `free`: `name, desc`
+- `image`: `name, mode('ask'|'upload'), desc, layers` — слои снизу вверх (10.9.2, `normPicLayers`): `{kind:'pic', id, imageId, imgW, imgH, pic, place, shadow}` и `{kind:'text', id, text, x, y, w, size, bold, color, align}`; старые `find`/`send` → `ask`, `imageId…place` у блока → первый слой; `video`: `name, mode('link'|'send'), url, from, to, desc`; `free`: `name, desc`
 - `note`: `text` (не слайд: без номера, `done`, `todo`, `speech`)
 
 Старые поля `settings` (`minScale`, `limitThesis`, `limitQuote`) и вид стихов у слайдов Писания `normalize` убирает (7.1).
