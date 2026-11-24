@@ -5,8 +5,36 @@ import json
 import pathlib
 import threading
 
+import os
+
 import pytest
 from playwright.sync_api import sync_playwright
+
+# Этап 10.9.6: движок браузера для тестов — CROSSPECT_BROWSER=chromium (по умолчанию) | firefox | webkit
+ENGINE = os.environ.get("CROSSPECT_BROWSER", "chromium")
+
+
+def pytest_collection_modifyitems(config, items):
+    """CROSSPECT_SHARD=i/N — только каждый N-й тест, начиная с i-го (1…N): прогоны Firefox и WebKit в CI идут частями."""
+    sh = os.environ.get("CROSSPECT_SHARD")
+    if not sh:
+        return
+    i, n = (int(x) for x in sh.split("/"))
+    keep = [t for k, t in enumerate(items) if k % n == i - 1]
+    config.hook.pytest_deselected(items=[t for t in items if t not in keep])
+    items[:] = keep
+
+
+def dl_name(d):
+    """Имя скачанного файла. Playwright в WebKit заменяет пробелы на «_» (Safari так не делает) — возвращаем пробелы."""
+    n = d.suggested_filename
+    return n.replace("_", " ") if ENGINE == "webkit" else n
+
+
+def only_chromium(why="нужен Chromium"):
+    """Пропустить тест не в Chromium (CDP, права буфера обмена и т. п.)."""
+    if ENGINE != "chromium":
+        pytest.skip(why)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FIXTURES = pathlib.Path(__file__).resolve().parent / "fixtures"
@@ -27,11 +55,17 @@ def base_url():
 
 
 @pytest.fixture(scope="session")
-def browser():
+def _pw():
     with sync_playwright() as p:
-        b = p.chromium.launch()
-        yield b
-        b.close()
+        yield p
+
+
+@pytest.fixture(scope=lambda fixture_name, config: "function" if ENGINE == "webkit" else "session")
+def browser(_pw):
+    """WebKit — свой браузер на каждый тест: за долгий прогон он копит память, и машину CI останавливают (этап 10.9.6)."""
+    b = getattr(_pw, ENGINE).launch()
+    yield b
+    b.close()
 
 
 @pytest.fixture
@@ -61,6 +95,10 @@ def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, sett
     opts = dict(viewport={"width": 1280, "height": 900}, accept_downloads=True, reduced_motion=reduced_motion)
     opts.update(ctx_opts)   # этап 10.1.1: телефонный контекст (viewport, is_mobile, has_touch, device_scale_factor)
     ctx = browser.new_context(**opts)
+    if ENGINE != "chromium":
+        # Firefox — 15 с: зависший тест не съедает весь прогон. WebKit без видеокарты (CI) рисует стену главной
+        # десятки секунд — ему 60 с, и в CI идут не все тесты, а основные пути (browsers.yml)
+        ctx.set_default_timeout(60000 if ENGINE == "webkit" else 15000)
     db = {"members": members or {}, "space": {"id": "sp1", "name": "Слово веры · тест", "settings": settings or {}}, "sermons": sermons or {}, "clock": 1000,
           "admins": list(admins or []), "spaces": spaces or {}, "shares": shares or {}, "series": series or {}}
     if no_spaces:

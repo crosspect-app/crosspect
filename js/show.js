@@ -64,6 +64,7 @@ async function showOpen(fromSelected, how){
     SHOW.view = h('div', { class:'show-view' });
     SHOW.count = h('div', { class:'show-count', 'aria-hidden':'true' });
     SHOW.el = h('div', { class:'slideshow' + (pop ? ' show-con' : ''), role:'dialog', 'aria-label':pop ? 'Пульт показа' : 'Показ слайдов', 'aria-modal':'true' }, SHOW.view, SHOW.count);
+    if (!pop && showTouch()) SHOW.el.append(showXBtn());   // этап 10.9.6: на телефоне и планшете нет Esc (на iPhone и полного экрана нет)
     SHOW.el.addEventListener('pointerdown', showPointerDown);
     SHOW.el.addEventListener('pointerup', showPointerUp);
     SHOW.el.addEventListener('pointercancel', () => { SHOW.touch = null; });
@@ -83,6 +84,14 @@ async function showOpen(fromSelected, how){
     showGo(SHOW.i);
     showWake();
   } finally { SHOW.opening = false; }
+}
+
+/* Сенсорный экран без мыши (телефон, планшет): там выйти можно кнопкой «✕» — она видна вместе со счётчиком */
+const showTouch = () => window.matchMedia('(hover:none) and (pointer:coarse)').matches;
+function showXBtn(){
+  const b = h('button', { type:'button', class:'show-x', title:'Закончить показ', 'aria-label':'Закончить показ', onclick:() => showClose() }, ic('close'));
+  ['pointerdown', 'pointerup'].forEach(t => b.addEventListener(t, e => e.stopPropagation()));   // нажатие на «✕» не листает слайд
+  return b;
 }
 
 /* Полный экран у показа; screen — на каком экране (Window Management API). true — получилось */
@@ -332,7 +341,7 @@ function showWake(){
 }
 
 /* Мышь: щелчок — вперёд. Телефон: правая половина — вперёд, левая — назад, свайп влево / вправо. На пульте ('win') — только кнопки */
-function showPointerDown(e){ SHOW.touch = { x:e.clientX, y:e.clientY, type:e.pointerType, btn:e.button }; }
+function showPointerDown(e){ SHOW.touch = { x:e.clientX, y:e.clientY, type:e.pointerType, btn:e.button }; if (e.pointerType !== 'mouse') showWake(); }   // касание показывает счётчик и «✕»
 function showPointerUp(e){
   const t = SHOW.touch; SHOW.touch = null;
   if (!t || e.button !== t.btn || SHOW.mode === 'win') return;

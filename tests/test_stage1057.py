@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from conftest import cloud_page, ME
+from conftest import cloud_page, ME, only_chromium
 from test_stage105 import open_quote, q, red, blue
 from test_stage1052 import open_q
 from test_stage1053 import px, dark, adv, select_photo
@@ -214,6 +214,7 @@ def test_knob_by_finger_on_phone(browser, base_url, sermon):
         assert kb["width"] >= 33   # под палец
         hit = pg.locator(".stage .ph-hit").bounding_box()
         cx, cy = hit["x"] + hit["width"] / 2, hit["y"] + hit["height"] / 2
+        only_chromium("касания через CDP")
         s = pg.context.new_cdp_session(pg)
         pt = lambda x, y: {"touchPoints": [{"x": x, "y": y}]}
         s.send("Input.dispatchTouchEvent", {"type": "touchStart", **pt(kb["x"] + kb["width"] / 2, kb["y"] + kb["height"] / 2)})

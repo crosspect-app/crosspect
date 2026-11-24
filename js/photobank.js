@@ -74,7 +74,18 @@ async function pbMove(p, i, d){
 /* ----- Загрузка фото ----- */
 const pbAddState = person => ({ person, kind:'cut', faces:'right', source:'', file:null, res:null, busy:false, err:'' });
 const pbCanvas = (w, hh) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(hh)); return c; };
-const pbBlob = (cv, q) => new Promise(res => cv.toBlob(res, 'image/webp', q));
+/* Этап 10.9.6: Safari (Mac, iPhone, iPad; на iPhone и Chrome — тоже Safari внутри) не умеет сохранять холст в WebP — молча отдаёт PNG.
+   Тогда сжимаем в JPEG, а картинку с прозрачностью — в PNG. Читают всё одинаково: <img> сам узнаёт формат по байтам. */
+let pbWebpOk = null;
+const pbCanWebp = () => { if (pbWebpOk === null){ try { const c = pbCanvas(2, 2); pbWebpOk = c.toDataURL('image/webp').startsWith('data:image/webp'); } catch(e){ pbWebpOk = false; } } return pbWebpOk; };
+const pbType = alpha => pbCanWebp() ? 'image/webp' : alpha ? 'image/png' : 'image/jpeg';
+/* Есть ли на холсте прозрачные точки (нужно, только когда WebP недоступен) */
+function pbHasAlpha(cv){
+  try { const d = cv.getContext('2d', { willReadFrequently:true }).getImageData(0, 0, cv.width, cv.height).data;
+    for (let i = 3; i < d.length; i += 4) if (d[i] < 255) return true; } catch(e){}
+  return false;
+}
+const pbBlob = (cv, q, type) => new Promise(res => cv.toBlob(res, type || pbType(false), q));
 async function pbLoadImage(file){
   const url = URL.createObjectURL(file);
   try {
@@ -84,18 +95,20 @@ async function pbLoadImage(file){
   } catch(e){ throw new Error('Не получилось открыть картинку. Нужен файл PNG, WebP или JPEG.'); }
   finally { setTimeout(() => URL.revokeObjectURL(url), 0); }
 }
-/* Сжать в WebP не больше PB_MAX: сначала качество, потом размер. → { blob, w, h } */
-async function pbEncode(src){
+/* Сжать в WebP (в Safari — JPEG, с прозрачностью — PNG) не больше PB_MAX: сначала качество, потом размер. → { blob, w, h, type }.
+   alpha: true — прозрачность нужна, false — нет, не задано — проверить по самой картинке */
+async function pbEncode(src, alpha){
   let cv = src;
-  for (let step = 0; step < 8; step++){
-    for (const q of [0.85, 0.75, 0.65]){
-      const bl = await pbBlob(cv, q);
-      if (!bl || bl.type !== 'image/webp') throw new Error('Этот браузер не умеет сохранять WebP. Загрузите фото в Chrome.');
-      if (bl.size <= PB_MAX) return { blob:bl, w:cv.width, h:cv.height };
+  const type = pbCanWebp() ? 'image/webp' : pbType(alpha === undefined ? pbHasAlpha(src) : alpha);
+  for (let step = 0; step < 12; step++){
+    for (const q of type === 'image/png' ? [1] : [0.85, 0.75, 0.65]){
+      const bl = await pbBlob(cv, q, type);
+      if (!bl) throw new Error('Браузер не смог сжать картинку. Попробуйте другой файл.');
+      if (bl.size <= PB_MAX) return { blob:bl, w:cv.width, h:cv.height, type };
     }
-    const nc = pbCanvas(cv.width * 0.85, cv.height * 0.85); nc.getContext('2d').drawImage(cv, 0, 0, nc.width, nc.height); cv = nc;
+    const nc = pbCanvas(cv.width * 0.85, cv.height * 0.85), g = nc.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(cv, 0, 0, nc.width, nc.height); cv = nc;
   }
-  throw new Error('Фото не получилось сжать до 900 КБ.');
+  throw new Error('Картинку не получилось сжать до 900 КБ.');
 }
 /* file → { img, thumb (Uint8Array WebP), w, h, url (просмотр), size } */
 async function pbProcess(file, kind, faces){
@@ -121,10 +134,10 @@ async function pbProcess(file, kind, faces){
     const k = Math.min(1, PB_BG_SIDE / Math.max(cv.width, cv.height));
     if (k < 1){ const out = pbCanvas(cv.width * k, cv.height * k), o = out.getContext('2d'); o.imageSmoothingQuality = 'high'; o.drawImage(cv, 0, 0, out.width, out.height); cv = out; }
   }
-  const big = await pbEncode(cv);
+  const big = await pbEncode(cv, kind === 'cut');
   const tk = PB_THUMB / Math.max(big.w, big.h), tc = pbCanvas(big.w * Math.min(1, tk), big.h * Math.min(1, tk)), t = tc.getContext('2d');
   t.imageSmoothingQuality = 'high'; t.drawImage(cv, 0, 0, tc.width, tc.height);
-  const tb = await pbBlob(tc, 0.8);
+  const tb = await pbBlob(tc, 0.8, big.type);
   const u8 = async bl => new Uint8Array(await bl.arrayBuffer());
   return { img:await u8(big.blob), thumb:await u8(tb), w:big.w, h:big.h, size:big.blob.size, url:URL.createObjectURL(big.blob) };
 }

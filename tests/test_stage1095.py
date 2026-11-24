@@ -116,7 +116,10 @@ def test_escape_on_console_ends_show_and_closes_it(sh):
 
 def test_end_button_on_console(sh):
     pop = ext_start(sh)
-    pop.click(".con .btn:has-text('Закончить показ')")
+    try:
+        pop.click(".con .btn:has-text('Закончить показ')")
+    except Exception:   # Firefox: окно-пульт закрывается прямо во время нажатия
+        pass
     sh.wait_for_function("!document.querySelector('.slideshow')")
 
 

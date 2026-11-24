@@ -1,11 +1,13 @@
 """Этап 10.9.1: картинки конспекта — режим «Загрузить» у блока «Картинка»: сжатие в WebP, облако рядом с конспектом, кеш в браузере,
 правки (обрезка, поворот, фильтр, обводка), картинка целиком внутри полей слайда, JPEG, PowerPoint, архив; правила и ночные скрипты."""
 import json
+
+import pytest
 from pathlib import Path
 
 from PIL import Image
 
-from conftest import open_sermon
+from conftest import ENGINE, open_sermon
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -85,8 +87,8 @@ def test_upload_shrinks_to_webp_and_puts_it_on_slide(page, sermon, tmp_path):
     b = blk(page)
     assert b["mode"] == "upload" and b["imageId"].startswith("p") and (b["imgW"], b["imgH"]) == (2560, 1280)
     assert b["todo"] is False   # картинку загрузили — слайд готов
-    stored = page.evaluate("""id => { const r = fakeCloud.db().slideImages[state.id][id]; return { w:r.w, h:r.h, bytes:atob(r.img).length, webp:atob(r.img).slice(8, 12) === 'WEBP' }; }""", b["imageId"])
-    assert stored["webp"] and (stored["w"], stored["h"]) == (2560, 1280) and stored["bytes"] <= 900 * 1024
+    stored = page.evaluate("""id => { const r = fakeCloud.db().slideImages[state.id][id]; return { w:r.w, h:r.h, bytes:atob(r.img).length, webp:atob(r.img).slice(8, 12) === 'WEBP', jpeg:atob(r.img).charCodeAt(0) === 0xFF }; }""", b["imageId"])
+    assert (stored["webp"] if page.evaluate("pbCanWebp()") else stored["jpeg"]) and (stored["w"], stored["h"]) == (2560, 1280) and stored["bytes"] <= 900 * 1024
     page.wait_for_function("!!document.querySelector('.stage .sl-pic img[src]')")
     page.wait_for_function("!!document.querySelector('.film .sl[data-id=\"i1\"] .sl-pic img[src]')")   # и в ленте
     assert not page.errors, page.errors
@@ -132,6 +134,8 @@ def test_edits_rotate_outline_filter_crop(page, sermon):
 
 
 def test_images_cached_in_browser(page, sermon, tmp_path):
+    if ENGINE == "webkit":
+        pytest.skip("WebKit не кладёт файлы в IndexedDB в приватном окне, а окна Playwright — приватные")
     open_img(page, sermon)
     upload(page, png(tmp_path, 800, 600))
     page.wait_for_function("!!document.querySelector('.stage .sl-pic img[src]')")

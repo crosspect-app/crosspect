@@ -49,7 +49,7 @@ function loadLegacy(){
 const strList = v => Array.isArray(v) ? v.map(x => String(x).trim()).filter(Boolean) : [];
 const thumbUrls = new Map();   // миниатюры не меняются: адрес по id фото
 function thumbUrl(id, u8){
-  if (!thumbUrls.has(id) && u8 && u8.length) thumbUrls.set(id, URL.createObjectURL(new Blob([u8], { type:'image/webp' })));
+  if (!thumbUrls.has(id) && u8 && u8.length) thumbUrls.set(id, URL.createObjectURL(new Blob([u8], { type:imgMime(u8) })));
   return thumbUrls.get(id) || '';
 }
 function bankRebuild(){
@@ -192,7 +192,7 @@ function photoFileUrl(a){
     if (!bl){
       const u8 = await cloud.api.bankFile(a.id);
       if (!u8) throw new Error('нет картинки фото ' + a.id);
-      bl = new Blob([u8], { type:'image/webp' });
+      bl = new Blob([u8], { type:imgMime(u8) });
       photoIdb.put(a.id, bl);
     }
     return URL.createObjectURL(bl);

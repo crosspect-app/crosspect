@@ -2,7 +2,7 @@
 окно настроек («Применить» только при изменениях, без «Закрыть», «Между ссылкой и текстом», заставка «Только название»),
 без «Источника настроек» и «Открыть файл», контакт на экране «Нет доступа».
 Статусы и «автор» — в test_editor.py. Облако подменено: tests/fixtures/fake_cloud.js."""
-from conftest import cfg_tab, cloud_page
+from conftest import ENGINE, cfg_tab, cloud_page
 from test_cloud import MEMBERS
 from test_lock import open_sermon
 from test_ui71 import ED, MEMBERS_ED, menu_items, three_slides
@@ -130,6 +130,8 @@ def test_background_is_repeatable(browser, base_url):
         shots.append(page.evaluate("d => [bgImage(normBg(d)), NOISE, grainTile('coarse').url, grainTile('color').url]", TEST_BG))
         other = page.evaluate("d => bgImage(normBg(Object.assign({}, d, { seed:d.seed + 1 })))", TEST_BG)
         ctx.close()
+    if ENGINE == "firefox":   # Firefox подмешивает шум в чтение холста (защита от слежки): байты разные, на глаз то же
+        shots = [x[:1] for x in shots]
     assert shots[0] == shots[1]
     assert shots[0][0].startswith("url(data:image/jpeg") and other != shots[0][0]
 

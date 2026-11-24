@@ -5,7 +5,7 @@ import re
 import struct
 import zipfile
 
-from conftest import open_sermon
+from conftest import ENGINE, dl_name, only_chromium, open_sermon
 
 
 def jpeg_size(data):
@@ -58,14 +58,14 @@ def test_download_file_is_a_copy(page, sermon):
     with page.expect_download() as dl:
         page.evaluate("saveFile()")
     d = dl.value
-    assert d.suggested_filename == "2026-11-15 Тест формы.json"
+    assert dl_name(d) == "2026-11-15 Тест формы.json"
     saved = json.loads(open(d.path(), encoding="utf-8").read())
     assert saved["app"] == "swp-sermon"
     assert saved["v"] == 2
     assert [b["type"] for b in saved["blocks"]] == page.evaluate("state.blocks.map(b => b.type)")
     assert not any(k.startswith("cloud") for k in saved), "метки облака в файл не идут"
-    # файл — копия: несохранённая правка по-прежнему ждёт отправки в облако
-    assert page.evaluate("isDirty()")
+    # файл — копия: несохранённая правка по-прежнему ждёт отправки в облако (медленный WebKit в CI успевает автосохранение — 30 с)
+    assert page.evaluate("isDirty()") or (ENGINE == "webkit" and page.evaluate("fakeCloud.db().sermons[state.id].meta.title === 'Тест формы'"))
     page.keyboard.press("Control+s")
     page.wait_for_function("fakeCloud.db().sermons[state.id].meta.title === 'Тест формы'")
     assert page.errors == []
@@ -163,7 +163,7 @@ def test_export_all_slides_zip(page, sermon):
     with page.expect_download(timeout=120000) as dl:
         page.evaluate("exportMany()")
     d = dl.value
-    assert d.suggested_filename == "2026-11-15 Тест формы.zip"
+    assert dl_name(d) == "2026-11-15 Тест формы.zip"
     z = zipfile.ZipFile(io.BytesIO(open(d.path(), "rb").read()))
     jpgs = [n for n in z.namelist() if n.endswith(".jpg")]
     assert len(jpgs) == 4   # первая заставка (с 9.6), Писание, тезис, цитата; картинка, видео и свободный не собираются
@@ -173,6 +173,7 @@ def test_export_all_slides_zip(page, sermon):
 
 
 def test_operator_pdf(page, sermon):
+    only_chromium("page.pdf есть только в Chromium")
     open_sermon(page, sermon)
     page.evaluate("buildOperatorPrint(); document.body.classList.add('op-print')")
     page.emulate_media(media="print")
