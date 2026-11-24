@@ -1,5 +1,5 @@
 """Этап 9.3: цитата по центру слайда по вертикали, «Текст на половине слайда», PowerPoint из слайдов."""
-from conftest import cloud_page, start_blank
+from conftest import cloud_page, dl_name, start_blank
 
 MEASURE = """half => {
   const b = Object.assign(newBlock('quote'), { text:'Вера — живое, смелое доверие к Божьей благодати', first:'Мартин', last:'Лютер', caption:'Предисловие', half });
@@ -120,7 +120,7 @@ def test_export_pptx_order_black_slides_and_notes(page, sermon):
     pptx = pytest.importorskip("pptx")
     open_sermon(page, sermon)
     d = download_pptx(page, "exportPPTX()")
-    assert d.suggested_filename == "2026-11-15 Тест формы.pptx"
+    assert dl_name(d) == "2026-11-15 Тест формы.pptx"
     prs = pptx.Presentation(d.path())
     s = list(prs.slides)
     types = page.evaluate("state.blocks.filter(b => TYPES[b.type].slide).map(b => b.type)")

@@ -2,7 +2,9 @@
 с прозрачностью — в PNG, и открываются по байтам; на iPhone нет полного экрана — показ во всё окно."""
 from pathlib import Path
 
-from conftest import cloud_page, ME, open_sermon
+import pytest
+
+from conftest import ENGINE, cloud_page, ME, open_sermon
 from test_stage1091 import blk, open_img, png, upload
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -68,3 +70,38 @@ def test_browsers_doc_has_table():
     t = (ROOT / "docs/arch/browsers.md").read_text(encoding="utf-8")
     for w in ("Chrome", "Edge", "Firefox", "Safari", "iPhone", "Android"):
         assert w in t
+
+
+def test_phone_show_has_close_button(browser, base_url, sermon):
+    """Телефон и планшет: «✕» в углу закрывает показ и не листает слайд; на компьютере кнопки нет."""
+    if ENGINE == "firefox":
+        pytest.skip("телефон (is_mobile) Playwright не подменяет в Firefox")
+    from test_stage1051 import ADMIN, MEMBERS, PHONE, show_sermon, cur, wait_home
+    ctx, page = cloud_page(browser, base_url, user=ADMIN, members=MEMBERS, **PHONE)
+    try:
+        wait_home(page)
+        open_sermon(page, show_sermon(sermon), edit=False)
+        page.wait_for_selector(".stage .sl")
+        page.locator("#app .hd-show").tap()
+        page.wait_for_selector(".slideshow .show-slide.on")
+        x = page.locator(".slideshow .show-x")
+        assert x.is_visible() and x.get_attribute("aria-label") == "Закончить показ"
+        bb = x.bounding_box()
+        assert bb["width"] >= 44 and bb["x"] + bb["width"] <= 390
+        page.wait_for_selector(".slideshow.idle", timeout=4000)   # прячется вместе со счётчиком
+        assert page.evaluate("getComputedStyle(document.querySelector('.show-x')).pointerEvents") == "none"
+        page.touchscreen.tap(60, 400)   # касание (левая половина: на первом слайде назад некуда) — снова видно
+        assert cur(page) == 0
+        page.wait_for_function("!document.querySelector('.slideshow').classList.contains('idle')")
+        x.tap()
+        page.wait_for_function("!document.querySelector('.slideshow')")
+        assert not page.errors, page.errors
+    finally:
+        ctx.close()
+
+
+def test_desktop_show_has_no_close_button(page, sermon):
+    open_sermon(page, sermon, edit=False)
+    page.evaluate("showOpen(false)")
+    page.wait_for_selector(".slideshow .show-slide.on")
+    assert page.locator(".slideshow .show-x").count() == 0

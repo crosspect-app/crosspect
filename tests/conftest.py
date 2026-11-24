@@ -25,6 +25,12 @@ def pytest_collection_modifyitems(config, items):
     items[:] = keep
 
 
+def dl_name(d):
+    """Имя скачанного файла. Playwright в WebKit заменяет пробелы на «_» (Safari так не делает) — возвращаем пробелы."""
+    n = d.suggested_filename
+    return n.replace("_", " ") if ENGINE == "webkit" else n
+
+
 def only_chromium(why="нужен Chromium"):
     """Пропустить тест не в Chromium (CDP, права буфера обмена и т. п.)."""
     if ENGINE != "chromium":

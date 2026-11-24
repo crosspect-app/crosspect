@@ -59,6 +59,7 @@ def test_button_is_in_header_and_starts_from_selected(sh):
 
 
 def test_f5_starts_from_first_and_shift_f5_from_selected(sh):
+    only_chromium("полный экран в Firefox и WebKit без монитора (CI) работает иначе — проверяется руками, docs/arch/browsers.md")
     sh.evaluate("selectBlock('t2')")
     start(sh, "F5")
     assert cur(sh) == 0 and on_slide_id(sh) == "sp"
@@ -109,7 +110,7 @@ def test_notes_are_not_slides(sh):
 # ---------- Вид ----------
 
 def test_fullscreen_black_margins_and_slide_16_9(sh):
-    only_chromium("в Firefox и WebKit без экрана полный экран меняет размер окна")
+    only_chromium("полный экран в Firefox и WebKit без монитора (CI) работает иначе — проверяется руками, docs/arch/browsers.md")
     sh.set_viewport_size({"width": 1500, "height": 700})
     start(sh)
     r = sh.evaluate("""() => { const s = document.querySelector('.show-slide.on').getBoundingClientRect(), v = document.querySelector('.slideshow').getBoundingClientRect();
@@ -215,6 +216,7 @@ def test_end_screen_then_exit(sh):
 
 
 def test_escape_selects_current_slide_in_film(sh):
+    only_chromium("полный экран в Firefox и WebKit без монитора (CI) работает иначе — проверяется руками, docs/arch/browsers.md")
     start(sh)
     for _ in range(3):
         sh.keyboard.press("ArrowRight")
@@ -227,6 +229,7 @@ def test_escape_selects_current_slide_in_film(sh):
 
 
 def test_exit_from_text_view_keeps_text_view(sh):
+    only_chromium("полный экран в Firefox и WebKit без монитора (CI) работает иначе — проверяется руками, docs/arch/browsers.md")
     sh.evaluate("setView('text')")
     start(sh)
     sh.keyboard.press("ArrowRight"); sh.keyboard.press("ArrowRight")
@@ -236,6 +239,7 @@ def test_exit_from_text_view_keeps_text_view(sh):
 
 
 def test_exit_when_fullscreen_is_left(sh):
+    only_chromium("полный экран в Firefox и WebKit без монитора (CI) работает иначе — проверяется руками, docs/arch/browsers.md")
     start(sh)
     sh.evaluate("""() => { const e = document.querySelector('.slideshow'); SHOW.fs = true;
       Object.defineProperty(document, 'fullscreenElement', { configurable:true, get:() => null });
@@ -267,7 +271,7 @@ def test_counter_and_idle(sh):
 
 
 def test_resize_relayouts_slides(sh):
-    only_chromium("в Firefox и WebKit без экрана полный экран меняет размер окна")
+    only_chromium("полный экран в Firefox и WebKit без монитора (CI) работает иначе — проверяется руками, docs/arch/browsers.md")
     start(sh)
     sh.evaluate("""() => { const e = document.querySelector('.slideshow'); e.style.right = 'auto'; e.style.bottom = 'auto'; e.style.width = '800px'; e.style.height = '600px'; window.dispatchEvent(new Event('resize')); }""")
     sh.wait_for_function("Math.abs(document.querySelector('.show-slide.on').getBoundingClientRect().width - 800) < 2")

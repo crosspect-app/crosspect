@@ -5,7 +5,7 @@ import re
 import struct
 import zipfile
 
-from conftest import only_chromium, open_sermon
+from conftest import dl_name, only_chromium, open_sermon
 
 
 def jpeg_size(data):
@@ -58,7 +58,7 @@ def test_download_file_is_a_copy(page, sermon):
     with page.expect_download() as dl:
         page.evaluate("saveFile()")
     d = dl.value
-    assert d.suggested_filename == "2026-11-15 Тест формы.json"
+    assert dl_name(d) == "2026-11-15 Тест формы.json"
     saved = json.loads(open(d.path(), encoding="utf-8").read())
     assert saved["app"] == "swp-sermon"
     assert saved["v"] == 2
@@ -163,7 +163,7 @@ def test_export_all_slides_zip(page, sermon):
     with page.expect_download(timeout=120000) as dl:
         page.evaluate("exportMany()")
     d = dl.value
-    assert d.suggested_filename == "2026-11-15 Тест формы.zip"
+    assert dl_name(d) == "2026-11-15 Тест формы.zip"
     z = zipfile.ZipFile(io.BytesIO(open(d.path(), "rb").read()))
     jpgs = [n for n in z.namelist() if n.endswith(".jpg")]
     assert len(jpgs) == 4   # первая заставка (с 9.6), Писание, тезис, цитата; картинка, видео и свободный не собираются

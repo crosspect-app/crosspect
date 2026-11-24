@@ -75,7 +75,11 @@ async function renderJPEG(b, layer){
     await img.decode();
     await new Promise(r => setTimeout(r, 60));   // шрифты внутри картинки успевают подключиться
     const cv = document.createElement('canvas'); cv.width = 1920; cv.height = 1080;
-    const ctx = cv.getContext('2d'); if (layer !== 'text'){ ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1920, 1080); }
+    const ctx = cv.getContext('2d');
+    // этап 10.9.6: Safari (WebKit) открывает картинки внутри SVG только при первом рисовании — первый раз фото и картинки
+    // выходят пустыми. Поэтому слайд с картинками рисуем дважды: сначала «вхолостую», потом начисто
+    if (stage.querySelector('img')){ ctx.drawImage(img, 0, 0, 1920, 1080); await new Promise(r => setTimeout(r, 150)); ctx.clearRect(0, 0, 1920, 1080); }
+    if (layer !== 'text'){ ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1920, 1080); }
     ctx.drawImage(img, 0, 0, 1920, 1080);
     return await new Promise((res, rej) => cv.toBlob(x => x ? res(x) : rej(new Error('браузер не отдал картинку')), layer === 'text' ? 'image/png' : 'image/jpeg', 0.93));
   } finally { host.remove(); }

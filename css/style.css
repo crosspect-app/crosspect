@@ -1560,6 +1560,9 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .show-end{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 20px 'Inter',sans-serif;color:#6f685f}
 .show-count{position:absolute;right:18px;bottom:12px;font:500 14px 'Inter',sans-serif;color:rgba(255,255,255,.55);text-shadow:0 0 6px #000;transition:opacity .25s;pointer-events:none}
 .slideshow.idle .show-count{opacity:0}
+.show-x{position:absolute;top:max(10px, env(safe-area-inset-top));right:max(10px, env(safe-area-inset-right));width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:0;border-radius:50%;background:rgba(0,0,0,.45);color:rgba(255,255,255,.8);transition:opacity .25s;-webkit-tap-highlight-color:transparent}
+.show-x .ic{width:22px;height:22px}
+.slideshow.idle .show-x{opacity:0;pointer-events:none}
 /* Второй экран и пульт (этап 10.9.5, show.js): пульт — .show-con (во вкладке формы или в своём окне), окно со слайдами — .show-out; слайды в них — копии .show-mini */
 .slideshow.show-con{overflow:auto;cursor:default;background:#0e0e0e}
 .slideshow.show-con > .show-view{position:fixed;left:-40000px;top:0;right:auto;bottom:auto;width:1920px;height:1080px;pointer-events:none}
