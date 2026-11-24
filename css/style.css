@@ -1289,7 +1289,7 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .sp-row:last-child{border-bottom:0}
 .sp-row.sp-head{min-height:0;padding:9px 12px;color:var(--muted);font-size:12px;background:var(--surface-2)}
 .sp-people .sp-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.4fr) 128px 116px 36px}
-.sp-series .sp-row{grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1fr) 100px 170px 36px}
+.sp-series .sp-row{grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1fr) 100px 190px 36px}
 /* Фон заставки серии (этап 10.9.3): миниатюра и подпись в ячейке, под строкой в правке — загрузка, режим и затемнение */
 .sp-spl,.sp-spl-btn{display:flex;align-items:center;gap:8px;min-width:0}
 .sp-spl-btn{justify-content:flex-start;padding-left:6px;padding-right:8px}
