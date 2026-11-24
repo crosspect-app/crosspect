@@ -49,11 +49,17 @@ def base_url():
 
 
 @pytest.fixture(scope="session")
-def browser():
+def _pw():
     with sync_playwright() as p:
-        b = getattr(p, ENGINE).launch()
-        yield b
-        b.close()
+        yield p
+
+
+@pytest.fixture(scope=lambda fixture_name, config: "function" if ENGINE == "webkit" else "session")
+def browser(_pw):
+    """WebKit — свой браузер на каждый тест: за долгий прогон он копит память, и машину CI останавливают (этап 10.9.6)."""
+    b = getattr(_pw, ENGINE).launch()
+    yield b
+    b.close()
 
 
 @pytest.fixture

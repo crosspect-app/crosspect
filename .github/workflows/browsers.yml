@@ -18,12 +18,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        engine: [webkit]
-        shard: [1]
+        engine: [firefox, webkit]
+        shard: [1, 2, 3, 4, 5, 6]
     name: Тесты (${{ matrix.engine }}, часть ${{ matrix.shard }})
     timeout-minutes: 45
     env:
       CROSSPECT_BROWSER: ${{ matrix.engine }}
+      CROSSPECT_SHARD: ${{ matrix.shard }}/6
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -33,4 +34,4 @@ jobs:
           cache-dependency-path: tests/requirements.txt
       - run: pip install -r tests/requirements.txt
       - run: python -m playwright install --with-deps ${{ matrix.engine }}
-      - run: python -m pytest tests/test_editor.py -x -p no:cacheprovider --tb=short -k test_editor_takes_sermon_and_author_cannot_edit 2>&1 | tail -80
+      - run: python -m pytest tests -q -p no:cacheprovider -rfE --tb=short --maxfail=80
