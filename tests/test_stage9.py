@@ -2,7 +2,7 @@
 Облако подменено: tests/fixtures/fake_cloud.js (снимок — db.shares[ключ], как shares/{ключ} в Firestore)."""
 import json
 
-from conftest import cloud_page, download_file, open_sermon
+from conftest import ENGINE, cloud_page, download_file, open_sermon
 from test_cloud import ADMIN, IVAN, wait_home
 
 ED = {"email": "ed@x.pl", "name": "Ред Акторов"}
@@ -30,7 +30,8 @@ RICH = {
 
 def make(browser, base_url, user=ADMIN, sermon=RICH, **kw):
     ctx, page = cloud_page(browser, base_url, user=user, members=MEMBERS, sermons={sermon["id"]: sermon}, **kw)
-    ctx.grant_permissions(["clipboard-read", "clipboard-write"], origin=base_url)
+    if ENGINE == "chromium":
+        ctx.grant_permissions(["clipboard-read", "clipboard-write"], origin=base_url)
     wait_home(page)
     return ctx, page
 

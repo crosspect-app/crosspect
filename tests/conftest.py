@@ -5,8 +5,19 @@ import json
 import pathlib
 import threading
 
+import os
+
 import pytest
 from playwright.sync_api import sync_playwright
+
+# Этап 10.9.6: движок браузера для тестов — CROSSPECT_BROWSER=chromium (по умолчанию) | firefox | webkit
+ENGINE = os.environ.get("CROSSPECT_BROWSER", "chromium")
+
+
+def only_chromium(why="нужен Chromium"):
+    """Пропустить тест не в Chromium (CDP, права буфера обмена и т. п.)."""
+    if ENGINE != "chromium":
+        pytest.skip(why)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FIXTURES = pathlib.Path(__file__).resolve().parent / "fixtures"
@@ -29,7 +40,7 @@ def base_url():
 @pytest.fixture(scope="session")
 def browser():
     with sync_playwright() as p:
-        b = p.chromium.launch()
+        b = getattr(p, ENGINE).launch()
         yield b
         b.close()
 
