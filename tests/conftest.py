@@ -80,7 +80,9 @@ def page(browser, base_url):
         pg.wait_for_selector(".home-top")
     except Exception:
         if ENGINE != "chromium":
-            print("\nDIAG", pg.log[-40:], pg.evaluate("() => ({ gate:(document.querySelector('.gate')||{}).textContent, body:document.body.innerHTML.slice(0, 600) })"))
+            print("\nDIAG", pg.log[-40:], pg.evaluate("""() => { const t = document.querySelector('.home-top'), cs = t && getComputedStyle(t), r = t && t.getBoundingClientRect();
+              const chain = []; for (let e = t; e && e !== document.body; e = e.parentElement){ const c = getComputedStyle(e); chain.push(e.className + ' o=' + c.opacity + ' v=' + c.visibility + ' d=' + c.display + ' a=' + c.animationName); }
+              return { has:!!t, rect:r && [r.x, r.y, r.width, r.height], chain, cells:document.querySelectorAll('.hb-cell').length, screen, introDone:typeof INTRO === 'object' ? INTRO.done : '?', bodyCls:document.body.className, app:(document.querySelector('#app')||{}).className }; }"""))
         raise
     yield pg
     ctx.close()
