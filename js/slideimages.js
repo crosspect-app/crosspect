@@ -25,12 +25,12 @@ const picLayers = b => b && b.type === 'image' && b.mode === 'upload' && Array.i
 function picItems(b){
   if (!b) return [];
   if (b.type === 'image') return picLayers(b);
-  if (b.type === 'splash' && !b.meta && isCustomSplash(b)){ const x = splashImage(); if (x) return [{ kind:'pic', id:'splash', imageId:x.imageId, imgW:x.imgW, imgH:x.imgH, cover:true }]; }
+  if (b.type === 'splash' && !b.meta && (isCustomSplash(b) || isBgSplash(b))){ const x = splashImage(); if (x) return [{ kind:'pic', id:'splash', imageId:x.imageId, imgW:x.imgW, imgH:x.imgH, cover:true }]; }
   return [];
 }
 const picItem = (b, lid) => picItems(b).find(l => l.id === lid) || null;
 const picCount = b => picLayers(b).filter(l => l.kind === 'pic').length;
-const picOn = b => picItems(b).length > 0;
+const picOn = b => picItems(b).length > 0 && !isBgSplash(b);   // «Свой фон» (10.9.2.1): картинка лежит под текстом заставки — слайд остаётся текстовым
 /* Слайд, который форма рисует: с текстом (PREVIEW) или с картинками */
 const slideDrawn = b => !!b && (!!PREVIEW[b.type] || picOn(b));
 const picSpace = () => (state && state.cloudSpace) || cloud.space;
@@ -189,7 +189,7 @@ function ptPaint(el, l){
 function picRepaintAll(id){
   document.querySelectorAll('.sl[data-id="' + id + '"]').forEach(sl => {
     const b = typeof unitById === 'function' ? unitById(id) : null;
-    if (picOn(b)) picPaint(sl, b);
+    if (picItems(b).length) picPaint(sl, b);
   });
 }
 
@@ -566,18 +566,25 @@ function ptLayerBody(b, l){
   return [ta, prow('Размер', size, sv), bold, al, prow('Цвет', h('div', { class:'ph-sws pt-colors' }, PHOTO_PALETTE.map(swatch)))];
 }
 
-/* ----- Своя заставка картинкой (этап 10.9.1.1) ----- */
-/* Панель в настройках заставки, под переключателем «Своя заставка». all — обновить заставки (preview, лента, кнопка «JPEG») */
+/* ----- Заставка с картинкой: «Свой фон» и «Картинка целиком» (этапы 10.9.1.1, 10.9.2.1) ----- */
+/* Панель в настройках заставки, под выбором режима. all — обновить заставки (preview, лента, кнопка «JPEG») */
 let splashBusy = '';
+const SPLASH_MODES = [['normal', 'Обычная'], ['bg', 'Свой фон'], ['full', 'Картинка целиком']];
 function splashPanelFill(el){
-  const ro = readOnly(), x = splashImage(), kids = [];
-  el.hidden = !isCustomSplash({ type:'splash' });   // панель прячется целиком
+  const ro = readOnly(), x = splashImage(), kids = [], mode = splashMode();
+  el.hidden = mode === 'normal';   // в «Обычной» панель прячется целиком
   const pick = (label, cls) => h('button', { type:'button', class:'btn ' + cls, disabled:ro || splashBusy ? true : null, onclick:() => splashPick(el) }, label);
   if (splashBusy) kids.push(h('p', { class:'hint pic-busy', role:'status', text:splashBusy === 'prep' ? 'Готовлю картинку…' : 'Загружаю в облако…' }));
   const err = x && picErr.get(x.imageId);
   if (err) kids.push(h('p', { class:'pic-err', role:'alert', text:err }));
   kids.push(h('div', { class:'pic-acts' }, x ? pick('Заменить картинку', 'small spic-replace') : pick('Загрузить картинку', 'primary spic-pick'),
     x && !ro && h('button', { type:'button', class:'btn small spic-del', disabled:splashBusy ? true : null, onclick:() => splashRemove(el) }, 'Удалить картинку')));
+  if (mode === 'bg'){
+    const val = h('span', { class:'ph-val spic-dim-val', text:splashDim() + ' %' });
+    const range = h('input', { type:'range', class:'ph-range spic-dim', min:0, max:SPLASH_DIM_MAX, step:1, value:splashDim(), disabled:ro ? true : null, 'aria-label':'Затемнение',
+      oninput:e => { val.textContent = e.target.value + ' %'; splashDimSet(+e.target.value, el._all); } });
+    kids.push(h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:'Затемнение' }), range, val));
+  }
   el.innerHTML = ''; el.append(...kids);
 }
 function splashPanel(all){
@@ -588,6 +595,18 @@ function splashPanel(all){
 }
 const splashPanelEl = () => (typeof sideEl !== 'undefined' && sideEl ? sideEl.querySelector('.spic-panel') : null);
 function splashPanelRefresh(){ const el = splashPanelEl(); if (el) splashPanelFill(el); }
+/* Режим заставки: «Обычная» / «Свой фон» / «Картинка целиком» — один на все заставки конспекта */
+function splashModeSet(m, all){
+  if (readOnly() || m === splashMode()) return;
+  if (m === 'bg' || m === 'full') state.settings.splashMode = m; else delete state.settings.splashMode;
+  change(); if (all) all(); splashPanelRefresh();
+}
+/* Затемнение «Свой фон»: 0…70 %, одно на все заставки; по умолчанию — SPLASH_DIM_DEF */
+function splashDimSet(v, all){
+  if (readOnly() || !Number.isInteger(v) || v < 0 || v > SPLASH_DIM_MAX || v === splashDim()) return;
+  state.settings.splashDim = v;
+  change(); if (all) all();
+}
 function splashPick(el){
   if (readOnly() || splashBusy) return;
   const inp = h('input', { type:'file', accept:'image/jpeg,image/png,image/webp', style:'display:none' });
@@ -608,7 +627,7 @@ async function splashUpload(file, all){
     toast(e && e.code ? cloudExplain(e) : (e && e.message) || 'Не получилось загрузить картинку.');
   } finally { splashBusy = ''; splashPanelRefresh(); }
 }
-/* «Удалить картинку»: заставка снова серая заглушка; сам файл в облаке стирает ночная уборка, когда на него не ссылаются ни конспект, ни история */
+/* «Удалить картинку»: «Картинка целиком» снова серая заглушка, «Свой фон» — обычная заставка; сам файл в облаке стирает ночная уборка, когда на него не ссылаются ни конспект, ни история */
 function splashRemove(el){
   if (readOnly() || !splashImage()) return;
   delete state.settings.customSplashImage;

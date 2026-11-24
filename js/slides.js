@@ -87,7 +87,7 @@ function thumbBody(b, n){
    Настройки слайдов сюда не входят: их смену разносит refreshSlides (settings.js) */
 function thumbFp(b){
   const c = Object.assign({}, b); delete c.todo; delete c.done; delete c.collapsed; delete c.speech; delete c.custom;
-  if (b.type === 'splash'){ const m = state.meta; c.m = [m.title, m.firstName, m.lastName, m.date, state.settings && state.settings.splash, splashFootOn(b), isCustomSplash(b), isCustomSplash(b) && splashImage() ? splashImage().imageId : '']; }
+  if (b.type === 'splash'){ const m = state.meta; c.m = [m.title, m.firstName, m.lastName, m.date, state.settings && state.settings.splash, splashFootOn(b), splashMode(), splashDim(), splashMode() !== 'normal' && splashImage() ? splashImage().imageId : '']; }
   return JSON.stringify(c);
 }
 function filmActs(id){
@@ -436,7 +436,7 @@ function stageBar(b, n){
     h('span', { class:'cap strong', text:(T.slide ? n + ' · ' : '') + T.label + (P ? ' · отрывок, слайд ' + (P.k + 1) + ' из ' + P.n : '') }),
     h('div', { class:'grow' }),
     T.slide && h('button', { type:'button', class:'btn', title:'Скопировать название слайда для Holyrics', onclick:() => copyText(slideName(b, n), 'Скопировано: ') }, ic('tag'), 'Название'),
-    (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn jpg-btn', disabled:isCustomSplash(b) && !picOn(b), title:isCustomSplash(b) && !picOn(b) ? 'У своей заставки без картинки JPEG не собирается: заставку вы делаете сами' : BLANK_JPEG[b.type] && !picOn(b) ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
+    (PREVIEW[b.type] || BLANK_JPEG[b.type]) && h('button', { type:'button', class:'btn jpg-btn', disabled:isCustomSplash(b) && !picOn(b), title:isCustomSplash(b) && !picOn(b) ? 'У заставки «Картинка целиком» без картинки JPEG не собирается: заставку вы делаете сами' : BLANK_JPEG[b.type] && !picOn(b) ? 'Скачать пустой слайд в JPEG: рамка и фон без текста, основа для Canva' : 'Скачать слайд в JPEG', onclick:() => exportOne(b) }, ic('jpg'), 'JPEG'),
     T.slide && canFlag() && h('button', { type:'button', class:'btn todo' + (b.todo ? ' on' : ''), 'aria-pressed':String(!!b.todo),
       title:b.todo ? 'Снять отметку «доработать»' : 'Отметить «доработать»: слайд нужно сделать или поправить вручную.' + (cloudOn() ? ' Автор тоже её увидит.' : ''), onclick:() => toggleTodo(b) }, ic('flag'), 'Доработать'),
     h('div', { class:'stepper' },

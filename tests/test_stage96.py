@@ -45,7 +45,7 @@ def test_pdf_count_is_number_of_distinct_numbers(page):
 
 def test_custom_splash_stage_is_black_with_caption_and_no_jpeg(page, sermon):
     open_sermon(page, sermon)
-    page.evaluate("state.settings.customSplash = true; renderMain(); selectBlock(state.blocks.find(b => b.type === 'splash').id)")
+    page.evaluate("state.settings.splashMode = 'full'; renderMain(); selectBlock(state.blocks.find(b => b.type === 'splash').id)")
     page.wait_for_selector(".stage .sl.sl-custom")
     title = page.locator(".stage .sl-custom .sl-sp-title")
     assert title.inner_text() == "Добавить свою заставку"
@@ -56,7 +56,7 @@ def test_custom_splash_stage_is_black_with_caption_and_no_jpeg(page, sermon):
     assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-custom .sl-stage')).borderTopStyle") == "dashed"
     assert page.locator(".stage-bar button", has_text="JPEG").is_disabled()
     # выключили — снова обычная заставка, кнопка активна
-    page.evaluate("delete state.settings.customSplash; renderMain(); selectBlock(state.blocks.find(b => b.type === 'splash').id)")
+    page.evaluate("delete state.settings.splashMode; renderMain(); selectBlock(state.blocks.find(b => b.type === 'splash').id)")
     page.wait_for_selector(".stage .sl:not(.sl-custom)")
     assert page.locator(".stage-bar button", has_text="JPEG").is_enabled()
     assert page.errors == []

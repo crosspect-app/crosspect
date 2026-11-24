@@ -59,9 +59,19 @@ function normTextBox(t){
   if (w < 0.03 || hh < 0.03 || x < 0 || y < 0 || x + w > 1.0001 || y + hh > 1.0001) return null;
   return { x, y, w, h:hh, ha:TB_HA.includes(t.ha) ? t.ha : 'center', va:TB_VA.includes(t.va) ? t.va : 'center' };
 }
-/* «Своя заставка» (этап 9.5): одна на все заставки проповеди (state.settings.customSplash). Без картинки — серая заглушка: в архив JPEG не идёт.
-   С картинкой (этап 10.9.1.1, state.settings.customSplashImage { imageId, imgW, imgH }, slideimages.js) форма рисует её сама, как обычную заставку */
-const isCustomSplash = b => !!b && b.type === 'splash' && !!(state && state.settings && state.settings.customSplash);
+/* Режим заставки (этапы 9.5, 10.9.1.1, 10.9.2.1): один на все заставки проповеди, state.settings.splashMode.
+   Нет значения — «Обычная»; 'bg' — «Свой фон»: картинка вместо стандартного фона, название, автор и дата поверх, затемнение splashDim;
+   'full' — «Картинка целиком» (бывшая «Своя заставка»): без картинки — серая заглушка, в архив JPEG не идёт; с картинкой (state.settings.customSplashImage
+   { imageId, imgW, imgH }, slideimages.js) форма рисует её сама на весь слайд. «Свой фон» без картинки рисуется как «Обычная» */
+const SPLASH_DIM_MAX = 70, SPLASH_DIM_DEF = 30;
+const splashMode = () => { const m = state && state.settings ? state.settings.splashMode : ''; return m === 'bg' || m === 'full' ? m : 'normal'; };
+const isCustomSplash = b => !!b && b.type === 'splash' && splashMode() === 'full';
+const isBgSplash = b => !!b && b.type === 'splash' && !b.meta && splashMode() === 'bg' && typeof splashImage === 'function' && !!splashImage();
+/* Затемнение картинки «Свой фон», 0…70 (%): у проповеди одно на все заставки */
+function splashDim(){
+  const v = state && state.settings ? state.settings.splashDim : undefined;
+  return Number.isInteger(v) && v >= 0 && v <= SPLASH_DIM_MAX ? v : SPLASH_DIM_DEF;
+}
 /* «Нижняя строка» заставки (линия, имя и дата): у проповеди своя (state.settings.splashFoot), пока не меняли — как в настройках слайдов пространства.
    b.meta — пример в окне настроек слайдов: там всегда по настройкам */
 function splashFootOn(b){
@@ -251,8 +261,12 @@ function normalize(d){
   if (d.settings && typeof d.settings.lang === 'string') s.settings.lang = d.settings.lang;
   // размер названия на заставках (−/+), один на всю проповедь (этап 7.2), в % от размера из настроек слайдов
   if (d.settings && isFinite(+d.settings.splash) && +d.settings.splash > 0) s.settings.splash = Math.round(+d.settings.splash);
-  // этап 9.5: «своя заставка» и нижняя строка — тоже одни на все заставки проповеди (раньше «своя» стояла у отдельной заставки)
-  if ((d.settings && d.settings.customSplash) || (d.blocks || []).some(b => b && b.type === 'splash' && b.custom)) s.settings.customSplash = true;
+  // этап 9.5: режим заставки и нижняя строка — одни на все заставки проповеди (раньше «своя» стояла у отдельной заставки).
+  // Этап 10.9.2.1: «Своя заставка» (customSplash) стала режимом «Картинка целиком», добавился «Свой фон» с затемнением
+  const sm = d.settings && d.settings.splashMode;
+  if (sm === 'bg' || sm === 'full') s.settings.splashMode = sm;
+  else if ((d.settings && d.settings.customSplash) || (d.blocks || []).some(b => b && b.type === 'splash' && b.custom)) s.settings.splashMode = 'full';
+  if (d.settings && Number.isInteger(d.settings.splashDim) && d.settings.splashDim >= 0 && d.settings.splashDim <= SPLASH_DIM_MAX) s.settings.splashDim = d.settings.splashDim;
   if (d.settings && typeof d.settings.splashFoot === 'boolean') s.settings.splashFoot = d.settings.splashFoot;
   // этап 10.9.1.1: картинка своей заставки — одна на все заставки; лежит в облаке рядом с конспектом (slideImages), как у блока «Картинка»
   const ci = d.settings && d.settings.customSplashImage, cdim = v => Number.isInteger(v) && v > 0 && v <= 4000;
@@ -326,7 +340,7 @@ function normalize(d){
       nb.layers = normPicLayers(b);
       ['imageId', 'imgW', 'imgH', 'pic', 'place'].forEach(k => delete nb[k]);   // до 10.9.2 — одна картинка прямо в блоке
     }
-    delete nb.custom;   // перенесено в state.settings.customSplash
+    delete nb.custom;   // перенесено в state.settings.splashMode
     if (NAMED[b.type]) nb.name = cleanName(nb.name);
     if (b.type === 'thesis'){ if (nb.nameAuto == null) nb.nameAuto = !nb.name; if (nb.nameAuto) nb.name = autoName(nb.text); }
     s.blocks.push(nb);

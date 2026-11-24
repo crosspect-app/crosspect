@@ -660,12 +660,15 @@ const BODY = {
     };
     const sw = (label, on, fn) => h('label', { class:'switch' },
       h('input', { type:'checkbox', checked:on, onchange:e => { fn(e.target.checked); change(); all(); } }), h('span', { class:'sw' }), label);
-    const spic = splashPanel(all);   // пояснение и картинка — только когда «Своя заставка» включена (этап 9.6, картинка — 10.9.1.1)
+    const spic = splashPanel(all);   // картинка и затемнение — только в «Свой фон» и «Картинка целиком» (этап 9.6, картинка — 10.9.1.1, режимы — 10.9.2.1)
     body.append(
       h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Размер названия' }), splashStepper()),
       sw('Нижняя строка', splashFootOn(b), v => { state.settings.splashFoot = v; }),
       h('div', { class:'own-splash' },
-        sw('Своя заставка', isCustomSplash(b), v => { if (v) state.settings.customSplash = true; else delete state.settings.customSplash; spic.refill(); }),
+        h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Заставка' })),
+        h('div', { class:'toggle splash-mode', role:'group', 'aria-label':'Заставка' }, SPLASH_MODES.map(([k, t]) =>
+          h('button', { type:'button', class:'sm-' + k + (k === splashMode() ? ' on' : ''), 'aria-pressed':String(k === splashMode()),
+            onclick:e => { splashModeSet(k, all); e.currentTarget.parentNode.querySelectorAll('button').forEach(x => { const on = x === e.currentTarget; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }); } }, t))),
         spic));
   },
   thesis(b, body, n){

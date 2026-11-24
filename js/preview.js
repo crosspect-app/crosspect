@@ -372,11 +372,16 @@ function fitSlide(sl, b){
   if (w < SL.W && !sl.closest('.film, .scfg, .hb-wall, .slideshow, .fmt-prev')) lastScale = w / SL.W;   // масштаб берём с крупных слайдов, не с миниатюр
   const fit = b.type === 'scripture' ? layoutAt : b.type === 'splash' ? layoutSplash : layoutBox;
   if (b.type === 'splash' && !b.meta){   // этап 10.9.1.1: заставка с картинкой — название и линия скрыты (.sl-picsplash на кадре, чтобы это попало и в JPEG)
-    const on = picOn(b), st = sl.querySelector('.sl-stage'), im = sl.querySelector('.sl-pic img');
-    if (st) st.classList.toggle('sl-picsplash', on);
-    if (!on && im){ im.style.display = 'none'; im.removeAttribute('src'); }
+    const on = picOn(b), bg = isBgSplash(b), st = sl.querySelector('.sl-stage'), im = sl.querySelector('.sl-pic img');
+    if (st){
+      st.classList.toggle('sl-picsplash', on);
+      st.classList.toggle('sl-bgsplash', bg);   // этап 10.9.2.1: «Свой фон» — картинка вместо фона, затемнение --sp-dim, текст заставки остаётся
+      if (bg) st.style.setProperty('--sp-dim', String(splashDim() / 100)); else st.style.removeProperty('--sp-dim');
+    }
+    if (!on && !bg && im){ im.style.display = 'none'; im.removeAttribute('src'); }
   }
-  if (picOn(b)){ picPaint(sl, b); return 1; }   // слайд с загруженной картинкой (этап 10.9.1): текста нет
+  if (picOn(b)){ picPaint(sl, b); return 1; }
+  if (isBgSplash(b)) picPaint(sl, b);   // слайд с загруженной картинкой (этап 10.9.1): текста нет
   if (!PREVIEW[b.type]) return 1;   // пустой слайд (картинка, видео, свободный): только рамка и фон
   if (b.type === 'quote') paintPhoto(sl, b);   // фото автора (этап 10.5, photos.js) от текста не зависит
   const r = fitText(sl, b, fit);
@@ -426,7 +431,7 @@ function runPreview(b){
   let over, msg;
   if (isCustomSplash(b)){
     over = false;
-    msg = 'своя заставка: в PowerPoint — эта заглушка, в архив JPEG не входит';
+    msg = '«Картинка целиком» без картинки: в PowerPoint — эта заглушка, в архив JPEG не входит';
   } else if (b.type === 'splash'){
     const px = Math.round(ratio * splashBase(b));
     over = px < splashMin3();

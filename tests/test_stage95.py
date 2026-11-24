@@ -26,48 +26,49 @@ def download(page, call):
 
 def test_custom_splash_defaults_and_normalize(page):
     r = page.evaluate("""() => {
-      const n = d => normalize(d).settings.customSplash === true;
+      const n = d => normalize(d).settings.splashMode === 'full';
       return [n({ blocks:[] }), n({ blocks:[], settings:{ customSplash:true } }), n({ blocks:[{ id:'s', type:'splash', custom:true }] }),   // старое поле у заставки переезжает в настройки проповеди
               'custom' in normalize({ blocks:[{ id:'s', type:'splash', custom:true }] }).blocks[0], 'custom' in newBlock('splash')]; }""")
     assert r == [False, True, True, False, False]
 
 
 def test_custom_splash_switch_applies_to_every_splash(page, sermon):
-    """Этап 9.6: свою заставку видно чёрным экраном с надписью (значка «своя» больше нет), пояснение — только когда включена"""
+    """Этап 9.6 / 10.9.2.1: «Картинка целиком» без картинки — серая заглушка с надписью на всех заставках; панель картинки — только в двух режимах"""
     open_sermon(page, sermon)
     page.evaluate("state.blocks.splice(3, 0, newBlock('splash')); renderMain(); selectBlock(state.blocks.find(b => b.type === 'splash').id)")
-    sw = page.locator(".side .own-splash .switch")
-    sw.wait_for()
-    assert "Своя заставка" in sw.inner_text()
-    assert not page.locator(".side .own-splash .hint").is_visible()   # выключена — пояснения нет
-    sw.click()
-    assert page.evaluate("state.settings.customSplash") is True
-    assert page.locator(".side .own-splash .hint").count() == 0   # пояснений нет и включённой (этап 10.9.1.1)
+    modes = page.locator(".side .own-splash .splash-mode")
+    modes.wait_for()
+    assert [t.strip() for t in modes.locator("button").all_inner_texts()] == ["Обычная", "Свой фон", "Картинка целиком"]
+    assert modes.locator("button.on").inner_text() == "Обычная"
+    assert not page.locator(".side .spic-panel").is_visible()   # «Обычная» — панели картинки нет
+    modes.locator(".sm-full").click()
+    assert page.evaluate("state.settings.splashMode") == "full"
+    assert page.locator(".side .own-splash .hint").count() == 0   # пояснений нет (этап 10.9.1.1)
     page.wait_for_function("document.querySelectorAll('.film .sl.sl-custom').length === 2")   # на всех заставках сразу
     assert page.locator(".st .own").count() == 0   # значка «своя» нет
     assert page.locator(".stage .sl-custom .sl-sp-title").inner_text() == "Добавить свою заставку"
     page.evaluate("state.blocks.push(newBlock('splash')); renderMain()")
     assert page.evaluate("state.blocks.filter(isCustomSplash).length") == 3   # и на новых
     page.wait_for_function("document.querySelectorAll('.film .sl.sl-custom').length === 3")
-    sw.click()
-    assert not page.evaluate("state.settings.customSplash")
-    assert not page.locator(".side .own-splash .hint").is_visible()
+    modes.locator(".sm-normal").click()
+    assert not page.evaluate("state.settings.splashMode")
+    assert not page.locator(".side .spic-panel").is_visible()
     page.wait_for_function("document.querySelectorAll('.sl.sl-custom').length === 0")
     assert page.errors == []
 
 
 def test_custom_splash_is_placeholder_in_pptx_with_note(page, sermon):
-    """Этап 10.1.3: своя заставка в PowerPoint — картинка серой заглушки (была чёрный слайд), в заметках — «Своя заставка»"""
+    """Этап 10.1.3: своя заставка в PowerPoint — картинка серой заглушки (была чёрный слайд), в заметках — «Заставка «Картинка целиком»…»"""
     pptx = pytest.importorskip("pptx")
     open_sermon(page, sermon)
-    page.evaluate("state.blocks.splice(3, 0, newBlock('splash')); state.settings.customSplash = true")
+    page.evaluate("state.blocks.splice(3, 0, newBlock('splash')); state.settings.splashMode = 'full'")
     prs = pptx.Presentation(download(page, "exportPPTX()").path())
     types = page.evaluate("state.blocks.filter(b => TYPES[b.type].slide).map(b => b.type)")
     names = page.evaluate("(() => { const n = slideNums(); return state.blocks.filter(b => TYPES[b.type].slide).map(b => slideName(b, n[b.id])); })()")
     slides = list(prs.slides)
     for i in [i for i, t in enumerate(types) if t == "splash"]:   # все заставки — серые заглушки (картинкой)
         assert any(sh.shape_type == 13 for sh in slides[i].shapes)
-        assert slides[i].notes_slide.notes_text_frame.text == names[i] + "\nСвоя заставка"
+        assert slides[i].notes_slide.notes_text_frame.text == names[i] + "\nЗаставка «Картинка целиком»: картинку не загрузили"
     assert page.errors == []
 
 
@@ -78,18 +79,18 @@ def test_only_first_splash_goes_to_jpeg_archive(page, sermon):
     z = zipfile.ZipFile(download(page, "exportMany()").path())
     names = [n for n in z.namelist() if n.endswith(".jpg")]
     assert len([n for n in names if "Заставка" in n]) == 1 and "[1] Заставка" in "".join(names), names
-    page.evaluate("state.settings.customSplash = true")
+    page.evaluate("state.settings.splashMode = 'full'")
     z = zipfile.ZipFile(download(page, "exportMany()").path())
     assert not any("Заставка" in n for n in z.namelist()), z.namelist()
     # JPEG одной обычной заставки остаётся
-    page.evaluate("delete state.settings.customSplash")
+    page.evaluate("delete state.settings.splashMode")
     d = download(page, "exportOne(state.blocks.find(b => b.type === 'splash'))")
     assert d.suggested_filename.endswith(".jpg") and "Заставка" in d.suggested_filename
 
 
 def test_archive_with_only_splash_says_nothing_to_collect(page):
     start_blank(page)
-    page.evaluate("addBlock('splash'); state.settings.customSplash = true; exportMany()")   # обычная заставка в архив входит (этап 9.6), своя — нет
+    page.evaluate("addBlock('splash'); state.settings.splashMode = 'full'; exportMany()")   # обычная заставка в архив входит (этап 9.6), своя — нет
     page.wait_for_selector(".toast:has-text('нет слайдов для архива')")
 
 

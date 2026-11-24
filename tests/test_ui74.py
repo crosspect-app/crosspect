@@ -148,8 +148,9 @@ def test_splash_panel_has_only_settings(browser, base_url):
     assert side.get_by_role("button", name="Изменить название, дату, автора").count() == 0
     assert "Holyrics" not in side.inner_text()
     assert side.locator(".step").count() == 1
-    assert [t.strip() for t in side.locator(".switch").all_inner_texts()] == ["Нижняя строка", "Своя заставка"]
+    assert [t.strip() for t in side.locator(".switch").all_inner_texts()] == ["Нижняя строка"]
     assert side.locator(".own-splash .hint").count() == 0   # пояснений под переключателем нет (этап 10.9.1.1)
+    assert [t.strip() for t in side.locator(".splash-mode button").all_inner_texts()] == ["Обычная", "Свой фон", "Картинка целиком"]   # этап 10.9.2.1
     assert not page.errors, page.errors
     ctx.close()
 
