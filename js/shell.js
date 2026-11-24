@@ -28,6 +28,8 @@ function fillMenu(){
     if (canHistory()) menuEl.append(menuItem('undo', 'История', () => openHistory()));
   }
   if (screen === 'sermon' && view === 'slides' && state && state.blocks.length) menuEl.append(h('div', { class:'menu-sep' }), menuItem('search', 'Найти и заменить', () => findOpen()));   // этап 9.6; то же — Ctrl+F
+  if (screen === 'sermon' && state && !isPhone()) menuEl.append(h('div', { class:'menu-sep' }),   // этап 10.9.5: показ на проекторе там, где браузер не выводит его на второй экран сам
+    h('button', { type:'button', title:'Слайды откроются в отдельном окне, пульт — здесь. Окно перетащите на проектор и нажмите в нём F', onclick:() => { closeMenu(); showOpen(true, 'win'); } }, ic('play'), 'Показ в отдельном окне'));
   if (screen === 'sermon') menuEl.append(   // этап 10.1.3: «Экспорт» — JPEG, PowerPoint, PDF; «Поделиться» — ссылка (тем, кто правит) и PDF
     h('div', { class:'menu-sep' }),
     menuItem('save', 'Экспорт', () => openExport()),

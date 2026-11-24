@@ -1560,6 +1560,33 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .show-end{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 20px 'Inter',sans-serif;color:#6f685f}
 .show-count{position:absolute;right:18px;bottom:12px;font:500 14px 'Inter',sans-serif;color:rgba(255,255,255,.55);text-shadow:0 0 6px #000;transition:opacity .25s;pointer-events:none}
 .slideshow.idle .show-count{opacity:0}
+/* Второй экран и пульт (этап 10.9.5, show.js): пульт — .show-con (во вкладке формы или в своём окне), окно со слайдами — .show-out; слайды в них — копии .show-mini */
+.slideshow.show-con{overflow:auto;cursor:default;background:#0e0e0e}
+.slideshow.show-con > .show-view{position:fixed;left:-40000px;top:0;right:auto;bottom:auto;width:1920px;height:1080px;pointer-events:none}
+.slideshow.show-con > .show-count{display:none}
+.show-mini{position:relative;overflow:hidden;background:#000;flex:none}
+.show-mini > .show-slide{transform-origin:0 0}
+.con{min-height:100%;box-sizing:border-box;padding:20px 24px;display:flex;flex-direction:column;gap:18px;color:var(--text);font:500 14px 'Inter',sans-serif}
+.con-top{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.con-top .grow{flex:1}
+.con-count{font-size:18px;font-weight:600}
+.con-time{display:inline-flex;align-items:center;gap:8px;font-size:22px;font-variant-numeric:tabular-nums;color:var(--accent)}
+.con-time .ic{width:18px;height:18px}
+.con-clock{font-size:22px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.con-main{display:flex;gap:24px;align-items:flex-start}
+.con-side{display:flex;flex-direction:column}
+.con-lbl{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+.con-btns{display:flex;gap:10px;margin-top:18px}
+.con-nav{height:48px;padding:0 22px}
+.con-nav .ic{width:22px;height:22px}
+.con-none{background:transparent;border:1px dashed var(--line-2);box-sizing:border-box}
+.con-hint{color:var(--muted);font-size:13px;line-height:1.5;max-width:760px}
+.show-ask{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;padding:22px 24px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line-2);box-shadow:var(--shadow);font:500 15px 'Inter',sans-serif;color:var(--text);text-align:center;cursor:default}
+.show-ask-b{display:flex;gap:10px;justify-content:center;margin-top:14px}
+body.show-pop{margin:0;background:#000;overflow:hidden}
+.show-out.idle{cursor:none}
+.show-hint{position:absolute;left:0;right:0;top:14px;text-align:center;font:500 14px 'Inter',sans-serif;color:rgba(255,255,255,.6);text-shadow:0 0 6px #000;pointer-events:none}
+.show-out.fs .show-hint{display:none}
 
 /* ---------- Картинка слайда (этап 10.9.1, slideimages.js) ---------- */
 .sl-pic{position:absolute;inset:0;overflow:hidden;pointer-events:none}
