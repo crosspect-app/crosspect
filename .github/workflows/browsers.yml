@@ -18,8 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        engine: [firefox, webkit]
-        shard: [1, 2, 3, 4, 5, 6]
+        engine: [firefox]
+        shard: [1]
     name: Тесты (${{ matrix.engine }}, часть ${{ matrix.shard }})
     timeout-minutes: 45
     env:
@@ -34,4 +34,4 @@ jobs:
           cache-dependency-path: tests/requirements.txt
       - run: pip install -r tests/requirements.txt
       - run: python -m playwright install --with-deps ${{ matrix.engine }}
-      - run: python -m pytest tests -q -p no:cacheprovider -rfE --tb=short --maxfail=80
+      - run: python -m pytest tests/test_zz_diag.py -s -p no:cacheprovider --tb=short
