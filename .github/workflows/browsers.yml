@@ -4,7 +4,7 @@ name: Тесты в Firefox и WebKit
 # запускаются после пуша в main, по кнопке и раз в неделю.
 on:
   push:
-    branches: [main]
+    branches: [main, browsers-1096]
   workflow_dispatch:
   schedule:
     - cron: '17 4 * * 1'
