@@ -18,7 +18,7 @@
 
 const PIC_MAX_SIDE = 2560;
 const PIC_KEY = id => 'slide:' + id;
-const splashImage = () => { const x = state && state.settings && state.settings.customSplashImage; return x && typeof x.imageId === 'string' && x.imageId ? x : null; };
+const splashOwnImage = () => { const x = state && state.settings && state.settings.customSplashImage; return x && typeof x.imageId === 'string' && x.imageId ? x : null; };
 /* Слои «Картинки» в режиме «Загрузить» (снизу вверх) */
 const picLayers = b => b && b.type === 'image' && b.mode === 'upload' && Array.isArray(b.layers) ? b.layers : [];
 /* Что форма рисует на слайде: слои «Картинки» или картинка своей заставки (cover — на весь слайд, без правок) */
@@ -34,6 +34,12 @@ const picOn = b => picItems(b).length > 0 && !isBgSplash(b);   // «Свой ф�
 /* Слайд, который форма рисует: с текстом (PREVIEW) или с картинками */
 const slideDrawn = b => !!b && (!!PREVIEW[b.type] || picOn(b));
 const picSpace = () => (state && state.cloudSpace) || cloud.space;
+/* Картинки фона заставки серий (этап 10.9.3) лежат не у конспекта, а в пространстве: spaces/{s}/seriesImages/{id}.
+   PIC_SERIES: id картинки → пространство; заполняют space.js (серии пришли из облака) и загрузка в окне «Серии проповедей» */
+const PIC_SERIES = new Map();
+function picSeriesReg(map, space){
+  Object.keys(map || {}).forEach(k => { const x = map[k] && map[k].splash; if (x && x.imageId && space) PIC_SERIES.set(x.imageId, space); });
+}
 /* Тень (этап 10.9.2) у картинок слайда и фото цитаты: сила 1…100, в px кадра 1920×1080 */
 const shadowCss = s => s > 0 ? 'drop-shadow(0 ' + (4 + s * 0.2).toFixed(1) + 'px ' + (6 + s * 0.44).toFixed(1) + 'px rgba(0,0,0,' + (0.25 + s * 0.006).toFixed(3) + '))' : '';
 /* Строки «Тень» для панели: галочка и сила. cur() — сила сейчас (0 — без тени), set(v) — записать */
@@ -54,8 +60,9 @@ function picImage(id){
   if (!picImgs.has(id)) picImgs.set(id, (async () => {
     let bl = await photoIdb.get(PIC_KEY(id));
     if (!bl){
-      if (!cloudOn() || !state) throw new Error('нет связи с облаком');
-      const r = await cloud.api.slideImage(picSpace(), state.id, id);
+      const ser = PIC_SERIES.get(id);
+      if (!cloudOn() || (!state && !ser)) throw new Error('нет связи с облаком');
+      const r = ser ? await cloud.api.seriesImage(ser, id) : await cloud.api.slideImage(picSpace(), state.id, id);
       if (!r) throw Object.assign(new Error('Картинки нет в облаке. Загрузите её заново.'), { code:'missing' });
       bl = new Blob([r.bytes], { type:'image/webp' });
       photoIdb.put(PIC_KEY(id), bl);
@@ -377,15 +384,17 @@ function picPlaceSet(id, lid, place){
 /* ----- Загрузка ----- */
 const picBusy = new Map();   // id блока → 'prep' | 'up'
 /* Файл → WebP не больше 900 КБ → облако рядом с конспектом. Возвращает { imageId, imgW, imgH }; onStage('up') — когда пошла загрузка */
-async function picStore(file, sermon, space, onStage){
+/* series — картинка фона заставки серии (этап 10.9.3): тогда sermon не нужен, файл — в spaces/{space}/seriesImages */
+async function picStore(file, sermon, space, onStage, series){
   const im = await pbLoadImage(file);   // photobank.js: понятная ошибка, если файл не картинка
   const k = Math.min(1, PIC_MAX_SIDE / Math.max(im.naturalWidth, im.naturalHeight));
   const cv = pbCanvas(im.naturalWidth * k, im.naturalHeight * k), g = cv.getContext('2d');
   g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, cv.width, cv.height);
   const enc = await pbEncode(cv);   // WebP не больше 900 КБ
-  const bytes = new Uint8Array(await enc.blob.arrayBuffer()), imageId = 'p' + uid();
+  const bytes = new Uint8Array(await enc.blob.arrayBuffer()), imageId = (series ? 's' : 'p') + uid();
   onStage('up');
-  await cloud.api.putSlideImage(cloud.user, space, sermon, imageId, bytes, enc.w, enc.h);
+  if (series){ await cloud.api.putSeriesImage(cloud.user, space, imageId, bytes, enc.w, enc.h); PIC_SERIES.set(imageId, space); }
+  else await cloud.api.putSlideImage(cloud.user, space, sermon, imageId, bytes, enc.w, enc.h);
   photoIdb.put(PIC_KEY(imageId), enc.blob);
   return { imageId, imgW:enc.w, imgH:enc.h };
 }
@@ -570,9 +579,19 @@ function ptLayerBody(b, l){
 /* Панель в настройках заставки, под выбором режима. all — обновить заставки (preview, лента, кнопка «JPEG») */
 let splashBusy = '';
 const SPLASH_MODES = [['normal', 'Обычная'], ['bg', 'Свой фон'], ['full', 'Картинка целиком']];
+/* Заставка на фоне серии (этап 10.9.3): строка под выбором режима — откуда фон */
+function splashSeriesNote(){
+  const e = splashEff();
+  if (e.from !== 'series') return null;
+  const t = (e.mode === 'full' ? 'Заставка — картинка серии «' : 'Заставка — на фоне серии «') + e.series.seriesName + '». Своя картинка конспекта заменит его.';
+  return h('p', { class:'hint spic-series', text:t });
+}
 function splashPanelFill(el){
-  const ro = readOnly(), x = splashImage(), kids = [], mode = splashMode();
-  el.hidden = mode === 'normal';   // в «Обычной» панель прячется целиком
+  const ro = readOnly(), x = splashOwnImage(), kids = [], mode = splashOwnMode();
+  const note = splashSeriesNote();
+  el.hidden = mode === 'normal' && !note;   // в «Обычной» панель прячется целиком (кроме строки про фон серии)
+  if (note) kids.push(note);
+  if (mode === 'normal'){ el.innerHTML = ''; el.append(...kids); return; }
   const pick = (label, cls) => h('button', { type:'button', class:'btn ' + cls, disabled:ro || splashBusy ? true : null, onclick:() => splashPick(el) }, label);
   if (splashBusy) kids.push(h('p', { class:'hint pic-busy', role:'status', text:splashBusy === 'prep' ? 'Готовлю картинку…' : 'Загружаю в облако…' }));
   const err = x && picErr.get(x.imageId);
@@ -580,8 +599,8 @@ function splashPanelFill(el){
   kids.push(h('div', { class:'pic-acts' }, x ? pick('Заменить картинку', 'small spic-replace') : pick('Загрузить картинку', 'primary spic-pick'),
     x && !ro && h('button', { type:'button', class:'btn small spic-del', disabled:splashBusy ? true : null, onclick:() => splashRemove(el) }, 'Удалить картинку')));
   if (mode === 'bg'){
-    const val = h('span', { class:'ph-val spic-dim-val', text:splashDim() + ' %' });
-    const range = h('input', { type:'range', class:'ph-range spic-dim', min:0, max:SPLASH_DIM_MAX, step:1, value:splashDim(), disabled:ro ? true : null, 'aria-label':'Затемнение',
+    const val = h('span', { class:'ph-val spic-dim-val', text:splashOwnDim() + ' %' });
+    const range = h('input', { type:'range', class:'ph-range spic-dim', min:0, max:SPLASH_DIM_MAX, step:1, value:splashOwnDim(), disabled:ro ? true : null, 'aria-label':'Затемнение',
       oninput:e => { val.textContent = e.target.value + ' %'; splashDimSet(+e.target.value, el._all); } });
     kids.push(h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:'Затемнение' }), range, val));
   }
@@ -597,13 +616,13 @@ const splashPanelEl = () => (typeof sideEl !== 'undefined' && sideEl ? sideEl.qu
 function splashPanelRefresh(){ const el = splashPanelEl(); if (el) splashPanelFill(el); }
 /* Режим заставки: «Обычная» / «Свой фон» / «Картинка целиком» — один на все заставки конспекта */
 function splashModeSet(m, all){
-  if (readOnly() || m === splashMode()) return;
+  if (readOnly() || m === splashOwnMode()) return;
   if (m === 'bg' || m === 'full') state.settings.splashMode = m; else delete state.settings.splashMode;
   change(); if (all) all(); splashPanelRefresh();
 }
 /* Затемнение «Свой фон»: 0…70 %, одно на все заставки; по умолчанию — SPLASH_DIM_DEF */
 function splashDimSet(v, all){
-  if (readOnly() || !Number.isInteger(v) || v < 0 || v > SPLASH_DIM_MAX || v === splashDim()) return;
+  if (readOnly() || !splashDimOk(v) || v === splashOwnDim()) return;
   state.settings.splashDim = v;
   change(); if (all) all();
 }
@@ -629,7 +648,7 @@ async function splashUpload(file, all){
 }
 /* «Удалить картинку»: «Картинка целиком» снова серая заглушка, «Свой фон» — обычная заставка; сам файл в облаке стирает ночная уборка, когда на него не ссылаются ни конспект, ни история */
 function splashRemove(el){
-  if (readOnly() || !splashImage()) return;
+  if (readOnly() || !splashOwnImage()) return;
   delete state.settings.customSplashImage;
   change(); if (el._all) el._all(); splashPanelRefresh();
 }

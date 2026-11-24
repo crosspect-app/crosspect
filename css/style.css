@@ -1289,7 +1289,19 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .sp-row:last-child{border-bottom:0}
 .sp-row.sp-head{min-height:0;padding:9px 12px;color:var(--muted);font-size:12px;background:var(--surface-2)}
 .sp-people .sp-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.4fr) 128px 116px 36px}
-.sp-series .sp-row{grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1fr) 100px 36px}
+.sp-series .sp-row{grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1fr) 100px 170px 36px}
+/* Фон заставки серии (этап 10.9.3): миниатюра и подпись в ячейке, под строкой в правке — загрузка, режим и затемнение */
+.sp-spl,.sp-spl-btn{display:flex;align-items:center;gap:8px;min-width:0}
+.sp-spl-btn{justify-content:flex-start;padding-left:6px;padding-right:8px}
+.sp-spl-btn.on{border-color:var(--accent)}
+.sp-spl-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-spl-thumb{width:48px;height:27px;flex:none;object-fit:cover;border-radius:4px;background:var(--surface-2);border:1px solid var(--line)}
+.sp-spl-thumb.err{opacity:.4}
+.sp-spl-edit{grid-column:1 / -1;display:flex;flex-direction:column;gap:10px;padding:12px 14px;border:1px solid var(--line-2);border-radius:12px;background:var(--surface-2)}
+.sp-spl-edit .hint{margin:0}
+.sp-spl-edit .ph-row{display:flex;align-items:center;gap:12px;max-width:520px}
+.sp-spl-edit .ph-lbl{min-width:96px}
+.sp-spl-edit .ph-range{flex:1}
 .sp-row > .sp-err{grid-column:1 / -1;margin-top:-4px}
 .sp-row .input{height:38px}
 .sp-row .hf-sel select{height:36px}
@@ -1677,7 +1689,7 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
   .sp-people .sp-row{grid-template-columns:1fr 1fr 36px}   /* имя, фамилия / почта / Telegram / роль, вход, корзина */
   .sp-people .sp-row > :nth-child(2){grid-column:2 / -1}
   .sp-people .sp-row > :nth-child(3),.sp-people .sp-row > :nth-child(4){grid-column:1 / -1}
-  .sp-series .sp-row{grid-template-columns:auto 1fr 36px}
+  .sp-series .sp-row{grid-template-columns:auto 1fr auto 36px}   /* активна, формат, фон заставки, корзина */
   .sp-series .sp-row > :nth-child(1){grid-column:1 / -1}
   .sp-series .sp-row > :nth-child(4){display:none}   /* «В конспектах» на телефоне не видно */
 }

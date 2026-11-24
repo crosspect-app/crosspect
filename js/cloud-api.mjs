@@ -66,6 +66,7 @@ export function createCloudAPI(fb){
   const sumRef = (space, id) => F.doc(db, 'spaces', space, 'summaries', id);
   const verCol = (space, id) => F.collection(db, 'spaces', space, 'sermons', id, 'versions');
   const imgDoc = (space, id, img) => F.doc(db, 'spaces', space, 'sermons', id, 'slideImages', img);
+  const serImgDoc = (space, img) => F.doc(db, 'spaces', space, 'seriesImages', img);
   const lower = e => String(e || '').trim().toLowerCase();
   const ms = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : 0);
   const err = (code, message, extra) => Object.assign(new Error(message || code), { code }, extra);
@@ -273,6 +274,10 @@ export function createCloudAPI(fb){
       const left = await F.getDocs(F.query(col(space), F.limit(1)));
       if (!left.empty){ const u = await spaceUsage(space); throw err('not-empty', 'В пространстве есть конспекты', { count: Math.max(1, u.sermons) }); }
       const refs = [];
+      // картинки фона заставки серий (этап 10.9.3): списка у seriesImages нет — берём id из серий; «сирот» стирает ночная уборка
+      const ser = await F.getDoc(F.doc(db, 'spaces', space, 'config', 'series'));
+      const sm = ser.exists() ? (ser.data().series || {}) : {};
+      Object.keys(sm).forEach(k => { const x = sm[k] && sm[k].splash; if (x && typeof x.imageId === 'string' && x.imageId) refs.push(serImgDoc(space, x.imageId)); });
       (await F.getDocs(F.collection(db, 'spaces', space, 'members'))).docs.forEach(d => refs.push(d.ref));
       (await F.getDocs(F.collection(db, 'spaces', space, 'summaries'))).docs.forEach(d => refs.push(d.ref));
       ['slides', 'series', 'operators'].forEach(c => refs.push(F.doc(db, 'spaces', space, 'config', c)));
@@ -523,6 +528,23 @@ export function createCloudAPI(fb){
     /* Убрать картинки по одной (слайд удалили или заменили картинку); уже стёртые не мешают */
     async removeSlideImages(space, id, ids){
       for (const img of ids) { try { await F.deleteDoc(imgDoc(space, id, img)); } catch (e) { if (!denied(e)) throw e; } }
+    },
+
+    /* Фон заставки серии (этап 10.9.3): spaces/{s}/seriesImages/{img} { img (Bytes, WebP, ≤ 900 КБ), w, h }. Читают все участники
+       пространства, пишут и удаляют админ и редактор (те, кто правит серии). Картинка не меняется: «Заменить» кладёт новую.
+       Ссылка — в config/series: series[id].splash { mode, imageId, imgW, imgH, dim } */
+    async putSeriesImage(me, space, img, bytes, w, h){
+      if (bytes.length > 921600) throw new Error('картинка больше 900 КБ');
+      await F.setDoc(serImgDoc(space, img), { img: F.Bytes.fromUint8Array(bytes), w, h, updatedAt: F.serverTimestamp(), updatedBy: lower(me.email) });
+    },
+    async seriesImage(space, img){
+      const sn = await F.getDoc(serImgDoc(space, img));
+      if (!sn.exists()) return null;
+      const x = sn.data();
+      return x.img && x.img.toUint8Array ? { bytes: x.img.toUint8Array(), w: x.w, h: x.h } : null;
+    },
+    async removeSeriesImages(space, ids){
+      for (const img of ids) { try { await F.deleteDoc(serImgDoc(space, img)); } catch (e) { if (!denied(e)) throw e; } }
     },
 
     /* Фотобанк (этап 10.5.2): люди — bankPeople/{id} { first, last, caption, aliases }; фото — bankPhotos/{id} { person, kind ('cut' — без фона,

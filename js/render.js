@@ -60,6 +60,16 @@ function dropdown(anchor, items){
 }
 /* Шапка поменялась — заставки перерисовываются */
 function refreshSplash(){ state.blocks.forEach(b => { if (b.type === 'splash') schedulePreview(b); }); }
+/* Заставки целиком (этап 10.9.3): сменился фон заставки серии или серия конспекта — сцена, лента, кнопка «JPEG» и панель справа */
+function refreshSplashAll(){
+  if (!state || screen !== 'sermon') return;
+  refreshSplash(); state.blocks.forEach(x => { if (x.type === 'splash') refreshThumb(x); });
+  const cur = typeof curBlock === 'function' ? curBlock() : null;
+  if (cur && cur.type === 'splash'){
+    const bar = stageEl && stageEl.querySelector('.stage-bar'); if (bar) bar.replaceWith(stageBar(cur, slideNums()[cur.id]));
+    if (typeof splashPanelRefresh === 'function') splashPanelRefresh();
+  }
+}
 
 /* Отметка «доработать» (toggleTodo) — в editor.js */
 
@@ -657,6 +667,7 @@ const BODY = {
     const all = () => {
       refreshSplash(); state.blocks.forEach(x => { if (x.type === 'splash') refreshThumb(x); });
       const bar = stageEl && stageEl.querySelector('.stage-bar'); if (bar) bar.replaceWith(stageBar(b, slideNums()[b.id]));   // кнопка «JPEG» у своей заставки неактивна
+      splashPanelRefresh();   // строка «на фоне серии» (этап 10.9.3) появляется и пропадает
     };
     const sw = (label, on, fn) => h('label', { class:'switch' },
       h('input', { type:'checkbox', checked:on, onchange:e => { fn(e.target.checked); change(); all(); } }), h('span', { class:'sw' }), label);
@@ -667,7 +678,7 @@ const BODY = {
       h('div', { class:'own-splash' },
         h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Заставка' })),
         h('div', { class:'toggle splash-mode', role:'group', 'aria-label':'Заставка' }, SPLASH_MODES.map(([k, t]) =>
-          h('button', { type:'button', class:'sm-' + k + (k === splashMode() ? ' on' : ''), 'aria-pressed':String(k === splashMode()),
+          h('button', { type:'button', class:'sm-' + k + (k === splashOwnMode() ? ' on' : ''), 'aria-pressed':String(k === splashOwnMode()),
             onclick:e => { splashModeSet(k, all); e.currentTarget.parentNode.querySelectorAll('button').forEach(x => { const on = x === e.currentTarget; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }); } }, t))),
         spic));
   },

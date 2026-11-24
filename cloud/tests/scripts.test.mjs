@@ -177,6 +177,23 @@ describe('корзина (этап 9.1)', () => {
     assert.equal((await db.doc('spaces/tp/sermons/fresh').get()).exists, false);
     assert.throws(() => run('admin.mjs', 'purge-trash', '--days', '0'));
   });
+  test('purge-trash стирает картинки фона заставки, на которые не ссылается ни одна серия (этап 10.9.3)', async () => {
+    const pic = (hours) => ({ img: Buffer.alloc(100, 1), w: 10, h: 10, updatedAt: Timestamp.fromMillis(Date.now() - hours * 3600000), updatedBy: 'x@y.z' });
+    await db.doc('spaces/ts').set({ name: 'Серии', settings: {} });
+    await db.doc('spaces/ts/config/series').set({ series: {
+      a: { name: 'А', active: true, format: '', splash: { mode: 'bg', imageId: 'sused', imgW: 10, imgH: 10, dim: 30 } },
+      b: { name: 'Б', active: true, format: '' } }, updatedAt: Timestamp.now(), updatedBy: 'x@y.z' });
+    for (const id of ['sused', 'sold']) await db.doc('spaces/ts/seriesImages/' + id).set(pic(48));
+    await db.doc('spaces/ts/seriesImages/snow').set(pic(1));         // свежая: серию с ней ещё не сохранили
+    await db.doc('spaces/tgone/seriesImages/sleft').set(pic(48));    // пространства уже нет, картинка осталась
+    const dry = run('admin.mjs', 'purge-trash', '--dry-run');
+    assert.match(dry, /Картинок фона без серии: 2/);
+    assert.ok((await db.doc('spaces/ts/seriesImages/sold').get()).exists);
+    const out = run('admin.mjs', 'purge-trash');
+    assert.match(out, /Картинок фона без серии удалено: 2/);
+    for (const p of ['spaces/ts/seriesImages/sold', 'spaces/tgone/seriesImages/sleft']) assert.equal((await db.doc(p).get()).exists, false, p);
+    for (const p of ['spaces/ts/seriesImages/sused', 'spaces/ts/seriesImages/snow']) assert.ok((await db.doc(p).get()).exists, p);
+  });
 });
 
 describe('бэкап и восстановление', () => {

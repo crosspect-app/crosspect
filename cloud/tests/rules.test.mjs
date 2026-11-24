@@ -1465,6 +1465,76 @@ describe('картинки конспекта (этап 10.9.1)', () => {
   });
 });
 
+describe('фон заставки серий (этап 10.9.3)', () => {
+  const bytes = (n) => Bytes.fromUint8Array(new Uint8Array(n).fill(7));
+  const SG = (db, s, img = 's1') => doc(db, 'spaces', s, 'seriesImages', img);
+  const pic = (who, extra = {}) => ({
+    img: bytes(1000), w: 1600, h: 900, updatedAt: serverTimestamp(), updatedBy: PEOPLE[who], ...extra,
+  });
+  async function putImage(s, img = 's1') {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(SG(ctx.firestore(), s, img), { img: bytes(500), w: 10, h: 10, updatedAt: minutesAgo(5), updatedBy: PEOPLE.ed });
+    });
+  }
+  test('редактор и админ кладут, читают и стирают', async () => {
+    await assertSucceeds(setDoc(SG(as('ed'), 'sw'), pic('ed')));
+    await assertSucceeds(getDoc(SG(as('ed'), 'sw')));
+    await assertSucceeds(setDoc(SG(as('admin'), 'closed', 's2'), pic('admin')));   // админ — в любом пространстве
+    await assertSucceeds(deleteDoc(SG(as('admin'), 'sw')));
+    await assertSucceeds(deleteDoc(SG(as('ed'), 'closed', 's2')));
+  });
+  test('автор читает (заставку рисует и он), но не кладёт и не стирает; в закрытом пространстве — тоже читает', async () => {
+    await putImage('sw');
+    await putImage('closed');
+    await assertSucceeds(getDoc(SG(as('ivan'), 'sw')));
+    await assertSucceeds(getDoc(SG(as('petr'), 'closed')));
+    await assertFails(setDoc(SG(as('ivan'), 'sw', 's9'), pic('ivan')));
+    await assertFails(deleteDoc(SG(as('ivan'), 'sw')));
+  });
+  test('посторонний, оператор и гость не читают и не пишут', async () => {
+    await putImage('sw');
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'spaces', 'sw', 'members', 'op@example.com'), { email: 'op@example.com', role: 'operator' });
+    });
+    const op = env.authenticatedContext('op', { email: 'op@example.com', email_verified: true }).firestore();
+    for (const db of [as('stranger'), op, anon()]) {
+      await assertFails(getDoc(SG(db, 'sw')));
+      await assertFails(setDoc(SG(db, 'sw', 's9'), pic('stranger')));
+      await assertFails(deleteDoc(SG(db, 'sw')));
+    }
+  });
+  test('размер, поля, время сервера, своя почта, имя', async () => {
+    const db = as('ed');
+    await assertFails(setDoc(SG(db, 'sw'), pic('ed', { img: bytes(921601) })));
+    await assertFails(setDoc(SG(db, 'sw'), pic('ed', { img: bytes(0) })));
+    await assertFails(setDoc(SG(db, 'sw'), pic('ed', { img: 'текст' })));
+    await assertFails(setDoc(SG(db, 'sw'), pic('ed', { w: 0 })));
+    await assertFails(setDoc(SG(db, 'sw'), pic('ed', { h: 4001 })));
+    await assertFails(setDoc(SG(db, 'sw'), pic('ed', { w: 1.5 })));
+    await assertFails(setDoc(SG(db, 'sw'), pic('ed', { updatedAt: minutesAgo(1) })));
+    await assertFails(setDoc(SG(db, 'sw'), pic('ed', { updatedBy: PEOPLE.admin })));
+    await assertFails(setDoc(SG(db, 'sw'), pic('ed', { extra: 1 })));
+    const { h, ...noH } = pic('ed');
+    await assertFails(setDoc(SG(db, 'sw'), noH));
+    await assertFails(setDoc(SG(db, 'sw', 'Bad Id'), pic('ed')));
+    await assertSucceeds(setDoc(SG(db, 'sw', 'sa1b2-c3'), pic('ed', { img: bytes(921600) })));
+  });
+  test('картинка не меняется; списка нет', async () => {
+    await putImage('sw');
+    const db = as('ed');
+    await assertFails(updateDoc(SG(db, 'sw'), { w: 20, updatedAt: serverTimestamp(), updatedBy: PEOPLE.ed }));
+    await assertFails(setDoc(SG(db, 'sw'), pic('ed')));
+    await assertFails(getDocs(collection(db, 'spaces', 'sw', 'seriesImages')));
+    await assertFails(getDocs(collection(as('admin'), 'spaces', 'sw', 'seriesImages')));
+  });
+  test('серия ссылается на картинку: config/series со splash пишет редактор, автор — нет', async () => {
+    const series = { s1: { name: 'Псалмы', active: true, format: '', splash: { mode: 'bg', imageId: 's1', imgW: 1600, imgH: 900, dim: 30 } } };
+    const data = (who) => ({ series, updatedAt: serverTimestamp(), updatedBy: PEOPLE[who] });
+    await assertSucceeds(setDoc(doc(as('ed'), 'spaces', 'sw', 'config', 'series'), data('ed')));
+    await assertFails(setDoc(doc(as('ivan'), 'spaces', 'sw', 'config', 'series'), data('ivan')));
+  });
+});
+
 describe('всё остальное закрыто', () => {
   test('посторонние коллекции', async () => {
     await assertFails(setDoc(doc(as('admin'), 'anything', 'x'), { a: 1 }));

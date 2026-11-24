@@ -64,14 +64,33 @@ function normTextBox(t){
    'full' — «Картинка целиком» (бывшая «Своя заставка»): без картинки — серая заглушка, в архив JPEG не идёт; с картинкой (state.settings.customSplashImage
    { imageId, imgW, imgH }, slideimages.js) форма рисует её сама на весь слайд. «Свой фон» без картинки рисуется как «Обычная» */
 const SPLASH_DIM_MAX = 70, SPLASH_DIM_DEF = 30;
-const splashMode = () => { const m = state && state.settings ? state.settings.splashMode : ''; return m === 'bg' || m === 'full' ? m : 'normal'; };
-const isCustomSplash = b => !!b && b.type === 'splash' && splashMode() === 'full';
-const isBgSplash = b => !!b && b.type === 'splash' && !b.meta && splashMode() === 'bg' && typeof splashImage === 'function' && !!splashImage();
-/* Затемнение картинки «Свой фон», 0…70 (%): у проповеди одно на все заставки */
-function splashDim(){
+const splashDimOk = v => Number.isInteger(v) && v >= 0 && v <= SPLASH_DIM_MAX;
+/* Свой режим и затемнение конспекта (то, что выбрано в панели заставки) */
+const splashOwnMode = () => { const m = state && state.settings ? state.settings.splashMode : ''; return m === 'bg' || m === 'full' ? m : 'normal'; };
+function splashOwnDim(){
   const v = state && state.settings ? state.settings.splashDim : undefined;
-  return Number.isInteger(v) && v >= 0 && v <= SPLASH_DIM_MAX ? v : SPLASH_DIM_DEF;
+  return splashDimOk(v) ? v : SPLASH_DIM_DEF;
 }
+/* Фон заставки серии (этап 10.9.3): SERIES[id].splash { mode:'bg'|'full', imageId, imgW, imgH, dim } (space.js, normSplash).
+   Какой фон у заставки: свой у конспекта (режим «Свой фон» / «Картинка целиком» и своя картинка) → у серии → как раньше.
+   splashEff() — { from:'own'|'series'|'', mode, img, dim }; from:'series' — заставка на фоне серии, img — её картинка */
+const splashSeries = () => {
+  const id = state && state.meta && state.meta.series, x = id && typeof SERIES !== 'undefined' && SERIES[id];
+  return x && x.splash ? Object.assign({ seriesId:id, seriesName:x.name }, x.splash) : null;
+};
+function splashEff(){
+  const m = splashOwnMode(), own = typeof splashOwnImage === 'function' ? splashOwnImage() : null;
+  if (m !== 'normal' && own) return { from:'own', mode:m, img:own, dim:splashOwnDim() };
+  const s = splashSeries();
+  if (s) return { from:'series', mode:s.mode, img:{ imageId:s.imageId, imgW:s.imgW, imgH:s.imgH }, dim:s.dim, series:s };
+  return { from:'', mode:m, img:null, dim:splashOwnDim() };
+}
+/* Действующие режим, картинка и затемнение — их рисуют сцена, лента, показ, JPEG, PowerPoint и PDF */
+const splashMode = () => splashEff().mode;
+const splashImage = () => splashEff().img;
+const splashDim = () => splashEff().dim;
+const isCustomSplash = b => !!b && b.type === 'splash' && splashMode() === 'full';
+const isBgSplash = b => !!b && b.type === 'splash' && !b.meta && splashMode() === 'bg' && !!splashImage();
 /* «Нижняя строка» заставки (линия, имя и дата): у проповеди своя (state.settings.splashFoot), пока не меняли — как в настройках слайдов пространства.
    b.meta — пример в окне настроек слайдов: там всегда по настройкам */
 function splashFootOn(b){
@@ -266,7 +285,7 @@ function normalize(d){
   const sm = d.settings && d.settings.splashMode;
   if (sm === 'bg' || sm === 'full') s.settings.splashMode = sm;
   else if ((d.settings && d.settings.customSplash) || (d.blocks || []).some(b => b && b.type === 'splash' && b.custom)) s.settings.splashMode = 'full';
-  if (d.settings && Number.isInteger(d.settings.splashDim) && d.settings.splashDim >= 0 && d.settings.splashDim <= SPLASH_DIM_MAX) s.settings.splashDim = d.settings.splashDim;
+  if (d.settings && splashDimOk(d.settings.splashDim)) s.settings.splashDim = d.settings.splashDim;
   if (d.settings && typeof d.settings.splashFoot === 'boolean') s.settings.splashFoot = d.settings.splashFoot;
   // этап 10.9.1.1: картинка своей заставки — одна на все заставки; лежит в облаке рядом с конспектом (slideImages), как у блока «Картинка»
   const ci = d.settings && d.settings.customSplashImage, cdim = v => Number.isInteger(v) && v > 0 && v <= 4000;

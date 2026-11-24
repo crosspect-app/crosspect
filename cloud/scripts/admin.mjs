@@ -15,7 +15,8 @@
 //                                                         в корзине дольше --days дней (со сводкой, отметками редактора
 //                                                         и снимком для оператора). Ночью — из crosspect-backup после копии.
 //                                                         Заодно (этап 10.9.1) стирает «сирот» — картинки слайдов, на которые
-//                                                         не ссылается ни конспект, ни его история, старше --orphan-hours (24)
+//                                                         не ссылается ни конспект, ни его история, старше --orphan-hours (24),
+//                                                         и (этап 10.9.3) картинки фона заставки, на которые не ссылается ни одна серия
 //   node scripts/admin.mjs list
 import { FieldValue } from 'firebase-admin/firestore';
 import { connect, args, fail } from './lib.mjs';
@@ -183,6 +184,25 @@ if (cmd === 'create-space') {
     }
   }
   console.log(dry ? `Картинок без слайда: ${orphans}` : `Картинок без слайда удалено: ${orphans}`);
+
+  // Фон заставки серий (этап 10.9.3): spaces/{s}/seriesImages нужна, пока на неё ссылается серия (config/series, series[id].splash.imageId).
+  // Форма стирает прежнюю картинку сама после «Сохранить»; здесь — то, что не стёрлось (обрыв связи, закрытая вкладка, удалённое пространство)
+  let serOrphans = 0;
+  for (const sp of await db.collection('spaces').listDocuments()) {   // и удалённые пространства, у которых что-то осталось внутри
+    const pics = await sp.collection('seriesImages').select('updatedAt').get();
+    if (pics.empty) continue;
+    const used = new Set(), ser = await sp.collection('config').doc('series').get();
+    const map = (ser.exists && ser.get('series')) || {};
+    Object.values(map).forEach((x) => { if (x && x.splash && typeof x.splash.imageId === 'string') used.add(x.splash.imageId); });
+    for (const p of pics.docs) {
+      const at = p.get('updatedAt');
+      if (used.has(p.id) || (at && at.toMillis && at.toMillis() > fresh)) continue;
+      console.log(`${sp.id}: картинка фона серии ${p.id} — ни у одной серии` + (dry ? ' (только проверка, не удалена)' : ''));
+      if (!dry) await p.ref.delete();
+      serOrphans++;
+    }
+  }
+  console.log(dry ? `Картинок фона без серии: ${serOrphans}` : `Картинок фона без серии удалено: ${serOrphans}`);
 } else if (cmd === 'list') {
   const admins = await db.collection('admins').get();
   console.log('Админы всей формы: ' + (admins.empty ? 'нет' : admins.docs.map((d) => d.id).join(', ')));

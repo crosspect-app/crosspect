@@ -321,7 +321,7 @@ function openMeta(){
   const err = h('span', { class:'meta-err', role:'alert' });
   const grid = h('div', { class:'set-grid', title:'Название, автор и дата попадают на заставку' },
     titleF, dateField(m, upd), authorF,
-    seriesField(m, () => { upd(); refreshSlides(); if (fmt && fmt._refresh) fmt._refresh(); }),
+    seriesField(m, () => { upd(); refreshSlides(); refreshSplashAll(); if (fmt && fmt._refresh) fmt._refresh(); }),   // у серии бывает свой фон заставки (этап 10.9.3)
     fmt);
   let shown = false;   // ошибку показали: дальше она обновляется на ходу
   const check = show => {

@@ -26,6 +26,7 @@ rules_version = '2';
 //                                    в одной записи с проповедью и совпадает с ней
 //   spaces/{s}/config/slides         настройки слайдов пространства: видят все, правят админ и редактор
 //   spaces/{s}/config/series         серии проповедей (этап 10): видят все, правят админ и редактор
+//   spaces/{s}/seriesImages/{img}    картинка фона заставки серии (этап 10.9.3): видят все, кладут и стирают админ и редактор
 //   spaces/{s}/config/operators      операторы этапа 10.1; с этапа 10.1.2 — люди с ролью operator. Форма переносит
 //                                    их в members и удаляет документ; писать сюда больше нельзя
 //   people/{email}/prefs/screen      раскладка экрана у человека: видит и правит только он сам
@@ -197,6 +198,22 @@ service cloud.firestore {
           && request.resource.data.updatedAt == request.time
           && request.resource.data.updatedBy == me();
         allow delete: if isAdmin() || (isEditor(s) && doc == 'operators');
+      }
+
+      // ---------- фон заставки серий (этап 10.9.3) ----------
+      // seriesImages/{img} — картинка фона заставки серии: { img (WebP, Bytes ≤ 900 КБ), w, h, updatedAt, updatedBy }.
+      // Ссылка на неё — в config/series (series[id].splash). Читают все участники (заставку рисует и автор),
+      // кладут и стирают админ и редактор — те же, кто правит серии. Картинка не меняется: замена — новая запись; списка нет.
+      match /seriesImages/{img} {
+        allow get: if isMember(s);
+        allow create: if isEditor(s) && img.matches('[a-z0-9-]{1,60}')
+          && request.resource.data.keys().hasAll(['img', 'w', 'h', 'updatedAt', 'updatedBy'])
+          && request.resource.data.keys().hasOnly(['img', 'w', 'h', 'updatedAt', 'updatedBy'])
+          && request.resource.data.img is bytes && request.resource.data.img.size() > 0 && request.resource.data.img.size() <= 921600
+          && request.resource.data.w is int && request.resource.data.w > 0 && request.resource.data.w <= 4000
+          && request.resource.data.h is int && request.resource.data.h > 0 && request.resource.data.h <= 4000
+          && request.resource.data.updatedAt == request.time && request.resource.data.updatedBy == me();
+        allow delete: if isEditor(s);
       }
 
       // ---------- проповеди ----------

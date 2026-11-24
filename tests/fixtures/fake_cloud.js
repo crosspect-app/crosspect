@@ -252,7 +252,7 @@
       if (!u || !isAdmin(u.email)) throw denied();
       const n = Object.keys(x.sermons).length;
       if (n) throw fail('not-empty', 'В пространстве есть конспекты', { count:n });
-      if (x === db){ db.space = null; db.members = {}; db.series = {}; delete db.slides; }   // первое пространство лежит в корне
+      if (x === db){ db.space = null; db.members = {}; db.series = {}; delete db.slides; delete db.seriesImages; }   // первое пространство лежит в корне
       else delete db.spaces[space];
       store(db); notify();
     },
@@ -352,6 +352,28 @@
     async removeSlideImages(space, id, ids){
       offline(); const db = load(), x = S(db, space), m = (x.slideImages || {})[id] || {};
       ids.forEach(i => delete m[i]); store(db);
+    },
+    /* Фон заставки серии (этап 10.9.3): x.seriesImages[id картинки] = { img (base64), w, h, updatedBy }; читают участники, пишут админ и редактор */
+    async putSeriesImage(who, space, img, bytes, w, h){
+      calls.putSeriesImage = (calls.putSeriesImage || 0) + 1; offline();
+      const db = load(), x = S(db, space);
+      if (!isEditor(x, who.email)) throw denied();
+      if (bytes.length > 921600 || !/^[a-z0-9-]{1,60}$/.test(img)) throw fail('invalid-argument', 'bad image');
+      x.seriesImages = x.seriesImages || {};
+      if (x.seriesImages[img]) throw denied();
+      x.seriesImages[img] = { img:toB64(bytes), w, h, updatedBy:who.email };
+      store(db);
+    },
+    async seriesImage(space, img){
+      calls.seriesImage = (calls.seriesImage || 0) + 1; offline();
+      const r = (S(load(), space).seriesImages || {})[img];
+      return r ? { bytes:fromB64(r.img), w:r.w, h:r.h } : null;
+    },
+    async removeSeriesImages(space, ids){
+      calls.removeSeriesImages = (calls.removeSeriesImages || 0) + 1; offline();
+      const db = load(), x = S(db, space), u = me();
+      if (!u || !isEditor(x, u.email)) throw denied();
+      ids.forEach(i => delete (x.seriesImages || {})[i]); store(db);
     },
     /* Настройки экрана человека (этап 7.2): у каждой почты своя запись */
     async getPrefs(who){ offline(); const db = load(); const p = (db.prefs || {})[who.email]; return p ? JSON.parse(JSON.stringify(p)) : null; },

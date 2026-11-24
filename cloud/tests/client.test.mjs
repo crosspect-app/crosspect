@@ -984,7 +984,8 @@ describe('пространства, люди и серии (этап 10)', () =>
     const sp = await admin.createSpace(me('admin@x.pl'), 'На удаление');
     await admin.addMember(sp.id, me('admin@x.pl'), { email: 'ed2@x.pl', role: 'editor' });
     await admin.addMember(sp.id, me('admin@x.pl'), { role: 'operator', firstName: 'Оп', tg: 'op_user1' });
-    await admin.setSeries(sp.id, me('admin@x.pl'), { a1: { name: 'Псалмы', active: true, format: '' } });
+    await admin.putSeriesImage(me('admin@x.pl'), sp.id, 'sbg1', new Uint8Array(50).fill(3), 10, 10);   // фон заставки серии (этап 10.9.3)
+    await admin.setSeries(sp.id, me('admin@x.pl'), { a1: { name: 'Псалмы', active: true, format: '', splash: { mode: 'bg', imageId: 'sbg1', imgW: 10, imgH: 10, dim: 30 } } });
     const ed2 = await client('ed2@x.pl');
     const s = sermon('del1', 'Мешает');
     s.meta.series = 'a1';
@@ -999,6 +1000,18 @@ describe('пространства, люди и серии (этап 10)', () =>
     assert.equal(await raw('spaces/' + sp.id), null);
     assert.equal(await raw('spaces/' + sp.id + '/members/ed2@x.pl'), null);
     assert.equal(await raw('spaces/' + sp.id + '/config/series'), null);
+    assert.equal(await raw('spaces/' + sp.id + '/seriesImages/sbg1'), null);   // картинка серии — вместе с пространством
+  });
+  test('фон заставки серии (этап 10.9.3): кладёт редактор, читает автор, автор не кладёт; стирает редактор', async () => {
+    const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');
+    const bytes = new Uint8Array(200).fill(9);
+    await admin.putSeriesImage(me('admin@x.pl'), 'sp1', 'sfon1', bytes, 1600, 900);
+    const got = await ivan.seriesImage('sp1', 'sfon1');
+    assert.deepEqual([got.w, got.h, got.bytes.length, got.bytes[0]], [1600, 900, 200, 9]);
+    assert.equal(await ivan.seriesImage('sp1', 'nope'), null);
+    await assert.rejects(ivan.putSeriesImage(me('ivan@x.pl'), 'sp1', 'sfon2', bytes, 10, 10));
+    await admin.removeSeriesImages('sp1', ['sfon1', 'missing']);   // уже стёртые не мешают
+    assert.equal(await raw('spaces/sp1/seriesImages/sfon1'), null);
   });
   test('серии: пишет админ, автор читает и ставит серию в свой конспект; серия — в сводке', async () => {
     const admin = await client('admin@x.pl'), ivan = await client('ivan@x.pl');

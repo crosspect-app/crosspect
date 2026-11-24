@@ -84,6 +84,13 @@ const openTgProfile = tg => window.open('https://t.me/' + encodeURIComponent(tg)
 
 /* ----- Серии ----- */
 const seriesCacheKey = sp => 'swp-series-cache:' + (sp || '');
+/* Фон заставки серии (этап 10.9.3): { mode:'bg' (свой фон, название поверх) | 'full' (картинка целиком), imageId, imgW, imgH, dim (0–70 %) };
+   картинка — spaces/{s}/seriesImages/{imageId}. Неполный или битый — как будто его нет */
+function normSplash(x){
+  const d = v => Number.isInteger(v) && v > 0 && v <= 4000;
+  if (!x || typeof x !== 'object' || typeof x.imageId !== 'string' || !PIC_ID_RE.test(x.imageId) || !d(x.imgW) || !d(x.imgH)) return null;
+  return { mode:x.mode === 'full' ? 'full' : 'bg', imageId:x.imageId, imgW:x.imgW, imgH:x.imgH, dim:splashDimOk(x.dim) ? x.dim : SPLASH_DIM_DEF };
+}
 function normSeries(m){
   const out = {};
   if (!m || typeof m !== 'object' || Array.isArray(m)) return out;
@@ -91,18 +98,25 @@ function normSeries(m){
     const x = m[id];
     if (!id || !x || typeof x !== 'object' || !normName(x.name)) return;
     out[id] = { name:normName(x.name).slice(0, 100), active:x.active !== false, format:typeof x.format === 'string' ? x.format : '' };
+    const sp = normSplash(x.splash);
+    if (sp) out[id].splash = sp;
   });
   return out;
 }
+const seriesSplashKey = map => JSON.stringify(Object.keys(map || {}).sort().map(id => [id, map[id].splash || null]));
 function setSeriesData(map, fromCache){
+  const before = seriesSplashKey(SERIES);
   SERIES = normSeries(map);
+  picSeriesReg(SERIES, cloud.space);
   if (!fromCache) LS.set(seriesCacheKey(cloud.space), JSON.stringify(SERIES));
   if (typeof refreshSlides === 'function') refreshSlides();   // фон проповеди зависит от формата серии
+  if (before !== seriesSplashKey(SERIES) && typeof refreshSplashAll === 'function') refreshSplashAll();   // и фон заставки (этап 10.9.3)
   if (screen === 'home' && cloudOn()) renderHomeList();
 }
 function loadSeriesCache(sp){
   let m = null; try { m = JSON.parse(LS.get(seriesCacheKey(sp)) || 'null'); } catch(e){}
   SERIES = normSeries(m);
+  picSeriesReg(SERIES, sp);
 }
 /* Название серии проповеди: пусто — «Свободная тема»; серии нет в таблице (ещё не пришла или удалена) — пусто */
 const seriesName = id => !id ? FREE_SERIES : SERIES[id] ? SERIES[id].name : '';
@@ -200,7 +214,7 @@ function spwSelect(id, tab){
   const me = SPW = { id, tab:keep, people:null, series:null, slides:undefined, usage:null, off:[] };
   const live = () => SPW === me, api = cloud.api;
   me.off.push(api.watchMembers(id, list => { if (live()){ me.people = sortPeople(list); renderSpaceSheet(); } }, () => {}));
-  me.off.push(api.watchSeries(id, m => { if (live()){ me.series = normSeries(m); renderSpaceSheet(); } }, () => {}));
+  me.off.push(api.watchSeries(id, m => { if (live()){ me.series = normSeries(m); picSeriesReg(me.series, id); renderSpaceSheet(); } }, () => {}));
   if (id !== cloud.space){
     if (api.watchSlides) me.off.push(api.watchSlides(id, cfg => { if (live()){ me.slides = cfg || null; renderSpaceSheet(); } }, () => {}));
     if (api.spaceUsage) api.spaceUsage(id).then(u => { if (live()){ me.usage = u; renderSpaceSheet(); } }, () => {});
@@ -282,15 +296,26 @@ function spDirty(){
 }
 /* Уйти из правки: изменений нет или человек согласился их выбросить */
 function spLeave(){
-  if (!spDirty()) { if (SPW) SPW.edit = null; return true; }
+  if (!spDirty()) { spDropEdit(); return true; }
   if (!confirm('Изменения в таблице не сохранены. Выйти без сохранения?')) return false;
-  SPW.edit = null;
+  spDropEdit();
   return true;
+}
+/* Выйти из правки без сохранения: картинки фона заставки, загруженные за эту правку, стираются (этап 10.9.3) */
+function spDropEdit(){
+  if (!SPW) return;
+  const E = SPW.edit;
+  SPW.edit = null;
+  if (E && E.uploaded && E.uploaded.size) seriesPicsGone(SPW.id, [...E.uploaded]);
+}
+/* Стереть картинки серий; не вышло — ночная уборка (admin.mjs purge-trash) уберёт их сама */
+function seriesPicsGone(sp, ids){
+  if (ids.length && cloud.api.removeSeriesImages) cloud.api.removeSeriesImages(sp, ids).catch(() => {});
 }
 function spStartEdit(tab){
   if (tab === 'series'){
     const base = clone(SPW.series || {});
-    SPW.edit = { tab, base, draft:clone(base), order:seriesList(base).map(x => x.id), err:{} };
+    SPW.edit = { tab, base, draft:clone(base), order:seriesList(base).map(x => x.id), err:{}, open:'', busy:null, uploaded:new Set() };
   } else {
     SPW.edit = { tab, rows:(SPW.people || []).map(p => Object.assign(clone(p), { orig:clone(p) })), err:{} };
   }
@@ -434,16 +459,17 @@ function seriesTable(){
   const sid = SPW.id, cfg = spwCfg(), use = seriesUse(), edit = spEditing('series'), E = SPW.edit;
   const fmtName = id => id && (id === SYSTEM_FORMAT || cfg.formats[id]) ? formatName(id, cfg) : 'По умолчанию';
   const useText = id => { const n = use ? use[id] || 0 : null; return n == null ? '…' : n ? String(n) : '—'; };
-  const head = h('div', { class:'sp-row sp-head', role:'row' }, ['Название', 'Активна', 'Формат фона', 'В конспектах', ''].map(t => h('span', { role:'columnheader', text:t })));
+  const head = h('div', { class:'sp-row sp-head', role:'row' }, ['Название', 'Активна', 'Формат фона', 'В конспектах', 'Фон заставки', ''].map(t => h('span', { role:'columnheader', text:t })));
   const free = h('div', { class:'sp-row sp-fixed', role:'row', title:'Встроенная серия: у проповедей без серии. Её нельзя изменить' },
-    h('span', { class:'sp-name', text:FREE_SERIES }), h('span', { class:'muted', text:'Всегда' }), h('span', { class:'muted', text:'По умолчанию' }), h('span', { class:'muted', text:'—' }), h('span'));
+    h('span', { class:'sp-name', text:FREE_SERIES }), h('span', { class:'muted', text:'Всегда' }), h('span', { class:'muted', text:'По умолчанию' }), h('span', { class:'muted', text:'—' }),
+    h('span', { class:'muted', text:'Обычный' }), h('span'));
   let rows;
   if (!edit){
     rows = seriesList(map).map(x => h('div', { class:'sp-row', role:'row', 'data-id':x.id },
       h('span', { class:'sp-cell sp-name', text:x.name }),
       h('span', { class:'sp-state' + (x.active ? ' on' : ''), text:x.active ? 'Активна' : 'Выключена' }),
       h('span', { class:'sp-cell', text:fmtName(x.format) }),
-      h('span', { class:'sp-cell muted', text:useText(x.id) }), h('span')));
+      h('span', { class:'sp-cell muted', text:useText(x.id) }), splashCell(x.splash), h('span')));
   } else {
     const fmtSel = x => h('label', { class:'hf-sel' }, h('select', { 'aria-label':'Формат фона', onchange:e => { x.format = e.target.value; } },
       [['', 'По умолчанию']].concat(formatList(cfg).map(f => [f.id, f.name])).map(([v, t]) => h('option', { value:v, text:t, selected:v === (x.format && (x.format === SYSTEM_FORMAT || cfg.formats[x.format]) ? x.format : '') }))), ic('down'));
@@ -456,10 +482,14 @@ function seriesTable(){
     };
     rows = E.order.filter(id => E.draft[id]).map(id => {
       const x = E.draft[id];
+      const open = E.open === id;
+      const splBtn = h('button', { type:'button', class:'btn ghost small sp-spl-btn' + (open ? ' on' : ''), 'aria-expanded':String(open), title:'Фон заставки серии',
+        onclick:() => { E.open = open ? '' : id; drawSpace(); } }, splashCellKids(x.splash, true));
       return h('div', { class:'sp-row' + (E.base[id] ? '' : ' sp-new'), role:'row', 'data-id':id },
         h('input', { class:'input', value:x.name, maxlength:'100', placeholder:'Название серии', 'aria-label':'Название серии', autocomplete:'off', oninput:e => { x.name = e.target.value; } }),
         sw('Активна', x.active, on => { x.active = on; }),
-        fmtSel(x), h('span', { class:'sp-cell muted', text:E.base[id] ? useText(id) : '—' }), delBtn(id), errLine(E.err[id]));
+        fmtSel(x), h('span', { class:'sp-cell muted', text:E.base[id] ? useText(id) : '—' }), splBtn, delBtn(id),
+        open ? splashEditor(sid, id, x) : null, errLine(E.err[id]));
     });
     rows.push(h('div', { class:'sp-row sp-addline', role:'row' }, h('button', { type:'button', class:'btn ghost small sp-addrow', onclick:() => {
       const id = newSeriesId(Object.assign({}, SPW.series, E.draft));
@@ -470,7 +500,7 @@ function seriesTable(){
     } }, ic('plus'), 'Добавить серию')));
   }
   return h('div', { class:'sp-body' },
-    spBar('series', 'Серию выбирают в «О проповеди». Фон слайдов проповеди — формат её серии. Выключенная серия остаётся в прошлых проповедях, но выбрать её больше нельзя.'),
+    spBar('series', 'Серию выбирают в «О проповеди». Фон слайдов проповеди — формат её серии, заставка — на фоне заставки серии, если у конспекта нет своей картинки. Выключенная серия остаётся в прошлых проповедях, но выбрать её больше нельзя.'),
     h('div', { class:'sp-table sp-series' + (edit ? ' editing' : ''), role:'table', 'aria-label':'Серии проповедей' }, head, free, rows),
     spFoot('series', () => saveSeries(sid)));
 }
@@ -490,13 +520,81 @@ async function saveSeries(sid){
     seen.add(k);
   });
   if (Object.keys(E.err).length){ drawSpace(); return; }
-  const next = clone(SPW.series || {});
+  if (E.busy){ toast('Картинка ещё загружается. Подождите пару секунд.'); return; }
+  const next = clone(SPW.series || {}), had = splashIds(next);
   Object.keys(E.base).forEach(id => { if (!E.draft[id]) delete next[id]; });
-  E.order.forEach(id => { next[id] = Object.assign({}, next[id], E.draft[id]); });
+  E.order.forEach(id => {
+    const d = E.draft[id];
+    next[id] = Object.assign({}, next[id], d);
+    if (!d.splash && E.base[id] && E.base[id].splash) delete next[id].splash;   // фон заставки убрали в этой правке
+  });
   if (!(await writeSeries(sid, next))) return;
+  // картинки, на которые больше никто не ссылается: прежние фоны (замена, удаление, удалённая серия) и загруженные, но не оставленные
+  const keep = splashIds(next);
+  seriesPicsGone(sid, [...new Set([...had, ...E.uploaded])].filter(i => !keep.has(i)));
   SPW.edit = null;
   toast('Сохранено');
   drawSpace();
+}
+const splashIds = map => new Set(Object.keys(map || {}).map(id => map[id] && map[id].splash && map[id].splash.imageId).filter(Boolean));
+
+/* ----- Фон заставки серии (этап 10.9.3) ----- */
+const SPLASH_SERIES_MODES = [['bg', 'Свой фон'], ['full', 'Картинка целиком']];
+const splashText = x => !x ? 'Обычный' : x.mode === 'full' ? 'Картинка целиком' : 'Свой фон, ' + x.dim + ' %';
+/* Миниатюра картинки серии: пока качается — пустая рамка */
+function splashThumb(imageId){
+  const im = h('img', { class:'sp-spl-thumb', alt:'' });
+  picImage(imageId).then(x => { im.src = x.src; }, () => { im.classList.add('err'); im.title = picErr.get(imageId) || 'Картинка не загрузилась'; });
+  return im;
+}
+function splashCellKids(x, edit){
+  if (!x) return [h('span', { class:edit ? '' : 'muted', text:edit ? 'Добавить' : 'Обычный' })];
+  return [splashThumb(x.imageId), h('span', { class:'sp-spl-txt', text:splashText(x) })];
+}
+const splashCell = x => h('span', { class:'sp-cell sp-spl' }, splashCellKids(x, false));
+/* Под строкой серии в правке: загрузить / заменить / удалить картинку, режим и затемнение. Картинка уходит в облако сразу
+   (spaces/{s}/seriesImages), а в серию — по «Сохранить»; «Отменить» стирает загруженное */
+function splashEditor(sid, id, x){
+  const E = SPW.edit, busy = E.busy && E.busy.id === id ? E.busy.st : '', cur = x.splash;
+  const pick = (label, cls) => h('button', { type:'button', class:'btn small ' + cls, disabled:E.busy ? true : null, onclick:() => splashSeriesPick(sid, id) }, label);
+  const kids = [h('p', { class:'hint', text:'Заставки конспектов этой серии будут на этом фоне. У конспекта со своей картинкой заставки — своя.' })];
+  if (busy) kids.push(h('p', { class:'hint pic-busy', role:'status', text:busy === 'prep' ? 'Готовлю картинку…' : 'Загружаю в облако…' }));
+  kids.push(h('div', { class:'pic-acts' }, cur ? pick('Заменить картинку', 'sp-spl-replace') : pick('Загрузить картинку', 'primary sp-spl-pick'),
+    cur && h('button', { type:'button', class:'btn small sp-spl-del', disabled:E.busy ? true : null, onclick:() => { delete x.splash; drawSpace(); } }, 'Удалить картинку')));
+  if (cur){
+    const t = toggle(SPLASH_SERIES_MODES, cur.mode, v => { cur.mode = v; drawSpace(); });
+    t.classList.add('sp-spl-mode');
+    kids.push(h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:'Заставка' }), t));
+    if (cur.mode === 'bg'){
+      const val = h('span', { class:'ph-val', text:cur.dim + ' %' });
+      kids.push(h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:'Затемнение' }),
+        h('input', { type:'range', class:'ph-range sp-spl-dim', min:0, max:SPLASH_DIM_MAX, step:1, value:cur.dim, 'aria-label':'Затемнение',
+          oninput:e => { cur.dim = +e.target.value; val.textContent = cur.dim + ' %'; },
+          onchange:() => { const t2 = settingsOverlay.querySelector('.sp-series .sp-row[data-id="' + id + '"] .sp-spl-txt'); if (t2) t2.textContent = splashText(cur); } }), val));
+    }
+  }
+  return h('div', { class:'sp-spl-edit' }, kids);
+}
+function splashSeriesPick(sid, id){
+  if (SPW.edit && SPW.edit.busy) return;
+  const inp = h('input', { type:'file', accept:'image/jpeg,image/png,image/webp', style:'display:none' });
+  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; inp.remove(); if (f) splashSeriesUpload(sid, id, f); });
+  document.body.append(inp); inp.click();
+}
+async function splashSeriesUpload(sid, id, file){
+  const E = SPW && SPW.edit;
+  if (!E || E.tab !== 'series' || E.busy || !E.draft[id]) return;
+  const still = () => SPW && SPW.edit === E && SPW.id === sid;
+  E.busy = { id, st:'prep' }; drawSpace();
+  try {
+    const r = await picStore(file, null, sid, st => { if (still()){ E.busy = { id, st }; drawSpace(); } }, true);
+    E.uploaded.add(r.imageId);
+    if (!still() || !E.draft[id]){ seriesPicsGone(sid, [r.imageId]); return; }   // правку закрыли, пока грузилось
+    const prev = E.draft[id].splash;
+    E.draft[id].splash = { mode:prev ? prev.mode : 'bg', imageId:r.imageId, imgW:r.imgW, imgH:r.imgH, dim:prev ? prev.dim : SPLASH_DIM_DEF };
+  } catch(e){
+    toast(e && e.code ? cloudExplain(e) : (e && e.message) || 'Не получилось загрузить картинку.');
+  } finally { if (SPW && SPW.edit === E){ E.busy = null; drawSpace(); } }
 }
 
 /* Общее: правит админ, редактор только смотрит. Новое пространство — кнопка слева, под списком */
