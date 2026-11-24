@@ -76,14 +76,7 @@ def page(browser, base_url):
     """Форма после входа (облако подменено, вошёл админ), открыта главная; ошибки скриптов собираются в page.errors.
     С этапа 8 без входа форма не работает, поэтому и тесты редактора, файлов и выгрузки идут «в облаке»."""
     ctx, pg = cloud_page(browser, base_url, user=ME, members={"admin@x.pl": {"role": "editor"}})
-    try:
-        pg.wait_for_selector(".home-top")
-    except Exception:
-        if ENGINE != "chromium":
-            print("\nDIAG", pg.log[-40:], pg.evaluate("""() => { const t = document.querySelector('.home-top'), cs = t && getComputedStyle(t), r = t && t.getBoundingClientRect();
-              const chain = []; for (let e = t; e && e !== document.body; e = e.parentElement){ const c = getComputedStyle(e); chain.push(e.className + ' o=' + c.opacity + ' v=' + c.visibility + ' d=' + c.display + ' a=' + c.animationName); }
-              return { has:!!t, rect:r && [r.x, r.y, r.width, r.height], chain, cells:document.querySelectorAll('.hb-cell').length, screen, introDone:typeof INTRO === 'object' ? INTRO.done : '?', bodyCls:document.body.className, app:(document.querySelector('#app')||{}).className }; }"""))
-        raise
+    pg.wait_for_selector(".home-top")
     yield pg
     ctx.close()
 
@@ -97,7 +90,9 @@ def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, sett
     opts.update(ctx_opts)   # этап 10.1.1: телефонный контекст (viewport, is_mobile, has_touch, device_scale_factor)
     ctx = browser.new_context(**opts)
     if ENGINE != "chromium":
-        ctx.set_default_timeout(15000)   # Firefox и WebKit: зависший тест не съедает весь прогон
+        # Firefox — 15 с: зависший тест не съедает весь прогон. WebKit без видеокарты (CI) рисует стену главной
+        # десятки секунд — ему 60 с, и в CI идут не все тесты, а основные пути (browsers.yml)
+        ctx.set_default_timeout(60000 if ENGINE == "webkit" else 15000)
     db = {"members": members or {}, "space": {"id": "sp1", "name": "Слово веры · тест", "settings": settings or {}}, "sermons": sermons or {}, "clock": 1000,
           "admins": list(admins or []), "spaces": spaces or {}, "shares": shares or {}, "series": series or {}}
     if no_spaces:
@@ -108,10 +103,6 @@ def cloud_page(browser, base_url, *, user=None, members=None, sermons=None, sett
     ctx.add_init_script(FAKE_CLOUD)
     pg = ctx.new_page()
     pg.errors = []
-    pg.log = []
-    if ENGINE != "chromium":
-        pg.on("console", lambda m: pg.log.append(m.type + ": " + m.text[:200]))
-        pg.on("requestfailed", lambda r: pg.log.append("REQFAIL " + r.url[-100:] + " " + str(r.failure)))
     pg.on("pageerror", lambda e: pg.errors.append(str(e)))
     pg.on("console", lambda m: pg.errors.append(m.text) if m.type == "error" and "Failed to load resource" not in m.text else None)
     pg.goto(base_url + "/index.html" + hash)
