@@ -141,7 +141,7 @@ def test_text_frame_add_edit_and_jpeg(page, sermon):
     page.locator(".side .pt-add").click()
     ta = page.locator(".side textarea.pt-text")
     ta.wait_for()
-    assert page.evaluate("document.activeElement.classList.contains('pt-text')")
+    page.wait_for_function("document.activeElement.classList.contains('pt-text')")   # курсор сразу в поле текста
     ta.fill("ТЕКСТ НА СЛАЙДЕ")
     L = layers(page)
     assert L[1]["kind"] == "text" and L[1]["text"] == "ТЕКСТ НА СЛАЙДЕ"
