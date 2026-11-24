@@ -72,6 +72,8 @@ const ICONS = {
   phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M10.5 18.5h3"/>',
   frame:'<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><rect x="7" y="9" width="10" height="6" rx="1" stroke-dasharray="2 1.6"/>',
   up:'<path d="m6 14 6-6 6 6"/>',
+  rotate:'<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>',
+  pipette:'<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>',
   top:'<path d="M6 4.5h12"/><path d="m7 15 5-5 5 5"/><path d="M12 10v10"/>',
   bottom:'<path d="M6 19.5h12"/><path d="m7 9 5 5 5-5"/><path d="M12 14V4"/>',
   down:'<path d="m6 10 6 6 6-6"/>',

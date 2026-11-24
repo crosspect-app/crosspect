@@ -94,6 +94,18 @@ function photoAdvanced(b, a){
   d.open = photoAdvOpen() || cropping;
   return d;
 }
+/* Любой цвет и пипетка (после готовых кружков): get() — текущий цвет, apply(hex) — применить. Пипетка — EyeDropper API (Chrome, Edge, Opera); где его нет, кнопки нет */
+function colorExtras(get, apply){
+  const mark = (el, c) => el.parentNode && el.parentNode.querySelectorAll('.ph-sw').forEach(x => x.classList.toggle('on', (x.title || '').toLowerCase() === c));
+  const any = h('input', { type:'color', class:'ph-color', value:get(), title:'Любой цвет', 'aria-label':'Любой цвет',
+    oninput:e => { const c = e.target.value.toLowerCase(); mark(any, c); apply(c); } });
+  const out = [any];
+  if (typeof window.EyeDropper === 'function'){
+    out.push(h('button', { type:'button', class:'ph-pipette', title:'Пипетка: взять цвет с экрана', 'aria-label':'Пипетка',
+      onclick:async () => { try { const r = await new window.EyeDropper().open(), c = String(r.sRGBHex).toLowerCase(); any.value = c; mark(any, c); apply(c); } catch(e){ /* закрыли без выбора */ } } }, ic('pipette')));
+  }
+  return out;
+}
 function photoToolBody(name, id, b){
   const p = b.photo, row = (label, ...kids) => h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:label }), ...kids);
   if (name === 'out'){
@@ -104,10 +116,8 @@ function photoToolBody(name, id, b){
       oninput:e => { val.textContent = e.target.value + ' px'; set(+e.target.value, o().color); } });
     const sw = c => h('button', { type:'button', class:'ph-sw' + (o().color === c ? ' on' : ''), style:'background:' + c, title:c, 'aria-label':'Цвет ' + c,
       onclick:e => { const w = o().w || 4; range.value = w; val.textContent = w + ' px'; set(w, c); e.currentTarget.parentNode.querySelectorAll('.ph-sw').forEach(x => x.classList.toggle('on', x === e.currentTarget)); } });
-    const any = h('input', { type:'color', class:'ph-color', value:o().color, 'aria-label':'Любой цвет',
-      oninput:e => { const w = o().w || 4; range.value = w; val.textContent = w + ' px'; set(w, e.target.value.toLowerCase()); } });
     const a = bankEntry(p.id);
-    return [row('Обводка', range, val), h('div', { class:'ph-sws', title:a && a.kind === 'bg' ? 'По краю кадра' : 'По силуэту' }, PHOTO_PALETTE.map(sw), any)];
+    return [row('Обводка', range, val), h('div', { class:'ph-sws', title:a && a.kind === 'bg' ? 'По краю кадра' : 'По силуэту' }, PHOTO_PALETTE.map(sw), ...colorExtras(() => o().color, c => { const w = o().w || 4; range.value = w; val.textContent = w + ' px'; set(w, c); }))];
   }
   if (name === 'round'){
     const val = h('span', { class:'ph-val', text:Math.round((p.round || 0) * 100) + ' %' });

@@ -53,7 +53,7 @@ function statusSwitch(){
     }));
   // Этап 10.1: когда в шапке мало места (css: до 1400 px), вместо четырёх положений — одна кнопка «Черновик ▾» со списком тех же статусов
   const drop = h('button', { type:'button', class:'stdrop st-' + cur + (live ? '' : ' view'), 'aria-haspopup':'listbox', 'aria-label':'Статус конспекта: ' + STATUS_LABELS[cur], title:STATUS_TIPS[cur],
-    onclick:() => dropdown(drop, STATUS_KEYS.map(k => { const o = statusOpt(k, statusKey(state.cloudStatus)); return { label:STATUS_LABELS[k], on:k === statusKey(state.cloudStatus), off:!o.can, tip:o.tip, pick:() => setSermonStatus(k) }; })) },
+    onclick:() => dropdown(drop, STATUS_KEYS.map(k => { const o = statusOpt(k, statusKey(state.cloudStatus)); return { label:STATUS_LABELS[k], on:k === statusKey(state.cloudStatus), off:!o.can, tip:o.tip, pick:() => setSermonStatus(k) }; }), { fit:true }) },
     h('span', { class:'dtext', text:STATUS_LABELS[cur] }), ic('down'));
   return h('span', { class:'stwrap' }, full, drop);
 }
