@@ -871,7 +871,7 @@ function flash(id, withId){
 
 /* ----- Оформление текста ----- */
 function activeRich(){ const a = document.activeElement; return a && a.classList && a.classList.contains('rich') ? a : null; }
-function fmt(cmd){ if (!activeRich()) return; document.execCommand(cmd, false, null); syncFmt(); }
+function fmt(cmd){ const el = activeRich(); if (!el) return; histFormat(el, () => document.execCommand(cmd, false, null)); syncFmt(); }
 /* Кнопки Ж, К, Ч подсвечиваются, если оформление уже есть: Ж + К вместе = жирный курсив */
 function syncFmt(){
   if (!activeRich()) return;
@@ -902,7 +902,7 @@ function toggleUp(){
     r.insertNode(sp);
     const nr = document.createRange(); nr.selectNodeContents(sp); s.removeAllRanges(); s.addRange(nr);
   }
-  el.dispatchEvent(new Event('input', { bubbles:true }));
+  histFormat(el, () => el.dispatchEvent(new Event('input', { bubbles:true })), true);
   syncFmt();
 }
 function toggleMark(){
@@ -922,7 +922,7 @@ function toggleMark(){
     r.insertNode(mk);
     const nr = document.createRange(); nr.selectNodeContents(mk); s.removeAllRanges(); s.addRange(nr);
   }
-  el.dispatchEvent(new Event('input', { bubbles:true }));
+  histFormat(el, () => el.dispatchEvent(new Event('input', { bubbles:true })), true);
 }
 function clearFmt(){
   const el = activeRich(); if (!el) return;
@@ -944,7 +944,7 @@ function clearFmt(){
   }
   el.querySelectorAll('b,strong,u,mark,i,em').forEach(x => { if (!x.textContent) x.remove(); });
   const nr = document.createRange(); nr.selectNodeContents(tn); s.removeAllRanges(); s.addRange(nr);
-  el.dispatchEvent(new Event('input', { bubbles:true }));
+  histFormat(el, () => el.dispatchEvent(new Event('input', { bubbles:true })), true);
 }
 /* Панель оформления стоит над полем, где идёт набор (в «Тексте к слайду» — в его заголовке), а не внизу экрана:
    иначе кажется, что можно выделить текст на самом слайде (слайд — только предпросмотр).
