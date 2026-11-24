@@ -94,7 +94,9 @@ def test_meta_dialog_sundays_and_calendar(page):
     assert "on" in chips.first.get_attribute("class")   # новая — на ближайшее воскресенье
     chips.nth(1).click()
     assert page.evaluate("state.meta.date") == page.evaluate("sundaysAhead(3)[1]")
-    # другая дата — свой календарь: воскресенья, сегодня, выбор
+    # другая дата — свой календарь: воскресенья, сегодня, выбор. Календарь открывается на месяце выбранной даты:
+    # с ближайшим воскресеньем на экране всегда и сегодняшний день (та же неделя), со вторым — не всегда (24 ноября → 6 декабря)
+    chips.first.click()
     page.locator(".date-other").click()
     page.wait_for_selector(".cal")
     assert page.locator(".cal .wd.sun").inner_text() == "Вс"
