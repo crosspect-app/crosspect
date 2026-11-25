@@ -21,7 +21,8 @@ def test_picture_card_like_quote_photo(page, sermon):
     c = card(page)
     assert page.locator(c + ".pic-replace").count() == 0 and page.locator(c + "details.ph-adv").count() == 0
     assert page.locator(c + ".pic-rot, " + c + ".pic-cover, " + c + ".pic-fit").count() == 0
-    assert page.locator(c + ".pic-tab").all_text_contents() == ["Фильтр", "Кадр", "Обводка", "Тень"]
+    assert page.locator(c + ".pic-tab").all_text_contents() == ["Кадр", "Фильтр", "Обводка", "Тень"]
+    assert page.locator(c + ".pic-tab.on").get_attribute("data-tab") == "frame"   # этап 10.9.6.6: сразу «Кадр»
     for tab, sels in (("filter", (".pic-flt",)), ("frame", (".pic-crop", ".pic-flip", ".pic-flipv", ".pic-rd")), ("out", (".pic-ow", ".ph-sw")), ("shadow", (".sh-range",))):
         page.locator(c + f".pic-tab[data-tab='{tab}']").click()
         assert page.locator(c + ".pic-pane:not([hidden])").count() == 1

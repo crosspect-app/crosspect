@@ -594,12 +594,12 @@ function picPanelFill(el, b){
   el.innerHTML = ''; el.append(...kids);
 }
 const prow = (label, ...x) => h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:label }), ...x);
-/* Настройки картинки (этап 10.9.6.5, вариант B2): четыре вкладки — «Фильтр» (9 миниатюр самой картинки), «Кадр» (обрезать, отразить слева направо
-   и сверху вниз, углы), «Обводка» (толщина и цвет), «Тень». Открыта одна вкладка; какая — помнит браузер. «Заменить» нет: удалить и добавить новую.
+/* Настройки картинки (этап 10.9.6.5, вариант B2): четыре вкладки — «Кадр» (обрезать, отразить слева направо и сверху вниз, углы; открыта сразу),
+   «Фильтр» (9 миниатюр самой картинки), «Обводка» (толщина и цвет), «Тень». Открыта одна вкладка; какая — помнит браузер. «Заменить» нет: удалить и добавить новую.
    Поворот и размер — мышью на слайде; отменить правку — «Отменить» в шапке */
-const PIC_TABS = [['filter', 'Фильтр', 'picfilter'], ['frame', 'Кадр', 'crop'], ['out', 'Обводка', 'border'], ['shadow', 'Тень', 'shadow']];
+const PIC_TABS = [['frame', 'Кадр', 'crop'], ['filter', 'Фильтр', 'picfilter'], ['out', 'Обводка', 'border'], ['shadow', 'Тень', 'shadow']];
 const PIC_TAB_KEY = 'crosspect.picTab';
-function picTabGet(){ let v = null; try { v = localStorage.getItem(PIC_TAB_KEY); } catch(e){} return PIC_TABS.some(t => t[0] === v) ? v : 'filter'; }
+function picTabGet(){ let v = null; try { v = localStorage.getItem(PIC_TAB_KEY); } catch(e){} return PIC_TABS.some(t => t[0] === v) ? v : 'frame'; }
 function picTabSave(v){ try { localStorage.setItem(PIC_TAB_KEY, v); } catch(e){} }
 /* Миниатюры фильтров: картинка, уменьшенная до 88×60 (по центру, с обрезкой краёв), через тот же filterPixels, что и слайд */
 const picThumbs = new Map();   // imageId|фильтр|тон → адрес миниатюры
