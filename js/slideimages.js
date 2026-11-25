@@ -43,11 +43,11 @@ function picSeriesReg(map, space){
 /* Тень (этап 10.9.2) у картинок слайда и фото цитаты: сила 1…100, в px кадра 1920×1080 */
 const shadowCss = s => s > 0 ? 'drop-shadow(0 ' + (4 + s * 0.2).toFixed(1) + 'px ' + (6 + s * 0.44).toFixed(1) + 'px rgba(0,0,0,' + (0.25 + s * 0.006).toFixed(3) + '))' : '';
 /* Строка «Тень» для панели (этап 10.9.6.3): ползунок от 0 — 0 значит без тени. cur() — сила сейчас, set(v) — записать */
-function shadowRows(cur, set){
+function shadowRows(cur, set, label){
   const v0 = cur() || 0, val = h('span', { class:'ph-val', text:v0 + ' %' });
   const rng = h('input', { type:'range', class:'ph-range sh-range', min:0, max:100, step:1, value:v0, 'aria-label':'Сила тени',
     oninput:e => { val.textContent = e.target.value + ' %'; set(+e.target.value); } });
-  return [h('div', { class:'ph-row sh-row' }, h('span', { class:'ph-lbl', text:'Тень' }), rng, val)];
+  return [h('div', { class:'ph-row sh-row' }, h('span', { class:'ph-lbl', text:label || 'Тень' }), rng, val)];
 }
 
 /* ----- Картинка из облака ----- */
@@ -587,36 +587,66 @@ function picPanelFill(el, b){
         h('button', { type:'button', class:'ly-down', disabled:i === 0 ? true : null, title:'Ниже', 'aria-label':'Ниже', onclick:() => layerMove(id, l.id, -1) }, ic('laydown')),
         h('button', { type:'button', class:'ly-del', title:'Убрать со слайда', 'aria-label':'Удалить', onclick:() => layerRemove(id, l.id) }, ic('trash'))));
     const card = h('div', { class:'ly-card' + (on ? ' on' : ''), 'data-l':l.id }, head);
-    if (on && !ro) card.append(h('div', { class:'ly-body' }, ...(l.kind === 'pic' ? picLayerBody(b, l, pickBtn) : ptLayerBody(b, l))));
+    if (on && !ro) card.append(h('div', { class:'ly-body' }, ...(l.kind === 'pic' ? picLayerBody(b, l) : ptLayerBody(b, l))));
     else if (on && ro && l.kind === 'pic' && picErr.get(l.imageId)) card.append(h('p', { class:'pic-err', role:'alert', text:picErr.get(l.imageId) }));
     list.append(card);
   });
   el.innerHTML = ''; el.append(...kids);
 }
 const prow = (label, ...x) => h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:label }), ...x);
-/* Настройки картинки (этапы 10.9.6.3–10.9.6.4, как у фото цитаты): на виду «Заменить»; под свёрнутыми «Расширенными настройками»
-   (свёрнуто или раскрыто — общее с фото цитаты, помнит браузер) — фильтр, «Обрезать», отражение, тень, обводка, углы. Поворот и размер — мышью на слайде;
-   отменить правку — «Отменить» в шапке */
-function picLayerBody(b, l, pickBtn){
+/* Настройки картинки (этап 10.9.6.5, вариант B2): четыре вкладки — «Фильтр» (9 миниатюр самой картинки), «Кадр» (обрезать, отразить слева направо
+   и сверху вниз, углы), «Обводка» (толщина и цвет), «Тень». Открыта одна вкладка; какая — помнит браузер. «Заменить» нет: удалить и добавить новую.
+   Поворот и размер — мышью на слайде; отменить правку — «Отменить» в шапке */
+const PIC_TABS = [['filter', 'Фильтр', 'picfilter'], ['frame', 'Кадр', 'crop'], ['out', 'Обводка', 'border'], ['shadow', 'Тень', 'shadow']];
+const PIC_TAB_KEY = 'crosspect.picTab';
+function picTabGet(){ let v = null; try { v = localStorage.getItem(PIC_TAB_KEY); } catch(e){} return PIC_TABS.some(t => t[0] === v) ? v : 'filter'; }
+function picTabSave(v){ try { localStorage.setItem(PIC_TAB_KEY, v); } catch(e){} }
+/* Миниатюры фильтров: картинка, уменьшенная до 88×60 (по центру, с обрезкой краёв), через тот же filterPixels, что и слайд */
+const picThumbs = new Map();   // imageId|фильтр|тон → адрес миниатюры
+async function picThumb(imageId, f){
+  const tone = f === 'tone' ? photoToneColor() : '', key = imageId + '|' + f + '|' + tone;
+  if (picThumbs.has(key)) return picThumbs.get(key);
+  const img = await picImage(imageId), W = 88, H = 60, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, k = Math.max(W / iw, H / ih);
+  const g = c.getContext('2d'); g.drawImage(img, (W - iw * k) / 2, (H - ih * k) / 2, iw * k, ih * k);
+  if (f !== 'none'){ const d = g.getImageData(0, 0, W, H); filterPixels(d.data, f, tone); g.putImageData(d, 0, 0); }
+  const url = c.toDataURL('image/png'); picThumbs.set(key, url); return url;
+}
+function picLayerBody(b, l){
   const id = b.id, lid = l.id, p = l.pic || {}, kids = [], cur = () => picItem(blockById(id), lid) || {}, cp = () => cur().pic || {};
   const err = picErr.get(l.imageId);
   if (err) kids.push(h('p', { class:'pic-err', role:'alert', text:err }));
-  kids.push(h('div', { class:'pic-acts' }, pickBtn('Заменить', 'small pic-replace', lid)));
+  /* Фильтр */
+  const fbtn = ([v, t]) => {
+    const im = h('span', { class:'pic-flt-img' }), on = (p.filter || 'none') === v;
+    if (!err) picThumb(l.imageId, v).then(u => { im.style.backgroundImage = 'url(' + u + ')'; }).catch(() => {});
+    return h('button', { type:'button', class:'pic-flt' + (on ? ' on' : ''), 'data-f':v, title:t, 'aria-pressed':on ? 'true' : 'false',
+      onclick:e => { const btn = e.currentTarget; btn.parentNode.querySelectorAll('.pic-flt').forEach(x => { x.classList.toggle('on', x === btn); x.setAttribute('aria-pressed', x === btn ? 'true' : 'false'); });
+        picFxSet(id, lid, q => { if (v === 'none') delete q.filter; else q.filter = v; }); } }, im, h('span', { class:'pic-flt-name', text:t }));
+  };
+  /* Кадр */
   const flip = (k, cls, icon, tip) => h('button', { type:'button', class:'btn small ph-ico ' + cls + (p[k] ? ' on' : ''), title:tip, 'aria-label':tip, 'aria-pressed':p[k] ? 'true' : 'false',
     onclick:e => { const on = !cp()[k]; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on ? 'true' : 'false'); picFxSet(id, lid, q => { if (on) q[k] = true; else delete q[k]; }); } }, ic(icon));
   const rv = h('span', { class:'ph-val', text:Math.round((p.round || 0) * 100) + ' %' });
-  const adv = [
-    fxToolsRow(h('select', { class:'input ph-sel pic-filter', 'aria-label':'Фильтр', title:'Фильтр', onchange:e => picFxSet(id, lid, q => { q.filter = e.target.value; }) },
-        PHOTO_FILTERS.map(([v, t]) => h('option', { value:v, selected:(p.filter || 'none') === v ? true : null }, t))),
-      h('button', { type:'button', class:'btn small pic-crop', onclick:() => picCropOpen(b, lid) }, 'Обрезать'),
-      flip('flipH', 'pic-flip', 'fliph', 'Отразить по горизонтали'), flip('flipV', 'pic-flipv', 'flipv', 'Отразить по вертикали')),
-    ...shadowRows(() => cur().shadow || 0, v => layerSet(id, lid, x => { if (v) x.shadow = v; else delete x.shadow; })),
-    ...outlineRows(() => cp().outline, (w, color) => picFxSet(id, lid, q => { if (w > 0 || color !== PHOTO_OUT.color) q.outline = { w, color }; else delete q.outline; }), 'pic-ow'),
-    prow('Углы', h('input', { type:'range', class:'ph-range pic-rd', min:0, max:50, step:1, value:Math.round((p.round || 0) * 100), 'aria-label':'Скругление углов',
-      oninput:e => { const v = +e.target.value; rv.textContent = v + ' %'; picFxSet(id, lid, q => { if (v) q.round = v / 100; else delete q.round; }); } }), rv)];
-  const d = h('details', { class:'ph-adv' }, h('summary', { text:'Расширенные настройки', onclick:() => photoAdvSave(!d.open) }), h('div', { class:'ph-adv-body' }, adv));
-  d.open = photoAdvOpen();
-  kids.push(d);
+  const panes = {
+    filter:[h('div', { class:'pic-flts' }, PHOTO_FILTERS.map(fbtn))],
+    frame:[h('div', { class:'pic-frame-row' },
+        h('button', { type:'button', class:'btn small pic-crop', onclick:() => picCropOpen(b, lid) }, ic('crop'), 'Обрезать'),
+        flip('flipH', 'pic-flip', 'arrowsh', 'Отразить слева направо'), flip('flipV', 'pic-flipv', 'arrowsv', 'Отразить сверху вниз')),
+      prow('Углы', h('input', { type:'range', class:'ph-range pic-rd', min:0, max:50, step:1, value:Math.round((p.round || 0) * 100), 'aria-label':'Скругление углов',
+        oninput:e => { const v = +e.target.value; rv.textContent = v + ' %'; picFxSet(id, lid, q => { if (v) q.round = v / 100; else delete q.round; }); } }), rv)],
+    out:outlineRows(() => cp().outline, (w, color) => picFxSet(id, lid, q => { if (w > 0 || color !== PHOTO_OUT.color) q.outline = { w, color }; else delete q.outline; }), 'pic-ow', null, 'Толщина'),
+    shadow:shadowRows(() => cur().shadow || 0, v => layerSet(id, lid, x => { if (v) x.shadow = v; else delete x.shadow; }), 'Сила')
+  };
+  let act = picTabGet();
+  const paneEls = {}, tabEls = {};
+  PIC_TABS.forEach(([k]) => { paneEls[k] = h('div', { class:'pic-pane pic-pane-' + k, role:'tabpanel', hidden:k !== act ? true : null }, ...panes[k]); });
+  const tabs = h('div', { class:'pic-tabs', role:'tablist' }, PIC_TABS.map(([k, t, icon]) => tabEls[k] = h('button', { type:'button', role:'tab', class:'pic-tab' + (k === act ? ' on' : ''), 'data-tab':k,
+    'aria-selected':k === act ? 'true' : 'false', onclick:() => {
+      act = k; picTabSave(k);
+      PIC_TABS.forEach(([j]) => { const on = j === k; tabEls[j].classList.toggle('on', on); tabEls[j].setAttribute('aria-selected', on ? 'true' : 'false'); paneEls[j].hidden = !on; });
+    } }, ic(icon), h('span', { text:t }))));
+  kids.push(tabs, h('div', { class:'pic-panes' }, PIC_TABS.map(([k]) => paneEls[k])));
   return kids;
 }
 /* Настройки текста: сам текст, размер, жирный, выравнивание, цвет */

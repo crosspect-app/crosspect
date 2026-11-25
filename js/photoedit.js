@@ -110,14 +110,14 @@ function colorExtras(get, apply){
 }
 /* Обводка (этап 10.9.6.3): толщина и цвет независимы — цвет не трогает толщину, и выбранный цвет остаётся, пока не выбран другой (в том числе при 0 px).
    get() — {w, color} или пусто, set(w, color) — записать; cls — класс ползунка */
-function outlineRows(get, set, cls, tip){
+function outlineRows(get, set, cls, tip, label){
   const o = () => get() || { w:0, color:PHOTO_OUT.color };
   const val = h('span', { class:'ph-val', text:o().w + ' px' });
   const range = h('input', { type:'range', class:'ph-range ' + cls, min:0, max:PHOTO_OUT.max, step:1, value:o().w, 'aria-label':'Толщина обводки',
     oninput:e => { val.textContent = e.target.value + ' px'; set(+e.target.value, o().color); } });
   const sw = c => h('button', { type:'button', class:'ph-sw' + (o().color === c ? ' on' : ''), style:'background:' + c, title:c, 'aria-label':'Цвет ' + c,
     onclick:e => { set(o().w, c); e.currentTarget.parentNode.querySelectorAll('.ph-sw').forEach(x => x.classList.toggle('on', x === e.currentTarget)); } });
-  return [h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:'Обводка' }), range, val),
+  return [h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:label || 'Обводка' }), range, val),
     h('div', { class:'ph-sws', title:tip || null }, PHOTO_PALETTE.map(sw), ...colorExtras(() => o().color, c => set(o().w, c)))];
 }
 function photoToolBody(name, id, b){

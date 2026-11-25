@@ -120,6 +120,12 @@ const ICONS = {
   redo:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
   done:'<path d="m4.5 12.5 4.5 4.5 10.5-10.5"/>',
   filter:'<path d="M4 6h16M7 12h10M10 18h4"/>',
+  picfilter:'<circle cx="9" cy="9.5" r="5"/><circle cx="15" cy="9.5" r="5"/><circle cx="12" cy="15" r="5"/>',
+  crop:'<path d="M7 3v14h14"/><path d="M3 7h14v14"/>',
+  border:'<rect x="4.5" y="4.5" width="15" height="15" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1" stroke-dasharray="2 1.8"/>',
+  shadow:'<rect x="4" y="4" width="12" height="12" rx="2"/><path d="M19.5 8v9.5a2 2 0 0 1-2 2H8"/>',
+  arrowsh:'<path d="M4 12h16"/><path d="m8 8-4 4 4 4"/><path d="m16 8 4 4-4 4"/>',
+  arrowsv:'<path d="M12 4v16"/><path d="m8 8 4-4 4 4"/><path d="m8 16 4 4 4-4"/>',
   calendar:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   help:'<circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7"/><path d="M12 17.2v.1"/>'
 };

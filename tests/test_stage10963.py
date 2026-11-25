@@ -16,26 +16,25 @@ def card(page): return ".side .ly-card.on "
 
 
 def test_picture_card_like_quote_photo(page, sermon):
+    """Этап 10.9.6.5: вместо «Заменить» и «Расширенных настроек» — вкладки «Фильтр», «Кадр», «Обводка», «Тень»; открыта одна."""
     one_pic(page, sermon)
     c = card(page)
-    assert page.locator(c + ".pic-replace").is_visible()
+    assert page.locator(c + ".pic-replace").count() == 0 and page.locator(c + "details.ph-adv").count() == 0
     assert page.locator(c + ".pic-rot, " + c + ".pic-cover, " + c + ".pic-fit").count() == 0
-    d = page.locator(c + "details.ph-adv")
-    assert d.count() == 1 and d.get_attribute("open") is None   # свёрнуто
-    assert not page.locator(c + ".pic-filter").is_visible()
-    d.locator("summary").click()
-    for s in (".pic-filter", ".pic-crop", ".pic-flip", ".pic-flipv", ".sh-range", ".pic-ow", ".ph-sw", ".pic-rd"):
-        assert page.locator(c + s).first.is_visible(), s
-    order = page.evaluate("[...document.querySelectorAll('.side .ly-card.on .ph-adv-body .ph-row .ph-lbl')].map(e => e.textContent)")
-    assert order.index("Тень") < order.index("Обводка")
+    assert page.locator(c + ".pic-tab").all_text_contents() == ["Фильтр", "Кадр", "Обводка", "Тень"]
+    for tab, sels in (("filter", (".pic-flt",)), ("frame", (".pic-crop", ".pic-flip", ".pic-flipv", ".pic-rd")), ("out", (".pic-ow", ".ph-sw")), ("shadow", (".sh-range",))):
+        page.locator(c + f".pic-tab[data-tab='{tab}']").click()
+        assert page.locator(c + ".pic-pane:not([hidden])").count() == 1
+        for s_ in sels:
+            assert page.locator(c + s_).first.is_visible(), s_
     page.evaluate("picPanelRefresh('i1')")
-    assert page.locator(card(page) + "details.ph-adv").get_attribute("open") is not None   # раскрытое помнится
+    assert page.locator(card(page) + ".pic-tab.on").get_attribute("data-tab") == "shadow"   # открытая вкладка помнится
     assert not page.errors, page.errors
 
 
 def test_outline_color_independent_of_width(page, sermon):
     one_pic(page, sermon)
-    page.locator(card(page) + "details.ph-adv summary").click()
+    page.locator(card(page) + ".pic-tab[data-tab='out']").click()
     page.locator(card(page) + ".ph-sw[title='#d94b4b']").click()
     o = (layers(page)[0].get("pic") or {}).get("outline")
     assert o == {"w": 0, "color": "#d94b4b"}   # цвет выбран — толщина осталась 0
@@ -73,4 +72,20 @@ def test_quote_settings_in_groups(page, sermon):
     assert page.locator(".side .ph-adv .sh-on").count() == 0
     order = page.evaluate("[...document.querySelectorAll('.side .ph-adv-body .ph-row .ph-lbl')].map(e => e.textContent)")
     assert order.index("Тень") < order.index("Обводка")
+    assert not page.errors, page.errors
+
+
+def test_filter_grid_thumbnails(page, sermon):
+    """Этап 10.9.6.5: 9 фильтров сеткой 3×3, миниатюры — сама картинка с фильтром; щелчок выбирает фильтр."""
+    one_pic(page, sermon)
+    c = card(page)
+    page.locator(c + ".pic-tab[data-tab='filter']").click()
+    assert page.locator(c + ".pic-flt").count() == 9
+    page.wait_for_function("[...document.querySelectorAll('.side .ly-card.on .pic-flt-img')].every(e => e.style.backgroundImage.startsWith('url(\"data:image/png'))")
+    assert page.locator(c + ".pic-flt.on").get_attribute("data-f") == "none"
+    page.locator(c + ".pic-flt[data-f='sepia']").click()
+    assert layers(page)[0]["pic"]["filter"] == "sepia"
+    assert page.locator(c + ".pic-flt.on").get_attribute("data-f") == "sepia"
+    page.locator(c + ".pic-flt[data-f='none']").click()
+    assert "filter" not in (layers(page)[0].get("pic") or {})
     assert not page.errors, page.errors

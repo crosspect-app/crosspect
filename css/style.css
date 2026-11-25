@@ -1609,6 +1609,26 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .pic-err{margin:0;font-size:13px;color:#ff8a80}
 .pic-busy{margin:0}
 .pic-acts{display:flex;flex-wrap:wrap;gap:8px}
+/* Этап 10.9.6.5: настройки картинки слайда — вкладки «Фильтр», «Кадр», «Обводка», «Тень» */
+.pic-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:3px;border:1px solid var(--line-2);border-radius:12px}
+.pic-tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:0;border-radius:9px;background:none;color:var(--muted);font:inherit;font-size:11px;cursor:pointer}
+.pic-tab .ic svg{width:18px;height:18px}
+.pic-tab:hover{color:var(--text)}
+.pic-tab.on{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.pic-panes{background:color-mix(in srgb,var(--text) 4%,transparent);border-radius:10px;padding:10px}
+.pic-pane{display:grid;gap:12px}
+.pic-pane[hidden]{display:none}
+.pic-pane .ph-range{min-width:0;width:100%}
+.pic-pane .ph-val{text-align:right;white-space:nowrap}
+.pic-flts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 8px}   /* 9 фильтров — ровно 3×3 */
+.pic-flt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:0;border:0;background:none;color:var(--muted);font:inherit;font-size:11px;line-height:1.15;cursor:pointer;min-width:0}
+.pic-flt-img{display:block;width:100%;aspect-ratio:16/9;border-radius:6px;border:1px solid var(--line-2);background:var(--line) center/cover no-repeat}
+.pic-flt-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pic-flt:hover{color:var(--text)}
+.pic-flt.on{color:var(--accent)}.pic-flt.on .pic-flt-img{outline:2px solid var(--accent);outline-offset:1px}
+.pic-frame-row{display:flex;gap:6px;align-items:center}
+.pic-frame-row .pic-crop{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px}
+.pic-frame-row .pic-crop .ic svg{width:16px;height:16px}
 .pic-turns{display:inline-flex;gap:8px}
 .pic-panel .ph-row{grid-template-columns:64px minmax(0,1fr) 48px}
 .pic-panel .pic-filter{min-width:0;width:100%}

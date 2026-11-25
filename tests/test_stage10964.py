@@ -28,19 +28,24 @@ def test_picture_card_compact(page, sermon):
     pic(page, sermon)
     assert page.locator(".side .pic-move-hint").count() == 0 and page.locator(".side .pic-reset").count() == 0
     assert page.locator(".side .pic-left, .side .pic-right").count() == 0
-    page.locator(".side .ly-card.on details.ph-adv summary").click()
-    row = page.locator(".side .ly-card.on .ph-tools")
-    assert row.locator(".pic-filter").count() == 1 and row.locator(".pic-crop").count() == 1 and row.locator(".pic-flip svg").count() == 1 and row.locator(".pic-flipv svg").count() == 1
-    assert page.locator(".side .ly-card.on .pic-filter").bounding_box()["height"] <= 34
-    # ползунки начинаются и кончаются ровно
-    xs = page.evaluate("[...document.querySelectorAll('.side .ly-card.on .ph-range')].map(r => { const b = r.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; })")
+    page.locator(".side .ly-card.on .pic-tab[data-tab='frame']").click()
+    row = page.locator(".side .ly-card.on .pic-frame-row")   # этап 10.9.6.5: обрезка и отражение — одной строкой
+    assert row.locator(".pic-crop").count() == 1 and row.locator(".pic-flip svg").count() == 1 and row.locator(".pic-flipv svg").count() == 1
+    ys = {round(row.locator(s).bounding_box()["y"] + row.locator(s).bounding_box()["height"] / 2) for s in (".pic-crop", ".pic-flip", ".pic-flipv")}
+    assert max(ys) - min(ys) <= 2, ys
+    assert page.locator(".side .ly-card.on .pic-flip").get_attribute("aria-label") == "Отразить слева направо"
+    # ползунки на разных вкладках начинаются и кончаются ровно
+    xs = []
+    for t in ("frame", "out", "shadow"):
+        page.locator(f".side .ly-card.on .pic-tab[data-tab='{t}']").click()
+        xs += page.evaluate("[...document.querySelectorAll('.side .ly-card.on .pic-pane:not([hidden]) .ph-range')].map(r => { const b = r.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; })")
     assert len(xs) == 3 and len({x[0] for x in xs}) == 1 and len({x[1] for x in xs}) == 1, xs
     assert not page.errors, page.errors
 
 
 def test_picture_flip_and_round(page, sermon):
     pic(page, sermon)
-    page.locator(".side .ly-card.on details.ph-adv summary").click()
+    page.locator(".side .ly-card.on .pic-tab[data-tab='frame']").click()
     page.locator(".side .pic-flip").click()
     page.locator(".side .pic-flipv").click()
     page.evaluate("(() => { const r = document.querySelector('.side .pic-rd'); r.value = 30; r.dispatchEvent(new Event('input', { bubbles:true })); })()")

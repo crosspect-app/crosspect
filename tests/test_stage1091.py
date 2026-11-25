@@ -112,10 +112,10 @@ def test_edits_rotate_outline_filter_crop(page, sermon):
     put_image(page, "fixture-0001", "pedit", 1600, 900, "#dc1e1e")
     open_img(page, sermon, imageId="pedit", imgW=1600, imgH=900)
     page.wait_for_function("!!document.querySelector('.stage .sl-pic img[src]')")
-    page.locator(".side details.ph-adv summary").click()   # этап 10.9.6.3: правки под «Расширенными настройками»
+    page.locator(".side .pic-tab[data-tab='filter']").click()   # этап 10.9.6.5: вкладки
     page.evaluate("picFxSet('i1', picLayers(blockById('i1'))[0].id, q => { q.rot = 90; })")   # этап 10.9.6.4: кнопок ↺ ↻ нет, поворот — ручкой
     assert blk(page)["pic"] == {"rot": 90}
-    page.locator(".side .pic-filter").select_option("bw")
+    page.locator(".side .pic-flt[data-f='bw']").click()
     page.evaluate("picFxSet('i1', picLayers(blockById('i1'))[0].id, q => { q.outline = { w:10, color:'#ffffff' }; })")
     r = page.evaluate("""async () => { const v = await picRender(picLayers(blockById('i1'))[0]), g = v.canvas.getContext('2d');
       const mid = [...g.getImageData(v.canvas.width >> 1, v.canvas.height >> 1, 1, 1).data], edge = [...g.getImageData(3, v.canvas.height >> 1, 1, 1).data];
@@ -124,6 +124,7 @@ def test_edits_rotate_outline_filter_crop(page, sermon):
     assert abs(r["mid"][0] - r["mid"][1]) < 8 and abs(r["mid"][1] - r["mid"][2]) < 8   # ЧБ
     assert min(r["edge"][:3]) > 240   # белая обводка по краю
     # обрезка в окне: «Вся картинка» и своя рамка
+    page.locator(".side .pic-tab[data-tab='frame']").click()
     page.locator(".side .pic-crop").click()
     page.locator(".picc-sheet").wait_for()
     page.evaluate("PCW.crop = { l:0.25, t:0, r:0.25, b:0 }")

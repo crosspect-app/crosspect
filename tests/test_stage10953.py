@@ -56,7 +56,7 @@ def test_pipette_and_any_color_for_outline(page, sermon):
     page.evaluate(FAKE_DROPPER)
     page.locator(".stage .pic-hit").click()
     page.evaluate("picPanelRefresh('i1')")
-    page.locator(".side .ly-card.on details.ph-adv summary").click()
+    page.locator(".side .ly-card.on .pic-tab[data-tab='out']").click()
     assert page.locator(".side .ly-card.on .ph-color").count() == 1
     page.locator(".side .ly-card.on .ph-pipette").click()
     page.wait_for_function("(blockById('i1').layers[0].pic || {}).outline")
