@@ -1629,6 +1629,8 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .pic-frame-row{display:flex;gap:6px;align-items:center}
 .pic-frame-row .pic-crop{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px}
 .pic-frame-row .pic-crop .ic svg{width:16px;height:16px}
+.btn.small.ph-ico{width:32px;height:32px;padding:0;display:inline-grid;place-items:center;flex:0 0 32px}   /* этап 10.9.6.6: без боковых отступов .btn.small — значок ровно по центру */
+.btn.small.ph-ico .ic{display:grid;place-items:center;line-height:0}
 .pic-turns{display:inline-flex;gap:8px}
 .pic-panel .ph-row{grid-template-columns:64px minmax(0,1fr) 48px}
 .pic-panel .pic-filter{min-width:0;width:100%}
@@ -1677,7 +1679,11 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .pt-colors[hidden]{display:none}
 .pt-adv summary{cursor:pointer;color:var(--muted);font-size:13px;padding:2px 0}
 .pt-adv[open] summary{margin-bottom:8px}
-.pt-adv .ph-row{margin-top:6px}
+.pt-sp{display:grid;gap:4px;margin-top:8px}
+.pt-sp-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.pt-sp .ph-lbl{white-space:nowrap}
+.pt-sp .ph-val{width:auto}
+.pt-sp .ph-range{width:100%;min-width:0}
 .ly-body{display:grid;gap:10px}
 .pt-text{resize:vertical}
 .sh-lbl{display:inline-flex;align-items:center;gap:6px;cursor:pointer}

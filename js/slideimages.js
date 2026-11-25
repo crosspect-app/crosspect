@@ -690,7 +690,7 @@ function ptLayerBody(b, l){
     const out = h('span', { class:'ph-val', text:String(+val().toFixed(2)) });
     const rg = h('input', { type:'range', class:'ph-range ' + cls, min, max, step, value:val(), 'aria-label':aria,
       oninput:e => { const v = +e.target.value; out.textContent = String(+v.toFixed(2)); layerSet(id, lid, x => { if (+v.toFixed(2) === dflt) delete x[key]; else x[key] = +v.toFixed(2); }); } });
-    return prow(label, rg, out);
+    return h('div', { class:'pt-sp' }, h('div', { class:'pt-sp-head' }, h('span', { class:'ph-lbl', text:label }), out), rg);   // подпись и число сверху, ползунок во всю ширину
   };
   let advOpen = false; try { advOpen = localStorage.getItem(PT_ADV_KEY) === '1'; } catch(e){}
   const adv = h('details', { class:'pt-adv', open:advOpen ? true : null, ontoggle:e => { try { localStorage.setItem(PT_ADV_KEY, e.target.open ? '1' : '0'); } catch(err){} } },
