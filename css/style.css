@@ -1658,6 +1658,26 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .ly-tools .ly-del:hover{color:#ef6b6b}
 .ly-tools svg{width:16px;height:16px}
 .pt-style{display:flex;gap:18px;flex-wrap:wrap}   /* «Жирный» и «Курсив» рядом */
+/* Этап 10.9.6.6: строка текста как в редакторе — размер, Ж К, выравнивание, цвет */
+.pt-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pt-size-box{display:inline-flex;align-items:center;height:32px;border:1px solid var(--line-2);border-radius:8px}
+.pt-step-btn{width:26px;height:100%;border:0;background:none;color:var(--muted);font:inherit;font-size:16px;cursor:pointer;border-radius:7px}
+.pt-step-btn:hover{color:var(--text);background:color-mix(in srgb,var(--text) 7%,transparent)}
+.pt-size{width:38px;border:0;background:none;color:var(--text);font:inherit;font-size:13px;text-align:center;-moz-appearance:textfield;appearance:textfield;padding:0}
+.pt-size::-webkit-inner-spin-button,.pt-size::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.pt-seg.pt-style,.pt-seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--line-2);border-radius:8px}
+.pt-flag,.pt-al{width:28px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:none;color:var(--muted);font:inherit;font-size:14px;cursor:pointer}
+.pt-flag:hover,.pt-al:hover{color:var(--text)}
+.pt-flag.on,.pt-al.on{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.pt-bold{font-weight:800}.pt-italic{font-style:italic;font-family:Georgia,serif}
+.pt-al .ic svg{width:16px;height:16px}
+.pt-color-btn{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:8px;background:none;cursor:pointer}
+.pt-color-btn.on{border-color:var(--accent)}
+.pt-color-dot{width:20px;height:20px;border-radius:50%;border:1px solid color-mix(in srgb,var(--text) 35%,transparent)}
+.pt-colors[hidden]{display:none}
+.pt-adv summary{cursor:pointer;color:var(--muted);font-size:13px;padding:2px 0}
+.pt-adv[open] summary{margin-bottom:8px}
+.pt-adv .ph-row{margin-top:6px}
 .ly-body{display:grid;gap:10px}
 .pt-text{resize:vertical}
 .sh-lbl{display:inline-flex;align-items:center;gap:6px;cursor:pointer}

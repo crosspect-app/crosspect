@@ -79,6 +79,7 @@ def test_pipette_for_text_color(page, sermon):
     page.evaluate(FAKE_DROPPER)
     page.locator(".side .ly-card[data-l='t1'] .ly-head").click()
     page.evaluate("picPanelRefresh('i1')")
+    page.locator(".side .ly-card.on .pt-color-btn").click()   # этап 10.9.6.6: палитра по кружку
     page.locator(".side .ly-card.on .ph-pipette").click()
     page.wait_for_function("blockById('i1').layers.find(l => l.id === 't1').color === '#12ab34'")
     assert not page.errors, page.errors

@@ -148,9 +148,10 @@ def test_text_frame_add_edit_and_jpeg(page, sermon):
     el = page.locator(".stage .sl-ptext")
     assert el.inner_text() == "ТЕКСТ НА СЛАЙДЕ"
     page.locator(".side .pt-bold").click()
+    page.locator(".side .pt-color-btn").click()   # этап 10.9.6.6: палитра по щелчку на кружок
     page.locator(".side .pt-colors .ph-sw").nth(2).click()
     page.evaluate("const r = document.querySelector('.side .pt-size'); r.value = 120; r.dispatchEvent(new Event('input', { bubbles:true }))")
-    page.locator(".side .pt-align button", has_text="Слева").click()
+    page.locator(".side .pt-align .pt-al[data-a='left']").click()
     t = layers(page)[1]
     assert t["bold"] is True and t["size"] == 120 and t["align"] == "left" and t["color"] == page.evaluate("PHOTO_PALETTE[2]")
     st = page.evaluate("(() => { const s = getComputedStyle(document.querySelector('.stage .sl-ptext')); return [s.fontWeight, s.fontSize, s.textAlign]; })()")

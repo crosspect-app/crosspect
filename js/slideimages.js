@@ -649,33 +649,55 @@ function picLayerBody(b, l){
   kids.push(tabs, h('div', { class:'pic-panes' }, PIC_TABS.map(([k]) => paneEls[k])));
   return kids;
 }
-/* Настройки текста: сам текст, размер, жирный, выравнивание, цвет */
+/* Настройки текста (этап 10.9.6.6, вариант T1): над полем — строка как в редакторе текста: размер «− 50 +», Ж и К, выравнивание значками, цвет кружком
+   (палитра раскрывается под строкой). Под полем — свёрнутые «Интервалы» (между символами и строками); свёрнуто или раскрыто — помнит браузер */
+const PT_ADV_KEY = 'crosspect.ptAdv';
+let ptColorsOpen = false;   // палитра раскрыта — переживает перерисовку панели
 function ptLayerBody(b, l){
-  const id = b.id, lid = l.id;
+  const id = b.id, lid = l.id, cur = () => picItem(blockById(id), lid) || {};
   const ta = h('textarea', { class:'input pt-text', rows:'3', placeholder:'Текст на слайде. Enter — новая строка', 'aria-label':'Текст на слайде',
     oninput:e => { grow(e.target); layerSet(id, lid, x => { x.text = e.target.value.slice(0, PIC_TEXT.max); }); } });
   ta.value = l.text; requestAnimationFrame(() => grow(ta));
-  const sv = h('span', { class:'ph-val', text:String(l.size) });
-  const size = h('input', { type:'range', class:'ph-range pt-size', min:PIC_TEXT.sizeMin, max:PIC_TEXT.sizeMax, step:2, value:l.size, 'aria-label':'Размер текста',
-    oninput:e => { sv.textContent = e.target.value; layerSet(id, lid, x => { x.size = +e.target.value; }); } });
-  const bold = sw('Жирный', !!l.bold, v => layerSet(id, lid, x => { if (v) x.bold = true; else delete x.bold; }));
-  bold.classList.add('pt-bold');
-  const ital = sw('Курсив', !!l.italic, v => layerSet(id, lid, x => { if (v) x.italic = true; else delete x.italic; }));
-  ital.classList.add('pt-italic');
+  /* Размер: − число + (шаг 2, число можно вписать) */
+  const clampSize = v => Math.max(PIC_TEXT.sizeMin, Math.min(PIC_TEXT.sizeMax, Math.round((+v || PIC_TEXT.sizeMin) / 2) * 2));
+  const setSize = v => { v = clampSize(v); size.value = v; layerSet(id, lid, x => { x.size = v; }); };
+  const size = h('input', { type:'number', class:'pt-size', min:PIC_TEXT.sizeMin, max:PIC_TEXT.sizeMax, step:2, value:l.size, 'aria-label':'Размер текста', title:'Размер текста',
+    oninput:e => { const v = +e.target.value; if (v >= PIC_TEXT.sizeMin && v <= PIC_TEXT.sizeMax) layerSet(id, lid, x => { x.size = Math.round(v); }); },
+    onchange:e => setSize(e.target.value) });
+  const stepBtn = (d, cls, label) => h('button', { type:'button', class:'pt-step-btn ' + cls, 'aria-label':label, title:label, onclick:() => setSize((+size.value || l.size) + d) }, d < 0 ? '−' : '+');
+  const sizeBox = h('div', { class:'pt-size-box' }, stepBtn(-2, 'pt-size-dn', 'Меньше'), size, stepBtn(2, 'pt-size-up', 'Больше'));
+  /* Ж и К */
+  const flag = (k, cls, label, text) => h('button', { type:'button', class:'pt-flag ' + cls + (l[k] ? ' on' : ''), title:label, 'aria-label':label, 'aria-pressed':l[k] ? 'true' : 'false',
+    onclick:e => { const on = !cur()[k]; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on ? 'true' : 'false'); layerSet(id, lid, x => { if (on) x[k] = true; else delete x[k]; }); } }, text);
+  const style = h('div', { class:'pt-seg pt-style' }, flag('bold', 'pt-bold', 'Жирный', 'Ж'), flag('italic', 'pt-italic', 'Курсив', 'К'));
+  /* Выравнивание */
+  const al = h('div', { class:'pt-seg pt-align' }, [['left', 'По левому краю', 'alignl'], ['center', 'По центру', 'alignc'], ['right', 'По правому краю', 'alignr']].map(([v, t, icon]) =>
+    h('button', { type:'button', class:'pt-al' + (l.align === v ? ' on' : ''), 'data-a':v, title:t, 'aria-label':t, 'aria-pressed':l.align === v ? 'true' : 'false',
+      onclick:e => { const btn = e.currentTarget; btn.parentNode.querySelectorAll('.pt-al').forEach(x => { x.classList.toggle('on', x === btn); x.setAttribute('aria-pressed', x === btn ? 'true' : 'false'); });
+        layerSet(id, lid, x => { x.align = v; }); } }, ic(icon))));
+  /* Цвет: кружок, по щелчку — палитра под строкой */
+  const dot = h('span', { class:'pt-color-dot', style:'background:' + l.color });
+  const colors = h('div', { class:'ph-sws pt-colors', hidden:ptColorsOpen ? null : true });
+  const colorBtn = h('button', { type:'button', class:'pt-color-btn' + (ptColorsOpen ? ' on' : ''), title:'Цвет текста', 'aria-label':'Цвет текста', 'aria-expanded':ptColorsOpen ? 'true' : 'false',
+    onclick:e => { ptColorsOpen = colors.hidden; colors.hidden = !ptColorsOpen; e.currentTarget.classList.toggle('on', ptColorsOpen); e.currentTarget.setAttribute('aria-expanded', ptColorsOpen ? 'true' : 'false'); } }, dot);
+  const setColor = c => { dot.style.background = c; layerSet(id, lid, x => { x.color = c; }); };
+  const swatch = c => h('button', { type:'button', class:'ph-sw' + (l.color === c ? ' on' : ''), style:'background:' + c, title:c, 'aria-label':'Цвет ' + c,
+    onclick:e => { setColor(c); e.currentTarget.parentNode.querySelectorAll('.ph-sw').forEach(x => x.classList.toggle('on', x === e.currentTarget)); } });
+  colors.append(...PHOTO_PALETTE.map(swatch), ...colorExtras(() => cur().color, c => setColor(c)));
+  /* Интервалы */
   const spaced = (label, key, cls, min, max, step, dflt, aria) => {
-    const cur = () => { const v = (picItem(blockById(id), lid) || {})[key]; return v == null ? dflt : v; };
-    const out = h('span', { class:'ph-val', text:String(+cur().toFixed(2)) });
-    const rg = h('input', { type:'range', class:'ph-range ' + cls, min, max, step, value:cur(), 'aria-label':aria,
+    const val = () => { const v = cur()[key]; return v == null ? dflt : v; };
+    const out = h('span', { class:'ph-val', text:String(+val().toFixed(2)) });
+    const rg = h('input', { type:'range', class:'ph-range ' + cls, min, max, step, value:val(), 'aria-label':aria,
       oninput:e => { const v = +e.target.value; out.textContent = String(+v.toFixed(2)); layerSet(id, lid, x => { if (+v.toFixed(2) === dflt) delete x[key]; else x[key] = +v.toFixed(2); }); } });
     return prow(label, rg, out);
   };
-  const track = spaced('Между символами', 'track', 'pt-track', PIC_TEXT.trackMin, PIC_TEXT.trackMax, 0.01, PIC_TEXT.track, 'Между символами');
-  const lead = spaced('Между строками', 'lead', 'pt-lead', PIC_TEXT.leadMin, PIC_TEXT.leadMax, 0.05, PIC_TEXT.lead, 'Между строками');
-  const al = toggle([['left', 'Слева'], ['center', 'По центру'], ['right', 'Справа']], l.align, v => { layerSet(id, lid, x => { x.align = v; }); picPanelRefresh(id); });
-  al.classList.add('pt-align');
-  const swatch = c => h('button', { type:'button', class:'ph-sw' + (l.color === c ? ' on' : ''), style:'background:' + c, title:c, 'aria-label':'Цвет ' + c,
-    onclick:e => { layerSet(id, lid, x => { x.color = c; }); e.currentTarget.parentNode.querySelectorAll('.ph-sw').forEach(x => x.classList.toggle('on', x === e.currentTarget)); } });
-  return [ta, prow('Размер', size, sv), h('div', { class:'pt-style' }, bold, ital), track, lead, al, prow('Цвет', h('div', { class:'ph-sws pt-colors' }, PHOTO_PALETTE.map(swatch), ...colorExtras(() => l.color, c => layerSet(id, lid, x => { x.color = c; }))))];
+  let advOpen = false; try { advOpen = localStorage.getItem(PT_ADV_KEY) === '1'; } catch(e){}
+  const adv = h('details', { class:'pt-adv', open:advOpen ? true : null, ontoggle:e => { try { localStorage.setItem(PT_ADV_KEY, e.target.open ? '1' : '0'); } catch(err){} } },
+    h('summary', { text:'Интервалы' }),
+    spaced('Между символами', 'track', 'pt-track', PIC_TEXT.trackMin, PIC_TEXT.trackMax, 0.01, PIC_TEXT.track, 'Между символами'),
+    spaced('Между строками', 'lead', 'pt-lead', PIC_TEXT.leadMin, PIC_TEXT.leadMax, 0.05, PIC_TEXT.lead, 'Между строками'));
+  return [h('div', { class:'pt-bar' }, sizeBox, style, al, colorBtn), colors, ta, adv];
 }
 
 /* ----- Заставка с картинкой: «Свой фон» и «Картинка целиком» (этапы 10.9.1.1, 10.9.2.1) ----- */

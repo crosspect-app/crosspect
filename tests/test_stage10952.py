@@ -76,7 +76,7 @@ def test_text_italic_spacing_on_slide_and_jpeg(page, sermon):
     page.wait_for_selector(".side .pt-italic")
     assert page.locator(".side .pt-bold").count() == 1 and page.locator(".side .pt-track").count() == 1 and page.locator(".side .pt-lead").count() == 1
     assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-ptext')).fontStyle") == "normal"
-    page.locator(".side .pt-italic .sw").click()
+    page.locator(".side .pt-italic").click()
     page.evaluate("""() => { const r = document.querySelector('.side .pt-track'); r.value = 0.2; r.dispatchEvent(new Event('input', { bubbles:true }));
       const q = document.querySelector('.side .pt-lead'); q.value = 1.6; q.dispatchEvent(new Event('input', { bubbles:true })); }""")
     t = [l for l in layers(page) if l["kind"] == "text"][0]
