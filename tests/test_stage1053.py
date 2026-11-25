@@ -8,7 +8,7 @@ import pytest
 from PIL import Image
 
 from conftest import ENGINE, cloud_page, open_sermon, ME
-from test_stage105 import open_quote, q, red, blue
+from test_stage105 import open_quote, q, red, blue, select_photo
 from test_stage1052 import open_q, put_bank, BG_PRESET
 
 # Льюис без фона: 200×550, слева красная половина, справа синяя; при «Текст справа» стоит по центру левой зоны:
@@ -35,13 +35,9 @@ def photo_el(page):
     return page.locator(".stage .ph-hit")
 
 
-def select_photo(page):
-    photo_el(page).click()
-    page.wait_for_selector(".side .ph-panel.sel")
-
-
 def adv(page):
     """Раскрыть «Расширенные настройки» в блоке «Фото» (правка 19 ноября 2026: инструменты — в «Редакторе»)"""
+    select_photo(page)   # этап 10.9.6.4: настройки фото — только у выделенного фото
     if not page.locator(".side .ph-adv").evaluate("d => d.open"):
         page.locator(".side .ph-adv summary").click()
     return page.locator(".side .ph-adv")
@@ -165,12 +161,14 @@ def test_click_selects_photo_and_highlights_side_block(page, sermon):
 def test_advanced_collapsed_by_default_and_remembered(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs"})
     page.wait_for_selector(".side .ph-panel")
+    assert page.locator(".side .ph-adv").count() == 0   # этап 10.9.6.4: фото не выделено — настроек нет
+    select_photo(page)
     d = page.locator(".side .ph-adv")
     assert d.evaluate("d => d.open") is False
     assert not page.locator(".side .ph-filter").is_visible()   # фильтр — в расширенных
     assert page.locator(".side .ph-panel .ph-reset").is_visible()   # «Сбросить» — на виду
     names = page.locator(".side .ph-adv-body .ph-lbl").all_text_contents()
-    assert names == ["Фильтр", "Отразить", "Тень", "Обводка"]   # тень — этап 10.9.2, над обводкой — 10.9.6.3; «Углы» — только «с фоном»; поворота в панели нет (этап 10.5.7 — стрелкой)
+    assert names == ["Тень", "Обводка"]   # этап 10.9.6.4: фильтр, обрезка и отражение — строкой без подписей   # тень — этап 10.9.2, над обводкой — 10.9.6.3; «Углы» — только «с фоном»; поворота в панели нет (этап 10.5.7 — стрелкой)
     assert page.locator(".side .ph-adv .ph-crop-btn").count() == 1 and page.locator(".side .ph-adv .ph-flip").count() == 1
     assert page.locator(".side .ph-adv .ph-flipv").count() == 1
     adv(page)
@@ -312,6 +310,7 @@ def test_preset_keeps_everything_but_visibility_and_reset_clears_all(page, sermo
     open_q(page, sermon, photo={"id": "lewis-bg", "x": 0.2, "y": 0.9, "h": 0.5, "filter": "bw", "mirror": True,
                                   "crop": {"l": 0.1, "t": 0, "r": 0, "b": 0.2}, "rot": 15, "outline": {"w": 8, "color": "#f2c14e"}, "round": 0.2, "off": False})
     page.evaluate("delete state.blocks.find(b => b.id === 'q1').photo.off")
+    select_photo(page)
     page.locator(".ph-panel button", has_text="Сделать видом по умолчанию").click()
     page.wait_for_function("bankEntry('lewis-bg').preset && bankEntry('lewis-bg').preset.rot === 15")
     ps = page.evaluate("bankEntry('lewis-bg').preset")
@@ -319,6 +318,7 @@ def test_preset_keeps_everything_but_visibility_and_reset_clears_all(page, sermo
     assert "off" not in ps
     # «Сбросить» — к виду по умолчанию целиком (и обводка, и поворот)
     page.evaluate("Object.assign(state.blocks.find(b => b.id === 'q1').photo, { rot:-40, outline:{ w:2, color:'#000000' }, round:.4 })")
+    select_photo(page)
     page.locator(".ph-panel button", has_text="Сбросить").click()
     p = q(page)["photo"]
     assert p["rot"] == 15 and p["outline"] == {"w": 8, "color": "#f2c14e"} and p["round"] == 0.2 and p["crop"] == {"l": 0.1, "t": 0, "r": 0, "b": 0.2}
@@ -327,6 +327,7 @@ def test_preset_keeps_everything_but_visibility_and_reset_clears_all(page, sermo
 
 def test_reset_without_preset_clears_everything(page, sermon):
     open_quote(page, sermon, photo={"id": "ten-boom", "rot": 30, "crop": {"l": 0.2, "t": 0, "r": 0, "b": 0}, "outline": {"w": 5, "color": "#ffffff"}})
+    select_photo(page)
     page.locator(".ph-panel button", has_text="Сбросить").click()
     assert q(page)["photo"] == {"id": "ten-boom", "x": None, "y": None, "h": None, "filter": "none", "mirror": True}
     assert not page.errors, page.errors
@@ -349,6 +350,7 @@ def test_only_admin_sees_preset_button(browser, base_url, sermon):
     try:
         pg.wait_for_selector(".home-top")
         open_quote(pg, sermon, photo={"id": "lewis-cs", "rot": 10})
+        select_photo(pg)
         pg.wait_for_selector(".ph-panel .ph-reset")
         assert pg.locator(".ph-panel", has_text="Сделать видом по умолчанию").count() == 0
         assert not pg.errors, pg.errors

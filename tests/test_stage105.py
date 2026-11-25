@@ -16,6 +16,14 @@ from conftest import open_sermon
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def select_photo(page):
+    """Этап 10.9.6.4: настройки фото цитаты раскрываются у выделенного фото"""
+    page.wait_for_selector(".side .ph-panel .ph-cur")
+    page.wait_for_selector(".stage .ph-hit", state="attached")   # слой фото на слайде собран (иначе выделение сбрасывается)
+    page.evaluate("(() => { const el = document.querySelector('.side .ph-panel'); if (el && el._b && photoUI.sel !== el._b.id) photoSelect(el._b.id); })()")
+    page.wait_for_selector(".side .ph-panel.sel")
+
+
 def person_png(w=300, hh=600):
     """Прозрачный PNG: «человек» 200×550, левая половина красная, правая синяя — по ним видно отражение."""
     im = Image.new("RGBA", (w, hh), (0, 0, 0, 0))
@@ -236,6 +244,7 @@ def test_preset_applies_on_pick_and_reset_mirrored_for_other_side(page, sermon):
     assert q(page)["photo"] == {"id": "lewis-cs", "x": 0.3, "y": 1.05, "h": 1.2, "filter": "bw", "mirror": False}
     page.evaluate("Object.assign(state.blocks.find(b => b.id === 'q1').photo, { x:0.5, filter:'none' })")
     page.locator(".side .toggle button", has_text="Текст слева").click()   # фото справа
+    select_photo(page)
     page.locator(".ph-panel button", has_text="Сбросить").click()
     assert q(page)["photo"] == {"id": "lewis-cs", "x": 0.7, "y": 1.05, "h": 1.2, "filter": "bw", "mirror": False}
     assert not page.errors, page.errors
@@ -254,6 +263,7 @@ def test_preset_from_full_width_lands_on_photo_side(page, sermon):
 
 def test_admin_saves_preset(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs", "x": 0.25, "y": 0.98, "h": 0.8, "filter": "sepia", "mirror": True}, half="left", halfW=50)
+    select_photo(page)
     page.locator(".ph-panel button", has_text="Сделать видом по умолчанию").click()
     page.wait_for_function("(() => { const a = (fakeCloud.db().bankPhotos || {})['lewis-cs']; return a && a.preset; })()")
     ps = page.evaluate("fakeCloud.db().bankPhotos['lewis-cs'].preset")
@@ -267,6 +277,7 @@ def test_preset_button_and_photobank_only_for_admin(browser, base_url, sermon):
     try:
         pg.wait_for_selector(".home-top")
         open_quote(pg, sermon, photo={"id": "lewis-cs"})
+        select_photo(pg)
         pg.wait_for_selector(".ph-panel .ph-reset")
         assert pg.locator(".ph-panel", has_text="Сделать видом по умолчанию").count() == 0
         assert pg.evaluate("typeof openPhotoBank") == "function"
@@ -357,10 +368,12 @@ def test_drag_resize_and_reset(page, sermon):
     assert p2["h"] > p["h"] + 0.05
     assert abs((p2["y"]) - p["y"]) < 0.002   # противоположный (нижний левый) угол на месте
     # фильтр (в «Расширенных настройках» блока «Фото») и «Сбросить»
+    select_photo(page)
     if not page.locator(".side .ph-adv").evaluate("d => d.open"):
         page.locator(".side .ph-adv summary").click()
     page.locator(".side .ph-adv .ph-filter").select_option("bw")
     assert q(page)["photo"]["filter"] == "bw"
+    select_photo(page)
     page.locator(".ph-panel button", has_text="Сбросить").click()
     p3 = q(page)["photo"]
     assert (p3["x"], p3["y"], p3["h"], p3["filter"]) == (None, None, None, "none")

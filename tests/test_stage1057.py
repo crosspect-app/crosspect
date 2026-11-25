@@ -66,7 +66,8 @@ def test_flip_horizontal_on_background_photo_in_jpeg(page, sermon):
 def test_flip_buttons_toggle_and_mirror_crop_and_rotation(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs", "crop": {"l": 0.3, "t": 0.2, "r": 0.1, "b": 0}, "rot": 20})
     a = adv(page)
-    assert a.locator(".ph-flip").inner_text().strip().endswith("Слева направо") and a.locator(".ph-flipv").inner_text().strip().endswith("Сверху вниз")
+    assert a.locator(".ph-flip").inner_text().strip() == "" and a.locator(".ph-flip svg").count() == 1 and a.locator(".ph-flipv svg").count() == 1   # этап 10.9.6.4: значки без подписей
+    assert a.locator(".ph-flip").get_attribute("title") == "Отразить по горизонтали"
     a.locator(".ph-flipv").click()
     p = q(page)["photo"]
     assert p["flipV"] is True and p["crop"] == {"l": 0.3, "t": 0, "r": 0.1, "b": 0.2} and p["rot"] == -20

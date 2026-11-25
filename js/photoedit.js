@@ -25,6 +25,10 @@ function photoFxSet(id, fn){
 function photoPanelMark(scroll){
   const el = typeof sideEl !== 'undefined' && sideEl ? sideEl.querySelector('.ph-panel') : null; if (!el) return;
   const on = !!el._b && (photoUI.sel === el._b.id || photoUI.crop === el._b.id);
+  // этап 10.9.6.4: выделили — настройки раскрылись; сняли щелчком мимо — свернутся после щелчка (иначе панель сдвигается под мышью и щелчок промахивается)
+  const refill = () => { if (el._b && el.isConnected && el._sig !== photoPanelSig(el._b)) photoPanelFill(el, el._b); };
+  if (on || !el.querySelector('.ph-adv')) refill();
+  else { const t = setTimeout(refill, 800); addEventListener('click', () => { clearTimeout(t); setTimeout(refill, 0); }, { once:true, capture:true }); }
   el.classList.toggle('sel', on);
   // на телефоне блок «Фото» под слайдом: не прокручиваем, иначе выделенное фото уезжает за экран (этап 10.5.7)
   if (on && scroll && el.scrollIntoView && !matchMedia('(max-width:760px)').matches) el.scrollIntoView({ block:'nearest', behavior:'smooth' });
@@ -46,6 +50,7 @@ document.addEventListener('pointerdown', e => {   // щелчок мимо фо�
 }, true);
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && photoUI.crop){ e.preventDefault(); e.stopPropagation(); photoCropEnd(); }
+  else if (e.key === 'Escape' && photoUI.sel && !document.querySelector('.overlay.open, .dd-list')) photoDeselect();   // этап 10.9.6.4: как у слоёв картинки
 }, true);
 
 /* Вызывается из paintPhotoLayer (photos.js) при каждой перерисовке: рамка выделения, а при обрезке — подсказка с «Готово» и ручки */
@@ -70,23 +75,20 @@ function photoBuildBar(id){
     h('button', { type:'button', class:'ph-b ph-b-done', title:'Закончить обрезку', onclick:() => photoCropEnd() }, 'Готово'));
 }
 
+/* Строка «Фильтр, Обрезать, отражение» (этап 10.9.6.4): маленький список фильтров и кнопки в одну строку */
+function fxToolsRow(...x){ return h('div', { class:'ph-tools' }, ...x); }
 /* «Расширенные настройки» в блоке «Фото»: свёрнуты по умолчанию */
 function photoAdvanced(b, a){
   const id = b.id, p = b.photo, cropping = photoUI.crop === id;
+  const flip = (k, cls, icon, tip, vert) => h('button', { type:'button', class:'btn small ph-ico ' + cls + (p[k] ? ' on' : ''), title:tip, 'aria-label':tip, 'aria-pressed':p[k] ? 'true' : 'false',
+    onclick:() => photoFxSet(id, q => { if (q[k]) delete q[k]; else q[k] = true; photoMirrorFx(q, vert); photoPanelRefresh(); }) }, ic(icon));
   const body = [
-    h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:'Фильтр' }),
-      h('select', { class:'input ph-filter', 'aria-label':'Фильтр', onchange:e => photoFxSet(id, q => { q.filter = e.target.value; }) },
-        PHOTO_FILTERS.map(([v, t]) => h('option', { value:v, selected:(p.filter || 'none') === v ? true : null }, t)))),
-    h('div', { class:'ph-acts' },
+    // этап 10.9.6.4: фильтр, обрезка и отражение — одной строкой, отражение значками без подписей
+    fxToolsRow(h('select', { class:'input ph-sel ph-filter', 'aria-label':'Фильтр', title:'Фильтр', onchange:e => photoFxSet(id, q => { q.filter = e.target.value; }) },
+        PHOTO_FILTERS.map(([v, t]) => h('option', { value:v, selected:(p.filter || 'none') === v ? true : null }, t))),
       h('button', { type:'button', class:'btn small ph-crop-btn' + (cropping ? ' on' : ''), title:cropping ? 'Закончить обрезку' : 'Обрезать: ручки по краям фото на слайде',
         onclick:() => cropping ? photoCropEnd() : photoCropStart(id) }, cropping ? 'Готово' : 'Обрезать'),
-      ),
-    // этап 10.5.7: отражение по двум осям, у всех видов фото; обрезка и поворот отражаются вместе с фото
-    h('div', { class:'ph-row ph-flips' }, h('span', { class:'ph-lbl', text:'Отразить' }),
-      h('button', { type:'button', class:'btn small ph-flip' + (p.flipH ? ' on' : ''), 'aria-pressed':p.flipH ? 'true' : 'false',
-        onclick:() => photoFxSet(id, q => { if (q.flipH) delete q.flipH; else q.flipH = true; photoMirrorFx(q); photoPanelRefresh(); }) }, '⇆ Слева направо'),
-      h('button', { type:'button', class:'btn small ph-flipv' + (p.flipV ? ' on' : ''), 'aria-pressed':p.flipV ? 'true' : 'false',
-        onclick:() => photoFxSet(id, q => { if (q.flipV) delete q.flipV; else q.flipV = true; photoMirrorFx(q, true); photoPanelRefresh(); }) }, '⇅ Сверху вниз')),
+      flip('flipH', 'ph-flip', 'fliph', 'Отразить по горизонтали', false), flip('flipV', 'ph-flipv', 'flipv', 'Отразить по вертикали', true)),
     ...shadowRows(() => blockById(id).photo.shadow || 0, v => photoFxSet(id, q => { if (v) q.shadow = v; else delete q.shadow; })),   // этап 10.9.2; над обводкой — 10.9.6.3
     ...photoToolBody('out', id, b),
     ...(a.kind === 'bg' ? photoToolBody('round', id, b) : [])];

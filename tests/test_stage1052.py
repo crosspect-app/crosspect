@@ -4,6 +4,7 @@
 import base64
 import io
 import json
+from test_stage105 import select_photo
 from pathlib import Path
 
 from PIL import Image
@@ -119,6 +120,7 @@ def test_picker_full_screen_on_phone(browser, base_url, sermon):
 
 def test_bg_photo_not_mirrored(page, sermon):
     open_q(page, sermon, photo={"id": "lewis-bg"}, half="right")
+    select_photo(page)
     page.wait_for_selector(".side .ph-panel .ph-reset")
     assert page.locator(".side .ph-panel", has_text="Не отражать").count() == 0
     assert "с фоном" in page.inner_text(".side .ph-panel .ph-cur")
@@ -133,6 +135,7 @@ def test_bg_photo_not_mirrored(page, sermon):
 
 def test_preset_is_per_photo(page, sermon):
     open_q(page, sermon, photo={"id": "lewis-cs", "x": 0.3, "y": 1, "h": 0.8, "filter": "bw"}, half="right")
+    select_photo(page)
     page.locator(".ph-panel button", has_text="Сделать видом по умолчанию").click()
     page.wait_for_function("!!fakeCloud.db().bankPhotos['lewis-cs'].preset")
     db = page.evaluate("fakeCloud.db().bankPhotos")
@@ -140,6 +143,7 @@ def test_preset_is_per_photo(page, sermon):
     # «Сбросить» — у всех, по виду своего фото
     page.evaluate("Object.assign(state.blocks.find(b => b.id === 'q1').photo, { id:'lewis-bg', x:0.6 })")
     page.evaluate("rerender(state.blocks.find(b => b.id === 'q1'))")
+    select_photo(page)
     page.locator(".ph-panel button", has_text="Сбросить").click()
     assert q(page)["photo"]["x"] == 0.25 and q(page)["photo"]["filter"] == "sepia"
     assert not page.errors, page.errors
@@ -163,6 +167,7 @@ def test_before_migration_repo_photos_shown_read_only(page, sermon):
     page.wait_for_function("photoBank.loaded && !!bankEntry('calvin')")
     assert page.evaluate("bankEntry('calvin').legacy && bankLegacy()") is True
     page.wait_for_function("!!document.querySelector('.stage .sl-photo img[src]')")
+    select_photo(page)
     page.wait_for_selector(".side .ph-panel .ph-reset")
     assert page.locator(".ph-panel", has_text="Сделать видом по умолчанию").count() == 0
     page.evaluate("closeSettings(true); openPhotoBank()")

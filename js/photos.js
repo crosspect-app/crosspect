@@ -371,7 +371,7 @@ function photoPanelRefresh(){
 /* Всё, от чего зависит вид блока «Фото» (кроме ползунков — их значения меняются на месте) */
 function photoPanelSig(b){
   const p = b.photo || {}, a = bankEntry(p.id);
-  return JSON.stringify([photoBank.loaded, a && [a.id, a.thumb, bankName(a), a.kind, !!a.legacy], !!p.off, photoUI.crop === b.id,
+  return JSON.stringify([photoBank.loaded, a && [a.id, a.thumb, bankName(a), a.kind, !!a.legacy], !!p.off, photoUI.crop === b.id, photoUI.sel === b.id,
     !!p.flipH, !!p.flipV, !!(cloud.admin && cloudOn()), readOnly()]);
 }
 
@@ -530,10 +530,14 @@ function photoPanelFill(el, b){
   if (!a){
     kids.push(h('div', { class:'ph-cur' }, h('span', { class:'ph-cur-name hint', text:photoBank.loaded ? 'Этого фото больше нет в фотобанке' : 'Загружаю фотобанк…' }), onSlide));
   } else {
-    kids.push(h('div', { class:'ph-cur' + (p.off ? ' off' : '') }, h('img', { class:'ph-cur-img', src:a.thumb, alt:'' }),
+    // этап 10.9.6.4: щелчок по строке фото — выделить фото, как щелчок по нему на слайде
+    kids.push(h('div', { class:'ph-cur' + (p.off ? ' off' : ''), title:p.off || readOnly() ? null : 'Настроить фото',
+      onclick:e => { if (p.off || readOnly() || e.target.closest('.ph-onoff')) return; if (photoUI.sel === b.id) photoDeselect(); else photoSelect(b.id); } },
+      h('img', { class:'ph-cur-img', src:a.thumb, alt:'' }),
       h('span', { class:'ph-cur-name' }, bankName(a), h('span', { class:'ph-kind', text:PHOTO_KINDS[a.kind] })), onSlide));
   }
-  if (a && !p.off){
+  // этап 10.9.6.4: настройки фото раскрываются, только когда фото выделено (на слайде или щелчком по строке фото) — как у картинки
+  if (a && !p.off && (photoUI.sel === b.id || photoUI.crop === b.id)){
     // правка 19 ноября 2026: фильтр, обрезка, отражение, поворот, обводка и углы — под «Расширенными настройками» (photoedit.js)
     if (!readOnly()) kids.push(photoAdvanced(b, a));
     kids.push(h('div', { class:'ph-acts ph-foot' }, h('button', { type:'button', class:'btn small ph-reset', onclick:() => photoReset(b) }, 'Сбросить'),

@@ -62,6 +62,7 @@ def test_select_part_stage_bar_and_own_speech(page, sermon):
     assert r == ["Первая", "Вторая"]
     # правая панель — весь отрывок, текущая часть подсвечена в списке
     rows = page.locator(".split-sec .part-row")
+    page.wait_for_function("document.querySelectorAll('.split-sec .part-row').length === 2")   # панель перерисовывается после ввода — ждём, а не проверяем сразу
     assert rows.count() == 2 and "on" in rows.nth(1).get_attribute("class")
     assert "3 стиха" in rows.nth(1).inner_text()
     assert not page.errors, page.errors

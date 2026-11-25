@@ -277,7 +277,7 @@ def test_resize_relayouts_slides(sh):
     sh.wait_for_function("Math.abs(document.querySelector('.show-slide.on').getBoundingClientRect().width - 800) < 2")
     # на нагруженной машине CI первый resize иногда приходит раньше, чем окно показа сменило размер: повторяем, пока слайд не разложится заново
     sh.wait_for_function("""() => { window.dispatchEvent(new Event('resize'));
-      return Math.abs(parseFloat(document.querySelector('.show-slide.on .sl').style.getPropertyValue('--s')) - 800 / 1920) < 0.002; }""", polling=250, timeout=10000)
+      return Math.abs(parseFloat(document.querySelector('.show-slide.on .sl').style.getPropertyValue('--s')) - 800 / 1920) < 0.002; }""", polling=250, timeout=25000)   # 25 ноября 2026: на CI 10 с не хватало — выкладка встала
 
 
 def test_show_css_does_not_leak_into_jpeg(sh):

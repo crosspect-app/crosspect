@@ -113,7 +113,7 @@ def test_edits_rotate_outline_filter_crop(page, sermon):
     open_img(page, sermon, imageId="pedit", imgW=1600, imgH=900)
     page.wait_for_function("!!document.querySelector('.stage .sl-pic img[src]')")
     page.locator(".side details.ph-adv summary").click()   # этап 10.9.6.3: правки под «Расширенными настройками»
-    page.locator(".side .pic-right").click()
+    page.evaluate("picFxSet('i1', picLayers(blockById('i1'))[0].id, q => { q.rot = 90; })")   # этап 10.9.6.4: кнопок ↺ ↻ нет, поворот — ручкой
     assert blk(page)["pic"] == {"rot": 90}
     page.locator(".side .pic-filter").select_option("bw")
     page.evaluate("picFxSet('i1', picLayers(blockById('i1'))[0].id, q => { q.outline = { w:10, color:'#ffffff' }; })")
@@ -129,8 +129,8 @@ def test_edits_rotate_outline_filter_crop(page, sermon):
     page.evaluate("PCW.crop = { l:0.25, t:0, r:0.25, b:0 }")
     page.locator(".picc-done").click()
     assert blk(page)["pic"]["crop"] == {"l": 0.25, "t": 0, "r": 0.25, "b": 0}
-    page.locator(".side .pic-reset").click()
-    assert "pic" not in blk(page)
+    page.evaluate("undo()")   # этап 10.9.6.4: «Сбросить правки» нет — правки отменяют
+    assert blk(page)["pic"].get("crop") is None
     assert not page.errors, page.errors
 
 

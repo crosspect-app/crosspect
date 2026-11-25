@@ -24,7 +24,7 @@ def test_picture_card_like_quote_photo(page, sermon):
     assert d.count() == 1 and d.get_attribute("open") is None   # свёрнуто
     assert not page.locator(c + ".pic-filter").is_visible()
     d.locator("summary").click()
-    for s in (".pic-filter", ".pic-crop", ".pic-left", ".sh-range", ".pic-ow", ".ph-sw"):
+    for s in (".pic-filter", ".pic-crop", ".pic-flip", ".pic-flipv", ".sh-range", ".pic-ow", ".ph-sw", ".pic-rd"):
         assert page.locator(c + s).first.is_visible(), s
     order = page.evaluate("[...document.querySelectorAll('.side .ly-card.on .ph-adv-body .ph-row .ph-lbl')].map(e => e.textContent)")
     assert order.index("Тень") < order.index("Обводка")
@@ -67,6 +67,8 @@ def test_quote_settings_in_groups(page, sermon):
     assert heads == ["Текст", "Расположение", "Автор", "Фото"]
     assert page.locator(".side .grp-photo .ph-panel").count() == 1 and page.locator(".side .grp-author .au-wrap").count() == 1
     # тень у фото цитаты — ползунок от 0, над обводкой
+    from test_stage105 import select_photo
+    select_photo(page)
     page.locator(".side .ph-adv summary").click()
     assert page.locator(".side .ph-adv .sh-on").count() == 0
     order = page.evaluate("[...document.querySelectorAll('.side .ph-adv-body .ph-row .ph-lbl')].map(e => e.textContent)")

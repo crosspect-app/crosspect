@@ -153,7 +153,7 @@ function normPhoto(p){
 /* Картинка слайда (этап 10.9.1): mode 'upload' — файл загружен в форму и лежит в облаке рядом с конспектом
    (spaces/{s}/sermons/{id}/slideImages/{imageId}); imgW, imgH — размер файла в пикселях. Правки pic (поля есть, только если
    не по умолчанию): crop {l,t,r,b} — обрезка в долях картинки, rot — поворот −180…180, filter — один из PHOTO_FILTERS,
-   outline { w — 0…30 px слайда, color }. Картинка не меняется: «Заменить» — новый imageId */
+   outline { w — 0…30 px слайда, color }; round — скругление углов 0…0,5 от меньшей стороны, flipH / flipV — отражение (этап 10.9.6.4). Картинка не меняется: «Заменить» — новый imageId */
 const PIC_ID_RE = /^[a-z0-9-]{1,60}$/;
 function normPic(p){
   if (!p || typeof p !== 'object') return null;
@@ -167,6 +167,10 @@ function normPic(p){
     const color = typeof o.color === 'string' && /^#[0-9a-f]{6}$/i.test(o.color) ? o.color.toLowerCase() : PHOTO_OUT.color;
     if (w > 0 || color !== PHOTO_OUT.color) out.outline = { w:+w.toFixed(1), color };   // этап 10.9.6.3: выбранный цвет помнится и при 0 px
   }
+  const rd = typeof p.round === 'number' && isFinite(p.round) ? Math.min(0.5, Math.max(0, p.round)) : 0;
+  if (rd) out.round = +rd.toFixed(2);
+  if (p.flipH === true) out.flipH = true;
+  if (p.flipV === true) out.flipV = true;
   return Object.keys(out).length ? out : null;
 }
 /* Положение картинки на слайде (этап 10.9.1.2; в 10.9.2 — у каждой картинки списка): null — целиком внутри полей, как в 10.9.1;

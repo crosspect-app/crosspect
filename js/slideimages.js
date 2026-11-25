@@ -111,7 +111,7 @@ function picGeom(S){
 const picKey = S => { const p = S.pic || {};
   if (S.cover) return [S.imageId, 'cover'].join('|');   // заставка: от полей слайда и настроек не зависит
   const G = picGeom(S);
-  return [S.imageId, JSON.stringify(p.crop || null), p.rot || 0, p.filter || 'none', p.outline && p.outline.w > 0 ? p.outline.w + p.outline.color : '', Math.round(G.iw), Math.round(G.ih),
+  return [S.imageId, JSON.stringify(p.crop || null), p.rot || 0, p.filter || 'none', p.outline && p.outline.w > 0 ? p.outline.w + p.outline.color : '', p.round || 0, (p.flipH ? 'h' : '') + (p.flipV ? 'v' : ''), Math.round(G.iw), Math.round(G.ih),
     p.filter === 'tone' ? photoToneColor() : ''].join('|'); };
 const picVars = new Map(), picOrder = [];   // ключ → { canvas, url } или Promise; последние 40
 function picRender(S){
@@ -136,13 +136,18 @@ function picRender(S){
     const P = pbCanvas(iw, ih), g = P.getContext('2d', { willReadFrequently:f !== 'none' });
     g.imageSmoothingQuality = 'high';
     const nw = im.naturalWidth, nh = im.naturalHeight;
+    if (p.flipH || p.flipV){ g.translate(p.flipH ? iw : 0, p.flipV ? ih : 0); g.scale(p.flipH ? -1 : 1, p.flipV ? -1 : 1); }   // этап 10.9.6.4: отражение видимой части
     g.drawImage(im, G.c.l * nw, G.c.t * nh, (1 - G.c.l - G.c.r) * nw, (1 - G.c.t - G.c.b) * nh, 0, 0, iw, ih);
+    g.setTransform(1, 0, 0, 1, 0, 0);
     if (f !== 'none'){ const px = g.getImageData(0, 0, iw, ih); filterPixels(px.data, f, photoToneColor()); g.putImageData(px, 0, 0); }
     const C = pbCanvas(Math.max(1, Math.round(G.W * r)), Math.max(1, Math.round(G.H * r))), t = C.getContext('2d');
     t.imageSmoothingQuality = 'high';
     t.translate(C.width / 2, C.height / 2); t.rotate(G.th);
-    if (ow > 0){ t.fillStyle = p.outline.color; t.fillRect(-iw / 2 - ow, -ih / 2 - ow, iw + 2 * ow, ih + 2 * ow); }
-    t.drawImage(P, -iw / 2, -ih / 2);
+    const rad = (p.round || 0) * Math.min(iw, ih);   // этап 10.9.6.4: скруглённые углы; обводка идёт по скруглению
+    const rr = (x, y, w, h, q) => { t.beginPath(); if (t.roundRect) t.roundRect(x, y, w, h, q); else t.rect(x, y, w, h); };
+    if (ow > 0){ t.fillStyle = p.outline.color; if (rad){ rr(-iw / 2 - ow, -ih / 2 - ow, iw + 2 * ow, ih + 2 * ow, rad + ow); t.fill(); } else t.fillRect(-iw / 2 - ow, -ih / 2 - ow, iw + 2 * ow, ih + 2 * ow); }
+    if (rad){ t.save(); rr(-iw / 2, -ih / 2, iw, ih, rad); t.clip(); t.drawImage(P, -iw / 2, -ih / 2); t.restore(); }
+    else t.drawImage(P, -iw / 2, -ih / 2);
     return new Promise(res => C.toBlob(bl => store(C, bl, res), 'image/webp', 0.92));
   }).catch(e => { picVars.delete(key); throw e; }));
   return picVars.get(key);
@@ -497,6 +502,31 @@ function ptAdd(id){
 function layerMove(id, lid, d){
   picLayersSet(id, L => { const i = L.findIndex(l => l.id === lid), j = i + d; if (i < 0 || j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; });
 }
+/* Перетаскивание карточки слоя (этап 10.9.6.4): карточка едет за мышью, соседние плавно уступают место; отпустили — новый порядок.
+   Список сверху вниз — слои от верхнего к нижнему */
+function lyDrag(e, id, lid){
+  if (e.button !== 0 || readOnly()) return;
+  e.preventDefault(); e.stopPropagation();
+  const card = e.currentTarget.closest('.ly-card'), list = card && card.parentNode; if (!list) return;
+  const cards = [...list.children], from = cards.indexOf(card), R = cards.map(c => c.getBoundingClientRect()), y0 = e.clientY;
+  const gap = cards.length > 1 ? Math.max(0, R[1].top - R[0].bottom) : 8, step = R[from].height + gap;
+  let to = from;
+  card.classList.add('dragging'); list.classList.add('sorting');
+  const move = ev => {
+    const lo = R[0].top - R[from].top, hi = R[R.length - 1].bottom - R[from].bottom, dy = Math.min(hi, Math.max(lo, ev.clientY - y0));
+    card.style.transform = 'translateY(' + dy + 'px)';
+    const top = R[from].top + dy, bot = R[from].bottom + dy;   // вниз — нижний край прошёл середину соседа, вверх — верхний (карточки разной высоты)
+    to = from;
+    cards.forEach((c, i) => { const m = R[i].top + R[i].height / 2; if (i < from && top < m) to = Math.min(to, i); if (i > from && bot > m) to = Math.max(to, i); });
+    cards.forEach((c, i) => { if (c === card) return; const s = from < to && i > from && i <= to ? -step : from > to && i >= to && i < from ? step : 0; c.style.transform = s ? 'translateY(' + s + 'px)' : ''; });
+  };
+  const up = () => {
+    removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
+    cards.forEach(c => { c.style.transform = ''; }); card.classList.remove('dragging'); list.classList.remove('sorting');
+    if (to !== from) picLayersSet(id, L => { const n = L.length, i = L.findIndex(l => l.id === lid); if (i < 0) return; const [x] = L.splice(i, 1); L.splice(n - 1 - to, 0, x); });
+  };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+}
 function layerRemove(id, lid){
   picLayersSet(id, L => { const i = L.findIndex(l => l.id === lid); if (i >= 0) L.splice(i, 1); });
 }
@@ -537,16 +567,18 @@ function picPanelFill(el, b){
     if (!ro) kids.push(h('div', { class:'pic-acts' }, h('button', { type:'button', class:'btn small pt-add', onclick:() => ptAdd(id) }, 'Добавить текст')));
     el.innerHTML = ''; el.append(...kids); return;
   }
-  if (!ro){
-    kids.push(drop(h('div', { class:'pic-acts pic-add' }, pickBtn('Добавить картинку', 'small pic-pick'),
+  // этап 10.9.6.4: элементы слайда — отдельным блоком; порядок меняют перетаскиванием карточки за ручку слева
+  const list = h('div', { class:'ly-list' });
+  const grp = h('section', { class:'grp grp-layers' }, h('div', { class:'grp-head', text:'Элементы слайда' }));
+  if (!ro) grp.append(drop(h('div', { class:'pic-acts pic-add' }, pickBtn('Добавить картинку', 'small pic-pick'),
       h('button', { type:'button', class:'btn small pt-add', onclick:() => ptAdd(id) }, 'Добавить текст'))));
-    kids.push(h('p', { class:'hint pic-move-hint', text:'Картинки и текст можно двигать на слайде мышью, размер — за края и углы.' }));
-  }
+  grp.append(list); kids.push(grp);
   const sel = picSelId(b);
   // слои сверху вниз, как их видно на слайде
   [...L].reverse().forEach(l => {
     const i = L.indexOf(l), on = l.id === sel;
-    const head = h('div', { class:'ly-head', onclick:e => { if (!e.target.closest('button')) picSelect(id, l.id); } },
+    const head = h('div', { class:'ly-head', onclick:e => { if (!e.target.closest('button, .ly-grip')) picSelect(id, l.id); } },
+      !ro && L.length > 1 ? h('span', { class:'ly-grip', title:'Перетащите, чтобы поставить выше или ниже', onpointerdown:e => lyDrag(e, id, l.id) }, ic('grip')) : null,
       h('span', { class:'ly-name', text:layerName(b, l) }),
       l.kind === 'text' && !on ? h('span', { class:'ly-sub hint', text:l.text.trim().split('\n')[0].slice(0, 40) }) : null,
       // этап 10.9.6.3: одна плашка из трёх значков — выше, ниже, удалить
@@ -557,32 +589,34 @@ function picPanelFill(el, b){
     const card = h('div', { class:'ly-card' + (on ? ' on' : ''), 'data-l':l.id }, head);
     if (on && !ro) card.append(h('div', { class:'ly-body' }, ...(l.kind === 'pic' ? picLayerBody(b, l, pickBtn) : ptLayerBody(b, l))));
     else if (on && ro && l.kind === 'pic' && picErr.get(l.imageId)) card.append(h('p', { class:'pic-err', role:'alert', text:picErr.get(l.imageId) }));
-    kids.push(card);
+    list.append(card);
   });
   el.innerHTML = ''; el.append(...kids);
 }
 const prow = (label, ...x) => h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:label }), ...x);
-/* Настройки картинки (этап 10.9.6.3 — как у фото цитаты): на виду «Заменить» и «Сбросить правки»; под свёрнутыми «Расширенными настройками»
-   (свёрнуто или раскрыто — общее с фото цитаты, помнит браузер) — фильтр, «Обрезать», поворот на 90°, тень, обводка. Поворот на любой угол — ручкой на слайде,
-   размер и место — мышью на слайде */
+/* Настройки картинки (этапы 10.9.6.3–10.9.6.4, как у фото цитаты): на виду «Заменить»; под свёрнутыми «Расширенными настройками»
+   (свёрнуто или раскрыто — общее с фото цитаты, помнит браузер) — фильтр, «Обрезать», отражение, тень, обводка, углы. Поворот и размер — мышью на слайде;
+   отменить правку — «Отменить» в шапке */
 function picLayerBody(b, l, pickBtn){
-  const id = b.id, lid = l.id, p = l.pic || {}, kids = [], cur = () => picItem(blockById(id), lid) || {};
+  const id = b.id, lid = l.id, p = l.pic || {}, kids = [], cur = () => picItem(blockById(id), lid) || {}, cp = () => cur().pic || {};
   const err = picErr.get(l.imageId);
   if (err) kids.push(h('p', { class:'pic-err', role:'alert', text:err }));
   kids.push(h('div', { class:'pic-acts' }, pickBtn('Заменить', 'small pic-replace', lid)));
-  const turn = d => () => { const c = (cur().pic || {}).rot || 0; let v = Math.round((c + d) / 90) * 90; if (v > 180) v -= 360; if (v < -180) v += 360; picFxSet(id, lid, q => { q.rot = v; }); };
+  const flip = (k, cls, icon, tip) => h('button', { type:'button', class:'btn small ph-ico ' + cls + (p[k] ? ' on' : ''), title:tip, 'aria-label':tip, 'aria-pressed':p[k] ? 'true' : 'false',
+    onclick:e => { const on = !cp()[k]; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on ? 'true' : 'false'); picFxSet(id, lid, q => { if (on) q[k] = true; else delete q[k]; }); } }, ic(icon));
+  const rv = h('span', { class:'ph-val', text:Math.round((p.round || 0) * 100) + ' %' });
   const adv = [
-    prow('Фильтр', h('select', { class:'input pic-filter', 'aria-label':'Фильтр', onchange:e => picFxSet(id, lid, q => { q.filter = e.target.value; }) },
-      PHOTO_FILTERS.map(([v, t]) => h('option', { value:v, selected:(p.filter || 'none') === v ? true : null }, t)))),
-    h('div', { class:'pic-acts' }, h('button', { type:'button', class:'btn small pic-crop', onclick:() => picCropOpen(b, lid) }, 'Обрезать'),
-      h('span', { class:'pic-turns' }, h('button', { type:'button', class:'btn small pic-left', title:'Повернуть влево на 90°', 'aria-label':'Повернуть влево на 90°', onclick:turn(-90) }, '↺'),
-        h('button', { type:'button', class:'btn small pic-right', title:'Повернуть вправо на 90°', 'aria-label':'Повернуть вправо на 90°', onclick:turn(90) }, '↻'))),
+    fxToolsRow(h('select', { class:'input ph-sel pic-filter', 'aria-label':'Фильтр', title:'Фильтр', onchange:e => picFxSet(id, lid, q => { q.filter = e.target.value; }) },
+        PHOTO_FILTERS.map(([v, t]) => h('option', { value:v, selected:(p.filter || 'none') === v ? true : null }, t))),
+      h('button', { type:'button', class:'btn small pic-crop', onclick:() => picCropOpen(b, lid) }, 'Обрезать'),
+      flip('flipH', 'pic-flip', 'fliph', 'Отразить по горизонтали'), flip('flipV', 'pic-flipv', 'flipv', 'Отразить по вертикали')),
     ...shadowRows(() => cur().shadow || 0, v => layerSet(id, lid, x => { if (v) x.shadow = v; else delete x.shadow; })),
-    ...outlineRows(() => (cur().pic || {}).outline, (w, color) => picFxSet(id, lid, q => { if (w > 0 || color !== PHOTO_OUT.color) q.outline = { w, color }; else delete q.outline; }), 'pic-ow')];
+    ...outlineRows(() => cp().outline, (w, color) => picFxSet(id, lid, q => { if (w > 0 || color !== PHOTO_OUT.color) q.outline = { w, color }; else delete q.outline; }), 'pic-ow'),
+    prow('Углы', h('input', { type:'range', class:'ph-range pic-rd', min:0, max:50, step:1, value:Math.round((p.round || 0) * 100), 'aria-label':'Скругление углов',
+      oninput:e => { const v = +e.target.value; rv.textContent = v + ' %'; picFxSet(id, lid, q => { if (v) q.round = v / 100; else delete q.round; }); } }), rv)];
   const d = h('details', { class:'ph-adv' }, h('summary', { text:'Расширенные настройки', onclick:() => photoAdvSave(!d.open) }), h('div', { class:'ph-adv-body' }, adv));
   d.open = photoAdvOpen();
   kids.push(d);
-  if (l.pic || l.shadow) kids.push(h('div', { class:'ph-acts ph-foot' }, h('button', { type:'button', class:'btn small pic-reset', onclick:() => { layerSet(id, lid, x => { delete x.pic; delete x.shadow; }); picPanelRefresh(id); } }, 'Сбросить правки')));
   return kids;
 }
 /* Настройки текста: сам текст, размер, жирный, выравнивание, цвет */
