@@ -187,17 +187,17 @@ def test_text_only_slide_is_drawn(page, sermon):
 
 # ---------- Тень ----------
 
-def test_shadow_checkbox_and_strength(page, sermon):
+def test_shadow_slider_from_zero(page, sermon):
     put_image(page, "fixture-0001", "psh", 800, 600)
     open_img(page, sermon, imageId="psh", imgW=800, imgH=600, todo=False)
     page.wait_for_function("!!document.querySelector('.stage .sl-pic img[src]')")
-    assert page.locator(".side .sh-range").is_disabled()
-    page.locator(".side .sh-on").check()
-    assert blk(page)["shadow"] == 50
-    assert "drop-shadow" in page.evaluate("document.querySelector('.stage .sl-pic img').style.filter")
+    assert page.locator(".side .sh-on").count() == 0   # этап 10.9.6.3: без галочки
+    rng = ".side .sh-range"
+    assert page.eval_on_selector(rng, "r => [r.min, r.value, r.disabled]") == ["0", "0", False]
     page.evaluate("const r = document.querySelector('.side .sh-range'); r.value = 80; r.dispatchEvent(new Event('input', { bubbles:true }))")
     assert blk(page)["shadow"] == 80
-    page.locator(".side .sh-on").uncheck()
+    assert "drop-shadow" in page.evaluate("document.querySelector('.stage .sl-pic img').style.filter")
+    page.evaluate("const r = document.querySelector('.side .sh-range'); r.value = 0; r.dispatchEvent(new Event('input', { bubbles:true }))")
     assert "shadow" not in blk(page)
     assert page.evaluate("document.querySelector('.stage .sl-pic img').style.filter") == ""
     assert not page.errors, page.errors

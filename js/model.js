@@ -165,7 +165,7 @@ function normPic(p){
   if (o){
     const w = typeof o.w === 'number' && isFinite(o.w) ? Math.min(PHOTO_OUT.max, Math.max(0, o.w)) : 0;
     const color = typeof o.color === 'string' && /^#[0-9a-f]{6}$/i.test(o.color) ? o.color.toLowerCase() : PHOTO_OUT.color;
-    if (w > 0) out.outline = { w:+w.toFixed(1), color };
+    if (w > 0 || color !== PHOTO_OUT.color) out.outline = { w:+w.toFixed(1), color };   // этап 10.9.6.3: выбранный цвет помнится и при 0 px
   }
   return Object.keys(out).length ? out : null;
 }

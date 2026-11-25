@@ -715,12 +715,16 @@ const BODY = {
     body.append(h('div', { class:'opt-row' }, h('span', { class:'lbl', style:'margin:0' , text:'Весь текст по вертикали' }), valignTools(b)));
   },
   quote(b, body){
+    // этап 10.9.6.3: настройки цитаты — отдельными блоками с заголовками: «Текст», «Расположение», «Автор», «Фото»
+    const outer = body, grp = (title, cls) => { const g = h('section', { class:'grp ' + cls }, h('div', { class:'grp-head', text:title })); outer.append(g); return g; };
+    body = grp('Текст', 'grp-text');
     body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Цитата' }), scaleStepper(b)),
       rich(b.text, { key:b.id + ':t', ph:'Текст цитаты, без кавычек. Enter — новая строка', onInput:v => { b.text = v; change(); updateCounter(b); } })));
     body.append(capsSwitch(b));
     body.append(h('label', { class:'switch' },
       h('input', { type:'checkbox', checked:!!b.frame, onchange:e => { b.frame = e.target.checked; change(); updateCounter(b); } }),
       h('span', { class:'sw' }), 'Обводка пунктиром'));
+    body = grp('Расположение', 'grp-place');
     body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Место текста' })),
       toggle([['left', 'Текст слева'], ['full', 'Во всю ширину'], ['right', 'Текст справа']], b.half || 'full', v => { photoHalfSwitch(b, v); textBoxHalfSwitch(b, v); b.half = v; change(); rerender(b); })));
     // этап 10.5.5: своя рамка текста заменяет «Ширину текста»; «Сбросить» возвращает прежнее
@@ -732,12 +736,13 @@ const BODY = {
     const sugg = h('div', { class:'au-sugg', role:'listbox', 'aria-label':'Авторы из фотобанка' });
     authorSuggest(b, fi, sugg); authorSuggest(b, la, sugg);
     // этап 10.5.2: «Из фотобанка» — окно выбора человека и фото (photopick.js), есть всегда, даже без фото
+    body = grp('Автор', 'grp-author');
     body.append(h('div', { class:'au-wrap' },
-      h('div', { class:'lbl-row au-head' }, h('span', { class:'lbl', text:'Автор цитаты' }),
+      h('div', { class:'lbl-row au-head' }, h('span', { class:'lbl' }),
         h('button', { type:'button', class:'btn small au-bank', disabled:readOnly() ? true : null, onclick:() => openPhotoPick(b, false) }, 'Из фотобанка')),
       h('div', { class:'grid-2' }, field('Имя', fi), field('Фамилия', la)), sugg));
     body.append(field('Подпись — мелко под автором', input(b, 'caption', 'Книга, год, откуда цитата', { oninput:e => { b.caption = e.target.value; change(); updateCounter(b); } })));
-    if ((b.half === 'left' || b.half === 'right') && b.photo) body.append(photoPanel(b));
+    if ((b.half === 'left' || b.half === 'right') && b.photo) grp('Фото', 'grp-photo').append(photoPanel(b));
   },
   image(b, body, n){
     body.append(nameField(b, n));

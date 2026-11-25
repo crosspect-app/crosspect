@@ -30,7 +30,7 @@ def test_rotate_handle_turns_picture(page, sermon):
     page.mouse.up()
     L = layers(page)[0]
     assert L["pic"]["rot"] == -90
-    assert page.locator(".side .pic-rot").input_value() == "-90"   # ползунок в панели следует за ручкой
+    assert page.locator(".side .pic-rot").count() == 0   # этап 10.9.6.3: ползунка в панели нет, поворот — ручкой
     assert "rotate(" in page.evaluate("document.querySelector('.stage .pic-hit').style.transform")
     assert not page.errors, page.errors
 
@@ -56,11 +56,12 @@ def test_pipette_and_any_color_for_outline(page, sermon):
     page.evaluate(FAKE_DROPPER)
     page.locator(".stage .pic-hit").click()
     page.evaluate("picPanelRefresh('i1')")
+    page.locator(".side .ly-card.on details.ph-adv summary").click()
     assert page.locator(".side .ly-card.on .ph-color").count() == 1
     page.locator(".side .ly-card.on .ph-pipette").click()
     page.wait_for_function("(blockById('i1').layers[0].pic || {}).outline")
     o = layers(page)[0]["pic"]["outline"]
-    assert o["color"] == "#12ab34" and o["w"] > 0
+    assert o["color"] == "#12ab34" and o["w"] == 0   # этап 10.9.6.3: цвет не меняет толщину
     assert page.locator(".side .ly-card.on .ph-color").input_value() == "#12ab34"
     assert not page.errors, page.errors
 

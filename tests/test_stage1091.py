@@ -112,6 +112,7 @@ def test_edits_rotate_outline_filter_crop(page, sermon):
     put_image(page, "fixture-0001", "pedit", 1600, 900, "#dc1e1e")
     open_img(page, sermon, imageId="pedit", imgW=1600, imgH=900)
     page.wait_for_function("!!document.querySelector('.stage .sl-pic img[src]')")
+    page.locator(".side details.ph-adv summary").click()   # этап 10.9.6.3: правки под «Расширенными настройками»
     page.locator(".side .pic-right").click()
     assert blk(page)["pic"] == {"rot": 90}
     page.locator(".side .pic-filter").select_option("bw")

@@ -1615,9 +1615,16 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .ly-head{display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0}
 .ly-name{font-weight:600;white-space:nowrap}
 .ly-sub{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0}
-.ly-btns{margin-left:auto;display:inline-flex;gap:6px}
-.ly-arrow{display:inline-grid;place-items:center;width:30px;padding:0}   /* этап Б: «Выше» и «Ниже» — стрелки ↑ ↓; недоступная — серая, как была кнопка */
-.ly-arrow svg{width:16px;height:16px}
+.grp{border:1px solid var(--line-2);border-radius:14px;padding:12px 14px 14px;background:rgba(255,255,255,.025);display:flex;flex-direction:column;gap:12px}   /* этап 10.9.6.3: блоки настроек цитаты */
+.grp-head{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);padding-bottom:8px;border-bottom:1px solid var(--line-2)}
+.grp .ph-panel{border:0;padding:0;background:transparent;margin:0}
+.ly-tools{margin-left:auto;display:inline-flex;align-items:stretch;flex:none;border:1px solid var(--line-2);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.03)}   /* этап 10.9.6.3: выше, ниже, удалить — одна плашка */
+.ly-tools button{width:32px;height:30px;display:grid;place-items:center;border:0;background:transparent;color:inherit;padding:0;cursor:pointer}
+.ly-tools button+button{border-left:1px solid var(--line-2)}
+.ly-tools button:hover:not(:disabled){background:rgba(255,255,255,.08)}
+.ly-tools button:disabled{opacity:.28;cursor:default}
+.ly-tools .ly-del:hover{color:#ef6b6b}
+.ly-tools svg{width:16px;height:16px}
 .pt-style{display:flex;gap:18px;flex-wrap:wrap}   /* «Жирный» и «Курсив» рядом */
 .ly-body{display:grid;gap:10px}
 .pt-text{resize:vertical}

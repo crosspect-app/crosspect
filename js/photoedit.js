@@ -87,9 +87,9 @@ function photoAdvanced(b, a){
         onclick:() => photoFxSet(id, q => { if (q.flipH) delete q.flipH; else q.flipH = true; photoMirrorFx(q); photoPanelRefresh(); }) }, '⇆ Слева направо'),
       h('button', { type:'button', class:'btn small ph-flipv' + (p.flipV ? ' on' : ''), 'aria-pressed':p.flipV ? 'true' : 'false',
         onclick:() => photoFxSet(id, q => { if (q.flipV) delete q.flipV; else q.flipV = true; photoMirrorFx(q, true); photoPanelRefresh(); }) }, '⇅ Сверху вниз')),
+    ...shadowRows(() => blockById(id).photo.shadow || 0, v => photoFxSet(id, q => { if (v) q.shadow = v; else delete q.shadow; })),   // этап 10.9.2; над обводкой — 10.9.6.3
     ...photoToolBody('out', id, b),
-    ...(a.kind === 'bg' ? photoToolBody('round', id, b) : []),
-    ...shadowRows(() => blockById(id).photo.shadow || 0, v => photoFxSet(id, q => { if (v) q.shadow = v; else delete q.shadow; }))];   // этап 10.9.2
+    ...(a.kind === 'bg' ? photoToolBody('round', id, b) : [])];
   const d = h('details', { class:'ph-adv' }, h('summary', { text:'Расширенные настройки', onclick:() => photoAdvSave(!d.open) }), h('div', { class:'ph-adv-body' }, body));
   d.open = photoAdvOpen() || cropping;
   return d;
@@ -106,18 +106,24 @@ function colorExtras(get, apply){
   }
   return out;
 }
+/* Обводка (этап 10.9.6.3): толщина и цвет независимы — цвет не трогает толщину, и выбранный цвет остаётся, пока не выбран другой (в том числе при 0 px).
+   get() — {w, color} или пусто, set(w, color) — записать; cls — класс ползунка */
+function outlineRows(get, set, cls, tip){
+  const o = () => get() || { w:0, color:PHOTO_OUT.color };
+  const val = h('span', { class:'ph-val', text:o().w + ' px' });
+  const range = h('input', { type:'range', class:'ph-range ' + cls, min:0, max:PHOTO_OUT.max, step:1, value:o().w, 'aria-label':'Толщина обводки',
+    oninput:e => { val.textContent = e.target.value + ' px'; set(+e.target.value, o().color); } });
+  const sw = c => h('button', { type:'button', class:'ph-sw' + (o().color === c ? ' on' : ''), style:'background:' + c, title:c, 'aria-label':'Цвет ' + c,
+    onclick:e => { set(o().w, c); e.currentTarget.parentNode.querySelectorAll('.ph-sw').forEach(x => x.classList.toggle('on', x === e.currentTarget)); } });
+  return [h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:'Обводка' }), range, val),
+    h('div', { class:'ph-sws', title:tip || null }, PHOTO_PALETTE.map(sw), ...colorExtras(() => o().color, c => set(o().w, c)))];
+}
 function photoToolBody(name, id, b){
   const p = b.photo, row = (label, ...kids) => h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:label }), ...kids);
   if (name === 'out'){
-    const o = () => blockById(id).photo.outline || { w:0, color:PHOTO_OUT.color };
-    const val = h('span', { class:'ph-val', text:o().w + ' px' });
-    const set = (w, color) => photoFxSet(id, q => { if (w > 0 || color !== PHOTO_OUT.color) q.outline = { w, color }; else delete q.outline; });
-    const range = h('input', { type:'range', class:'ph-range ph-ow', min:0, max:PHOTO_OUT.max, step:1, value:o().w, 'aria-label':'Толщина обводки',
-      oninput:e => { val.textContent = e.target.value + ' px'; set(+e.target.value, o().color); } });
-    const sw = c => h('button', { type:'button', class:'ph-sw' + (o().color === c ? ' on' : ''), style:'background:' + c, title:c, 'aria-label':'Цвет ' + c,
-      onclick:e => { const w = o().w || 4; range.value = w; val.textContent = w + ' px'; set(w, c); e.currentTarget.parentNode.querySelectorAll('.ph-sw').forEach(x => x.classList.toggle('on', x === e.currentTarget)); } });
     const a = bankEntry(p.id);
-    return [row('Обводка', range, val), h('div', { class:'ph-sws', title:a && a.kind === 'bg' ? 'По краю кадра' : 'По силуэту' }, PHOTO_PALETTE.map(sw), ...colorExtras(() => o().color, c => { const w = o().w || 4; range.value = w; val.textContent = w + ' px'; set(w, c); }))];
+    return outlineRows(() => blockById(id).photo.outline, (w, color) => photoFxSet(id, q => { if (w > 0 || color !== PHOTO_OUT.color) q.outline = { w, color }; else delete q.outline; }),
+      'ph-ow', a && a.kind === 'bg' ? 'По краю кадра' : 'По силуэту');
   }
   if (name === 'round'){
     const val = h('span', { class:'ph-val', text:Math.round((p.round || 0) * 100) + ' %' });

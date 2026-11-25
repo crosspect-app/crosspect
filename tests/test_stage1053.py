@@ -170,7 +170,7 @@ def test_advanced_collapsed_by_default_and_remembered(page, sermon):
     assert not page.locator(".side .ph-filter").is_visible()   # фильтр — в расширенных
     assert page.locator(".side .ph-panel .ph-reset").is_visible()   # «Сбросить» — на виду
     names = page.locator(".side .ph-adv-body .ph-lbl").all_text_contents()
-    assert names == ["Фильтр", "Отразить", "Обводка", "Тень"]   # тень — этап 10.9.2; «Углы» — только «с фоном»; поворота в панели нет (этап 10.5.7 — стрелкой)
+    assert names == ["Фильтр", "Отразить", "Тень", "Обводка"]   # тень — этап 10.9.2, над обводкой — 10.9.6.3; «Углы» — только «с фоном»; поворота в панели нет (этап 10.5.7 — стрелкой)
     assert page.locator(".side .ph-adv .ph-crop-btn").count() == 1 and page.locator(".side .ph-adv .ph-flip").count() == 1
     assert page.locator(".side .ph-adv .ph-flipv").count() == 1
     adv(page)

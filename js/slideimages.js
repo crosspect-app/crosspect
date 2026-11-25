@@ -42,13 +42,12 @@ function picSeriesReg(map, space){
 }
 /* Тень (этап 10.9.2) у картинок слайда и фото цитаты: сила 1…100, в px кадра 1920×1080 */
 const shadowCss = s => s > 0 ? 'drop-shadow(0 ' + (4 + s * 0.2).toFixed(1) + 'px ' + (6 + s * 0.44).toFixed(1) + 'px rgba(0,0,0,' + (0.25 + s * 0.006).toFixed(3) + '))' : '';
-/* Строки «Тень» для панели: галочка и сила. cur() — сила сейчас (0 — без тени), set(v) — записать */
+/* Строка «Тень» для панели (этап 10.9.6.3): ползунок от 0 — 0 значит без тени. cur() — сила сейчас, set(v) — записать */
 function shadowRows(cur, set){
-  const v0 = cur(), val = h('span', { class:'ph-val', text:(v0 || 50) + ' %' });
-  const rng = h('input', { type:'range', class:'ph-range sh-range', min:1, max:100, step:1, value:v0 || 50, disabled:v0 ? null : true, 'aria-label':'Сила тени',
+  const v0 = cur() || 0, val = h('span', { class:'ph-val', text:v0 + ' %' });
+  const rng = h('input', { type:'range', class:'ph-range sh-range', min:0, max:100, step:1, value:v0, 'aria-label':'Сила тени',
     oninput:e => { val.textContent = e.target.value + ' %'; set(+e.target.value); } });
-  const box = h('input', { type:'checkbox', class:'sh-on', checked:v0 ? true : null, onchange:e => { rng.disabled = !e.target.checked; set(e.target.checked ? +rng.value : 0); } });
-  return [h('div', { class:'ph-row sh-row' }, h('label', { class:'ph-lbl sh-lbl' }, box, 'Тень'), rng, val)];
+  return [h('div', { class:'ph-row sh-row' }, h('span', { class:'ph-lbl', text:'Тень' }), rng, val)];
 }
 
 /* ----- Картинка из облака ----- */
@@ -112,7 +111,7 @@ function picGeom(S){
 const picKey = S => { const p = S.pic || {};
   if (S.cover) return [S.imageId, 'cover'].join('|');   // заставка: от полей слайда и настроек не зависит
   const G = picGeom(S);
-  return [S.imageId, JSON.stringify(p.crop || null), p.rot || 0, p.filter || 'none', p.outline ? p.outline.w + p.outline.color : '', Math.round(G.iw), Math.round(G.ih),
+  return [S.imageId, JSON.stringify(p.crop || null), p.rot || 0, p.filter || 'none', p.outline && p.outline.w > 0 ? p.outline.w + p.outline.color : '', Math.round(G.iw), Math.round(G.ih),
     p.filter === 'tone' ? photoToneColor() : ''].join('|'); };
 const picVars = new Map(), picOrder = [];   // ключ → { canvas, url } или Promise; последние 40
 function picRender(S){
@@ -550,10 +549,11 @@ function picPanelFill(el, b){
     const head = h('div', { class:'ly-head', onclick:e => { if (!e.target.closest('button')) picSelect(id, l.id); } },
       h('span', { class:'ly-name', text:layerName(b, l) }),
       l.kind === 'text' && !on ? h('span', { class:'ly-sub hint', text:l.text.trim().split('\n')[0].slice(0, 40) }) : null,
-      !ro && h('span', { class:'ly-btns' },
-        h('button', { type:'button', class:'btn small ly-up ly-arrow', disabled:i === L.length - 1 ? true : null, title:'Выше', 'aria-label':'Выше', onclick:() => layerMove(id, l.id, 1) }, ic('up')),
-        h('button', { type:'button', class:'btn small ly-down ly-arrow', disabled:i === 0 ? true : null, title:'Ниже', 'aria-label':'Ниже', onclick:() => layerMove(id, l.id, -1) }, ic('down')),
-        h('button', { type:'button', class:'btn small ly-del', title:'Убрать со слайда', 'aria-label':'Удалить', onclick:() => layerRemove(id, l.id) }, '✕')));
+      // этап 10.9.6.3: одна плашка из трёх значков — выше, ниже, удалить
+      !ro && h('span', { class:'ly-tools' },
+        h('button', { type:'button', class:'ly-up', disabled:i === L.length - 1 ? true : null, title:'Выше', 'aria-label':'Выше', onclick:() => layerMove(id, l.id, 1) }, ic('layup')),
+        h('button', { type:'button', class:'ly-down', disabled:i === 0 ? true : null, title:'Ниже', 'aria-label':'Ниже', onclick:() => layerMove(id, l.id, -1) }, ic('laydown')),
+        h('button', { type:'button', class:'ly-del', title:'Убрать со слайда', 'aria-label':'Удалить', onclick:() => layerRemove(id, l.id) }, ic('trash'))));
     const card = h('div', { class:'ly-card' + (on ? ' on' : ''), 'data-l':l.id }, head);
     if (on && !ro) card.append(h('div', { class:'ly-body' }, ...(l.kind === 'pic' ? picLayerBody(b, l, pickBtn) : ptLayerBody(b, l))));
     else if (on && ro && l.kind === 'pic' && picErr.get(l.imageId)) card.append(h('p', { class:'pic-err', role:'alert', text:picErr.get(l.imageId) }));
@@ -562,35 +562,27 @@ function picPanelFill(el, b){
   el.innerHTML = ''; el.append(...kids);
 }
 const prow = (label, ...x) => h('div', { class:'ph-row' }, h('span', { class:'ph-lbl', text:label }), ...x);
-/* Настройки картинки: заменить, обрезать, повернуть, положение, фильтр, обводка, тень */
+/* Настройки картинки (этап 10.9.6.3 — как у фото цитаты): на виду «Заменить» и «Сбросить правки»; под свёрнутыми «Расширенными настройками»
+   (свёрнуто или раскрыто — общее с фото цитаты, помнит браузер) — фильтр, «Обрезать», поворот на 90°, тень, обводка. Поворот на любой угол — ручкой на слайде,
+   размер и место — мышью на слайде */
 function picLayerBody(b, l, pickBtn){
   const id = b.id, lid = l.id, p = l.pic || {}, kids = [], cur = () => picItem(blockById(id), lid) || {};
   const err = picErr.get(l.imageId);
   if (err) kids.push(h('p', { class:'pic-err', role:'alert', text:err }));
-  const rv = h('span', { class:'ph-val', text:(p.rot || 0) + '°' });
-  const rr = h('input', { type:'range', class:'ph-range pic-rot', min:-180, max:180, step:1, value:p.rot || 0, 'aria-label':'Поворот',
-    oninput:e => { rv.textContent = e.target.value + '°'; picFxSet(id, lid, q => { q.rot = +e.target.value; }); } });
-  const turn = d => () => { const c = (cur().pic || {}).rot || 0; let v = Math.round((c + d) / 90) * 90; if (v > 180) v -= 360; if (v < -180) v += 360; rr.value = v; rv.textContent = v + '°'; picFxSet(id, lid, q => { q.rot = v; }); };
-  kids.push(h('div', { class:'pic-acts' }, pickBtn('Заменить', 'small pic-replace', lid),
-    h('button', { type:'button', class:'btn small pic-crop', onclick:() => picCropOpen(b, lid) }, 'Обрезать'),
-    h('span', { class:'pic-turns' }, h('button', { type:'button', class:'btn small pic-left', title:'Повернуть влево на 90°', 'aria-label':'Повернуть влево на 90°', onclick:turn(-90) }, '↺'),
-      h('button', { type:'button', class:'btn small pic-right', title:'Повернуть вправо на 90°', 'aria-label':'Повернуть вправо на 90°', onclick:turn(90) }, '↻'))));
-  // этап 10.9.1.2: положение на слайде; нажатая кнопка — та, что сейчас действует
-  const pl = l.place, sz = (label, cls, on, place) => h('button', { type:'button', class:'btn small ' + cls + (on ? ' on' : ''), 'aria-pressed':on ? 'true' : 'false', onclick:() => picPlaceSet(id, lid, place) }, label);
-  kids.push(h('div', { class:'pic-acts pic-size' }, sz('На весь слайд', 'pic-cover', !!(pl && pl.cover), { cover:true }), sz('Вписать в поля', 'pic-fit', !pl, null)));
-  kids.push(prow('Поворот', rr, rv));
-  kids.push(prow('Фильтр', h('select', { class:'input pic-filter', 'aria-label':'Фильтр', onchange:e => picFxSet(id, lid, q => { q.filter = e.target.value; }) },
-    PHOTO_FILTERS.map(([v, t]) => h('option', { value:v, selected:(p.filter || 'none') === v ? true : null }, t)))));
-  const o = () => (cur().pic || {}).outline || { w:0, color:PHOTO_OUT.color };
-  const ov = h('span', { class:'ph-val', text:o().w + ' px' });
-  const setO = (w, color) => picFxSet(id, lid, q => { if (w > 0) q.outline = { w, color }; else delete q.outline; });
-  const orng = h('input', { type:'range', class:'ph-range pic-ow', min:0, max:PHOTO_OUT.max, step:1, value:o().w, 'aria-label':'Толщина обводки',
-    oninput:e => { ov.textContent = e.target.value + ' px'; setO(+e.target.value, o().color); } });
-  const swatch = c => h('button', { type:'button', class:'ph-sw' + (o().color === c ? ' on' : ''), style:'background:' + c, title:c, 'aria-label':'Цвет ' + c,
-    onclick:e => { const w = o().w || 4; orng.value = w; ov.textContent = w + ' px'; setO(w, c); e.currentTarget.parentNode.querySelectorAll('.ph-sw').forEach(x => x.classList.toggle('on', x === e.currentTarget)); } });
-  kids.push(prow('Обводка', orng, ov), h('div', { class:'ph-sws' }, PHOTO_PALETTE.map(swatch), ...colorExtras(() => o().color, c => { const w = o().w || 4; orng.value = w; ov.textContent = w + ' px'; setO(w, c); })));
-  kids.push(...shadowRows(() => cur().shadow || 0, v => layerSet(id, lid, x => { if (v) x.shadow = v; else delete x.shadow; })));
-  if (l.pic) kids.push(h('div', { class:'ph-acts ph-foot' }, h('button', { type:'button', class:'btn small pic-reset', onclick:() => { layerSet(id, lid, x => { delete x.pic; }); picPanelRefresh(id); } }, 'Сбросить правки')));
+  kids.push(h('div', { class:'pic-acts' }, pickBtn('Заменить', 'small pic-replace', lid)));
+  const turn = d => () => { const c = (cur().pic || {}).rot || 0; let v = Math.round((c + d) / 90) * 90; if (v > 180) v -= 360; if (v < -180) v += 360; picFxSet(id, lid, q => { q.rot = v; }); };
+  const adv = [
+    prow('Фильтр', h('select', { class:'input pic-filter', 'aria-label':'Фильтр', onchange:e => picFxSet(id, lid, q => { q.filter = e.target.value; }) },
+      PHOTO_FILTERS.map(([v, t]) => h('option', { value:v, selected:(p.filter || 'none') === v ? true : null }, t)))),
+    h('div', { class:'pic-acts' }, h('button', { type:'button', class:'btn small pic-crop', onclick:() => picCropOpen(b, lid) }, 'Обрезать'),
+      h('span', { class:'pic-turns' }, h('button', { type:'button', class:'btn small pic-left', title:'Повернуть влево на 90°', 'aria-label':'Повернуть влево на 90°', onclick:turn(-90) }, '↺'),
+        h('button', { type:'button', class:'btn small pic-right', title:'Повернуть вправо на 90°', 'aria-label':'Повернуть вправо на 90°', onclick:turn(90) }, '↻'))),
+    ...shadowRows(() => cur().shadow || 0, v => layerSet(id, lid, x => { if (v) x.shadow = v; else delete x.shadow; })),
+    ...outlineRows(() => (cur().pic || {}).outline, (w, color) => picFxSet(id, lid, q => { if (w > 0 || color !== PHOTO_OUT.color) q.outline = { w, color }; else delete q.outline; }), 'pic-ow')];
+  const d = h('details', { class:'ph-adv' }, h('summary', { text:'Расширенные настройки', onclick:() => photoAdvSave(!d.open) }), h('div', { class:'ph-adv-body' }, adv));
+  d.open = photoAdvOpen();
+  kids.push(d);
+  if (l.pic || l.shadow) kids.push(h('div', { class:'ph-acts ph-foot' }, h('button', { type:'button', class:'btn small pic-reset', onclick:() => { layerSet(id, lid, x => { delete x.pic; delete x.shadow; }); picPanelRefresh(id); } }, 'Сбросить правки')));
   return kids;
 }
 /* Настройки текста: сам текст, размер, жирный, выравнивание, цвет */

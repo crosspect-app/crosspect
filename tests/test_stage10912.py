@@ -64,10 +64,9 @@ def test_cover_and_fit_buttons(page, sermon):
     open_img(page, sermon, imageId="pcov", imgW=1600, imgH=1200, todo=False)
     ready(page)
     fit = rect(page)
-    assert page.locator(".side .pic-fit").get_attribute("aria-pressed") == "true"
-    page.locator(".side .pic-cover").click()
+    assert page.locator(".side .pic-fit, .side .pic-cover").count() == 0   # этап 10.9.6.3: кнопок больше нет, размер — мышью; старые слайды с cover показываются как были
+    page.evaluate("picPlaceSet('i1', picLayers(blockById('i1'))[0].id, { cover:true })")
     assert blk(page)["place"] == {"cover": True}
-    assert page.locator(".side .pic-cover").get_attribute("aria-pressed") == "true"
     r = rect(page)
     assert r[0] <= 0.5 and r[1] <= 0.5 and r[0] + r[2] >= 1919.5 and r[1] + r[3] >= 1079.5   # закрывает кадр
     assert abs(r[2] / r[3] - 1600 / 1200) < 0.01   # пропорции те же: лишнее срезается, не растягивается
@@ -84,7 +83,7 @@ def test_cover_and_fit_buttons(page, sermon):
         ly = -(x - cx) * math.sin(th) + (y - cy) * math.cos(th)
         assert abs(lx) <= iw / 2 + 0.5 and abs(ly) <= ih / 2 + 0.5
     page.evaluate("picFxSet('i1', picLayers(blockById('i1'))[0].id, q => { q.rot = 0; })")
-    page.locator(".side .pic-fit").click()
+    page.evaluate("picPlaceSet('i1', picLayers(blockById('i1'))[0].id, null)")
     assert "place" not in blk(page)
     assert [round(v) for v in rect(page)] == [round(v) for v in fit]   # снова как в 10.9.1
     assert not page.errors, page.errors

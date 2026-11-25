@@ -524,7 +524,7 @@ async function photoSavePreset(b, btn){
 function photoPanelFill(el, b){
   const p = b.photo, a = p && bankEntry(p.id);
   const change1 = h('button', { type:'button', class:'btn small ph-change', onclick:() => openPhotoPick(b, true) }, 'Сменить фото');   // photopick.js
-  const kids = [h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Фото' }), change1)];
+  const kids = [h('div', { class:'lbl-row ph-top' }, h('span', { class:'lbl' }), change1)];
   // «На слайде»: выключили — фото не видно нигде, но выбор, положение и фильтр хранятся; включили — всё как было
   const onSlide = h('span', { class:'ph-onoff' }, sw('На слайде', !p.off, v => { if (v) delete p.off; else p.off = true; change(); rerender(b); }));
   if (!a){
