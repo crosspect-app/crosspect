@@ -15,7 +15,7 @@ def test_toolbar_row_and_controls(page, sermon):
     bar = page.locator(c + ".pt-bar")
     for s_ in (".pt-size-dn", ".pt-size", ".pt-size-up", ".pt-bold", ".pt-italic", ".pt-al[data-a='left']", ".pt-al[data-a='center']", ".pt-al[data-a='right']", ".pt-color-btn"):
         assert bar.locator(s_).count() == 1, s_
-    ys = {round(bar.locator(s_).bounding_box()["y"] + bar.locator(s_).bounding_box()["height"] / 2) for s_ in (".pt-size", ".pt-bold", ".pt-al[data-a='left']", ".pt-color-btn")}
+    ys = {round(bar.locator(s_).bounding_box()["y"] + bar.locator(s_).bounding_box()["height"] / 2) for s_ in (".pt-size", ".pt-bold", ".pt-al[data-a='left']")}   # 26.11: с «АА» и рамкой цвет может уйти на вторую строку узкой панели
     assert max(ys) - min(ys) <= 2, ys   # всё в одну строку
     assert bar.bounding_box()["y"] < page.locator(c + ".pt-text").bounding_box()["y"]   # строка над полем
     assert page.locator(c + ".switch").count() == 0 and page.locator(c + ".toggle").count() == 0

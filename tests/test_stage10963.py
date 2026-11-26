@@ -63,16 +63,15 @@ def test_layer_tools_plate(page, sermon):
 def test_quote_settings_in_groups(page, sermon):
     from test_stage1053 import open_quote
     open_quote(page, sermon, photo={"id": "lewis-cs"})
-    heads = page.evaluate("[...document.querySelectorAll('.side .grp > .grp-head')].map(e => e.textContent)")
-    assert heads == ["Текст", "Расположение", "Автор", "Фото"]
+    heads = page.evaluate("[...document.querySelectorAll('.side .grp > .grp-head')].map(e => e.firstChild.textContent)")
+    assert heads == ["Текст", "Автор", "Фото"]   # 26.11: «Расположение» — внутри «Текста»
     assert page.locator(".side .grp-photo .ph-panel").count() == 1 and page.locator(".side .grp-author .au-wrap").count() == 1
     # тень у фото цитаты — ползунок от 0, над обводкой
     from test_stage105 import select_photo
     select_photo(page)
-    page.locator(".side .ph-adv summary").click()
+    page.locator(".side .ph-adv .pic-tab[data-tab='shadow']").click()   # 26.11: тень — своей вкладкой
     assert page.locator(".side .ph-adv .sh-on").count() == 0
-    order = page.evaluate("[...document.querySelectorAll('.side .ph-adv-body .ph-row .ph-lbl')].map(e => e.textContent)")
-    assert order.index("Тень") < order.index("Обводка")
+    assert page.locator(".side .ph-adv .pic-pane-shadow input[type=range]").count() == 1
     assert not page.errors, page.errors
 
 

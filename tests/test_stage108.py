@@ -24,7 +24,7 @@ def test_quote_panel_fits_in_1280_window(browser, base_url, sermon):
     assert page.evaluate("document.querySelector('.side').clientWidth") <= 320
     r = page.evaluate(OVER)
     assert r["scroll"] <= 0 and not r["out"], r
-    assert page.locator(".side .toggle button", has_text="Текст справа").is_visible()
+    assert page.locator(".side .q-place[data-v='right']").is_visible()
     assert not page.errors, page.errors
     ctx.close()
 
@@ -34,7 +34,7 @@ def test_quote_panel_toggle_unchanged_on_wide_screen(browser, base_url, sermon):
     ctx, page = cloud_page(browser, base_url, user=ME, members={"admin@x.pl": {"role": "editor"}}, viewport={"width": 1920, "height": 1000})
     page.wait_for_selector(".home-top")
     open_quote(page, sermon, half="right")
-    r = page.evaluate("""() => { const t = [...document.querySelectorAll('.side .toggle')].find(x => x.textContent.includes('Текст справа'));
+    r = page.evaluate("""() => { const t = document.querySelector('.side .q-places');
       return { w:t.getBoundingClientRect().width, h:t.getBoundingClientRect().height, side:document.querySelector('.side').clientWidth }; }""")
     assert r["h"] < 50 and r["w"] < r["side"], r   # одна строка
     assert not page.evaluate(OVER)["out"]

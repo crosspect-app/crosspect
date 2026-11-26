@@ -1501,9 +1501,6 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .tb-guide.v{top:0;bottom:0;width:1px}
 .tb-guide.h{left:0;right:0;height:1px}
 .ph-crop{z-index:4}
-.tb-panel{display:grid;gap:8px}
-.tb-al{display:flex;gap:10px}
-.tb-btns{display:flex;flex-wrap:wrap;gap:8px}
 .au-wrap{position:relative}
 .au-sugg{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:30;display:grid;gap:2px;padding:4px;background:var(--surface);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .au-sugg[hidden]{display:none}

@@ -87,7 +87,7 @@ def test_flip_buttons_toggle_and_mirror_crop_and_rotation(page, sermon):
 def test_flip_survives_text_side_switch(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs", "flipH": True})
     assert page.evaluate("photoBox(state.blocks.find(b => b.id === 'q1')).flip") is True
-    page.locator(".side .toggle button", has_text="Текст слева").click()
+    page.locator(".side .q-place[data-v='left']").click()
     # само фото при «Тексте слева» отражается к тексту, кнопка отражает поверх: смотрит, как и раньше, от текста
     assert page.evaluate("photoBox(state.blocks.find(b => b.id === 'q1')).flip") is False
     assert not page.errors, page.errors

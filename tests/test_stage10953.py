@@ -35,10 +35,10 @@ def test_rotate_handle_turns_picture(page, sermon):
     assert not page.errors, page.errors
 
 
-def test_rotate_handle_not_on_text(page, sermon):
-    text_page(page, sermon)
+def test_rotate_handle_on_text_too(page, sermon):
+    text_page(page, sermon)   # 26.11 (этап 10.9.6.7): текст тоже поворачивается
     page.locator(".stage .pic-hit[data-l='t1']").click()
-    assert page.locator(".stage .pic-hit[data-l='t1'] .c-rot").count() == 0
+    assert page.locator(".stage .pic-hit[data-l='t1'] .c-rot").count() == 1
 
 
 def test_old_picture_turns_at_once_while_new_one_is_prepared(page, sermon):

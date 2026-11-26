@@ -49,7 +49,7 @@ def test_quote_half_survives_normalize_and_defaults(page):
 def test_quote_editor_has_layout_switch(page):
     start_blank(page)
     page.evaluate("addBlock('quote')")
-    page.wait_for_selector(".bbody .toggle")
+    page.wait_for_selector(".bbody .q-places")
     page.get_by_role("button", name="Текст слева").click()
     assert page.evaluate("state.blocks.find(b => b.type === 'quote').half") == "left"
     page.wait_for_function("document.querySelector('.stage .sl-box-quote').dataset.half === 'left'")

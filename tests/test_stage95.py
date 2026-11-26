@@ -110,9 +110,9 @@ def test_thesis_has_no_name_field_and_auto_name(page):
 def test_quote_dashed_frame_switch(page):
     start_blank(page)
     page.evaluate("addBlock('quote')")
-    page.wait_for_selector(".bbody .switch")
+    page.wait_for_selector(".bbody .q-frame")
     assert page.evaluate("newBlock('quote').frame") is False
-    page.locator(".bbody .switch", has_text="Обводка пунктиром").click()
+    page.locator(".bbody .q-frame").click()
     assert page.evaluate("state.blocks.find(b => b.type === 'quote').frame") is True
     page.wait_for_function("document.querySelector('.stage .sl-inner').classList.contains('framed')")
     assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-inner')).borderTopStyle") == "dashed"
@@ -166,7 +166,7 @@ def test_wider_area_means_wider_text(page):
 def test_halfw_slider_appears_only_for_half_layouts(page):
     start_blank(page)
     page.evaluate("addBlock('quote')")
-    page.wait_for_selector(".bbody .toggle")
+    page.wait_for_selector(".bbody .q-places")
     slider = page.locator(".half-w input[type=range]")
     assert slider.count() == 0   # «Во всю ширину»
     page.get_by_role("button", name="Текст слева").click()

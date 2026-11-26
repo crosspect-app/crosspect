@@ -177,20 +177,7 @@ function textBoxHalfSwitch(b, v){
     t.ha = { left:'right', right:'left' }[t.ha] || t.ha;
   }
 }
-/* Блок справа: выравнивание текста в рамке, «Выровнять по свободному месту», «Сбросить» */
-function textFramePanel(b){
-  const t = b.textBox || { ha:'center', va:'center' }, ro = readOnly();
-  const grp = (title, list, key) => h('div', { class:'itools', title }, list.map(([a, icn, tip]) =>
-    iconBtn(icn, tip, () => tbSet(b, x => { x[key] = a; }), t[key] === a ? 'on' : '')));
-  return h('div', { class:'tb-panel' },
-    h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Текст в рамке' }),
-      h('div', { class:'tb-al' },
-        grp('По горизонтали', [['left', 'alignl', 'По левому краю'], ['center', 'alignc', 'По центру'], ['right', 'alignr', 'По правому краю']], 'ha'),
-        grp('По вертикали', [['top', 'vtop', 'Прижать к верху'], ['center', 'vmid', 'По центру по вертикали'], ['bottom', 'vbot', 'Прижать к низу']], 'va'))),
-    h('div', { class:'tb-btns' },
-      h('button', { type:'button', class:'btn small tb-fit', disabled:ro ? true : null, onclick:() => tbFitFree(b) }, 'Выровнять по свободному месту'),
-      b.textBox ? h('button', { type:'button', class:'btn small tb-reset', disabled:ro ? true : null, title:'Вернуть текст на место по «Месту текста» и «Ширине текста»', onclick:() => tbReset(b) }, 'Сбросить') : null));
-}
+/* Выравнивание в рамке, «Выровнять по свободному месту» и «Сбросить» — в строке и «Расположении» цитаты (render.js, quote; 26.11) */
 
 /* ----- Привязки фото при перетаскивании (правка 19 ноября 2026) -----
    Рамка фото — photoBox (с обрезкой, поворотом и обводкой). Края липнут к краям слайда, внутреннему краю его рамки, полям слайда
