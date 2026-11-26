@@ -1081,6 +1081,7 @@ html.no-motion *:not(path),html.no-motion *::before,html.no-motion *::after{anim
 .dd-list button:disabled{opacity:.45;cursor:not-allowed;background:transparent;color:#d8cdbd}
 .dd-list.dd-fit{width:max-content;max-width:calc(100vw - 16px);overflow-x:hidden}   /* этап А: список статусов — по самому длинному пункту, без переносов и горизонтальной прокрутки */
 .dd-list.dd-fit button{white-space:nowrap}
+.dd-list .dd-head{padding:8px 12px 4px;font:500 11px 'Inter',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);cursor:default;user-select:none}   /* подпись группы в списке «В Telegram» */
 .dd-list hr{border:0;height:1px;background:var(--line-2);margin:6px 4px;flex:none}
 .dd-list .man{color:var(--accent)}
 .dd-list .dd-act{color:var(--accent)}   /* «Настроить пространства…» под чертой (этап 10.1.2) */

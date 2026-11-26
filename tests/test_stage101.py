@@ -213,8 +213,8 @@ def test_telegram_with_people_opens_chat_with_text(browser, base_url):
     ctx, page = sermon_page(browser, base_url, ED, people)
     link_sheet(page)
     page.locator(".oplink").get_by_role("button", name="В Telegram").click()
-    # имена по алфавиту, линия, «Другому…»
-    assert [b.strip() for b in page.locator(".dd-list button").all_inner_texts()] == ["Анна", "Борис Редактор", "Пётр Оператор", "Другому…"]
+    # группы: операторы, редакторы (внутри — по алфавиту), линия, «Другому…»
+    assert [b.strip() for b in page.locator(".dd-list button").all_inner_texts()] == ["Анна", "Пётр Оператор", "Борис Редактор", "Другому…"]
     assert page.locator(".dd-list hr").count() == 1
     page.locator(".dd-list button", has_text="Пётр Оператор").click()
     [u] = opened(page)
@@ -225,6 +225,47 @@ def test_telegram_with_people_opens_chat_with_text(browser, base_url):
     assert lines[0] == page.locator(".oplink-url").input_value()   # ссылка — первой строкой самого текста
     assert lines[1] == "─" * 20 and lines[2] == "Конспект для оператора слайдов"
     assert lines[3].startswith("Вера и дела | ") and lines[4] == "15 ноября 2026 г."
+    ctx.close()
+
+
+def dd_layout(page):
+    return page.evaluate("[...document.querySelectorAll('.dd-list > *')].map(e => e.tagName === 'HR' ? '---' : e.className === 'dd-head' ? '# ' + e.textContent : e.textContent.trim())")
+
+
+GROUP_PEOPLE = dict(TG_PEOPLE, **{
+    "ivan@x.pl": {"role": "preacher", "firstName": "Иван", "lastName": "Петров", "tg": "ivan_p"},
+    "a2@x.pl": {"role": "preacher", "firstName": "Алесь", "lastName": "Козырицкий", "tg": "ales_k"},
+    "ed2@x.pl": {"role": "editor", "firstName": "Борис", "lastName": "Редактор", "tg": "boris_ed"}})
+
+
+def test_telegram_groups_author_operators_authors(browser, base_url):
+    ctx, page = sermon_page(browser, base_url, ED, GROUP_PEOPLE)   # конспект Ивана Петрова
+    link_sheet(page)
+    page.locator(".oplink").get_by_role("button", name="В Telegram").click()
+    assert dd_layout(page) == ["# Автор конспекта", "Иван Петров", "# Операторы", "Анна", "Пётр Оператор",
+                               "# Авторы", "Алесь Козырицкий", "# Редакторы", "Борис Редактор", "---", "Другому…"]
+    assert page.locator(".dd-list .dd-head").count() == 4 and page.locator(".dd-list button").count() == 6   # подписи не выбираются
+    page.locator(".dd-list button", has_text="Иван Петров").click()
+    [u] = opened(page)
+    assert u.startswith("https://t.me/ivan_p?text=")
+    ctx.close()
+
+
+def test_telegram_groups_sender_is_author(browser, base_url):
+    ctx, page = sermon_page(browser, base_url, IVAN, GROUP_PEOPLE)   # отправляет сам автор — группы «Автор конспекта» нет, себя в «Авторах» не дублируем
+    link_sheet(page)
+    page.locator(".oplink").get_by_role("button", name="В Telegram").click()
+    lay = dd_layout(page)
+    assert "# Автор конспекта" not in lay and "Иван Петров" not in lay
+    assert lay[:3] == ["# Операторы", "Анна", "Пётр Оператор"]
+    ctx.close()
+
+
+def test_telegram_empty_groups_hidden(browser, base_url):
+    ctx, page = sermon_page(browser, base_url, ED, TG_PEOPLE)
+    link_sheet(page)
+    page.locator(".oplink").get_by_role("button", name="В Telegram").click()
+    assert dd_layout(page) == ["# Операторы", "Анна", "Пётр Оператор", "---", "Другому…"]
     ctx.close()
 
 

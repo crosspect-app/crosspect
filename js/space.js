@@ -40,8 +40,21 @@ function setPeople(list){
   [...keys].sort((a, b) => a.localeCompare(b, 'ru')).forEach(k => PREACHERS.push(k));
 }
 /* Кому отправить ссылку в Telegram (operator.js): все люди текущего пространства с Telegram, любой роли */
-const tgPeople = () => (cloud.people || []).filter(p => p.tg).map(p => ({ name:preacherName(p) || '@' + p.tg, tg:p.tg }))
+const tgPeople = () => (cloud.people || []).filter(p => p.tg).map(p => ({ name:preacherName(p) || '@' + p.tg, tg:p.tg, role:p.role, key:preacherKey(p), email:p.email }))
   .sort((a, b) => a.name.localeCompare(b.name, 'ru') || a.tg.localeCompare(b.tg));
+/* Группы для списка «В Telegram»: автор этого конспекта (если отправляет не он сам), операторы, авторы, редакторы. Пустые группы не показываются */
+function tgGroups(){
+  const all = tgPeople(), ak = preacherKey((state && state.meta) || {});
+  const isAuthor = p => !!ak && p.key === ak, mine = p => !!p.email && p.email === myEmail();
+  const meAuthor = all.some(p => isAuthor(p) && mine(p));
+  const author = meAuthor ? [] : all.filter(isAuthor), rest = all.filter(p => !isAuthor(p));
+  return [
+    { title:'Автор конспекта', list:author },
+    { title:'Операторы', list:rest.filter(p => p.role === 'operator') },
+    { title:'Авторы', list:rest.filter(p => p.role === 'preacher') },
+    { title:'Редакторы', list:rest.filter(p => p.role !== 'operator' && p.role !== 'preacher') },
+  ].filter(g => g.list.length);
+}
 /* «Последний вход»: сегодня, 15:20 · вчера, 15:20 · 3 нояб., 15:20 (другой год — с годом) */
 function seenWhen(ms){
   const d = new Date(ms), now = new Date(), day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();

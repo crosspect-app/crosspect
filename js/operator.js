@@ -183,11 +183,18 @@ async function sharePdfSystem(f){
 function pdfTelegramPick(anchor, f){
   const ops = tgPeople(), go = tg => { download(f, f.name); tgOpen(tg); toast('PDF скачан. Перетащите его в чат Telegram'); };
   if (!ops.length){ go(''); return; }
-  dropdown(anchor, ops.map(o => ({ label:o.name, pick:() => go(o.tg) })).concat([{ sep:true }, { label:'Другому…', pick:() => go('') }]));
+  dropdown(anchor, tgItems(o => go(o.tg), () => go('')));
   if (typeof ddEl !== 'undefined' && ddEl){
     ddEl.style.minWidth = '220px';
     ddEl.style.left = Math.max(8, Math.min(parseFloat(ddEl.style.left), innerWidth - 228)) + 'px';
   }
+}
+/* Пункты списка «В Telegram»: группы с подписями (автор конспекта, операторы, авторы, редакторы), линия, «Другому…» */
+function tgItems(pick, other){
+  const items = [];
+  tgGroups().forEach(g => { items.push({ head:g.title }); g.list.forEach(o => items.push({ label:o.name, pick:() => pick(o) })); });
+  items.push({ sep:true }, { label:'Другому…', pick:other });
+  return items;
 }
 /* Открыть чат в Telegram (tg — имя пользователя) или само приложение (tg пустое) */
 function tgOpen(tg){
@@ -224,7 +231,7 @@ function opShareLines(url){
 function opTelegramPick(anchor, url){
   const ops = tgPeople();
   if (!ops.length){ opTelegram(url); return; }
-  dropdown(anchor, ops.map(o => ({ label:o.name, pick:() => opTelegramTo(o.tg, url) })).concat([{ sep:true }, { label:'Другому…', pick:() => opTelegram(url) }]));
+  dropdown(anchor, tgItems(o => opTelegramTo(o.tg, url), () => opTelegram(url)));
   if (typeof ddEl !== 'undefined' && ddEl){   // кнопка узкая, имена длиннее: список шире кнопки, но не за краем окна
     ddEl.style.minWidth = '220px';
     ddEl.style.left = Math.max(8, Math.min(parseFloat(ddEl.style.left), innerWidth - 228)) + 'px';
