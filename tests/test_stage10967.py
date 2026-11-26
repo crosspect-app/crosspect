@@ -70,3 +70,31 @@ def test_quote_text_frame_hidden_without_selection(page, sermon):
     page.mouse.move(2, 2)
     page.evaluate("tbUI.sel = false; document.querySelectorAll('.tb-hit').forEach(x => x.classList.remove('sel'))")
     assert hit.evaluate("e => getComputedStyle(e).borderTopColor") == "rgba(0, 0, 0, 0)"
+
+
+# ---------- «Элементы слайда» ----------
+
+def test_layers_tiles_above_list(page, sermon):
+    text_page(page, sermon)
+    g = page.locator(".side .grp-layers")
+    tiles = g.locator(".pic-add .ly-tile")
+    assert tiles.count() == 2 and g.locator(".pic-add .pic-pick").count() == 1 and g.locator(".pic-add .pt-add").count() == 1
+    y_tiles = g.locator(".pic-add").bounding_box()["y"]
+    y0 = tiles.first.bounding_box()["y"]
+    assert y_tiles < g.locator(".ly-card").first.bounding_box()["y"]   # плитки над списком
+    assert g.locator(".ly-card .ly-kind-pic").count() == 1 and g.locator(".ly-card .ly-kind-text").count() == 1
+    page.locator(".side .pt-add").click()
+    assert abs(page.locator(".side .pic-add .ly-tile").first.bounding_box()["y"] - y0) < 1   # плитки не сдвинулись
+    first = page.locator(".side .grp-layers .ly-card").first.get_attribute("data-l")
+    assert first == layers(page)[-1]["id"]   # новый элемент — первым в списке (поверх остальных)
+    assert not page.errors, page.errors
+
+
+def test_layers_empty_slide(page, sermon):
+    from test_stage1091 import open_img
+    open_img(page, sermon, todo=False, layers=[])
+    g = page.locator(".side .grp-layers")
+    g.wait_for()
+    assert g.locator(".ly-empty").inner_text() == "На слайде пока ничего нет"
+    assert g.locator(".pic-add .ly-tile").count() == 2
+    assert not page.errors, page.errors

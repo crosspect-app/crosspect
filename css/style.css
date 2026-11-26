@@ -1647,6 +1647,15 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .grp-head{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);padding-bottom:8px;border-bottom:1px solid var(--line-2)}
 .grp .ph-panel{border:0;padding:0;background:transparent;margin:0}
 .grp-layers .ly-list{display:flex;flex-direction:column;gap:10px}   /* этап 10.9.6.4: элементы слайда отдельным блоком */
+.pic-add{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px}   /* 26.11: плитки добавления над списком */
+.ly-tile{display:flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px;border:1px dashed var(--line-2);border-radius:10px;background:none;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+.ly-tile .ic{width:18px;height:18px;color:var(--accent)}
+.ly-tile:hover,.ly-tile:focus-visible,.ly-tile.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.ly-tile:disabled{opacity:.5;cursor:default}
+.ly-empty{margin:0;padding:14px;border:1px dashed var(--line);border-radius:10px;text-align:center;color:var(--muted);font-size:13px}
+.ly-kind{width:30px;height:22px;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;background:var(--surface-3)}
+.ly-kind .ic{width:15px;height:15px}
+.ly-kind-pic{background:#3d5a6b;color:#dfe9ee}.ly-kind-text{color:var(--accent)}
 .ly-grip{flex:none;display:inline-grid;place-items:center;width:20px;height:28px;margin-left:-6px;color:var(--muted);cursor:grab;touch-action:none;border-radius:6px}
 .ly-grip:hover{color:var(--text);background:rgba(255,255,255,.06)}
 .ly-grip svg{width:16px;height:16px}

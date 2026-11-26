@@ -557,7 +557,6 @@ function picPanel(b){
 const layerName = (b, l) => { const same = picLayers(b).filter(x => x.kind === l.kind); return (l.kind === 'pic' ? 'Картинка' : 'Текст') + (same.length > 1 ? ' ' + (same.indexOf(l) + 1) : ''); };
 function picPanelFill(el, b){
   const busy = picBusy.get(b.id), ro = readOnly(), kids = [], L = picLayers(b), id = b.id;
-  const pickBtn = (label, cls, replace) => h('button', { type:'button', class:'btn ' + cls, disabled:ro || busy ? true : null, onclick:() => picPick(b, replace) }, label);
   const drop = zone => {
     if (ro) return zone;
     zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
@@ -566,23 +565,21 @@ function picPanelFill(el, b){
     return zone;
   };
   if (busy) kids.push(h('p', { class:'hint pic-busy', role:'status', text:busy === 'prep' ? 'Готовлю картинку…' : 'Загружаю в облако…' }));
-  if (!L.length){
-    kids.push(drop(h('div', { class:'pic-drop' }, pickBtn('Выбрать файл', 'primary pic-pick'), h('span', { class:'hint', text:'JPEG, PNG или WebP, можно несколько' }))));
-    if (!ro) kids.push(h('div', { class:'pic-acts' }, h('button', { type:'button', class:'btn small pt-add', onclick:() => ptAdd(id) }, 'Добавить текст')));
-    el.innerHTML = ''; el.append(...kids); return;
-  }
-  // этап 10.9.6.4: элементы слайда — отдельным блоком; порядок меняют перетаскиванием карточки за ручку слева
+  // 26.11 (вариант А): плитки «+ Картинка» и «+ Текст» — сразу под заголовком, над списком (не двигаются); на плитку картинки можно бросить файлы
   const list = h('div', { class:'ly-list' });
   const grp = h('section', { class:'grp grp-layers' }, h('div', { class:'grp-head', text:'Элементы слайда' }));
-  if (!ro) grp.append(drop(h('div', { class:'pic-acts pic-add' }, pickBtn('Добавить картинку', 'small pic-pick'),
-      h('button', { type:'button', class:'btn small pt-add', onclick:() => ptAdd(id) }, 'Добавить текст'))));
+  if (!ro) grp.append(h('div', { class:'pic-add' },
+    drop(h('button', { type:'button', class:'ly-tile pic-pick', disabled:busy ? true : null, title:'Добавить картинку: выбрать файл или перетащить сюда', onclick:() => picPick(b, false) }, ic('imgplus'), 'Картинка')),
+    h('button', { type:'button', class:'ly-tile pt-add', title:'Добавить текст', onclick:() => ptAdd(id) }, ic('textplus'), 'Текст')));
   grp.append(list); kids.push(grp);
+  if (!L.length){ list.append(h('p', { class:'ly-empty', text:'На слайде пока ничего нет' })); el.innerHTML = ''; el.append(...kids); return; }
   const sel = picSelId(b);
   // слои сверху вниз, как их видно на слайде
   [...L].reverse().forEach(l => {
     const i = L.indexOf(l), on = l.id === sel;
     const head = h('div', { class:'ly-head', onclick:e => { if (!e.target.closest('button, .ly-grip')) picSelect(id, l.id); } },
       !ro && L.length > 1 ? h('span', { class:'ly-grip', title:'Перетащите, чтобы поставить выше или ниже', onpointerdown:e => lyDrag(e, id, l.id) }, ic('grip')) : null,
+      h('span', { class:'ly-kind ly-kind-' + l.kind, 'aria-hidden':'true' }, ic(l.kind === 'pic' ? 'image' : 'text')),
       h('span', { class:'ly-name', text:layerName(b, l) }),
       l.kind === 'text' && !on ? h('span', { class:'ly-sub hint', text:l.text.trim().split('\n')[0].slice(0, 40) }) : null,
       // этап 10.9.6.3: одна плашка из трёх значков — выше, ниже, удалить
@@ -674,7 +671,7 @@ function ptLayerBody(b, l){
   const flag = (k, cls, label, text) => h('button', { type:'button', class:'pt-flag ' + cls + (l[k] ? ' on' : ''), title:label, 'aria-label':label, 'aria-pressed':l[k] ? 'true' : 'false',
     onclick:e => { const on = !cur()[k]; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on ? 'true' : 'false'); layerSet(id, lid, x => { if (on) x[k] = true; else delete x[k]; }); } }, text);
   const style = h('div', { class:'pt-seg pt-style' }, flag('bold', 'pt-bold', 'Жирный', 'Ж'), flag('italic', 'pt-italic', 'Курсив', 'К'), flag('caps', 'pt-caps', 'Все заглавные', 'АА'));
-  const frame = h('div', { class:'pt-seg pt-frame-seg' }, flag('frame', 'pt-frame', 'Рамка пунктиром', ic('frame')));   // 26.11: отдельной кнопкой, не вместе с цветом
+  const frame = h('div', { class:'pt-seg pt-frame-seg' }, flag('frame', 'pt-frame', 'Рамка пунктиром', ic('dashframe')));   // 26.11: отдельной кнопкой, не вместе с цветом
   /* Выравнивание */
   const al = h('div', { class:'pt-seg pt-align' }, [['left', 'По левому краю', 'alignl'], ['center', 'По центру', 'alignc'], ['right', 'По правому краю', 'alignr']].map(([v, t, icon]) =>
     h('button', { type:'button', class:'pt-al' + (l.align === v ? ' on' : ''), 'data-a':v, title:t, 'aria-label':t, 'aria-pressed':l.align === v ? 'true' : 'false',

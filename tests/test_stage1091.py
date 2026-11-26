@@ -169,7 +169,7 @@ def test_view_mode_cannot_upload(page, sermon):
     open_sermon(page, img_sermon(sermon), edit=False)
     page.evaluate("selectBlock('i1')")
     page.wait_for_selector(".side .pic-panel")
-    assert page.locator(".side .pic-pick").is_disabled()
+    assert page.locator(".side .pic-pick").count() == 0   # 26.11: в просмотре плиток добавления нет
     assert not page.errors, page.errors
 
 
