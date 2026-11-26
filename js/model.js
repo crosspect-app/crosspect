@@ -186,7 +186,7 @@ function normPicPlace(p){
 }
 /* Слои «Картинки» (этап 10.9.2), снизу вверх: картинки и рамки текста.
    { kind:'pic', id, imageId, imgW, imgH, pic?, place?, shadow? } — картинка (pic и place — как в 10.9.1–10.9.1.2; shadow — сила тени 1…100, нет — без тени);
-   { kind:'text', id, text, x, y, w, size, bold?, italic?, track?, lead?, color, align } — рамка текста (italic — курсив; track и lead записаны, только если не стандартные): x, y — середина в долях слайда, w — ширина в долях ширины слайда,
+   { kind:'text', id, text, x, y, w, size, bold?, italic?, caps?, frame?, rot?, track?, lead?, color, align } — рамка текста (italic — курсив; caps — заглавными, frame — рамка пунктиром, rot — поворот в градусах; track и lead записаны, только если не стандартные): x, y — середина в долях слайда, w — ширина в долях ширины слайда,
    size — размер шрифта в px кадра 1920×1080. Старый блок с imageId у самого блока — одна картинка-слой */
 const PIC_TEXT = { size:72, sizeMin:20, sizeMax:240, wMin:0.04, wMax:1.5, color:'#ffffff', max:2000,
   track:-0.02, trackMin:-0.2, trackMax:0.3, lead:1.18, leadMin:0.8, leadMax:2 };   // track — между символами (em), lead — между строками (во сколько размеров шрифта); границы — как в «Настройках слайдов» (этап Б)
@@ -207,6 +207,9 @@ function normPicLayer(l, seen){
       align:['left', 'center', 'right'].includes(l.align) ? l.align : 'center' };
     if (l.bold === true) out.bold = true;
     if (l.italic === true) out.italic = true;
+    if (l.caps === true) out.caps = true;     // 26.11: все заглавные (только на слайде)
+    if (l.frame === true) out.frame = true;   // 26.11: рамка пунктиром цвета текста
+    const rot = Math.round(n(l.rot, -180, 180, 0)); if (rot) out.rot = rot === 180 ? -180 : rot;   // 26.11: поворот, градусы
     const tr = +n(l.track, PIC_TEXT.trackMin, PIC_TEXT.trackMax, PIC_TEXT.track).toFixed(2), ld = +n(l.lead, PIC_TEXT.leadMin, PIC_TEXT.leadMax, PIC_TEXT.lead).toFixed(2);
     if (tr !== PIC_TEXT.track) out.track = tr;
     if (ld !== PIC_TEXT.lead) out.lead = ld;

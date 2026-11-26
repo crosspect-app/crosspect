@@ -1408,7 +1408,7 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .ph-hit{transform-origin:50% 50%}
 /* этап 10.5.7: поворот круглой стрелкой над выделенным фото */
 .ph-rot{position:absolute;left:50%;top:-40px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:#151612;border:2px solid var(--accent);cursor:grab;touch-action:none;display:none}
-.ph-rot::before{content:'↻';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:16px;line-height:1}
+.ph-rot::before{content:'';position:absolute;left:50%;top:50%;width:15px;height:15px;margin:-7.5px 0 0 -7.5px;background:var(--accent);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-3-6.7'/%3E%3Cpath d='M21 3v6h-6'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-3-6.7'/%3E%3Cpath d='M21 3v6h-6'/%3E%3C/svg%3E") center/contain no-repeat}   /* 26.11: значок ровно по центру кружка (тот же, что у слоёв) */
 .ph-rot::after{content:'';position:absolute;left:50%;top:24px;width:2px;height:14px;margin-left:-1px;background:rgba(255,214,102,.8)}
 .ph-hit.sel .ph-rot,.ph-hit.rotating .ph-rot{display:block}
 .ph-hit.rotating .ph-rot{cursor:grabbing}
@@ -1478,7 +1478,7 @@ body.light .btn.hd-done:hover{background:#3a3834;border-color:#3a3834}
 .stage-slide.tb-on > .sl{border-radius:16px}
 .tb-layer{position:absolute;inset:0;pointer-events:none;z-index:2}
 .stage-slide:has(.ph-crop) .tb-layer{display:none}   /* пока обрезают фото, рамка текста не мешает */
-.tb-hit{position:absolute;pointer-events:auto;cursor:move;border:1px dashed rgba(255,214,102,.35);touch-action:none}
+.tb-hit{position:absolute;pointer-events:auto;cursor:move;border:1px dashed transparent;touch-action:none}   /* 26.11: без выделения рамки не видно */
 .tb-hit:hover,.tb-hit.sel,.tb-hit.drag{border-color:rgba(255,214,102,.9)}
 .tb-h{position:absolute;width:12px;height:12px;border:2px solid var(--accent);background:#151612;border-radius:3px;opacity:0;transition:opacity .15s}
 .tb-hit:hover .tb-h,.tb-hit.sel .tb-h,.tb-hit.drag .tb-h{opacity:1}
@@ -1637,6 +1637,7 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .pic-size .btn.on{border-color:var(--accent);color:var(--accent)}
 .pic-move-hint{margin:0}
 .sl-ptext{position:absolute;transform:translate(-50%,-50%);white-space:pre-wrap;overflow-wrap:break-word;line-height:1.18;letter-spacing:-0.02em;font-family:var(--f-main,'Unbounded'),'Inter',sans-serif}   /* этап 10.9.2: рамка текста «Картинки» */
+.sl-ptext.pt-framed{border:3px dashed currentColor;border-radius:12px;padding:.45em .7em}   /* 26.11: рамка пунктиром — как у цитаты и места Писания, цвета текста */
 .ly-card{border:1px solid var(--line-2);border-radius:12px;padding:8px 10px;display:grid;gap:10px}
 .ly-card.on{border-color:color-mix(in srgb, var(--accent) 60%, transparent)}
 .ly-head{display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0}
@@ -1671,6 +1672,8 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .pt-flag,.pt-al{width:28px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:none;color:var(--muted);font:inherit;font-size:14px;cursor:pointer}
 .pt-flag:hover,.pt-al:hover{color:var(--text)}
 .pt-flag.on,.pt-al.on{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.pt-flag.pt-caps{width:32px;font-size:12px;font-weight:600;letter-spacing:.02em}   /* 26.11: «АА» — все заглавные */
+.pt-flag .ic{width:16px;height:16px}
 .pt-bold{font-weight:800}.pt-italic{font-style:italic;font-family:Georgia,serif}
 .pt-al .ic svg{width:16px;height:16px}
 .pt-color-btn{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:8px;background:none;cursor:pointer}
@@ -1705,7 +1708,7 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .pic-h.c-ne{right:-8px;top:-8px;cursor:nesw-resize}.pic-h.c-sw{left:-8px;bottom:-8px;cursor:nesw-resize}
 .pic-h.c-n{left:calc(50% - 7px);top:-8px;cursor:ns-resize}.pic-h.c-s{left:calc(50% - 7px);bottom:-8px;cursor:ns-resize}
 .pic-h.c-rot{left:calc(50% - 14px);bottom:-46px;width:28px;height:28px;border-radius:50%;cursor:grab;display:grid;place-items:center;padding:0;color:var(--accent)}   /* круглая ручка поворота под рамкой, как в Canva */
-.pic-h.c-rot svg{width:15px;height:15px}
+.pic-h.c-rot .ic{width:15px;height:15px;display:flex}   /* 26.11: span значка по размеру svg — значок по центру кружка */
 .pic-h.c-rot::before{content:'';position:absolute;left:calc(50% - 1px);top:-18px;width:0;height:16px;border-left:1px dashed rgba(255,214,102,.8)}
 .pic-h.c-rot[data-deg]::after{content:attr(data-deg);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);padding:2px 7px;border-radius:8px;background:#151612;border:1px solid var(--accent);color:#fff;font-size:12px;white-space:nowrap}
 .ph-pipette{width:26px;height:26px;display:inline-grid;place-items:center;padding:0;border-radius:50%;border:1px solid var(--line-2);background:transparent;color:inherit;cursor:pointer}

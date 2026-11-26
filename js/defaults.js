@@ -78,6 +78,7 @@ const ICONS = {
   layup:'<path d="M12 19V6"/><path d="m6.5 11.5 5.5-5.5 5.5 5.5"/>',
   laydown:'<path d="M12 5v13"/><path d="m6.5 12.5 5.5 5.5 5.5-5.5"/>',
   rotate:'<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>',
+  frame:'<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
   pipette:'<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>',
   top:'<path d="M6 4.5h12"/><path d="m7 15 5-5 5 5"/><path d="M12 10v10"/>',
   bottom:'<path d="M6 19.5h12"/><path d="m7 9 5 5 5-5"/><path d="M12 14V4"/>',

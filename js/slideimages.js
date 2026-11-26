@@ -205,7 +205,8 @@ function ptPaint(el, l){
   if (el.textContent !== l.text) el.textContent = l.text;
   Object.assign(el.style, { left:l.x * SL.W + 'px', top:l.y * SL.H + 'px', width:l.w * SL.W + 'px', fontSize:l.size + 'px', fontWeight:l.bold ? '700' : '400',
     fontStyle:l.italic ? 'italic' : 'normal', letterSpacing:(l.track == null ? PIC_TEXT.track : l.track) + 'em', lineHeight:String(l.lead == null ? PIC_TEXT.lead : l.lead),
-    color:l.color, textAlign:l.align });
+    color:l.color, textAlign:l.align, textTransform:l.caps ? 'uppercase' : 'none', transform:'translate(-50%,-50%)' + (l.rot ? ' rotate(' + l.rot + 'deg)' : '') });
+  el.classList.toggle('pt-framed', !!l.frame);
 }
 /* Перерисовать слои на всех слайдах этого блока (лента, сцена, вид «Текст», показ) */
 function picRepaintAll(id){
@@ -261,7 +262,7 @@ function picPaintLayer(holder, sl, b, items){
       const hs = l.kind === 'pic' ? PIC_HANDLES : ['w', 'e'];
       hit = h('div', { class:'pic-hit ' + (l.kind === 'pic' ? 'pic-hit-pic' : 'pic-hit-text'), 'data-l':l.id, 'data-kind':l.kind,
         title:l.kind === 'pic' ? 'Перетащите картинку. Размер — за края и углы. Alt — без привязок' : 'Перетащите текст. Ширина — за края. Двойной щелчок — править текст. Alt — без привязок' },
-        hs.concat(l.kind === 'pic' ? ['rot'] : []).map(c => h('span', { class:'pic-h c-' + c, 'data-c':c, title:c === 'rot' ? 'Повернуть. Alt — без привязки к 45°' : null }, c === 'rot' ? ic('rotate') : null)));
+        hs.concat(['rot']).map(c => h('span', { class:'pic-h c-' + c, 'data-c':c, title:c === 'rot' ? 'Повернуть. Alt — без привязки к 45°' : null }, c === 'rot' ? ic('rotate') : null)));
       hit.addEventListener('pointerdown', e => layerDrag(e, b.id, l.id));
       if (l.kind === 'text') hit.addEventListener('dblclick', () => ptFocus(b.id, l.id));
     }
@@ -273,7 +274,7 @@ function picPaintLayer(holder, sl, b, items){
       Object.assign(hit.style, { left:(G.cx - vw / 2) * k + 'px', top:(G.cy - vh / 2) * k + 'px', width:vw * k + 'px', height:vh * k + 'px', transform:G.th ? 'rotate(' + G.th + 'rad)' : '' });
     } else {
       const R = ptRect(sl, l);
-      Object.assign(hit.style, { left:R.left * k + 'px', top:R.top * k + 'px', width:R.width * k + 'px', height:R.height * k + 'px', transform:'' });
+      Object.assign(hit.style, { left:R.left * k + 'px', top:R.top * k + 'px', width:R.width * k + 'px', height:R.height * k + 'px', transform:l.rot ? 'rotate(' + l.rot + 'deg)' : '' });
     }
   });
 }
@@ -299,7 +300,7 @@ function layerDrag(e, id, lid){
   const was = picSelId(b);
   picUI.sel.set(id, lid);
   if (was !== lid){ picPanelRefresh(id); e.currentTarget.parentNode.querySelectorAll('.pic-hit').forEach(x => x.classList.toggle('sel', x.dataset.l === lid)); }
-  if (l.kind === 'pic') (e.target.closest && e.target.closest('.c-rot') ? picRotate : picDrag)(e, b, l); else ptDrag(e, b, l);
+  (e.target.closest && e.target.closest('.c-rot') ? picRotate : l.kind === 'pic' ? picDrag : ptDrag)(e, b, l);
 }
 /* Общая часть: захват мыши, перерисовка раз в кадр, по отпускании — запись. step(dx, dy, snap) → линии привязки */
 function layerTrack(e, b, l, step, done){
@@ -371,16 +372,19 @@ function picDrag(e, b, l){
   }, () => { const n = normPicPlace(l.place); if (n) l.place = n; else if (place0) l.place = place0; else delete l.place; });
 }
 /* Круглая ручка под рамкой (как в Canva): тянуть вокруг середины картинки — поворот; ±3° у 0, 45, 90… липнет, Alt — без привязки */
+/* Поворот за круглую ручку: картинка — pic.rot, текст (26.11) — rot; шаг 1°, у 45° липнет (Alt — без привязки) */
 function picRotate(e, b, l){
   const holder = e.currentTarget.closest('.stage-slide'), sl0 = holder && holder.querySelector('.sl'); if (!sl0) return;
-  const G0 = picGeom(l), r0 = sl0.getBoundingClientRect(), k0 = sl0.clientWidth / SL.W, rot0 = (l.pic && l.pic.rot) || 0, pic0 = l.pic ? JSON.parse(JSON.stringify(l.pic)) : null;
+  const isPic = l.kind === 'pic', R0 = isPic ? null : ptRect(sl0, l), G0 = isPic ? picGeom(l) : { cx:R0.left + R0.width / 2, cy:R0.top + R0.height / 2 };
+  const r0 = sl0.getBoundingClientRect(), k0 = sl0.clientWidth / SL.W, rot0 = isPic ? (l.pic && l.pic.rot) || 0 : l.rot || 0;
   const ang = (cx, cy) => Math.atan2((cy - r0.top) / k0 - G0.cy, (cx - r0.left) / k0 - G0.cx) * 180 / Math.PI, a0 = ang(e.clientX, e.clientY), badge = e.target.closest('.c-rot');
   layerTrack(e, b, l, (dx, dy, snap) => {
     const a = ang(e.clientX + dx * k0, e.clientY + dy * k0);
     let v = rot0 + a - a0; v = ((v + 180) % 360 + 360) % 360 - 180;
     if (snap){ const q = Math.round(v / 45) * 45; if (Math.abs(v - q) < 3) v = q; if (v === 180) v = -180; }
     v = Math.round(v);
-    const p = Object.assign({}, l.pic || {}); p.rot = v; const n = normPic(p); if (n) l.pic = n; else delete l.pic;
+    if (isPic){ const p = Object.assign({}, l.pic || {}); p.rot = v; const n = normPic(p); if (n) l.pic = n; else delete l.pic; }
+    else if (v) l.rot = v; else delete l.rot;
     if (badge && badge.dataset) badge.dataset.deg = v + '°';
     return [];
   }, () => { if (badge && badge.dataset) delete badge.dataset.deg; });
@@ -649,7 +653,7 @@ function picLayerBody(b, l){
   kids.push(tabs, h('div', { class:'pic-panes' }, PIC_TABS.map(([k]) => paneEls[k])));
   return kids;
 }
-/* Настройки текста (этап 10.9.6.6, вариант T1): над полем — строка как в редакторе текста: размер «− 50 +», Ж и К, выравнивание значками, цвет кружком
+/* Настройки текста (этап 10.9.6.6, вариант T1; 26.11 — АА и рамка): над полем — строка как в редакторе текста: размер «− 50 +», Ж К АА, выравнивание значками, рамка пунктиром, цвет кружком
    (палитра раскрывается под строкой). Под полем — свёрнутые «Интервалы» (между символами и строками); свёрнуто или раскрыто — помнит браузер */
 const PT_ADV_KEY = 'crosspect.ptAdv';
 let ptColorsOpen = false;   // палитра раскрыта — переживает перерисовку панели
@@ -669,7 +673,8 @@ function ptLayerBody(b, l){
   /* Ж и К */
   const flag = (k, cls, label, text) => h('button', { type:'button', class:'pt-flag ' + cls + (l[k] ? ' on' : ''), title:label, 'aria-label':label, 'aria-pressed':l[k] ? 'true' : 'false',
     onclick:e => { const on = !cur()[k]; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on ? 'true' : 'false'); layerSet(id, lid, x => { if (on) x[k] = true; else delete x[k]; }); } }, text);
-  const style = h('div', { class:'pt-seg pt-style' }, flag('bold', 'pt-bold', 'Жирный', 'Ж'), flag('italic', 'pt-italic', 'Курсив', 'К'));
+  const style = h('div', { class:'pt-seg pt-style' }, flag('bold', 'pt-bold', 'Жирный', 'Ж'), flag('italic', 'pt-italic', 'Курсив', 'К'), flag('caps', 'pt-caps', 'Все заглавные', 'АА'));
+  const frame = h('div', { class:'pt-seg pt-frame-seg' }, flag('frame', 'pt-frame', 'Рамка пунктиром', ic('frame')));   // 26.11: отдельной кнопкой, не вместе с цветом
   /* Выравнивание */
   const al = h('div', { class:'pt-seg pt-align' }, [['left', 'По левому краю', 'alignl'], ['center', 'По центру', 'alignc'], ['right', 'По правому краю', 'alignr']].map(([v, t, icon]) =>
     h('button', { type:'button', class:'pt-al' + (l.align === v ? ' on' : ''), 'data-a':v, title:t, 'aria-label':t, 'aria-pressed':l.align === v ? 'true' : 'false',
@@ -697,7 +702,7 @@ function ptLayerBody(b, l){
     h('summary', { text:'Интервалы' }),
     spaced('Между символами', 'track', 'pt-track', PIC_TEXT.trackMin, PIC_TEXT.trackMax, 0.01, PIC_TEXT.track, 'Между символами'),
     spaced('Между строками', 'lead', 'pt-lead', PIC_TEXT.leadMin, PIC_TEXT.leadMax, 0.05, PIC_TEXT.lead, 'Между строками'));
-  return [h('div', { class:'pt-bar' }, sizeBox, style, al, colorBtn), colors, ta, adv];
+  return [h('div', { class:'pt-bar' }, sizeBox, style, al, frame, colorBtn), colors, ta, adv];
 }
 
 /* ----- Заставка с картинкой: «Свой фон» и «Картинка целиком» (этапы 10.9.1.1, 10.9.2.1) ----- */
