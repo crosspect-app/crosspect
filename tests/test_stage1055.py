@@ -209,14 +209,14 @@ def test_fit_free_space(page, sermon):
 
 def test_align_buttons(page, sermon):
     opened(page, sermon)
-    page.locator(".tb-panel button[title='По левому краю']").click()
-    page.locator(".tb-panel button[title='Прижать к верху']").click()
+    page.locator(".side .q-ha button[title='По левому краю']").click()
+    page.locator(".side .q-va button[title='Прижать к верху']").click()
     t = tb(page)
     assert t["ha"] == "left" and t["va"] == "top"
     r = page.evaluate("""() => { const b = document.querySelector('.stage .sl-box'), i = b.querySelector('.sl-inner');
       return [i.style.textAlign, b.style.justifyContent, i.offsetTop]; }""")
     assert r[0] == "left" and r[1] == "flex-start" and r[2] <= 2
-    assert "on" in page.locator(".tb-panel button[title='По левому краю']").get_attribute("class")
+    assert "on" in page.locator(".side .q-ha button[title='По левому краю']").get_attribute("class")
     assert not page.errors, page.errors
 
 
@@ -234,14 +234,14 @@ def test_reset_returns_old_layout(page, sermon):
 def test_mirror_on_side_switch_and_full_width_ignores(page, sermon):
     opened(page, sermon)
     page.evaluate("const b = state.blocks.find(b => b.id === 'q1'); b.textBox = { x:.6, y:.1, w:.3, h:.5, ha:'left', va:'top' }; rerender(b)")
-    page.locator(".toggle button", has_text="Текст слева").click()
+    page.locator(".side .q-place[data-v='left']").click()
     t = tb(page)
     assert abs(t["x"] - 0.1) < 1e-6 and t["ha"] == "right" and t["va"] == "top"
-    page.locator(".toggle button", has_text="Во всю ширину").click()
+    page.locator(".side .q-place[data-v='full']").click()
     assert tb(page)["x"] == t["x"]   # хранится
     st = page.evaluate("document.querySelector('.stage .sl-box').getAttribute('style') || ''")
     assert "left" not in st and page.locator(".stage .tb-hit").count() == 0 and page.locator(".tb-panel").count() == 0
-    page.locator(".toggle button", has_text="Текст справа").click()   # из «Во всю ширину»: рамка была слева — уходит направо
+    page.locator(".side .q-place[data-v='right']").click()   # из «Во всю ширину»: рамка была слева — уходит направо
     t = tb(page)
     assert abs(t["x"] - 0.6) < 1e-6 and t["ha"] == "left"
     assert not page.errors, page.errors
@@ -374,6 +374,6 @@ def test_photo_alt_no_snap(page, sermon):
 
 def test_full_width_is_in_the_middle(page, sermon):
     opened(page, sermon)
-    labels = [t.strip() for t in page.locator(".side .toggle").filter(has_text="Во всю ширину").locator("button").all_inner_texts()]
+    labels = page.locator(".side .q-places .q-place").evaluate_all("l => l.map(x => x.getAttribute('aria-label'))")
     assert labels == ["Текст слева", "Во всю ширину", "Текст справа"]
     assert not page.errors, page.errors

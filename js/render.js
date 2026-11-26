@@ -513,7 +513,7 @@ function splashFootStepper(){
   minus.addEventListener('click', e => { e.preventDefault(); step(-5); });
   plus.addEventListener('click', e => { e.preventDefault(); step(5); });
   show();
-  return h('div', { class:'step sp-foot-step', title:'Размер имени и даты на всех заставках этой проповеди' }, minus, val, plus);
+  return h('div', { class:'step spl-foot-step', title:'Размер имени и даты на всех заставках этой проповеди' }, minus, val, plus);
 }
 const isCaps = b => b.type === 'thesis' ? b.caps !== false : !!b.caps;
 function capsSwitch(b){
@@ -698,15 +698,15 @@ const BODY = {
         k => setMode(k === 'full' ? 'full' : splashMakeMode))];
       if (make){
         const row = (cls, label, on, set, stepper) => {
-          const box = h('div', { class:'sp-row ' + cls + (on ? '' : ' off') });
+          const box = h('div', { class:'spl-row ' + cls + (on ? '' : ' off') });
           box.append(h('label', { class:'switch' }, h('input', { type:'checkbox', checked:on, disabled:readOnly() ? true : null,
             onchange:e => { set(e.target.checked); box.classList.toggle('off', !e.target.checked); change(); all(); } }), h('span', { class:'sw' }), label), stepper);
           return box;
         };
-        kids.push(h('div', { class:'sp-sec' }, h('div', { class:'lbl', text:'Текст' }),
-          row('sp-title', 'Название проповеди', splashTitleOn(b), v => { if (v) delete state.settings.splashTitle; else state.settings.splashTitle = false; }, splashStepper()),
-          row('sp-foot', 'Имя и дата внизу', splashFootOn(b), v => { state.settings.splashFoot = v; }, splashFootStepper())));
-        kids.push(h('div', { class:'sp-sec' }, h('div', { class:'lbl', text:'Фон' }),
+        kids.push(h('div', { class:'spl-sec' }, h('div', { class:'lbl', text:'Текст' }),
+          row('spl-title', 'Название проповеди', splashTitleOn(b), v => { if (v) delete state.settings.splashTitle; else state.settings.splashTitle = false; }, splashStepper()),
+          row('spl-foot', 'Имя и дата внизу', splashFootOn(b), v => { state.settings.splashFoot = v; }, splashFootStepper())));
+        kids.push(h('div', { class:'spl-sec' }, h('div', { class:'lbl', text:'Фон' }),
           seg('splash-mode', [['normal', 'Текущий фон'], ['bg', 'Свой фон']], mode, setMode)));
       }
       kids.push(splashPanel(all));   // картинка: «Загрузить · Заменить · Удалить», затемнение (этап 9.6, 10.9.1.1, 10.9.2.1)
@@ -743,20 +743,31 @@ const BODY = {
     body.append(h('div', { class:'opt-row' }, h('span', { class:'lbl', style:'margin:0' , text:'Весь текст по вертикали' }), valignTools(b)));
   },
   quote(b, body){
-    // этап 10.9.6.3: настройки цитаты — отдельными блоками с заголовками: «Текст», «Расположение», «Автор», «Фото»
+    // 26.11: три блока — «Текст» (строка кнопок как у текста на слайде, поле, «Расположение»), «Автор», «Фото»
     const outer = body, grp = (title, cls) => { const g = h('section', { class:'grp ' + cls }, h('div', { class:'grp-head', text:title })); outer.append(g); return g; };
+    const ro = readOnly(), half = b.half === 'left' || b.half === 'right', tb = b.textBox || { ha:'center', va:'center' };
+    const flag = (cls, label, text, on, set) => h('button', { type:'button', class:'pt-flag ' + cls + (on ? ' on' : ''), title:label, 'aria-label':label, 'aria-pressed':String(on), disabled:ro ? true : null,
+      onclick:e => { const v = !e.currentTarget.classList.contains('on'); e.currentTarget.classList.toggle('on', v); e.currentTarget.setAttribute('aria-pressed', String(v)); set(v); change(); updateCounter(b); } }, text);
+    // выравнивание в рамке — только у «Текст слева / справа» (у «Во всю ширину» рамки нет)
+    const al = (key, list) => h('div', { class:'pt-seg q-' + key }, list.map(([v, icn, t]) => h('button', { type:'button', class:'pt-al' + (tb[key] === v ? ' on' : ''), 'data-a':v, title:t, 'aria-label':t,
+      'aria-pressed':String(tb[key] === v), disabled:ro ? true : null, onclick:() => tbSet(b, x => { x[key] = v; }) }, ic(icn))));
     body = grp('Текст', 'grp-text');
-    body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Цитата' }), scaleStepper(b)),
-      rich(b.text, { key:b.id + ':t', ph:'Текст цитаты, без кавычек. Enter — новая строка', onInput:v => { b.text = v; change(); updateCounter(b); } })));
-    body.append(capsSwitch(b));
-    body.append(h('label', { class:'switch' },
-      h('input', { type:'checkbox', checked:!!b.frame, onchange:e => { b.frame = e.target.checked; change(); updateCounter(b); } }),
-      h('span', { class:'sw' }), 'Обводка пунктиром'));
-    body = grp('Расположение', 'grp-place');
-    body.append(h('div', null, h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Место текста' })),
-      toggle([['left', 'Текст слева'], ['full', 'Во всю ширину'], ['right', 'Текст справа']], b.half || 'full', v => { photoHalfSwitch(b, v); textBoxHalfSwitch(b, v); b.half = v; change(); rerender(b); })));
-    // этап 10.5.5: своя рамка текста заменяет «Ширину текста»; «Сбросить» возвращает прежнее
-    if (b.half === 'left' || b.half === 'right'){ if (!b.textBox) body.append(halfWidthRow(b)); body.append(textFramePanel(b)); }
+    body.append(h('div', { class:'pt-bar q-bar' }, scaleStepper(b),
+      h('div', { class:'pt-seg pt-style' }, flag('pt-caps q-caps', 'Все заглавные', 'АА', isCaps(b), v => { b.caps = v; })),
+      half ? al('ha', [['left', 'alignl', 'По левому краю'], ['center', 'alignc', 'По центру'], ['right', 'alignr', 'По правому краю']]) : null,
+      half ? al('va', [['top', 'vtop', 'Прижать к верху'], ['center', 'vmid', 'По центру по вертикали'], ['bottom', 'vbot', 'Прижать к низу']]) : null,
+      h('div', { class:'pt-seg pt-frame-seg' }, flag('pt-frame q-frame', 'Рамка пунктиром', ic('dashframe'), !!b.frame, v => { b.frame = v; }))));
+    body.append(rich(b.text, { key:b.id + ':t', ph:'Текст цитаты, без кавычек. Enter — новая строка', onInput:v => { b.text = v; change(); updateCounter(b); } }));
+    // «Расположение»: три мини-слайда (где текст, где фото), справа — «Выровнять по свободному месту» и «Сбросить» значками
+    const place = h('div', { class:'q-places', role:'group', 'aria-label':'Место текста' }, [['left', 'Текст слева'], ['full', 'Во всю ширину'], ['right', 'Текст справа']].map(([v, t]) =>
+      h('button', { type:'button', class:'q-place q-place-' + v + ((b.half || 'full') === v ? ' on' : ''), 'data-v':v, title:t, 'aria-label':t, 'aria-pressed':String((b.half || 'full') === v), disabled:ro ? true : null,
+        onclick:() => { if ((b.half || 'full') === v) return; photoHalfSwitch(b, v); textBoxHalfSwitch(b, v); b.half = v; change(); rerender(b); } },
+        h('span', { class:'q-mini-t' }), v !== 'full' ? h('span', { class:'q-mini-p' }) : null)));
+    const tools = half ? h('div', { class:'pt-seg q-fit' },
+      h('button', { type:'button', class:'pt-al tb-fit', title:'Выровнять по свободному месту', 'aria-label':'Выровнять по свободному месту', disabled:ro ? true : null, onclick:() => tbFitFree(b) }, ic('fit')),
+      b.textBox ? h('button', { type:'button', class:'pt-al tb-reset', title:'Сбросить: текст на место по «Месту текста»', 'aria-label':'Сбросить', disabled:ro ? true : null, onclick:() => tbReset(b) }, ic('undo')) : null) : null;
+    body.append(h('div', { class:'q-place-sec' }, h('div', { class:'lbl', text:'Расположение' }), h('div', { class:'q-place-row' }, place, tools)));
+    if (half && !b.textBox) body.append(halfWidthRow(b));   // этап 10.5.5: своя рамка текста заменяет «Ширину текста»
     // этап 10.5: имя и фамилия отдельно (на слайде фамилия жирным); пока печатают — подсказки из фотобанка (photos.js)
     const who = () => { change(); updateCounter(b); };
     const fi = input(b, 'first', 'Корри', { autocomplete:'off', oninput:e => { b.first = e.target.value; who(); } });
@@ -765,12 +776,14 @@ const BODY = {
     authorSuggest(b, fi, sugg); authorSuggest(b, la, sugg);
     // этап 10.5.2: «Из фотобанка» — окно выбора человека и фото (photopick.js), есть всегда, даже без фото
     body = grp('Автор', 'grp-author');
-    body.append(h('div', { class:'au-wrap' },
-      h('div', { class:'lbl-row au-head' }, h('span', { class:'lbl' }),
-        h('button', { type:'button', class:'btn small au-bank', disabled:readOnly() ? true : null, onclick:() => openPhotoPick(b, false) }, 'Из фотобанка')),
-      h('div', { class:'grid-2' }, field('Имя', fi), field('Фамилия', la)), sugg));
-    body.append(field('Подпись — мелко под автором', input(b, 'caption', 'Книга, год, откуда цитата', { oninput:e => { b.caption = e.target.value; change(); updateCounter(b); } })));
-    if ((b.half === 'left' || b.half === 'right') && b.photo) grp('Фото', 'grp-photo').append(photoPanel(b));
+    // 26.11: «Из фотобанка» — в заголовке блока; подписи полей мелко внутри полей
+    body.querySelector('.grp-head').append(h('button', { type:'button', class:'btn small au-bank', disabled:readOnly() ? true : null, onclick:() => openPhotoPick(b, false) }, 'Из фотобанка'));
+    const inField = (label, inp) => h('label', { class:'q-in' }, h('span', { class:'q-in-lbl', text:label }), inp);
+    body.append(h('div', { class:'au-wrap' }, h('div', { class:'grid-2' }, inField('Имя', fi), inField('Фамилия', la)), sugg));
+    body.append(inField('Подпись под именем', input(b, 'caption', 'Книга, год, откуда цитата', { oninput:e => { b.caption = e.target.value; change(); updateCounter(b); } })));
+    if ((b.half === 'left' || b.half === 'right') && b.photo){   // «Во всю ширину» — фото нет, блока нет
+      const g = grp('Фото', 'grp-photo'); g.querySelector('.grp-head').append(photoHideSwitch(b)); g.append(photoPanel(b));
+    }
   },
   image(b, body, n){
     body.append(nameField(b, n));

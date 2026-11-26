@@ -504,6 +504,11 @@ function photoPanel(b){
   if (!photoBank.loaded) loadPhotoBank();
   return el;
 }
+/* 26.11: «Скрыть» в заголовке блока «Фото» — выключено по умолчанию; включили — фото нет на слайде и обработка спрятана, но выбор, положение и фильтр хранятся */
+function photoHideSwitch(b){
+  return h('label', { class:'switch ph-hide' }, h('input', { type:'checkbox', checked:!!(b.photo && b.photo.off), disabled:readOnly() ? true : null,
+    onchange:e => { if (e.target.checked) b.photo.off = true; else delete b.photo.off; change(); rerender(b); } }), h('span', { class:'sw' }), 'Скрыть');
+}
 /* Сбросить — к виду по умолчанию этого фото, если админ его задал, иначе к общему: снизу по центру пустой зоны, 90 % высоты, «Оригинал» */
 function photoReset(b){
   const a = bankEntry(b.photo.id); if (!a) return;
@@ -522,24 +527,21 @@ async function photoSavePreset(b, btn){
   btn.disabled = false;
 }
 function photoPanelFill(el, b){
-  const p = b.photo, a = p && bankEntry(p.id);
-  const change1 = h('button', { type:'button', class:'btn small ph-change', onclick:() => openPhotoPick(b, true) }, 'Сменить фото');   // photopick.js
-  const kids = [h('div', { class:'lbl-row ph-top' }, h('span', { class:'lbl' }), change1)];
-  // «На слайде»: выключили — фото не видно нигде, но выбор, положение и фильтр хранятся; включили — всё как было
-  const onSlide = h('span', { class:'ph-onoff' }, sw('На слайде', !p.off, v => { if (v) delete p.off; else p.off = true; change(); rerender(b); }));
+  // 26.11: строка фото (миниатюра, имя, «Сменить»), под ней — вкладки обработки, как у картинки; «Скрыть» — в заголовке блока (photoHideSwitch)
+  const p = b.photo, a = p && bankEntry(p.id), ro = readOnly();
+  const change1 = h('button', { type:'button', class:'btn small ph-change', disabled:ro ? true : null, onclick:() => openPhotoPick(b, true) }, 'Сменить');   // photopick.js
+  const kids = [];
   if (!a){
-    kids.push(h('div', { class:'ph-cur' }, h('span', { class:'ph-cur-name hint', text:photoBank.loaded ? 'Этого фото больше нет в фотобанке' : 'Загружаю фотобанк…' }), onSlide));
+    kids.push(h('div', { class:'ph-cur' }, h('span', { class:'ph-cur-name hint', text:photoBank.loaded ? 'Этого фото больше нет в фотобанке' : 'Загружаю фотобанк…' }), change1));
   } else {
-    // этап 10.9.6.4: щелчок по строке фото — выделить фото, как щелчок по нему на слайде
-    kids.push(h('div', { class:'ph-cur' + (p.off ? ' off' : ''), title:p.off || readOnly() ? null : 'Настроить фото',
-      onclick:e => { if (p.off || readOnly() || e.target.closest('.ph-onoff')) return; if (photoUI.sel === b.id) photoDeselect(); else photoSelect(b.id); } },
+    // щелчок по строке фото — выделить фото, как щелчок по нему на слайде (рамка и ручки)
+    kids.push(h('div', { class:'ph-cur' + (p.off ? ' off' : ''), title:p.off || ro ? null : 'Выделить фото на слайде',
+      onclick:e => { if (p.off || ro || e.target.closest('button')) return; if (photoUI.sel === b.id) photoDeselect(); else photoSelect(b.id); } },
       h('img', { class:'ph-cur-img', src:a.thumb, alt:'' }),
-      h('span', { class:'ph-cur-name' }, bankName(a), h('span', { class:'ph-kind', text:PHOTO_KINDS[a.kind] })), onSlide));
+      h('span', { class:'ph-cur-name' }, bankName(a), h('span', { class:'ph-kind', text:PHOTO_KINDS[a.kind] })), change1));
   }
-  // этап 10.9.6.4: настройки фото раскрываются, только когда фото выделено (на слайде или щелчком по строке фото) — как у картинки
-  if (a && !p.off && (photoUI.sel === b.id || photoUI.crop === b.id)){
-    // правка 19 ноября 2026: фильтр, обрезка, отражение, поворот, обводка и углы — под «Расширенными настройками» (photoedit.js)
-    if (!readOnly()) kids.push(photoAdvanced(b, a));
+  if (a && !p.off && !ro){
+    kids.push(photoAdvanced(b, a));
     kids.push(h('div', { class:'ph-acts ph-foot' }, h('button', { type:'button', class:'btn small ph-reset', onclick:() => photoReset(b) }, 'Сбросить'),
       cloud.admin && cloudOn() && !a.legacy ? h('button', { type:'button', class:'btn small ph-preset', title:'Так фото встанет у всех, кто потом выберет это фото',
         onclick:e => photoSavePreset(b, e.currentTarget) }, 'Сделать видом по умолчанию') : null));

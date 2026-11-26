@@ -124,7 +124,7 @@ def test_bg_photo_not_mirrored(page, sermon):
     page.wait_for_selector(".side .ph-panel .ph-reset")
     assert page.locator(".side .ph-panel", has_text="Не отражать").count() == 0
     assert "с фоном" in page.inner_text(".side .ph-panel .ph-cur")
-    page.locator(".side .toggle button", has_text="Текст слева").click()
+    page.locator(".side .q-place[data-v='left']").click()
     assert page.evaluate("photoBox(state.blocks.find(b => b.id === 'q1')).flip") is False
     page.evaluate("state.blocks.find(b => b.id === 'q1').photo.id = 'lewis-cs'")
     assert page.evaluate("photoBox(state.blocks.find(b => b.id === 'q1')).flip") is True   # без фона — отражается, как раньше

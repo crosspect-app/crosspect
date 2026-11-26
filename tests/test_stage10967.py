@@ -116,19 +116,19 @@ def test_splash_title_off_and_foot_size(page, sermon):
     from test_stage10911 import open_splash
     open_splash(page, sermon)
     side = page.locator(".side .own-splash")
-    secs = side.locator(".sp-sec")
+    secs = side.locator(".spl-sec")
     assert secs.nth(0).locator(".lbl").text_content() == "Текст" and secs.nth(1).locator(".lbl").text_content() == "Фон"   # текст выше фона
-    title = side.locator(".sp-title input[type=checkbox]")
-    assert title.is_checked() and side.locator(".sp-foot input[type=checkbox]").is_checked()   # по умолчанию всё включено
-    side.locator(".sp-title .switch").click()
+    title = side.locator(".spl-title input[type=checkbox]")
+    assert title.is_checked() and side.locator(".spl-foot input[type=checkbox]").is_checked()   # по умолчанию всё включено
+    side.locator(".spl-title .switch").click()
     assert page.evaluate("state.settings.splashTitle") is False
     page.wait_for_function("getComputedStyle(document.querySelector('.stage .sl-sp-title')).visibility === 'hidden'")
-    assert "off" in side.locator(".sp-title").get_attribute("class")
+    assert "off" in side.locator(".spl-title").get_attribute("class")
     fs0 = page.evaluate("parseFloat(getComputedStyle(document.querySelector('.stage .sl-sp-foot')).fontSize)")
-    side.locator(".sp-foot-step button").nth(1).click()
+    side.locator(".spl-foot-step button").nth(1).click()
     assert page.evaluate("state.settings.splashFootSize") == 105
     page.wait_for_function("parseFloat(getComputedStyle(document.querySelector('.stage .sl-sp-foot')).fontSize) > %f" % (fs0 + 0.5))
-    side.locator(".sp-foot .switch").click()   # обе строки выключены — остаётся один фон
+    side.locator(".spl-foot .switch").click()   # обе строки выключены — остаётся один фон
     assert page.evaluate("state.settings.splashFoot") is False
     assert not page.errors, page.errors
 
@@ -144,4 +144,29 @@ def test_splash_bg_buttons_and_dim_only_with_picture(page, sermon, tmp_path):
     page.wait_for_selector(".side .spic-panel .spic-dim")
     p = page.locator(".side .spic-panel")
     assert p.locator(".spic-pick").is_disabled() and p.locator(".spic-replace").is_enabled() and p.locator(".spic-del").is_enabled()
+    assert not page.errors, page.errors
+
+
+# ---------- Цитата ----------
+
+def test_quote_three_blocks_and_toolbar(page, sermon):
+    open_quote(page, sermon, photo={"id": "lewis-cs"}, half="right")
+    heads = page.locator(".side .grp > .grp-head").evaluate_all("l => l.map(x => x.firstChild.textContent)")
+    assert heads == ["Текст", "Автор", "Фото"]
+    bar = page.locator(".side .grp-text .q-bar")
+    assert bar.locator(".step").count() == 1 and bar.locator(".q-caps").count() == 1 and bar.locator(".q-frame").count() == 1
+    assert bar.locator(".q-ha .pt-al").count() == 3 and bar.locator(".q-va .pt-al").count() == 3   # вертикальное рядом с горизонтальным
+    assert page.locator(".side .switch", has_text="Заглавными буквами").count() == 0
+    bar.locator(".q-caps").click(); bar.locator(".q-frame").click()
+    b = page.evaluate("state.blocks.find(b => b.id === 'q1')")
+    assert b["caps"] is True and b["frame"] is True
+    places = page.locator(".side .q-places .q-place")
+    assert places.count() == 3 and page.locator(".side .q-place.on").get_attribute("data-v") == "right"
+    assert page.locator(".side .q-fit .tb-fit").count() == 1
+    assert page.locator(".side .grp-author .grp-head .au-bank").count() == 1   # «Из фотобанка» в заголовке
+    y = [page.locator(".side label.q-in", has_text=t).bounding_box()["y"] for t in ("Имя", "Фамилия")]
+    assert abs(y[0] - y[1]) < 2   # имя и фамилия в одну строку
+    page.locator(".side .q-place[data-v='full']").click()
+    assert page.locator(".side .grp-photo").count() == 0   # «Во всю ширину» — блока «Фото» нет
+    assert page.locator(".side .q-ha").count() == 0
     assert not page.errors, page.errors

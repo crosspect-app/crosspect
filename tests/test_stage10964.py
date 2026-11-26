@@ -18,10 +18,9 @@ def test_no_black_strip_with_long_settings(page, sermon):
     page.set_viewport_size({"width": 1897, "height": 955})
     open_quote(page, sermon, photo={"id": "lewis-cs"}, half="right")
     select_photo(page)
-    page.locator(".side .ph-adv summary").click()
     page.evaluate("document.querySelector('.side').scrollTop = 99999")
     assert page.evaluate("document.documentElement.scrollHeight - innerHeight") <= 3   # страница не длиннее окна
-    assert page.evaluate("getComputedStyle(document.querySelector('.ph-onoff .switch')).position") == "relative"
+    assert page.evaluate("getComputedStyle(document.querySelector('.ph-hide')).position") == "relative"
 
 
 def test_picture_card_compact(page, sermon):
@@ -95,17 +94,16 @@ def test_layers_group_and_drag_reorder(page, sermon):
     assert not page.errors, page.errors
 
 
-def test_quote_photo_settings_only_when_selected(page, sermon):
+def test_quote_photo_settings_visible_hidden_by_skryt(page, sermon):
+    # 26.11: обработка фото видна сразу; «Скрыть» (по умолчанию выключено) прячет её и фото на слайде
     open_quote(page, sermon, photo={"id": "lewis-cs"}, half="right")
-    page.wait_for_selector(".stage .ph-hit", state="attached")
-    assert page.locator(".side .ph-adv").count() == 0 and page.locator(".side .ph-reset").count() == 0
-    page.locator(".side .ph-cur").click()   # щелчок по строке фото — как по фото на слайде
     page.wait_for_selector(".side .ph-adv")
-    assert page.evaluate("photoUI.sel") == "q1"
-    page.keyboard.press("Escape")
+    hide = page.locator(".side .grp-photo .grp-head .ph-hide")
+    assert hide.inner_text().strip() == "Скрыть" and not hide.locator("input").is_checked()
+    hide.click()
     page.wait_for_function("!document.querySelector('.side .ph-adv')")
-    assert page.evaluate("photoUI.sel") is None
-    select_photo(page)
-    page.locator(".side .ph-adv summary").click()
+    assert page.locator(".side .ph-reset").count() == 0 and page.locator(".side .ph-cur").count() == 1
+    page.locator(".side .grp-photo .ph-hide").click()
+    page.wait_for_selector(".side .ph-adv")
     assert page.locator(".side .ph-adv .ph-tools .ph-flip svg").count() == 1 and page.locator(".side .ph-adv .ph-flip").inner_text().strip() == ""
     assert not page.errors, page.errors

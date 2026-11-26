@@ -3,7 +3,7 @@
 /* ========= Редактор фото (этап 10.5.3; правка 19 ноября 2026 — настройки в «Редакторе») =========
    На слайде фото только двигают и тянут за углы (photos.js), щелчок выделяет его: рамка на фото, блок «Фото» в «Редакторе» подсвечен
    и прокручен в вид. Настройки — в блоке «Фото» (photoPanelFill, photos.js): на виду «Сменить фото», «На слайде», «Сбросить» и
-   (админ) «Сделать видом по умолчанию»; под свёрнутым «Расширенные настройки» (photoAdvanced) — фильтр, «Обрезать», «Отразить»
+   (админ) «Сделать видом по умолчанию»; вкладки «Кадр · Фильтр · Обводка · Тень» (photoAdvanced, 26.11) — фильтр, «Обрезать», «Отразить»
    слева направо и сверху вниз (этап 10.5.7), обводка, углы (только «с фоном»). Свёрнуто или раскрыто — помнит браузер. Обрезка — режим
    с ручками на слайде; над фото тогда подсказка и «Готово» (на телефоне — снизу экрана). Поворот — только круглой стрелкой над
    выделенным фото (photoRotDrag, этап 10.5.7). В JPEG и PowerPoint ничего из этого не попадает. Состояние — photoUI (photos.js). */
@@ -11,9 +11,6 @@
 const PHOTO_PALETTE = ['#ffffff', '#000000', '#f2c14e', '#c9702a', '#d94b4b', '#4b8bd9', '#3fa66b', '#8a8f98'];
 const PHOTO_MAGNET = 3;   // поворот стрелкой «прилипает» к 0°, 90°, 180°, −90° в пределах 3° (Alt — без привязки)
 const PHOTO_ROT_SNAP = [0, 90, 180, -180, -90];
-const PHOTO_ADV_KEY = 'crosspect.photoAdvanced';
-const photoAdvOpen = () => { try { return localStorage.getItem(PHOTO_ADV_KEY) === '1'; } catch(e){ return false; } };
-const photoAdvSave = on => { try { localStorage.setItem(PHOTO_ADV_KEY, on ? '1' : '0'); } catch(e){} };
 
 /* Что-то поменяли у фото цитаты id: записать и перерисовать слайд (картинка с правками готовится заново) */
 function photoFxSet(id, fn){
@@ -78,23 +75,50 @@ function photoBuildBar(id){
 /* Строка «Фильтр, Обрезать, отражение» (этап 10.9.6.4): маленький список фильтров и кнопки в одну строку */
 function fxToolsRow(...x){ return h('div', { class:'ph-tools' }, ...x); }
 /* «Расширенные настройки» в блоке «Фото»: свёрнуты по умолчанию */
+/* 26.11: обработка фото цитаты — вкладками, как у картинки на слайде: «Кадр» (обрезать, отражение, углы у фото с фоном), «Фильтр» (миниатюры 3×3),
+   «Обводка», «Тень». Открытая вкладка — общая с картинкой (PIC_TAB_KEY, помнит браузер). Видно всегда, пока фото не скрыто */
+const photoFltThumbs = new Map();
+function photoFltThumb(a, f){
+  const key = a.id + '|' + f + '|' + (f === 'tone' ? photoToneColor() : '');
+  if (!photoFltThumbs.has(key)) photoFltThumbs.set(key, photoImage(a).then(img => {
+    const W = 88, H = 60, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, k = Math.max(W / iw, H / ih);
+    const g = c.getContext('2d'); g.drawImage(img, (W - iw * k) / 2, 0, iw * k, ih * k);   // по верху: у людей важнее лицо
+    if (f !== 'none'){ const d = g.getImageData(0, 0, W, H); filterPixels(d.data, f, photoToneColor()); g.putImageData(d, 0, 0); }
+    return c.toDataURL('image/png');
+  }).catch(e => { photoFltThumbs.delete(key); throw e; }));
+  return photoFltThumbs.get(key);
+}
 function photoAdvanced(b, a){
   const id = b.id, p = b.photo, cropping = photoUI.crop === id;
   const flip = (k, cls, icon, tip, vert) => h('button', { type:'button', class:'btn small ph-ico ' + cls + (p[k] ? ' on' : ''), title:tip, 'aria-label':tip, 'aria-pressed':p[k] ? 'true' : 'false',
     onclick:() => photoFxSet(id, q => { if (q[k]) delete q[k]; else q[k] = true; photoMirrorFx(q, vert); photoPanelRefresh(); }) }, ic(icon));
-  const body = [
-    // этап 10.9.6.4: фильтр, обрезка и отражение — одной строкой, отражение значками без подписей
-    fxToolsRow(h('select', { class:'input ph-sel ph-filter', 'aria-label':'Фильтр', title:'Фильтр', onchange:e => photoFxSet(id, q => { q.filter = e.target.value; }) },
-        PHOTO_FILTERS.map(([v, t]) => h('option', { value:v, selected:(p.filter || 'none') === v ? true : null }, t))),
-      h('button', { type:'button', class:'btn small ph-crop-btn' + (cropping ? ' on' : ''), title:cropping ? 'Закончить обрезку' : 'Обрезать: ручки по краям фото на слайде',
-        onclick:() => cropping ? photoCropEnd() : photoCropStart(id) }, cropping ? 'Готово' : 'Обрезать'),
-      flip('flipH', 'ph-flip', 'fliph', 'Отразить по горизонтали', false), flip('flipV', 'ph-flipv', 'flipv', 'Отразить по вертикали', true)),
-    ...shadowRows(() => blockById(id).photo.shadow || 0, v => photoFxSet(id, q => { if (v) q.shadow = v; else delete q.shadow; })),   // этап 10.9.2; над обводкой — 10.9.6.3
-    ...photoToolBody('out', id, b),
-    ...(a.kind === 'bg' ? photoToolBody('round', id, b) : [])];
-  const d = h('details', { class:'ph-adv' }, h('summary', { text:'Расширенные настройки', onclick:() => photoAdvSave(!d.open) }), h('div', { class:'ph-adv-body' }, body));
-  d.open = photoAdvOpen() || cropping;
-  return d;
+  const fbtn = ([v, t]) => {
+    const im = h('span', { class:'pic-flt-img' }), on = (p.filter || 'none') === v;
+    photoFltThumb(a, v).then(u => { im.style.backgroundImage = 'url(' + u + ')'; }).catch(() => {});
+    return h('button', { type:'button', class:'pic-flt ph-flt' + (on ? ' on' : ''), 'data-f':v, title:t, 'aria-pressed':on ? 'true' : 'false',
+      onclick:e => { const btn = e.currentTarget; btn.parentNode.querySelectorAll('.pic-flt').forEach(x => { x.classList.toggle('on', x === btn); x.setAttribute('aria-pressed', x === btn ? 'true' : 'false'); });
+        photoFxSet(id, q => { q.filter = v; }); } }, im, h('span', { class:'pic-flt-name', text:t }));
+  };
+  const panes = {
+    frame:[h('div', { class:'pic-frame-row ph-tools' },
+        h('button', { type:'button', class:'btn small ph-crop-btn' + (cropping ? ' on' : ''), title:cropping ? 'Закончить обрезку' : 'Обрезать: ручки по краям фото на слайде',
+          onclick:() => cropping ? photoCropEnd() : photoCropStart(id) }, ic('crop'), cropping ? 'Готово' : 'Обрезать'),
+        flip('flipH', 'ph-flip', 'fliph', 'Отразить по горизонтали', false), flip('flipV', 'ph-flipv', 'flipv', 'Отразить по вертикали', true)),
+      ...(a.kind === 'bg' ? photoToolBody('round', id, b) : [])],
+    filter:[h('div', { class:'pic-flts ph-flts' }, PHOTO_FILTERS.map(fbtn))],
+    out:photoToolBody('out', id, b),
+    shadow:shadowRows(() => blockById(id).photo.shadow || 0, v => photoFxSet(id, q => { if (v) q.shadow = v; else delete q.shadow; }), 'Сила')
+  };
+  let act = cropping ? 'frame' : picTabGet();
+  const paneEls = {}, tabEls = {};
+  PIC_TABS.forEach(([k]) => { paneEls[k] = h('div', { class:'pic-pane pic-pane-' + k, role:'tabpanel', hidden:k !== act ? true : null }, ...panes[k]); });
+  const tabs = h('div', { class:'pic-tabs', role:'tablist' }, PIC_TABS.map(([k, t, icon]) => tabEls[k] = h('button', { type:'button', role:'tab', class:'pic-tab' + (k === act ? ' on' : ''), 'data-tab':k,
+    'aria-selected':k === act ? 'true' : 'false', onclick:() => {
+      act = k; picTabSave(k);
+      PIC_TABS.forEach(([j]) => { const on = j === k; tabEls[j].classList.toggle('on', on); tabEls[j].setAttribute('aria-selected', on ? 'true' : 'false'); paneEls[j].hidden = !on; });
+    } }, ic(icon), h('span', { text:t }))));
+  return h('div', { class:'ph-adv' }, tabs, h('div', { class:'pic-panes' }, PIC_TABS.map(([k]) => paneEls[k])));
 }
 /* Любой цвет и пипетка (после готовых кружков): get() — текущий цвет, apply(hex) — применить. Пипетка — EyeDropper API (Chrome, Edge, Opera); где его нет, кнопки нет */
 function colorExtras(get, apply){

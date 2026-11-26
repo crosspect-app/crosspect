@@ -122,8 +122,8 @@ def test_panel_has_first_and_last_fields_and_find_replace_both(page, sermon):
     open_sermon(page, quote_sermon(sermon, first="Клайв", last="Льюис", half="full"))
     page.evaluate("selectBlock('q1')")
     side = page.locator(".side")
-    first = side.locator("label.field", has_text="Имя").first.locator("input")
-    last = side.locator("label.field", has_text="Фамилия").locator("input")
+    first = side.locator("label.q-in", has_text="Имя").first.locator("input")
+    last = side.locator("label.q-in", has_text="Фамилия").locator("input")
     assert first.input_value() == "Клайв" and last.input_value() == "Льюис"
     last.fill("тен Бум")
     assert q(page)["last"] == "тен Бум"
@@ -208,14 +208,14 @@ def test_edit_name_keeps_photo_and_on_slide_switch(page, sermon):
     page.locator(".side input[placeholder='Корри']").fill("Корнелия")
     assert q(page)["photo"]["id"] == "ten-boom"   # связь с банком остаётся
     page.evaluate("Object.assign(state.blocks.find(b => b.id === 'q1').photo, { x:0.3, filter:'sepia' })")
-    page.locator(".side .ph-panel .switch", has_text="На слайде").click()
+    page.locator(".side .grp-photo .ph-hide").click()
     b = q(page)
     assert b["photo"]["off"] is True and b["photo"]["x"] == 0.3 and (b["first"], b["last"]) == ("Корнелия", "тен Бум")
     assert page.evaluate("photoBox(state.blocks.find(b => b.id === 'q1'))") is None   # не видно нигде: слайд, JPEG, PowerPoint
-    assert page.locator(".side .ph-panel .ph-filter").count() == 0 and page.locator(".side .ph-panel .ph-reset").count() == 0
+    assert page.locator(".side .ph-panel .ph-adv").count() == 0 and page.locator(".side .ph-panel .ph-reset").count() == 0
     assert page.locator(".side .ph-panel", has_text="Без фото").count() == 0
     # включили — всё как было
-    page.locator(".side .ph-panel .switch", has_text="На слайде").click()
+    page.locator(".side .grp-photo .ph-hide").click()
     b = q(page)
     assert "off" not in b["photo"] and b["photo"]["x"] == 0.3 and b["photo"]["filter"] == "sepia"
     assert page.evaluate("!!photoBox(state.blocks.find(b => b.id === 'q1'))")
@@ -243,7 +243,7 @@ def test_preset_applies_on_pick_and_reset_mirrored_for_other_side(page, sermon):
     sugg(page).first.click()
     assert q(page)["photo"] == {"id": "lewis-cs", "x": 0.3, "y": 1.05, "h": 1.2, "filter": "bw", "mirror": False}
     page.evaluate("Object.assign(state.blocks.find(b => b.id === 'q1').photo, { x:0.5, filter:'none' })")
-    page.locator(".side .toggle button", has_text="Текст слева").click()   # фото справа
+    page.locator(".side .q-place[data-v='left']").click()   # фото справа
     select_photo(page)
     page.locator(".ph-panel button", has_text="Сбросить").click()
     assert q(page)["photo"] == {"id": "lewis-cs", "x": 0.7, "y": 1.05, "h": 1.2, "filter": "bw", "mirror": False}
@@ -256,7 +256,7 @@ def test_preset_from_full_width_lands_on_photo_side(page, sermon):
     page.locator(".side input[placeholder='тен Бум']").fill("льюис")
     sugg(page).first.click()
     assert q(page)["photo"]["x"] == 0.3
-    page.locator(".side .toggle button", has_text="Текст слева").click()   # фото должно быть справа
+    page.locator(".side .q-place[data-v='left']").click()   # фото должно быть справа
     assert q(page)["photo"]["x"] == 0.7
     assert not page.errors, page.errors
 
@@ -340,14 +340,14 @@ def test_photo_on_slide_hidden_on_full_width_and_kept(page, sermon):
     # текст цитаты поверх фото: фото раньше в DOM и без z-index
     order = page.evaluate("[...document.querySelector('.stage .sl-stage').children].map(x => x.className)")
     assert order.index("sl-photo") < order.index("sl-box sl-box-quote")
-    page.locator(".side .toggle button", has_text="Во всю ширину").click()
+    page.locator(".side .q-place[data-v='full']").click()
     page.wait_for_function("document.querySelector('.stage .sl-photo img').style.display === 'none'")
     assert q(page)["photo"]["x"] == 0.3   # хранится
     assert page.locator(".side .ph-panel").count() == 0
-    page.locator(".side .toggle button", has_text="Текст справа").click()
+    page.locator(".side .q-place[data-v='right']").click()
     page.wait_for_function("document.querySelector('.stage .sl-photo img').style.display === 'block'")
     assert q(page)["photo"]["x"] == 0.3
-    page.locator(".side .toggle button", has_text="Текст слева").click()   # в другую зону — зеркально
+    page.locator(".side .q-place[data-v='left']").click()   # в другую зону — зеркально
     assert q(page)["photo"]["x"] == 0.7
     assert not page.errors, page.errors
 
@@ -369,9 +369,8 @@ def test_drag_resize_and_reset(page, sermon):
     assert abs((p2["y"]) - p["y"]) < 0.002   # противоположный (нижний левый) угол на месте
     # фильтр (в «Расширенных настройках» блока «Фото») и «Сбросить»
     select_photo(page)
-    if not page.locator(".side .ph-adv").evaluate("d => d.open"):
-        page.locator(".side .ph-adv summary").click()
-    page.locator(".side .ph-adv .ph-filter").select_option("bw")
+    page.locator(".side .ph-adv .pic-tab[data-tab='filter']").click()
+    page.locator(".side .ph-adv .ph-flt[data-f='bw']").click()
     assert q(page)["photo"]["filter"] == "bw"
     select_photo(page)
     page.locator(".ph-panel button", has_text="Сбросить").click()

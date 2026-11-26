@@ -369,12 +369,12 @@ body.ro .st.on .st-n{color:var(--text)}
 .film .sl.sl-custom .sl-sp-title{font-size:calc(20px / var(--s))!important;line-height:1.25}   /* в ленте — как текст у заглушки картинки (20 px на экране) */
 .own-splash{display:grid;gap:14px}
 .toggle.splash-kind{width:100%;display:flex}.toggle.splash-kind button{flex:1;font-size:12.5px}   /* 26.11: «Создать заставку» / «Загрузить заставку» */
-.sp-sec{display:grid;gap:8px}.sp-sec > .lbl{margin:0}
-.sp-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.sp-row .step{margin:0}.sp-row.off .step{opacity:.35;pointer-events:none}
+.spl-sec{display:grid;gap:8px}.spl-sec > .lbl{margin:0}
+.spl-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.spl-row .step{margin:0}.spl-row.off .step{opacity:.35;pointer-events:none}
 .spic-panel{display:grid;gap:10px;padding:12px;border:1px solid var(--line-2);border-radius:12px}
 .spic-panel[hidden]{display:none}
-.spic-thumb{aspect-ratio:16/9;max-height:130px;border:1px dashed var(--line-2);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12.5px;overflow:hidden;background:var(--surface-2)}
+.spic-thumb{aspect-ratio:16/9;width:100%;border:1px dashed var(--line-2);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12.5px;overflow:hidden;background:var(--surface-2)}
 .spic-thumb.has{border-style:solid}.spic-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .spic-acts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.spic-acts .btn{justify-content:center}
 .hint[hidden]{display:none}
@@ -1655,6 +1655,27 @@ body.show-pop{margin:0;background:#000;overflow:hidden}
 .grp{border:1px solid var(--line-2);border-radius:14px;padding:12px 14px 14px;background:rgba(255,255,255,.025);display:flex;flex-direction:column;gap:12px}   /* этап 10.9.6.3: блоки настроек цитаты */
 .grp-head{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);padding-bottom:8px;border-bottom:1px solid var(--line-2)}
 .grp .ph-panel{border:0;padding:0;background:transparent;margin:0}
+.grp-head:has(> *){display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:38px;padding-bottom:6px}   /* 26.11: кнопка или переключатель справа в заголовке */
+.grp-head > .btn,.grp-head > .switch{text-transform:none;letter-spacing:0;font-weight:500;color:var(--text)}
+.grp-head > .switch{font-size:12.5px;color:var(--muted)}
+.q-bar{flex-wrap:wrap}.q-bar .step{margin:0}
+.q-place-sec{display:grid;gap:8px}.q-place-sec > .lbl{margin:0}
+.q-place-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.q-places{display:flex;gap:8px}
+.q-place{position:relative;width:58px;height:34px;padding:0;border:1px solid var(--line-2);border-radius:7px;background:var(--surface-2);cursor:pointer}
+.q-place:hover{border-color:var(--muted)}
+.q-place.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.q-mini-t{position:absolute;top:8px;bottom:8px;left:6px;right:6px;border:1.5px dashed var(--muted);border-radius:3px}
+.q-place.on .q-mini-t{border-color:var(--accent)}
+.q-mini-p{position:absolute;top:6px;bottom:6px;width:14px;border-radius:3px;background:#3d5a6b}
+.q-place-left .q-mini-t{right:26px}.q-place-left .q-mini-p{right:6px}
+.q-place-right .q-mini-t{left:26px}.q-place-right .q-mini-p{left:6px}
+.q-in{display:block;border:1px solid var(--line-2);border-radius:10px;padding:6px 10px 4px;background:var(--surface-2)}
+.q-in:focus-within{border-color:var(--accent)}
+.q-in-lbl{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.q-in .input{border:0;background:transparent;padding:2px 0;height:auto;min-height:0;box-shadow:none;width:100%}
+.ph-cur .ph-change{margin-left:auto}
+.side .grp-author .grid-2{grid-template-columns:1fr 1fr;gap:8px}   /* 26.11: имя и фамилия в одну строку */
 .grp-layers .ly-list{display:flex;flex-direction:column;gap:10px}   /* этап 10.9.6.4: элементы слайда отдельным блоком */
 .pic-add{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px}   /* 26.11: плитки добавления над списком */
 .ly-tile{display:flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px;border:1px dashed var(--line-2);border-radius:10px;background:none;color:var(--text);font:inherit;font-size:13px;cursor:pointer}

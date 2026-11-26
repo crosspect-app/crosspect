@@ -36,11 +36,14 @@ def photo_el(page):
 
 
 def adv(page):
-    """Раскрыть «Расширенные настройки» в блоке «Фото» (правка 19 ноября 2026: инструменты — в «Редакторе»)"""
-    select_photo(page)   # этап 10.9.6.4: настройки фото — только у выделенного фото
-    if not page.locator(".side .ph-adv").evaluate("d => d.open"):
-        page.locator(".side .ph-adv summary").click()
+    """Обработка фото в блоке «Фото» — вкладками (26.11); tab — открыть вкладку"""
+    select_photo(page)
+    page.wait_for_selector(".side .ph-adv")
     return page.locator(".side .ph-adv")
+
+
+def ph_tab(page, tab):
+    page.locator(".side .ph-adv .pic-tab[data-tab='%s']" % tab).click()
 
 
 def set_range(page, sel, v):
@@ -151,29 +154,26 @@ def test_click_selects_photo_and_highlights_side_block(page, sermon):
     assert page.locator(".ph-bar").count() == 0 and page.locator(".ph-pop").count() == 0   # над фото ничего нет
     # щелчок мимо — выделение снято; щелчок по блоку «Фото» его не снимает
     select_photo(page)
-    page.locator(".side .ph-adv summary").click()
+    ph_tab(page, "filter")
     assert page.locator(".side .ph-panel.sel").count() == 1
     page.locator(".stage .sl").click(position={"x": 700, "y": 40})
     assert page.locator(".side .ph-panel.sel").count() == 0 and "sel" not in photo_el(page).get_attribute("class")
     assert not page.errors, page.errors
 
 
-def test_advanced_collapsed_by_default_and_remembered(page, sermon):
+def test_photo_tabs_like_picture_and_remembered(page, sermon):
+    # 26.11: обработка фото — вкладками «Кадр · Фильтр · Обводка · Тень», видно без выделения; открытая вкладка помнится
     open_quote(page, sermon, photo={"id": "lewis-cs"})
-    page.wait_for_selector(".side .ph-panel")
-    assert page.locator(".side .ph-adv").count() == 0   # этап 10.9.6.4: фото не выделено — настроек нет
-    select_photo(page)
-    d = page.locator(".side .ph-adv")
-    assert d.evaluate("d => d.open") is False
-    assert not page.locator(".side .ph-filter").is_visible()   # фильтр — в расширенных
-    assert page.locator(".side .ph-panel .ph-reset").is_visible()   # «Сбросить» — на виду
-    names = page.locator(".side .ph-adv-body .ph-lbl").all_text_contents()
-    assert names == ["Тень", "Обводка"]   # этап 10.9.6.4: фильтр, обрезка и отражение — строкой без подписей   # тень — этап 10.9.2, над обводкой — 10.9.6.3; «Углы» — только «с фоном»; поворота в панели нет (этап 10.5.7 — стрелкой)
-    assert page.locator(".side .ph-adv .ph-crop-btn").count() == 1 and page.locator(".side .ph-adv .ph-flip").count() == 1
+    page.wait_for_selector(".side .ph-adv")
+    tabs = [t.strip() for t in page.locator(".side .ph-adv .pic-tab").all_inner_texts()]
+    assert tabs == ["Кадр", "Фильтр", "Обводка", "Тень"]
+    assert page.locator(".side .ph-adv .ph-crop-btn").is_visible() and page.locator(".side .ph-adv .ph-flip").count() == 1
     assert page.locator(".side .ph-adv .ph-flipv").count() == 1
-    adv(page)
+    assert page.locator(".side .ph-panel .ph-reset").is_visible()
+    ph_tab(page, "filter")
+    assert page.locator(".side .ph-adv .ph-flt").count() == 9
     page.evaluate("rerender(state.blocks.find(b => b.id === 'q1'))")
-    assert page.locator(".side .ph-adv").evaluate("d => d.open") is True   # раскрыли — так и осталось
+    assert page.locator(".side .ph-adv .pic-tab.on").get_attribute("data-tab") == "filter"
     assert not page.errors, page.errors
 
 
@@ -191,11 +191,13 @@ def test_popups_write_model(page, sermon):
     assert page.locator(".side .ph-panel input[type=range].ph-rot, .side .ph-panel .ph-r90").count() == 0   # этап 10.5.7: ни ползунка, ни «На 90°»
     set_range(page, ".ph-adv .ph-ow", 12)
     assert q(page)["photo"]["outline"] == {"w": 12, "color": "#ffffff"}   # по умолчанию белый
+    ph_tab(page, "out")
     page.locator(".ph-adv .ph-sw[title='#d94b4b']").click()
     assert q(page)["photo"]["outline"] == {"w": 12, "color": "#d94b4b"}
     set_range(page, ".ph-adv .ph-ow", 0)
     assert q(page)["photo"]["outline"] == {"w": 0, "color": "#d94b4b"}
-    page.locator(".ph-adv .ph-filter").select_option("sepia")
+    ph_tab(page, "filter")
+    page.locator(".ph-adv .ph-flt[data-f='sepia']").click()
     assert q(page)["photo"]["filter"] == "sepia"
     page.evaluate("undo()")
     assert q(page)["photo"]["filter"] == "none"
@@ -363,10 +365,10 @@ def test_only_admin_sees_preset_button(browser, base_url, sermon):
 def test_on_slide_switch_hides_and_shows_again(page, sermon):
     open_quote(page, sermon, photo={"id": "lewis-cs", "rot": 10})
     page.wait_for_selector(".stage .ph-hit")
-    page.locator(".side .ph-panel .switch", has_text="На слайде").click()
+    page.locator(".side .grp-photo .ph-hide").click()
     assert q(page)["photo"]["off"] is True and q(page)["photo"]["rot"] == 10   # выбор и правки хранятся
     assert page.locator(".stage .ph-hit").count() == 0 and page.locator(".side .ph-adv").count() == 0
-    page.locator(".side .ph-panel .switch", has_text="На слайде").click()
+    page.locator(".side .grp-photo .ph-hide").click()
     assert "off" not in q(page)["photo"]
     page.wait_for_selector(".stage .ph-hit")
     assert not page.errors, page.errors
