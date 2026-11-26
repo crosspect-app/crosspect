@@ -158,7 +158,7 @@ function pptxNotes(b, n, black){
     case 'free':
       add('Описание: ', b.desc); break;
     case 'splash':
-      if (isCustomSplash(b) && !picOn(b)) out.push('Заставка «Картинка целиком»: картинку не загрузили'); break;
+      if (isCustomSplash(b) && !picOn(b)) out.push('Заставку не загрузили'); break;
   }
   if (slideDrawn(b) && todoOn(b)) out.push('Отмечено «доработать»: слайд нужно сделать или поправить');
   return out.join('\n');

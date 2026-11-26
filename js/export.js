@@ -136,7 +136,7 @@ async function exportMany(){
   // в архив идёт одна заставка — первая (у всех заставок один номер в Holyrics, этап 9.6); своя заставка входит только с картинкой (этап 10.9.1.1)
   const first = state.blocks.find(b => b.type === 'splash');
   const list = units().filter(b => slideDrawn(b) && (b.type !== 'splash' || (b === first && (!isCustomSplash(b) || picOn(b)))));   // части отрывка — отдельные JPEG (этап 10.4), загруженные картинки (10.9.1); своя заставка — только с картинкой (10.9.1.1)
-  if (!list.length){ toast('В конспекте нет слайдов для архива: видео, свободные слайды, заставка «Картинка целиком» без картинки и картинки, которые не загружены в форму, в него не входят'); return; }
+  if (!list.length){ toast('В конспекте нет слайдов для архива: видео, свободные слайды, незагруженная заставка и картинки, которые не загружены в форму, в него не входят'); return; }
   if (!checkNames()) return;
   if (list.length === 1){ exportOne(list[0]); return; }
   exporting = true; motionPause();
@@ -152,7 +152,7 @@ async function exportMany(){
     download(makeZip(files), folder + '.zip');
     pr.end();
     const rest = state.blocks.some(b => (b.type === 'image' && !picOn(b)) || b.type === 'video' || b.type === 'free' || (isCustomSplash(b) && !picOn(b)));
-    toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео, свободные слайды и заставка «Картинка целиком» без картинки делаются вручную' : ''));
+    toast('Скачан архив: ' + list.length + ' ' + plural(list.length, 'слайд', 'слайда', 'слайдов') + (rest ? '. Картинки, видео, свободные слайды и незагруженная заставка делаются вручную' : ''));
   } catch(e){ pr.fail(); toast('Не получилось собрать слайды: ' + (e && e.message ? e.message : 'ошибка') + '. Проверьте интернет.'); }
   finally { exporting = false; motionResume(); }
 }

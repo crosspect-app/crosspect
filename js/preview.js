@@ -271,8 +271,10 @@ function layoutSplash(sl, b, px){
   // «Только название» (настройка слайдов, этап 7.3): линии, имени и даты нет, название — посередине всей области текста
   const only = !splashFootOn(b);   // этап 9.5: у проповеди своя «нижняя строка», по умолчанию — из настроек слайдов
   foot.style.display = only ? 'none' : '';
+  const fk = splashFootScale(b); foot.style.fontSize = fk === 100 ? '' : 'calc(var(--sp-foot,44px) * ' + fk / 100 + ')';   // 26.11: свой размер нижней строки
   box.style.bottom = only ? 'var(--sl-b)' : (SL.H - foot.offsetTop + SPLASH.gap) + 'px';   // иначе — посередине над линией с именем и датой
   const title = String(m.title || '').trim();
+  t.style.visibility = splashTitleOn(b) ? '' : 'hidden';   // 26.11: название можно выключить — остаются фон и нижняя строка
   t.classList.toggle('sl-empty', !title);
   t.textContent = typoText(title || 'Название проповеди');
   wrapScripts(t);
@@ -431,7 +433,7 @@ function runPreview(b){
   let over, msg;
   if (isCustomSplash(b)){
     over = false;
-    msg = '«Картинка целиком» без картинки: в PowerPoint — эта заглушка, в архив JPEG не входит';
+    msg = 'Заставку не загрузили: в PowerPoint — эта заглушка, в архив JPEG не входит';
   } else if (b.type === 'splash'){
     const px = Math.round(ratio * splashBase(b));
     over = px < splashMin3();

@@ -503,6 +503,18 @@ function splashStepper(){
   show();
   return h('div', { class:'step', title:'Размер названия на всех заставках этой проповеди. Длинное название форма уменьшит сама, чтобы оно поместилось' }, minus, val, plus);
 }
+/* 26.11: размер нижней строки заставки (имя и дата), один на всю проповедь — state.settings.splashFootSize, % от размера из настроек слайдов */
+function splashFootStepper(){
+  const val = h('span'), minus = h('button', { type:'button', title:'Мельче на 5%', 'aria-label':'Мельче' }, '−'),
+    plus = h('button', { type:'button', title:'Крупнее на 5%', 'aria-label':'Крупнее' }, '+');
+  const show = () => { const v = splashFootScale(); val.textContent = v + '%'; minus.disabled = readOnly() || v <= SPLASH_FOOT_MIN; plus.disabled = readOnly() || v >= SPLASH_FOOT_MAX; };
+  const step = d => { const v = Math.min(SPLASH_FOOT_MAX, Math.max(SPLASH_FOOT_MIN, splashFootScale() + d)); if (v === 100) delete state.settings.splashFootSize; else state.settings.splashFootSize = v;
+    show(); change(); refreshSplash(); state.blocks.forEach(x => { if (x.type === 'splash') refreshThumb(x); }); };
+  minus.addEventListener('click', e => { e.preventDefault(); step(-5); });
+  plus.addEventListener('click', e => { e.preventDefault(); step(5); });
+  show();
+  return h('div', { class:'step sp-foot-step', title:'Размер имени и даты на всех заставках этой проповеди' }, minus, val, plus);
+}
 const isCaps = b => b.type === 'thesis' ? b.caps !== false : !!b.caps;
 function capsSwitch(b){
   return h('label', { class:'switch' },
@@ -674,18 +686,34 @@ const BODY = {
       const bar = stageEl && stageEl.querySelector('.stage-bar'); if (bar) bar.replaceWith(stageBar(b, slideNums()[b.id]));   // кнопка «JPEG» у своей заставки неактивна
       splashPanelRefresh();   // строка «на фоне серии» (этап 10.9.3) появляется и пропадает
     };
-    const sw = (label, on, fn) => h('label', { class:'switch' },
-      h('input', { type:'checkbox', checked:on, onchange:e => { fn(e.target.checked); change(); all(); } }), h('span', { class:'sw' }), label);
-    const spic = splashPanel(all);   // картинка и затемнение — только в «Свой фон» и «Картинка целиком» (этап 9.6, картинка — 10.9.1.1, режимы — 10.9.2.1)
-    body.append(
-      h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Размер названия' }), splashStepper()),
-      sw('Нижняя строка', splashFootOn(b), v => { state.settings.splashFoot = v; }),
-      h('div', { class:'own-splash' },
-        h('div', { class:'lbl-row' }, h('span', { class:'lbl', text:'Заставка' })),
-        h('div', { class:'toggle splash-mode', role:'group', 'aria-label':'Заставка' }, SPLASH_MODES.map(([k, t]) =>
-          h('button', { type:'button', class:'sm-' + k + (k === splashOwnMode() ? ' on' : ''), 'aria-pressed':String(k === splashOwnMode()),
-            onclick:e => { splashModeSet(k, all); e.currentTarget.parentNode.querySelectorAll('button').forEach(x => { const on = x === e.currentTarget; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }); } }, t))),
-        spic));
+    // 26.11: наверху — «Создать заставку» / «Загрузить заставку». В «Создать» — сначала «Текст» (название и нижняя строка: включить и размер),
+    // ниже «Фон» (текущий / свой) — текст стоит выше, чтобы панель не прыгала при смене фона
+    const fill = () => {
+      const mode = splashOwnMode(), make = mode !== 'full';
+      if (make) splashMakeMode = mode;   // вернуться из «Загрузить» к тому же фону
+      const seg = (cls, items, cur, set) => h('div', { class:'toggle ' + cls, role:'group' }, items.map(([k, t]) =>
+        h('button', { type:'button', class:'sm-' + k + (k === cur ? ' on' : ''), 'aria-pressed':String(k === cur), disabled:readOnly() ? true : null, onclick:() => set(k) }, t)));
+      const setMode = m => { if (m === splashOwnMode()) return; if (m !== 'full') splashMakeMode = m; splashModeSet(m, all); fill(); };
+      const kids = [seg('splash-kind', [['make', 'Создать заставку'], ['full', 'Загрузить заставку']], make ? 'make' : 'full',
+        k => setMode(k === 'full' ? 'full' : splashMakeMode))];
+      if (make){
+        const row = (cls, label, on, set, stepper) => {
+          const box = h('div', { class:'sp-row ' + cls + (on ? '' : ' off') });
+          box.append(h('label', { class:'switch' }, h('input', { type:'checkbox', checked:on, disabled:readOnly() ? true : null,
+            onchange:e => { set(e.target.checked); box.classList.toggle('off', !e.target.checked); change(); all(); } }), h('span', { class:'sw' }), label), stepper);
+          return box;
+        };
+        kids.push(h('div', { class:'sp-sec' }, h('div', { class:'lbl', text:'Текст' }),
+          row('sp-title', 'Название проповеди', splashTitleOn(b), v => { if (v) delete state.settings.splashTitle; else state.settings.splashTitle = false; }, splashStepper()),
+          row('sp-foot', 'Имя и дата внизу', splashFootOn(b), v => { state.settings.splashFoot = v; }, splashFootStepper())));
+        kids.push(h('div', { class:'sp-sec' }, h('div', { class:'lbl', text:'Фон' }),
+          seg('splash-mode', [['normal', 'Текущий фон'], ['bg', 'Свой фон']], mode, setMode)));
+      }
+      kids.push(splashPanel(all));   // картинка: «Загрузить · Заменить · Удалить», затемнение (этап 9.6, 10.9.1.1, 10.9.2.1)
+      body.querySelectorAll(':scope > .own-splash').forEach(x => x.remove());
+      body.append(h('div', { class:'own-splash' }, ...kids));
+    };
+    fill();
   },
   thesis(b, body, n){
     const parts = b.parts, cnt = parts.length;

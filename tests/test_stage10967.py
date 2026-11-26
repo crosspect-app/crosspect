@@ -98,3 +98,50 @@ def test_layers_empty_slide(page, sermon):
     assert g.locator(".ly-empty").inner_text() == "На слайде пока ничего нет"
     assert g.locator(".pic-add .ly-tile").count() == 2
     assert not page.errors, page.errors
+
+
+# ---------- Заставка ----------
+
+def test_splash_model_title_and_foot_size(page):
+    r = page.evaluate("""() => [
+      normalize({ app:'swp-sermon', v:2, meta:{}, settings:{ splashTitle:false, splashFootSize:120 }, blocks:[] }).settings,
+      normalize({ app:'swp-sermon', v:2, meta:{}, settings:{ splashTitle:true, splashFootSize:100 }, blocks:[] }).settings,
+      normalize({ app:'swp-sermon', v:2, meta:{}, settings:{ splashFootSize:999 }, blocks:[] }).settings ]""")
+    assert r[0]["splashTitle"] is False and r[0]["splashFootSize"] == 120
+    assert "splashTitle" not in r[1] and "splashFootSize" not in r[1]   # по умолчанию не записывается
+    assert "splashFootSize" not in r[2]
+
+
+def test_splash_title_off_and_foot_size(page, sermon):
+    from test_stage10911 import open_splash
+    open_splash(page, sermon)
+    side = page.locator(".side .own-splash")
+    secs = side.locator(".sp-sec")
+    assert secs.nth(0).locator(".lbl").text_content() == "Текст" and secs.nth(1).locator(".lbl").text_content() == "Фон"   # текст выше фона
+    title = side.locator(".sp-title input[type=checkbox]")
+    assert title.is_checked() and side.locator(".sp-foot input[type=checkbox]").is_checked()   # по умолчанию всё включено
+    side.locator(".sp-title .switch").click()
+    assert page.evaluate("state.settings.splashTitle") is False
+    page.wait_for_function("getComputedStyle(document.querySelector('.stage .sl-sp-title')).visibility === 'hidden'")
+    assert "off" in side.locator(".sp-title").get_attribute("class")
+    fs0 = page.evaluate("parseFloat(getComputedStyle(document.querySelector('.stage .sl-sp-foot')).fontSize)")
+    side.locator(".sp-foot-step button").nth(1).click()
+    assert page.evaluate("state.settings.splashFootSize") == 105
+    page.wait_for_function("parseFloat(getComputedStyle(document.querySelector('.stage .sl-sp-foot')).fontSize) > %f" % (fs0 + 0.5))
+    side.locator(".sp-foot .switch").click()   # обе строки выключены — остаётся один фон
+    assert page.evaluate("state.settings.splashFoot") is False
+    assert not page.errors, page.errors
+
+
+def test_splash_bg_buttons_and_dim_only_with_picture(page, sermon, tmp_path):
+    from test_stage10911 import open_splash, upload, png
+    open_splash(page, sermon, splashMode="bg")
+    p = page.locator(".side .spic-panel")
+    assert p.locator(".spic-pick").is_enabled() and p.locator(".spic-replace").is_disabled() and p.locator(".spic-del").is_disabled()
+    assert p.locator(".spic-dim").count() == 0
+    assert p.locator(".hint").count() == 0
+    upload(page, png(tmp_path, 1600, 900))
+    page.wait_for_selector(".side .spic-panel .spic-dim")
+    p = page.locator(".side .spic-panel")
+    assert p.locator(".spic-pick").is_disabled() and p.locator(".spic-replace").is_enabled() and p.locator(".spic-del").is_enabled()
+    assert not page.errors, page.errors

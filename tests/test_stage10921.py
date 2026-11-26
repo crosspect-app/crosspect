@@ -57,16 +57,20 @@ def test_dim_defaults_when_not_set(page, sermon):
 # ---------- Панель ----------
 
 def test_panel_modes_and_dim_slider_only_in_bg(page, sermon):
+    # 26.11: «Создать заставку» (текущий / свой фон) и «Загрузить заставку»; затемнение — только у своего фона с картинкой
     open_splash(page, sermon)
     assert page.locator(".side .spic-panel").is_hidden()
     page.locator(".side .splash-mode .sm-bg").click()
     page.wait_for_selector(".side .spic-pick")
-    assert page.locator(".side .spic-dim").count() == 1
+    assert page.locator(".side .spic-dim").count() == 0   # картинки ещё нет
     assert page.locator(".side .splash-mode button.on").inner_text() == "Свой фон"
     assert page.evaluate("state.settings.splashMode") == "bg"
-    page.locator(".side .splash-mode .sm-full").click()
+    page.locator(".side .splash-kind .sm-full").click()
     page.wait_for_selector(".side .spic-pick")
-    assert page.locator(".side .spic-dim").count() == 0   # затемнение — только у «Свой фон»
+    assert page.evaluate("state.settings.splashMode") == "full"
+    assert page.locator(".side .splash-mode").count() == 0
+    page.locator(".side .splash-kind .sm-make").click()
+    assert page.evaluate("state.settings.splashMode") == "bg"   # вернулись к своему фону
     page.locator(".side .splash-mode .sm-normal").click()
     assert page.locator(".side .spic-panel").is_hidden()
     assert not page.evaluate("state.settings.splashMode")
@@ -182,7 +186,7 @@ def test_old_custom_splash_with_picture_opens_as_full_picture(page, sermon):
     open_splash(page, sermon, customSplash=True, customSplashImage={"imageId": "pold", "imgW": 1600, "imgH": 900})
     page.wait_for_function("!!document.querySelector('.stage .sl-pic img[src]')")
     assert page.evaluate("state.settings.splashMode") == "full"
-    assert page.locator(".side .splash-mode button.on").inner_text() == "Картинка целиком"
+    assert page.locator(".side .splash-kind button.on").inner_text() == "Загрузить заставку"
     assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-sp-box')).display") == "none"   # название не рисуется
     assert page.locator(".side .spic-dim").count() == 0
     p = pixels(page, [[960, 540], [4, 4]])

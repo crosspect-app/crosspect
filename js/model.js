@@ -93,6 +93,12 @@ const isCustomSplash = b => !!b && b.type === 'splash' && splashMode() === 'full
 const isBgSplash = b => !!b && b.type === 'splash' && !b.meta && splashMode() === 'bg' && !!splashImage();
 /* «Нижняя строка» заставки (линия, имя и дата): у проповеди своя (state.settings.splashFoot), пока не меняли — как в настройках слайдов пространства.
    b.meta — пример в окне настроек слайдов: там всегда по настройкам */
+/* 26.11: название проповеди на заставке можно выключить (state.settings.splashTitle === false), у нижней строки — свой размер в %
+   (state.settings.splashFootSize, 50…150, по умолчанию 100 — как в настройках слайдов). b.meta — пример в окне настроек: всегда по умолчанию */
+const SPLASH_FOOT_MIN = 50, SPLASH_FOOT_MAX = 150;
+const splashFootSizeOk = v => Number.isInteger(v) && v >= SPLASH_FOOT_MIN && v <= SPLASH_FOOT_MAX;
+function splashTitleOn(b){ return !!(b && b.meta) || !(state && state.settings && state.settings.splashTitle === false); }
+function splashFootScale(b){ const v = !(b && b.meta) && state && state.settings ? state.settings.splashFootSize : undefined; return splashFootSizeOk(v) ? v : 100; }
 function splashFootOn(b){
   const dflt = !slidesCfg().kinds.splash.titleOnly;
   if (b && b.meta) return dflt;
@@ -299,6 +305,8 @@ function normalize(d){
   else if ((d.settings && d.settings.customSplash) || (d.blocks || []).some(b => b && b.type === 'splash' && b.custom)) s.settings.splashMode = 'full';
   if (d.settings && splashDimOk(d.settings.splashDim)) s.settings.splashDim = d.settings.splashDim;
   if (d.settings && typeof d.settings.splashFoot === 'boolean') s.settings.splashFoot = d.settings.splashFoot;
+  if (d.settings && d.settings.splashTitle === false) s.settings.splashTitle = false;   // 26.11: название выключено
+  if (d.settings && splashFootSizeOk(d.settings.splashFootSize) && d.settings.splashFootSize !== 100) s.settings.splashFootSize = d.settings.splashFootSize;
   // этап 10.9.1.1: картинка своей заставки — одна на все заставки; лежит в облаке рядом с конспектом (slideImages), как у блока «Картинка»
   const ci = d.settings && d.settings.customSplashImage, cdim = v => Number.isInteger(v) && v > 0 && v <= 4000;
   if (ci && typeof ci === 'object' && typeof ci.imageId === 'string' && PIC_ID_RE.test(ci.imageId) && cdim(ci.imgW) && cdim(ci.imgH)) s.settings.customSplashImage = { imageId:ci.imageId, imgW:ci.imgW, imgH:ci.imgH };

@@ -705,7 +705,7 @@ function ptLayerBody(b, l){
 /* ----- Заставка с картинкой: «Свой фон» и «Картинка целиком» (этапы 10.9.1.1, 10.9.2.1) ----- */
 /* Панель в настройках заставки, под выбором режима. all — обновить заставки (preview, лента, кнопка «JPEG») */
 let splashBusy = '';
-const SPLASH_MODES = [['normal', 'Обычная'], ['bg', 'Свой фон'], ['full', 'Картинка целиком']];
+let splashMakeMode = 'normal';   // какой фон был в «Создать заставку» — к нему возвращаемся из «Загрузить»
 /* Заставка на фоне серии (этап 10.9.3): строка под выбором режима — откуда фон */
 function splashSeriesNote(){
   const e = splashEff();
@@ -719,13 +719,19 @@ function splashPanelFill(el){
   el.hidden = mode === 'normal' && !note;   // в «Обычной» панель прячется целиком (кроме строки про фон серии)
   if (note) kids.push(note);
   if (mode === 'normal'){ el.innerHTML = ''; el.append(...kids); return; }
-  const pick = (label, cls) => h('button', { type:'button', class:'btn ' + cls, disabled:ro || splashBusy ? true : null, onclick:() => splashPick(el) }, label);
+  // 26.11: миниатюра и три кнопки — «Загрузить» (пока картинки нет), «Заменить» и «Удалить» (когда есть); затемнение — только с картинкой
   if (splashBusy) kids.push(h('p', { class:'hint pic-busy', role:'status', text:splashBusy === 'prep' ? 'Готовлю картинку…' : 'Загружаю в облако…' }));
   const err = x && picErr.get(x.imageId);
   if (err) kids.push(h('p', { class:'pic-err', role:'alert', text:err }));
-  kids.push(h('div', { class:'pic-acts' }, x ? pick('Заменить картинку', 'small spic-replace') : pick('Загрузить картинку', 'primary spic-pick'),
-    x && !ro && h('button', { type:'button', class:'btn small spic-del', disabled:splashBusy ? true : null, onclick:() => splashRemove(el) }, 'Удалить картинку')));
-  if (mode === 'bg'){
+  const thumb = h('div', { class:'spic-thumb' + (x ? ' has' : '') }, x ? null : 'Картинка не выбрана');
+  if (x) picImage(x.imageId).then(im => { thumb.append(h('img', { src:im.src, alt:'' })); }).catch(() => {});
+  const no = ro || !!splashBusy;
+  const btn = (label, cls, off, fn) => h('button', { type:'button', class:'btn small ' + cls, disabled:no || off ? true : null, onclick:fn }, label);
+  kids.push(thumb, h('div', { class:'spic-acts' },
+    btn('Загрузить', 'spic-pick' + (x ? '' : ' primary'), !!x, () => splashPick(el)),
+    btn('Заменить', 'spic-replace', !x, () => splashPick(el)),
+    btn('Удалить', 'spic-del', !x, () => splashRemove(el))));
+  if (mode === 'bg' && x){
     const val = h('span', { class:'ph-val spic-dim-val', text:splashOwnDim() + ' %' });
     const range = h('input', { type:'range', class:'ph-range spic-dim', min:0, max:SPLASH_DIM_MAX, step:1, value:splashOwnDim(), disabled:ro ? true : null, 'aria-label':'Затемнение',
       oninput:e => { val.textContent = e.target.value + ' %'; splashDimSet(+e.target.value, el._all); } });

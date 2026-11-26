@@ -147,10 +147,10 @@ def test_splash_panel_has_only_settings(browser, base_url):
     assert page.locator(".side .info-row").count() == 0
     assert side.get_by_role("button", name="Изменить название, дату, автора").count() == 0
     assert "Holyrics" not in side.inner_text()
-    assert side.locator(".step").count() == 1
-    assert [t.strip() for t in side.locator(".switch").all_inner_texts()] == ["Нижняя строка"]
+    assert side.locator(".step").count() == 2   # 26.11: размер названия и размер имени и даты
+    assert [t.strip() for t in side.locator(".switch").all_inner_texts()] == ["Название проповеди", "Имя и дата внизу"]
     assert side.locator(".own-splash .hint").count() == 0   # пояснений под переключателем нет (этап 10.9.1.1)
-    assert [t.strip() for t in side.locator(".splash-mode button").all_inner_texts()] == ["Обычная", "Свой фон", "Картинка целиком"]   # этап 10.9.2.1
+    assert [t.strip() for t in side.locator(".splash-mode button").all_inner_texts()] == ["Текущий фон", "Свой фон"]   # этап 10.9.2.1
     assert not page.errors, page.errors
     ctx.close()
 
@@ -161,10 +161,10 @@ def test_splash_foot_switch_applies_to_all_splashes(browser, base_url):
     page.evaluate("state.blocks.splice(2, 0, newBlock('splash')); renderMain()")
     sp = "state.blocks.filter(b => b.type === 'splash')"
     assert page.evaluate(sp + ".length") >= 2
-    page.locator(".side .switch", has_text="Нижняя строка").click()
+    page.locator(".side .switch", has_text="Имя и дата внизу").click()
     assert page.evaluate("state.settings.splashFoot") is False
     page.wait_for_function("[...document.querySelectorAll('.st.t-splash .sl-sp-foot')].length >= 2 && [...document.querySelectorAll('.st.t-splash .sl-sp-foot')].every(f => getComputedStyle(f).display === 'none')")
-    page.locator(".side .switch", has_text="Нижняя строка").click()
+    page.locator(".side .switch", has_text="Имя и дата внизу").click()
     assert page.evaluate("state.settings.splashFoot") is True
     ctx.close()
 
@@ -174,7 +174,7 @@ def test_splash_foot_default_comes_from_space_settings(browser, base_url):
     assert page.evaluate("splashFootOn(state.blocks.find(b => b.type === 'splash'))") is True
     page.evaluate("""() => { const db = fakeCloud.db(); db.slides = { kinds:{ splash:{ titleOnly:true } } }; fakeCloud.put(db); }""")
     page.wait_for_function("splashFootOn(state.blocks.find(b => b.type === 'splash')) === false", timeout=5000)
-    assert not page.locator(".side .switch", has_text="Нижняя строка").locator("input").is_checked()
+    assert not page.locator(".side .switch", has_text="Имя и дата внизу").locator("input").is_checked()
     # у проповеди своё значение важнее настроек пространства
     assert page.evaluate("(() => { state.settings.splashFoot = true; return splashFootOn(state.blocks.find(b => b.type === 'splash')); })()") is True
     ctx.close()

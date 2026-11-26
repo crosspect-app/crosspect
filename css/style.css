@@ -367,7 +367,16 @@ body.ro .st.on .st-n{color:var(--text)}
 .sl.sl-custom .sl-sp-box{top:0;bottom:0;left:var(--sl-x);right:var(--sl-x)}
 .sl.sl-custom .sl-sp-title{font-family:'Inter',sans-serif;font-weight:600;color:#a39a8e;letter-spacing:0;text-transform:none}
 .film .sl.sl-custom .sl-sp-title{font-size:calc(20px / var(--s))!important;line-height:1.25}   /* в ленте — как текст у заглушки картинки (20 px на экране) */
-.own-splash{display:grid;gap:6px}
+.own-splash{display:grid;gap:14px}
+.toggle.splash-kind{width:100%;display:flex}.toggle.splash-kind button{flex:1;font-size:12.5px}   /* 26.11: «Создать заставку» / «Загрузить заставку» */
+.sp-sec{display:grid;gap:8px}.sp-sec > .lbl{margin:0}
+.sp-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sp-row .step{margin:0}.sp-row.off .step{opacity:.35;pointer-events:none}
+.spic-panel{display:grid;gap:10px;padding:12px;border:1px solid var(--line-2);border-radius:12px}
+.spic-panel[hidden]{display:none}
+.spic-thumb{aspect-ratio:16/9;max-height:130px;border:1px dashed var(--line-2);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12.5px;overflow:hidden;background:var(--surface-2)}
+.spic-thumb.has{border-style:solid}.spic-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.spic-acts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.spic-acts .btn{justify-content:center}
 .hint[hidden]{display:none}
 .half-w{display:grid;gap:6px}
 .half-w input[type=range]{width:100%;margin:0;accent-color:var(--accent)}

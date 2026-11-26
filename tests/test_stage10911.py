@@ -60,7 +60,7 @@ def test_model_keeps_good_splash_image_and_drops_bad(page):
 def test_panel_shows_upload_only_in_picture_modes(page, sermon):
     open_splash(page, sermon)
     assert page.locator(".side .spic-panel").is_hidden()
-    page.locator(".side .splash-mode .sm-full").click()
+    page.locator(".side .splash-kind .sm-full").click()
     page.wait_for_selector(".side .spic-pick")
     assert page.locator(".side .spic-panel .hint").count() == 0   # пояснений нет
     page.wait_for_selector(".stage .sl.sl-custom")   # без картинки — серая заглушка, как прежде
@@ -100,18 +100,18 @@ def test_remove_picture_returns_placeholder_and_toggle_keeps_it(page, sermon):
     open_splash(page, sermon, customSplash=True, customSplashImage={"imageId": "pkeep", "imgW": 800, "imgH": 450})
     page.wait_for_function("!!document.querySelector('.stage .sl-pic img[src]')")
     # выбрали «Обычная» — обычная заставка, а картинка в конспекте осталась
-    page.locator(".side .splash-mode .sm-normal").click()
+    page.locator(".side .splash-kind .sm-make").click()
     page.wait_for_selector(".stage .sl:not(.sl-custom) .sl-sp-title")
     assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-pic img')).display") == "none"
     assert page.evaluate("getComputedStyle(document.querySelector('.stage .sl-sp-box')).display") != "none"
     assert page.evaluate("state.settings.customSplashImage.imageId") == "pkeep"
-    page.locator(".side .splash-mode .sm-full").click()
+    page.locator(".side .splash-kind .sm-full").click()
     page.wait_for_function("!!document.querySelector('.stage .sl-pic img[src]')")
     # «Удалить картинку» — серая заглушка, как раньше
     page.locator(".side .spic-del").click()
     page.wait_for_selector(".stage .sl.sl-custom")
     assert page.evaluate("state.settings.customSplashImage") is None
-    assert page.locator(".side .spic-pick").count() == 1
+    assert page.locator(".side .spic-pick").is_enabled() and page.locator(".side .spic-del").is_disabled()   # 26.11: три кнопки, лишние неактивны
     assert page.locator(".stage-bar button", has_text="JPEG").is_disabled()
     assert not page.errors, page.errors
 
@@ -142,11 +142,11 @@ def test_jpeg_pptx_and_zip_with_splash_picture(page, sermon):
     assert all(p[0] > 180 and p[1] < 80 and p[2] < 80 for p in px)   # название не рисуется, картинка во весь кадр
     # PowerPoint: каждая заставка — своя картинка, не чёрный слайд и не заглушка; в заметках нет «Картинка целиком»
     assert page.evaluate("state.blocks.filter(b => b.type === 'splash').map(b => pptxIsBlack(b))") == [False, False]
-    assert "Картинка целиком" not in page.evaluate("pptxNotes(state.blocks.find(b => b.type === 'splash'), 1, false)")
+    assert "Заставку не загрузили" not in page.evaluate("pptxNotes(state.blocks.find(b => b.type === 'splash'), 1, false)")
     # без картинки — как прежде: серая заглушка рисуется формой (не чёрный слайд), в архив не входит
     page.evaluate("delete state.settings.customSplashImage")
     assert page.evaluate("pptxIsBlack(state.blocks.find(b => b.type === 'splash'))") is False
-    assert "Картинка целиком" in page.evaluate("pptxNotes(state.blocks.find(b => b.type === 'splash'), 1, false)")
+    assert "Заставку не загрузили" in page.evaluate("pptxNotes(state.blocks.find(b => b.type === 'splash'), 1, false)")
     names = page.evaluate("""async () => { const got = []; const orig = renderJPEG; window.renderJPEG = async b => { got.push(b.id); return orig(b); };
       download = () => {}; await exportMany(); window.renderJPEG = orig; return got; }""")
     assert not [i for i in names if i in ("sp1", "sp2")]

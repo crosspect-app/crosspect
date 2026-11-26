@@ -78,7 +78,7 @@ def test_sermon_in_series_uses_series_background(page, sermon):
     assert page.evaluate("fakeCloud.calls.seriesImage") >= 1 and not page.evaluate("fakeCloud.calls.slideImage || 0")
     # в панели заставки — откуда фон; свой режим конспекта по-прежнему «Обычная»
     assert "серии «Псалмы»" in page.locator(".side .spic-series").inner_text()
-    assert page.locator(".side .splash-mode button.on").inner_text() == "Обычная"
+    assert page.locator(".side .splash-mode button.on").inner_text() == "Текущий фон"
     assert not page.errors, page.errors
 
 

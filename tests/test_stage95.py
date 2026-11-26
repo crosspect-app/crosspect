@@ -38,10 +38,11 @@ def test_custom_splash_switch_applies_to_every_splash(page, sermon):
     page.evaluate("state.blocks.splice(3, 0, newBlock('splash')); renderMain(); selectBlock(state.blocks.find(b => b.type === 'splash').id)")
     modes = page.locator(".side .own-splash .splash-mode")
     modes.wait_for()
-    assert [t.strip() for t in modes.locator("button").all_inner_texts()] == ["Обычная", "Свой фон", "Картинка целиком"]
-    assert modes.locator("button.on").inner_text() == "Обычная"
-    assert not page.locator(".side .spic-panel").is_visible()   # «Обычная» — панели картинки нет
-    modes.locator(".sm-full").click()
+    assert [t.strip() for t in page.locator(".side .splash-kind button").all_inner_texts()] == ["Создать заставку", "Загрузить заставку"]   # 26.11
+    assert [t.strip() for t in modes.locator("button").all_inner_texts()] == ["Текущий фон", "Свой фон"]
+    assert modes.locator("button.on").inner_text() == "Текущий фон"
+    assert not page.locator(".side .spic-panel").is_visible()   # текущий фон — панели картинки нет
+    page.locator(".side .splash-kind .sm-full").click()
     assert page.evaluate("state.settings.splashMode") == "full"
     assert page.locator(".side .own-splash .hint").count() == 0   # пояснений нет (этап 10.9.1.1)
     page.wait_for_function("document.querySelectorAll('.film .sl.sl-custom').length === 2")   # на всех заставках сразу
@@ -50,7 +51,7 @@ def test_custom_splash_switch_applies_to_every_splash(page, sermon):
     page.evaluate("state.blocks.push(newBlock('splash')); renderMain()")
     assert page.evaluate("state.blocks.filter(isCustomSplash).length") == 3   # и на новых
     page.wait_for_function("document.querySelectorAll('.film .sl.sl-custom').length === 3")
-    modes.locator(".sm-normal").click()
+    page.locator(".side .splash-kind .sm-make").click()
     assert not page.evaluate("state.settings.splashMode")
     assert not page.locator(".side .spic-panel").is_visible()
     page.wait_for_function("document.querySelectorAll('.sl.sl-custom').length === 0")
@@ -68,7 +69,7 @@ def test_custom_splash_is_placeholder_in_pptx_with_note(page, sermon):
     slides = list(prs.slides)
     for i in [i for i, t in enumerate(types) if t == "splash"]:   # все заставки — серые заглушки (картинкой)
         assert any(sh.shape_type == 13 for sh in slides[i].shapes)
-        assert slides[i].notes_slide.notes_text_frame.text == names[i] + "\nЗаставка «Картинка целиком»: картинку не загрузили"
+        assert slides[i].notes_slide.notes_text_frame.text == names[i] + "\nЗаставку не загрузили"
     assert page.errors == []
 
 
