@@ -175,3 +175,15 @@ def test_cloud_scripts_count_splash_image_as_used():
     assert "customSplashImage" in t
     r = (ROOT / "cloud/tests/rules.test.mjs").read_text(encoding="utf-8")
     assert "slideImages" in r
+
+
+def test_all_splashes_in_film_get_picture_without_click(page, sermon):
+    """Конспект открыли с готовой картинкой: она одна на все заставки, и в ленте её получают все, не только та, что запросила (раньше остальные были чёрными до щелчка)."""
+    put_image(page, "fixture-0001", "pall", 800, 450)
+    s = json.loads(json.dumps(sermon))
+    s.setdefault("settings", {}).update(customSplash=True, customSplashImage={"imageId": "pall", "imgW": 800, "imgH": 450})
+    sp = {"type": "splash", "speech": "", "todo": False, "collapsed": False}
+    s["blocks"] = [dict(sp, id="sp1")] + [b for b in s["blocks"] if b["type"] != "splash"] + [dict(sp, id="sp2"), dict(sp, id="sp3"), dict(sp, id="sp4")]
+    open_sermon(page, s)
+    page.wait_for_function("document.querySelectorAll('.film .sl .sl-pic img[src]').length === 4")
+    assert not page.errors, page.errors

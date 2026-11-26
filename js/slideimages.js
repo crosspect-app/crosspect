@@ -198,7 +198,7 @@ function picPaintImg(im, b, l){
   }
   else { im.removeAttribute('src'); im.style.display = 'none'; }
   im._url = url;
-  if (!v && picUI.drag !== l.id) picRender(l).then(() => picRepaintAll(b.id)).catch(() => { picPanelRefresh(b.id); splashPanelRefresh(); });
+  if (!v && picUI.drag !== l.id) picRender(l).then(() => picRepaintKey(key, b.id)).catch(() => { picPanelRefresh(b.id); splashPanelRefresh(); });
 }
 /* Рамка текста: середина (x, y) и ширина — в долях слайда, высота — по тексту */
 function ptPaint(el, l){
@@ -207,6 +207,16 @@ function ptPaint(el, l){
     fontStyle:l.italic ? 'italic' : 'normal', letterSpacing:(l.track == null ? PIC_TEXT.track : l.track) + 'em', lineHeight:String(l.lead == null ? PIC_TEXT.lead : l.lead),
     color:l.color, textAlign:l.align, textTransform:l.caps ? 'uppercase' : 'none', transform:'translate(-50%,-50%)' + (l.rot ? ' rotate(' + l.rot + 'deg)' : '') });
   el.classList.toggle('pt-framed', !!l.frame);
+}
+/* Картинка готова: перерисовать все слайды, где она стоит. У заставок картинка одна на все заставки конспекта (один ключ), а запросил её только первый слайд:
+   остальные, пока она готовилась, остались без неё (в ленте — чёрные до щелчка) */
+function picRepaintKey(key, id){
+  picRepaintAll(id);
+  document.querySelectorAll('.sl[data-id]').forEach(sl => {
+    if (sl.dataset.id === id) return;
+    const b = typeof unitById === 'function' ? unitById(sl.dataset.id) : null;
+    if (b && picItems(b).some(l => picKey(l) === key)) picPaint(sl, b);
+  });
 }
 /* Перерисовать слои на всех слайдах этого блока (лента, сцена, вид «Текст», показ) */
 function picRepaintAll(id){
